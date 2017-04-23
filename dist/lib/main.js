@@ -34,46 +34,89 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) if (e.indexOf(p[i]) < 0)
+            t[p[i]] = s[p[i]];
+    return t;
+};
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_async_agi_1 = require("ts-async-agi");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var evtFromSipData_1 = require("./evtFromSipData");
 var fromSip_1 = require("./fromSip");
 var fromDongle_1 = require("./fromDongle");
+var dialplanContext = "from-sip-data";
 console.log("AGI Server is running");
-var ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
+var client = chan_dongle_extended_client_1.DongleExtendedClient.localhost();
+var ami = client.ami;
 (function initDialplan() {
     return __awaiter(this, void 0, void 0, function () {
-        var arr_extension_context, _i, arr_extension_context_1, _a, extension, context;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
+        var extension, _i, _a, context, variables, priority, _b, variables_1, variable;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
                 case 0:
-                    arr_extension_context = [
-                        ["_[+0-9].", "from-dongle"],
-                        ["reassembled-sms", "from-dongle"],
-                        ["sms-status-report", "from-dongle"],
-                        ["_[+0-9].", "from-sip-call"]
-                    ];
-                    _i = 0, arr_extension_context_1 = arr_extension_context;
-                    _b.label = 1;
+                    extension = "_[+0-9].";
+                    _i = 0, _a = ["from-dongle", "from-sip-call"];
+                    _c.label = 1;
                 case 1:
-                    if (!(_i < arr_extension_context_1.length)) return [3 /*break*/, 6];
-                    _a = arr_extension_context_1[_i], extension = _a[0], context = _a[1];
+                    if (!(_i < _a.length)) return [3 /*break*/, 6];
+                    context = _a[_i];
                     return [4 /*yield*/, ami.removeExtension(extension, context)];
                 case 2:
-                    _b.sent();
+                    _c.sent();
                     return [4 /*yield*/, ami.addDialplanExtension(extension, 1, "AGI(agi:async)", context)];
                 case 3:
-                    _b.sent();
+                    _c.sent();
                     return [4 /*yield*/, ami.addDialplanExtension(extension, 2, "Hangup()", context)];
                 case 4:
-                    _b.sent();
-                    _b.label = 5;
+                    _c.sent();
+                    _c.label = 5;
                 case 5:
                     _i++;
                     return [3 /*break*/, 1];
-                case 6: return [2 /*return*/];
+                case 6:
+                    variables = [
+                        "MESSAGE(to)",
+                        "MESSAGE(from)",
+                        "MESSAGE_DATA(Via)",
+                        "MESSAGE_DATA(To)",
+                        "MESSAGE_DATA(From)",
+                        "MESSAGE_DATA(Call-ID)",
+                        "MESSAGE_DATA(CSeq)",
+                        "MESSAGE_DATA(Allow)",
+                        "MESSAGE_DATA(Content-Type)",
+                        "MESSAGE_DATA(User-Agent)",
+                        "MESSAGE_DATA(Authorization)",
+                        "MESSAGE_DATA(Content-Length)"
+                    ];
+                    extension = "_.";
+                    priority = 1;
+                    return [4 /*yield*/, ami.removeExtension(extension, dialplanContext)];
+                case 7:
+                    _c.sent();
+                    _b = 0, variables_1 = variables;
+                    _c.label = 8;
+                case 8:
+                    if (!(_b < variables_1.length)) return [3 /*break*/, 11];
+                    variable = variables_1[_b];
+                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(" + variable + "===${" + variable + "})", dialplanContext)];
+                case 9:
+                    _c.sent();
+                    _c.label = 10;
+                case 10:
+                    _b++;
+                    return [3 /*break*/, 8];
+                case 11: return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(MESSAGE(base-64-encoded-body)===${BASE64_ENCODE(${MESSAGE(body)})})", dialplanContext)];
+                case 12:
+                    _c.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority, "Hangup()", dialplanContext)];
+                case 13:
+                    _c.sent();
+                    return [2 /*return*/];
             }
         });
     });
@@ -91,7 +134,7 @@ new ts_async_agi_1.AsyncAGIServer(function (channel) { return __awaiter(_this, v
                     case "from-sip-call": return [3 /*break*/, 3];
                 }
                 return [3 /*break*/, 5];
-            case 1: return [4 /*yield*/, fromDongle_1.fromDongle(channel)];
+            case 1: return [4 /*yield*/, fromDongle_1.fromDongle.call(channel)];
             case 2:
                 _b.sent();
                 return [3 /*break*/, 5];
@@ -102,12 +145,64 @@ new ts_async_agi_1.AsyncAGIServer(function (channel) { return __awaiter(_this, v
             case 5: return [4 /*yield*/, _.hangup()];
             case 6:
                 _b.sent();
-                console.log("Script returned");
+                console.log("Call terminated");
                 return [2 /*return*/];
         }
     });
 }); }, ami.ami);
-evtFromSipData_1.evtFromSipData.attach(function (data) { return fromSip_1.fromSip.data(data); });
+client.evtNewMessage.attach(function (_a) {
+    var imei = _a.imei, message = __rest(_a, ["imei"]);
+    return fromDongle_1.fromDongle.sms(imei, message);
+});
+client.evtMessageStatusReport.attach(function (_a) {
+    var imei = _a.imei, statusReport = __rest(_a, ["imei"]);
+    return fromDongle_1.fromDongle.statusReport(imei, statusReport);
+});
+ami.evt.attach(function (_a) {
+    var event = _a.event, context = _a.context, priority = _a.priority;
+    return (event === "Newexten" &&
+        context === dialplanContext &&
+        priority === "1");
+}, function (newExten) { return __awaiter(_this, void 0, void 0, function () {
+    var variables, uniqueId, application, appdata, match, variable, value, key, key_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                variables = {};
+                uniqueId = newExten.uniqueid;
+                _a.label = 1;
+            case 1:
+                if (!true) return [3 /*break*/, 3];
+                application = newExten.application, appdata = newExten.appdata;
+                if (application === "Hangup")
+                    return [3 /*break*/, 3];
+                match = void 0;
+                if (application === "NoOp" &&
+                    (match = appdata.match(/^([^\(]+)(?:\(([^\)]+)\))?===(.*)$/))) {
+                    variable = match[1];
+                    value = match[3];
+                    key = void 0;
+                    if (key = match[2]) {
+                        key_1 = match[2];
+                        variables[variable] || (variables[variable] = {});
+                        variables[variable][key_1] = value;
+                    }
+                    else
+                        variables[variable] = value;
+                }
+                return [4 /*yield*/, ami.evt.waitFor(function (_a) {
+                        var uniqueid = _a.uniqueid;
+                        return uniqueid === uniqueId;
+                    })];
+            case 2:
+                newExten = _a.sent();
+                return [3 /*break*/, 1];
+            case 3:
+                fromSip_1.fromSip.outOfCallMessage(variables);
+                return [2 /*return*/];
+        }
+    });
+}); });
 var DongleStatus;
 (function (DongleStatus) {
     DongleStatus[DongleStatus["DISCONNECTED"] = 1] = "DISCONNECTED";

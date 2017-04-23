@@ -37,6 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var js_base64_1 = require("js-base64");
+;
 var fromSip;
 (function (fromSip) {
     function call(channel) {
@@ -59,24 +60,23 @@ var fromSip;
         });
     }
     fromSip.call = call;
-    function data(sipData) {
+    function outOfCallMessage(sipPacket) {
         return __awaiter(this, void 0, void 0, function () {
-            var body, _a;
+            var _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         console.log(" FROM SIP DATA...");
-                        body = js_base64_1.Base64.decode(sipData['MESSAGE']['base-64-encoded-body']);
-                        _a = sipData['MESSAGE']['to'].match(/^sip:([^@]+)/)[1];
+                        _a = sipPacket['MESSAGE']['to'].match(/^sip:([^@]+)/)[1];
                         switch (_a) {
-                            case "request": return [3 /*break*/, 1];
+                            case "application-data": return [3 /*break*/, 1];
                         }
                         return [3 /*break*/, 3];
-                    case 1: return [4 /*yield*/, data.request(sipData, body)];
+                    case 1: return [4 /*yield*/, outOfCallMessage.applicationData(sipPacket)];
                     case 2:
                         _b.sent();
                         return [3 /*break*/, 5];
-                    case 3: return [4 /*yield*/, data.message(sipData, body)];
+                    case 3: return [4 /*yield*/, outOfCallMessage.sms(sipPacket)];
                     case 4:
                         _b.sent();
                         return [3 /*break*/, 5];
@@ -85,16 +85,17 @@ var fromSip;
             });
         });
     }
-    fromSip.data = data;
-    (function (data) {
-        function message(sipData, body) {
+    fromSip.outOfCallMessage = outOfCallMessage;
+    (function (outOfCallMessage) {
+        function sms(sipPacket) {
             return __awaiter(this, void 0, void 0, function () {
-                var number, text, imei, messageId, error_1;
+                var body, number, text, imei, messageId, error_1;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
                             console.log("...MESSAGE!");
-                            number = sipData.MESSAGE.to.match(/^sip:(\+?[0-9]+)/)[1];
+                            body = js_base64_1.Base64.decode(sipPacket['MESSAGE']['base-64-encoded-body']);
+                            number = sipPacket.MESSAGE.to.match(/^sip:(\+?[0-9]+)/)[1];
                             text = body;
                             console.log({ text: text });
                             imei = "358880032664586";
@@ -110,22 +111,36 @@ var fromSip;
                         case 3:
                             error_1 = _a.sent();
                             console.log("ERROR: Send message via dongle failed, retry later", error_1);
+                            messageId = NaN;
                             return [3 /*break*/, 4];
-                        case 4: return [2 /*return*/];
+                        case 4: return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
+                                "action": "MessageSend",
+                                "to": "SIP:" + "alice",
+                                "from": "<semasim>",
+                                "base64body": js_base64_1.Base64.encode(JSON.stringify({
+                                    "Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
+                                    "messageId": messageId
+                                })),
+                                //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
+                                "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=send-confirmation"
+                            })];
+                        case 5:
+                            _a.sent();
+                            return [2 /*return*/];
                     }
                 });
             });
         }
-        data.message = message;
-        function request(sipData, body) {
+        outOfCallMessage.sms = sms;
+        function applicationData(sipPacket) {
             return __awaiter(this, void 0, void 0, function () {
                 return __generator(this, function (_a) {
-                    console.log("...REQUEST!");
+                    console.log("...APPLICATION DATA!");
                     return [2 /*return*/];
                 });
             });
         }
-        data.request = request;
-    })(data = fromSip.data || (fromSip.data = {}));
+        outOfCallMessage.applicationData = applicationData;
+    })(outOfCallMessage = fromSip.outOfCallMessage || (fromSip.outOfCallMessage = {}));
 })(fromSip = exports.fromSip || (exports.fromSip = {}));
 //# sourceMappingURL=fromSip.js.map

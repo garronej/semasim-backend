@@ -1,10 +1,28 @@
 import { AGIChannel } from "ts-async-agi";
-import { SipData } from "./evtFromSipData";
+export interface OutOfCallMessage {
+    'MESSAGE': {
+        'to': string;
+        'from': string;
+        'base-64-encoded-body': string;
+    };
+    'MESSAGE_DATA': {
+        'Via': string;
+        'To': string;
+        'From': string;
+        'Call-ID': string;
+        'CSeq': string;
+        'Allow': string;
+        'Content-Type': string;
+        'User-Agent': string;
+        'Authorization': string;
+        'Content-Length': string;
+    };
+}
 export declare namespace fromSip {
     function call(channel: AGIChannel): Promise<void>;
-    function data(sipData: SipData): Promise<void>;
-    namespace data {
-        function message(sipData: SipData, body: string): Promise<void>;
-        function request(sipData: SipData, body: string): Promise<void>;
+    function outOfCallMessage(sipPacket: OutOfCallMessage): Promise<void>;
+    namespace outOfCallMessage {
+        function sms(sipPacket: OutOfCallMessage): Promise<void>;
+        function applicationData(sipPacket: OutOfCallMessage): Promise<void>;
     }
 }

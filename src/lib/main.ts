@@ -4,24 +4,23 @@ import {
     ChannelStatus, 
 } from "ts-async-agi";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
-import { SipData, evtFromSipData } from "./evtFromSipData";
 import { fromSip } from "./fromSip";
 import { fromDongle } from "./fromDongle";
+import { SyncEvent } from "ts-events-extended";
+
+const dialplanContext = "from-sip-data";
 
 console.log("AGI Server is running");
 
-const ami= DongleExtendedClient.localhost().ami;
+const client= DongleExtendedClient.localhost();
+const ami = client.ami;
 
 (async function initDialplan() {
 
-    let arr_extension_context = [
-        ["_[+0-9].", "from-dongle"],
-        ["reassembled-sms", "from-dongle"],
-        ["sms-status-report", "from-dongle"],
-        ["_[+0-9].", "from-sip-call"]
-    ];
+    let extension = "_[+0-9].";
 
-    for (let [extension, context] of arr_extension_context){
+    for (let context of ["from-dongle", "from-sip-call"]) {
+
 
         await ami.removeExtension(extension, context);
 
@@ -35,18 +34,61 @@ const ami= DongleExtendedClient.localhost().ami;
 
     }
 
+    const variables = [
+        "MESSAGE(to)",
+        "MESSAGE(from)",
+        "MESSAGE_DATA(Via)",
+        "MESSAGE_DATA(To)",
+        "MESSAGE_DATA(From)",
+        "MESSAGE_DATA(Call-ID)",
+        "MESSAGE_DATA(CSeq)",
+        "MESSAGE_DATA(Allow)",
+        "MESSAGE_DATA(Content-Type)",
+        "MESSAGE_DATA(User-Agent)",
+        "MESSAGE_DATA(Authorization)",
+        "MESSAGE_DATA(Content-Length)"
+    ];
+
+    extension = "_.";
+    let priority = 1;
+
+    await ami.removeExtension(extension, dialplanContext);
+
+    for (let variable of variables)
+        await ami.addDialplanExtension(
+            extension,
+            priority++,
+            `NoOp(${variable}===\${${variable}})`,
+            dialplanContext
+        );
+
+    await ami.addDialplanExtension(
+        extension,
+        priority++,
+        `NoOp(MESSAGE(base-64-encoded-body)===\${BASE64_ENCODE(\${MESSAGE(body)})})`,
+        dialplanContext
+    );
+
+
+    await ami.addDialplanExtension(
+        extension,
+        priority,
+        "Hangup()",
+        dialplanContext
+    );
+
 })();
 
 
 new AsyncAGIServer(async channel => {
 
-    let _= channel.relax;
+    let _ = channel.relax;
 
     console.log("AGI REQUEST...");
 
     switch (channel.request.context) {
         case "from-dongle":
-            await fromDongle(channel);
+            await fromDongle.call(channel);
             break;
         case "from-sip-call":
             await fromSip.call(channel);
@@ -55,11 +97,79 @@ new AsyncAGIServer(async channel => {
 
     await _.hangup();
 
-    console.log("Script returned");
+    console.log("Call terminated");
 
 }, ami.ami);
 
-evtFromSipData.attach(data => fromSip.data(data));
+client.evtNewMessage.attach(
+    ({ imei, ...message }) => fromDongle.sms(imei, message)
+);
+
+client.evtMessageStatusReport.attach(
+    ({ imei, ...statusReport }) => fromDongle.statusReport(imei, statusReport)
+);
+
+
+ami.evt.attach(
+    ({ event, context, priority }) => (
+        event === "Newexten" &&
+        context === dialplanContext &&
+        priority === "1"
+    ),
+    async newExten => {
+
+        let variables: any = {};
+
+        let uniqueId = newExten.uniqueid;
+
+        while (true) {
+
+            let { application, appdata } = newExten;
+
+            if (application === "Hangup") break;
+
+            let match: RegExpMatchArray | null;
+
+            if (
+                application === "NoOp" &&
+                (match = appdata.match(/^([^\(]+)(?:\(([^\)]+)\))?===(.*)$/))
+            ) {
+
+                let variable = match[1];
+
+                let value = match[3];
+
+                let key: string;
+
+                if (key = match[2]) {
+
+                    let key = match[2];
+
+                    variables[variable] || (variables[variable] = {});
+
+                    variables[variable][key] = value;
+
+                } else variables[variable] = value;
+
+            }
+
+            newExten = await ami.evt.waitFor(
+                ({ uniqueid }) => uniqueid === uniqueId
+            );
+
+        }
+
+        fromSip.outOfCallMessage(variables);
+
+    }
+);
+
+
+
+
+
+
+
 
 export enum DongleStatus {
     DISCONNECTED = 1,

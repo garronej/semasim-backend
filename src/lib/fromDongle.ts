@@ -1,34 +1,9 @@
 import { AGIChannel } from "ts-async-agi";
+import { DongleExtendedClient, StatusReport, Message } from "chan-dongle-extended-client";
+import { Base64 } from "js-base64";
 
-export async function fromDongle(channel: AGIChannel) {
 
-    console.log("...FROM DONGLE...");
 
-    let _ = channel.relax;
-
-    let dongle = {
-        "name": await _.getVariable("DONGLENAME"),
-        "provider": await _.getVariable("DONGLEPROVIDER"),
-        "imei": await _.getVariable("DONGLEIMEI"),
-        "imsi": await _.getVariable("DONGLEIMSI"),
-        "number": await _.getVariable("DONGLENUMBER")
-    } as fromDongle.DongleIdentifier;
-
-    console.log({ dongle });
-
-    switch (channel.request.extension) {
-        case "reassembled-sms":
-            await fromDongle.message(dongle, channel);
-            break;
-        case "sms-status-report":
-            await fromDongle.statusReport(dongle, channel);
-            break;
-        default:
-            await fromDongle.call(dongle, channel);
-            break;
-    }
-
-}
 
 export namespace fromDongle {
 
@@ -40,59 +15,66 @@ export namespace fromDongle {
         number: string;
     }
 
-    export async function message(dongle: DongleIdentifier, channel: AGIChannel) {
+    export async function sms(imei: string, message: Message) {
 
-        console.log("...MESSAGE !");
+        console.log("FROM DONGLE MESSAGE !");
 
-        let _ = channel.relax;
-
-        let message = {
-            "date": new Date((await _.getVariable("SMS_DATE"))!),
-            "number": (await _.getVariable("SMS_NUMBER"))!,
-            "text": await (async function () {
-
-                let textSplitCount = parseInt((await _.getVariable("SMS_TEXT_SPLIT_COUNT"))!);
-
-                let reassembledSms = "";
-
-                for (let i = 0; i < textSplitCount; i++)
-                    reassembledSms += await _.getVariable(`SMS_TEXT_P${i}`);
-
-                return decodeURI(reassembledSms);
-
-            })()
-        };
-
-        console.log({ message });
+        console.log({ imei, message });
 
         /* 
         TODO: Check peer online,
         store message
         */
 
-
         let to = "alice";
 
-        await _.setVariable("MESSAGE(body)", `"${message.text.replace(/"/g,"''")}"`);
+        await DongleExtendedClient.localhost().ami.postAction({
+            "action": "MessageSend",
+            "to": `SIP:${to}`,
+            "from": `"contact_name" <${message.number}>`,
+            "base64body": Base64.encode(message.text),
+            "variable": "Content-Type=text/plain;charset=UTF-8"
+        });
 
-        await _.exec("MessageSend", ["SIP:alice", `"contact_name" <${message.number}>`]);
 
-        console.log("MESSAGE_SEND_STATUS", await _.getVariable("MESSAGE_SEND_STATUS"));
+    }
+
+    export async function statusReport(imei: string, statusReport: StatusReport) {
+
+        console.log("FROM DONGLE STATUS REPORT!");
+
+        console.log({ imei, statusReport });
+
+        let to= "alice";
+
+        await DongleExtendedClient.localhost().ami.postAction({
+            "action": "MessageSend",
+            "to": `SIP:${to}`,
+            "from": `<semasim>`,
+            "base64body": Base64.encode(JSON.stringify(statusReport)),
+            //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
+            "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=status-report"
+        });
 
 
     }
 
-    export async function statusReport(dongle: DongleIdentifier, channel: AGIChannel) {
+    export async function call(channel: AGIChannel) {
 
-        console.log("...STATUS REPORT!");
-
-    }
-
-    export async function call(dongle: DongleIdentifier, channel: AGIChannel) {
-
-        console.log("...CALL!");
+        console.log("... FROM DONGLE CALL!");
 
         let _ = channel.relax;
+
+        let dongle = {
+            "name": await _.getVariable("DONGLENAME"),
+            "provider": await _.getVariable("DONGLEPROVIDER"),
+            "imei": await _.getVariable("DONGLEIMEI"),
+            "imsi": await _.getVariable("DONGLEIMSI"),
+            "number": await _.getVariable("DONGLENUMBER")
+        } as fromDongle.DongleIdentifier;
+
+        console.log({ dongle });
+
 
         await _.answer();
 

@@ -35,154 +35,96 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-function fromDongle(channel) {
-    return __awaiter(this, void 0, void 0, function () {
-        var _, dongle, _a, _b, _c, _d, _e, _f, _g;
-        return __generator(this, function (_h) {
-            switch (_h.label) {
-                case 0:
-                    console.log("...FROM DONGLE...");
-                    _ = channel.relax;
-                    _a = {};
-                    _b = "name";
-                    return [4 /*yield*/, _.getVariable("DONGLENAME")];
-                case 1:
-                    _a[_b] = _h.sent();
-                    _c = "provider";
-                    return [4 /*yield*/, _.getVariable("DONGLEPROVIDER")];
-                case 2:
-                    _a[_c] = _h.sent();
-                    _d = "imei";
-                    return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
-                case 3:
-                    _a[_d] = _h.sent();
-                    _e = "imsi";
-                    return [4 /*yield*/, _.getVariable("DONGLEIMSI")];
-                case 4:
-                    _a[_e] = _h.sent();
-                    _f = "number";
-                    return [4 /*yield*/, _.getVariable("DONGLENUMBER")];
-                case 5:
-                    dongle = (_a[_f] = _h.sent(),
-                        _a);
-                    console.log({ dongle: dongle });
-                    _g = channel.request.extension;
-                    switch (_g) {
-                        case "reassembled-sms": return [3 /*break*/, 6];
-                        case "sms-status-report": return [3 /*break*/, 8];
-                    }
-                    return [3 /*break*/, 10];
-                case 6: return [4 /*yield*/, fromDongle.message(dongle, channel)];
-                case 7:
-                    _h.sent();
-                    return [3 /*break*/, 12];
-                case 8: return [4 /*yield*/, fromDongle.statusReport(dongle, channel)];
-                case 9:
-                    _h.sent();
-                    return [3 /*break*/, 12];
-                case 10: return [4 /*yield*/, fromDongle.call(dongle, channel)];
-                case 11:
-                    _h.sent();
-                    return [3 /*break*/, 12];
-                case 12: return [2 /*return*/];
-            }
-        });
-    });
-}
-exports.fromDongle = fromDongle;
+var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
+var js_base64_1 = require("js-base64");
+var fromDongle;
 (function (fromDongle) {
-    function message(dongle, channel) {
+    function sms(imei, message) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, message, _a, _b, _c, _d, _e, _f, to, _g, _h, _j;
-            return __generator(this, function (_k) {
-                switch (_k.label) {
+            var to;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0:
-                        console.log("...MESSAGE !");
-                        _ = channel.relax;
-                        _a = {};
-                        _b = "date";
-                        _c = Date.bind;
-                        return [4 /*yield*/, _.getVariable("SMS_DATE")];
-                    case 1:
-                        _a[_b] = new (_c.apply(Date, [void 0, (_k.sent())]))();
-                        _e = "number";
-                        return [4 /*yield*/, _.getVariable("SMS_NUMBER")];
-                    case 2:
-                        _a[_e] = (_k.sent());
-                        _f = "text";
-                        return [4 /*yield*/, (function () {
-                                return __awaiter(this, void 0, void 0, function () {
-                                    var textSplitCount, _a, _b, reassembledSms, i, _c;
-                                    return __generator(this, function (_d) {
-                                        switch (_d.label) {
-                                            case 0:
-                                                _a = parseInt;
-                                                return [4 /*yield*/, _.getVariable("SMS_TEXT_SPLIT_COUNT")];
-                                            case 1:
-                                                textSplitCount = _a.apply(void 0, [(_d.sent())]);
-                                                reassembledSms = "";
-                                                i = 0;
-                                                _d.label = 2;
-                                            case 2:
-                                                if (!(i < textSplitCount)) return [3 /*break*/, 5];
-                                                _c = reassembledSms;
-                                                return [4 /*yield*/, _.getVariable("SMS_TEXT_P" + i)];
-                                            case 3:
-                                                reassembledSms = _c + _d.sent();
-                                                _d.label = 4;
-                                            case 4:
-                                                i++;
-                                                return [3 /*break*/, 2];
-                                            case 5: return [2 /*return*/, decodeURI(reassembledSms)];
-                                        }
-                                    });
-                                });
-                            })()];
-                    case 3:
-                        message = (_a[_f] = _k.sent(),
-                            _a);
-                        console.log({ message: message });
+                        console.log("FROM DONGLE MESSAGE !");
+                        console.log({ imei: imei, message: message });
                         to = "alice";
-                        return [4 /*yield*/, _.setVariable("MESSAGE(body)", "\"" + message.text.replace(/"/g, "''") + "\"")];
-                    case 4:
-                        _k.sent();
-                        return [4 /*yield*/, _.exec("MessageSend", ["SIP:alice", "\"contact_name\" <" + message.number + ">"])];
-                    case 5:
-                        _k.sent();
-                        _h = (_g = console).log;
-                        _j = ["MESSAGE_SEND_STATUS"];
-                        return [4 /*yield*/, _.getVariable("MESSAGE_SEND_STATUS")];
-                    case 6:
-                        _h.apply(_g, _j.concat([_k.sent()]));
+                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
+                                "action": "MessageSend",
+                                "to": "SIP:" + to,
+                                "from": "\"contact_name\" <" + message.number + ">",
+                                "base64body": js_base64_1.Base64.encode(message.text),
+                                "variable": "Content-Type=text/plain;charset=UTF-8"
+                            })];
+                    case 1:
+                        _a.sent();
                         return [2 /*return*/];
                 }
             });
         });
     }
-    fromDongle.message = message;
-    function statusReport(dongle, channel) {
+    fromDongle.sms = sms;
+    function statusReport(imei, statusReport) {
         return __awaiter(this, void 0, void 0, function () {
+            var to;
             return __generator(this, function (_a) {
-                console.log("...STATUS REPORT!");
-                return [2 /*return*/];
+                switch (_a.label) {
+                    case 0:
+                        console.log("FROM DONGLE STATUS REPORT!");
+                        console.log({ imei: imei, statusReport: statusReport });
+                        to = "alice";
+                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
+                                "action": "MessageSend",
+                                "to": "SIP:" + to,
+                                "from": "<semasim>",
+                                "base64body": js_base64_1.Base64.encode(JSON.stringify(statusReport)),
+                                //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
+                                "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=status-report"
+                            })];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
             });
         });
     }
     fromDongle.statusReport = statusReport;
-    function call(dongle, channel) {
+    function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var _, dongle, _a, _b, _c, _d, _e, _f;
+            return __generator(this, function (_g) {
+                switch (_g.label) {
                     case 0:
-                        console.log("...CALL!");
+                        console.log("... FROM DONGLE CALL!");
                         _ = channel.relax;
-                        return [4 /*yield*/, _.answer()];
+                        _a = {};
+                        _b = "name";
+                        return [4 /*yield*/, _.getVariable("DONGLENAME")];
                     case 1:
-                        _a.sent();
-                        return [4 /*yield*/, _.streamFile("hello-world")];
+                        _a[_b] = _g.sent();
+                        _c = "provider";
+                        return [4 /*yield*/, _.getVariable("DONGLEPROVIDER")];
                     case 2:
-                        _a.sent();
+                        _a[_c] = _g.sent();
+                        _d = "imei";
+                        return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
+                    case 3:
+                        _a[_d] = _g.sent();
+                        _e = "imsi";
+                        return [4 /*yield*/, _.getVariable("DONGLEIMSI")];
+                    case 4:
+                        _a[_e] = _g.sent();
+                        _f = "number";
+                        return [4 /*yield*/, _.getVariable("DONGLENUMBER")];
+                    case 5:
+                        dongle = (_a[_f] = _g.sent(),
+                            _a);
+                        console.log({ dongle: dongle });
+                        return [4 /*yield*/, _.answer()];
+                    case 6:
+                        _g.sent();
+                        return [4 /*yield*/, _.streamFile("hello-world")];
+                    case 7:
+                        _g.sent();
                         return [2 /*return*/];
                 }
             });
