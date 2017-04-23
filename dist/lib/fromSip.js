@@ -42,17 +42,15 @@ var fromSip;
 (function (fromSip) {
     function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _;
+            var _, imei;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         _ = channel.relax;
                         console.log("FROM SIP CALL!");
-                        return [4 /*yield*/, _.answer()];
+                        imei = "358880032664586";
+                        return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension, "30"])];
                     case 1:
-                        _a.sent();
-                        return [4 /*yield*/, _.streamFile("hello-world")];
-                    case 2:
                         _a.sent();
                         return [2 /*return*/];
                 }

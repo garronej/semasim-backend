@@ -90,7 +90,7 @@ var fromDongle;
     fromDongle.statusReport = statusReport;
     function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, dongle, _a, _b, _c, _d, _e, _f;
+            var _, dongle, _a, _b, _c, _d, _e, _f, to;
             return __generator(this, function (_g) {
                 switch (_g.label) {
                     case 0:
@@ -119,11 +119,9 @@ var fromDongle;
                         dongle = (_a[_f] = _g.sent(),
                             _a);
                         console.log({ dongle: dongle });
-                        return [4 /*yield*/, _.answer()];
+                        to = "alice";
+                        return [4 /*yield*/, _.exec("Dial", ["SIP/" + to, "10"])];
                     case 6:
-                        _g.sent();
-                        return [4 /*yield*/, _.streamFile("hello-world")];
-                    case 7:
                         _g.sent();
                         return [2 /*return*/];
                 }

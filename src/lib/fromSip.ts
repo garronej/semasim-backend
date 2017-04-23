@@ -30,9 +30,19 @@ export namespace fromSip {
 
         console.log("FROM SIP CALL!");
 
+        let imei = "358880032664586";
+
+        await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`, "30"]);
+
+
+        /*
         await _.answer();
 
         await _.streamFile("hello-world");
+        */
+
+
+        //exten = s,1,Dial(Dongle/${DONGLE}/${DEST_NUM})
 
     }
 

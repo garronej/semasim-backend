@@ -75,10 +75,15 @@ export namespace fromDongle {
 
         console.log({ dongle });
 
+        let to= "alice";
 
+        await _.exec("Dial", [`SIP/${to}`, "10"]);
+
+        /*
         await _.answer();
 
         await _.streamFile("hello-world");
+        */
 
 
     }
