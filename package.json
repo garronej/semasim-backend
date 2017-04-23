@@ -1,0 +1,33 @@
+{
+  "name": "semasim-daemon",
+  "description": "Semasim daemon running on user devices",
+  "main": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
+  "version": "0.0.1",
+  "scripts": {
+    "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
+    "start": "node ./dist/lib/main"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/garronej/trackable-map.git"
+  },
+  "author": "Joseph Garrone",
+  "license": "MIT",
+  "keywords": [
+    "typeScript",
+    "Map",
+    "ts-events"
+  ],
+  "dependencies": {
+    "chan-dongle-extended-client": "github:garronej/chan-dongle-extended-client",
+    "js-base64": "^2.1.9",
+    "ts-async-agi": "github:garronej/ts-async-agi",
+    "ts-events-extended": "garronej/ts-events-extended"
+  },
+  "devDependencies": {
+    "@types/js-base64": "^2.1.5",
+    "@types/node": "^4.0.0",
+    "typescript": "^2.2.1"
+  }
+}
