@@ -3,7 +3,7 @@
   "description": "Semasim daemon running on user devices",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
     "start": "node ./dist/lib/main"
@@ -22,6 +22,7 @@
   "dependencies": {
     "chan-dongle-extended-client": "github:garronej/chan-dongle-extended-client",
     "js-base64": "^2.1.9",
+    "rejection-tracker": "github:garronej/rejection-tracker",
     "ts-async-agi": "github:garronej/ts-async-agi",
     "ts-events-extended": "garronej/ts-events-extended"
   },

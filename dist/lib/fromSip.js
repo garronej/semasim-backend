@@ -65,7 +65,8 @@ var fromSip;
                 switch (_b.label) {
                     case 0:
                         console.log(" FROM SIP DATA...");
-                        _a = sipPacket['MESSAGE']['to'].match(/^sip:([^@]+)/)[1];
+                        console.log({ sipPacket: sipPacket });
+                        _a = sipPacket['MESSAGE']['to'].match(/^(?:pj)?sip:([^@]+)/)[1];
                         switch (_a) {
                             case "application-data": return [3 /*break*/, 1];
                         }
@@ -87,15 +88,17 @@ var fromSip;
     (function (outOfCallMessage) {
         function sms(sipPacket) {
             return __awaiter(this, void 0, void 0, function () {
-                var body, number, text, imei, messageId, error_1;
+                var body, number, text, from, imei, messageId, error_1, contacts, _i, contacts_1, contact;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            console.log("...MESSAGE!");
+                            console.log("...MESSAGE");
                             body = js_base64_1.Base64.decode(sipPacket['MESSAGE']['base-64-encoded-body']);
-                            number = sipPacket.MESSAGE.to.match(/^sip:(\+?[0-9]+)/)[1];
+                            number = sipPacket.MESSAGE.to.match(/^(?:pj)?sip:(\+?[0-9]+)/)[1];
                             text = body;
                             console.log({ text: text });
+                            from = sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)[1];
+                            console.log({ from: from });
                             imei = "358880032664586";
                             _a.label = 1;
                         case 1:
@@ -111,20 +114,31 @@ var fromSip;
                             console.log("ERROR: Send message via dongle failed, retry later", error_1);
                             messageId = NaN;
                             return [3 /*break*/, 4];
-                        case 4: return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
-                                "action": "MessageSend",
-                                "to": "SIP:" + "alice",
-                                "from": "<semasim>",
-                                "base64body": js_base64_1.Base64.encode(JSON.stringify({
+                        case 4: return [4 /*yield*/, getEndpointsContacts()];
+                        case 5:
+                            contacts = (_a.sent())[from] || [];
+                            //TODO: send as well content of the message and date for other contacts
+                            console.log("Forwarding Message send confirmation to " + contacts.length + " endpoints...");
+                            _i = 0, contacts_1 = contacts;
+                            _a.label = 6;
+                        case 6:
+                            if (!(_i < contacts_1.length)) return [3 /*break*/, 9];
+                            contact = contacts_1[_i];
+                            return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, "semasim", JSON.stringify({
                                     "Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
                                     "messageId": messageId
-                                })),
-                                //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
-                                "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=send-confirmation"
-                            })];
-                        case 5:
+                                }), {
+                                    "True-Content-Type": "application/json;charset=UTF-8",
+                                    "Semasim-Event": "Send-Confirmation"
+                                })];
+                        case 7:
                             _a.sent();
-                            return [2 /*return*/];
+                            console.log("...forwarded to contact " + contact);
+                            _a.label = 8;
+                        case 8:
+                            _i++;
+                            return [3 /*break*/, 6];
+                        case 9: return [2 /*return*/];
                     }
                 });
             });
@@ -141,4 +155,32 @@ var fromSip;
         outOfCallMessage.applicationData = applicationData;
     })(outOfCallMessage = fromSip.outOfCallMessage || (fromSip.outOfCallMessage = {}));
 })(fromSip = exports.fromSip || (exports.fromSip = {}));
+function getEndpointsContacts() {
+    return __awaiter(this, void 0, void 0, function () {
+        var ami, out, actionId, evt, objectname, contacts;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
+                    out = {};
+                    ami.postAction({ "action": "PJSIPShowEndpoints" });
+                    actionId = ami.lastActionId;
+                    _a.label = 1;
+                case 1:
+                    if (!true) return [3 /*break*/, 3];
+                    return [4 /*yield*/, ami.evt.waitFor(function (evt) { return evt.actionid === actionId; })];
+                case 2:
+                    evt = _a.sent();
+                    if (evt.event === "EndpointListComplete")
+                        return [3 /*break*/, 3];
+                    objectname = evt.objectname, contacts = evt.contacts;
+                    out[objectname] = contacts.split(",");
+                    out[objectname].pop();
+                    return [3 /*break*/, 1];
+                case 3: return [2 /*return*/, out];
+            }
+        });
+    });
+}
+exports.getEndpointsContacts = getEndpointsContacts;
 //# sourceMappingURL=fromSip.js.map

@@ -45,6 +45,7 @@ var __rest = (this && this.__rest) || function (s, e) {
 };
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
+require("rejection-tracker").main(__dirname, "..", "..");
 var ts_async_agi_1 = require("ts-async-agi");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var fromSip_1 = require("./fromSip");

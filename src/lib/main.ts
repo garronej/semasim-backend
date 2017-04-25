@@ -1,3 +1,5 @@
+require("rejection-tracker").main(__dirname, "..","..");
+
 import { 
     AsyncAGIServer, 
     AGIChannel, 

@@ -36,28 +36,40 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var js_base64_1 = require("js-base64");
+//import { Base64 } from "js-base64";
+var fromSip_1 = require("./fromSip");
 var fromDongle;
 (function (fromDongle) {
     function sms(imei, message) {
         return __awaiter(this, void 0, void 0, function () {
-            var to;
+            var to, contacts, _i, contacts_1, contact;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        console.log("FROM DONGLE MESSAGE !");
+                        console.log("FROM DONGLE MESSAGE");
                         console.log({ imei: imei, message: message });
                         to = "alice";
-                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
-                                "action": "MessageSend",
-                                "to": "SIP:" + to,
-                                "from": "\"contact_name\" <" + message.number + ">",
-                                "base64body": js_base64_1.Base64.encode(message.text),
-                                "variable": "Content-Type=text/plain;charset=UTF-8"
-                            })];
+                        return [4 /*yield*/, fromSip_1.getEndpointsContacts()];
                     case 1:
+                        contacts = (_a.sent())[to] || [];
+                        console.log("Forwarding message to " + contacts.length + " endpoints...");
+                        _i = 0, contacts_1 = contacts;
+                        _a.label = 2;
+                    case 2:
+                        if (!(_i < contacts_1.length)) return [3 /*break*/, 5];
+                        contact = contacts_1[_i];
+                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, "" + message.number, message.text, {
+                                "True-Content-Type": "text/plain;charset=UTF-8",
+                                "Semasim-Event": "SMS"
+                            })];
+                    case 3:
                         _a.sent();
-                        return [2 /*return*/];
+                        console.log("...forwarded to contact " + contact);
+                        _a.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [2 /*return*/];
                 }
             });
         });
@@ -65,24 +77,34 @@ var fromDongle;
     fromDongle.sms = sms;
     function statusReport(imei, statusReport) {
         return __awaiter(this, void 0, void 0, function () {
-            var to;
+            var to, contacts, _i, contacts_2, contact;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         console.log("FROM DONGLE STATUS REPORT!");
                         console.log({ imei: imei, statusReport: statusReport });
                         to = "alice";
-                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
-                                "action": "MessageSend",
-                                "to": "SIP:" + to,
-                                "from": "<semasim>",
-                                "base64body": js_base64_1.Base64.encode(JSON.stringify(statusReport)),
-                                //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
-                                "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=status-report"
-                            })];
+                        return [4 /*yield*/, fromSip_1.getEndpointsContacts()];
                     case 1:
+                        contacts = (_a.sent())[to] || [];
+                        console.log("Forwarding status report to " + contacts.length + " endpoints...");
+                        _i = 0, contacts_2 = contacts;
+                        _a.label = 2;
+                    case 2:
+                        if (!(_i < contacts_2.length)) return [3 /*break*/, 5];
+                        contact = contacts_2[_i];
+                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, "semasim", JSON.stringify(statusReport), {
+                                "True-Content-Type": "application/json;charset=UTF-8",
+                                "Semasim-Event": "Status-Report"
+                            })];
+                    case 3:
                         _a.sent();
-                        return [2 /*return*/];
+                        console.log("...forwarded to contact " + contact);
+                        _a.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [2 /*return*/];
                 }
             });
         });
@@ -90,7 +112,7 @@ var fromDongle;
     fromDongle.statusReport = statusReport;
     function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, dongle, _a, _b, _c, _d, _e, _f, to;
+            var _, dongle, _a, _b, _c, _d, _e, _f, to, contactsToDial;
             return __generator(this, function (_g) {
                 switch (_g.label) {
                     case 0:
@@ -120,8 +142,16 @@ var fromDongle;
                             _a);
                         console.log({ dongle: dongle });
                         to = "alice";
-                        return [4 /*yield*/, _.exec("Dial", ["SIP/" + to, "10"])];
+                        return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + to + ")")];
                     case 6:
+                        contactsToDial = _g.sent();
+                        if (!contactsToDial) {
+                            console.log("No contact to dial!");
+                            return [2 /*return*/];
+                        }
+                        console.log({ contactsToDial: contactsToDial });
+                        return [4 /*yield*/, _.exec("Dial", [contactsToDial, "10"])];
+                    case 7:
                         _g.sent();
                         return [2 /*return*/];
                 }

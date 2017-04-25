@@ -1,8 +1,7 @@
 import { AGIChannel } from "ts-async-agi";
 import { DongleExtendedClient, StatusReport, Message } from "chan-dongle-extended-client";
-import { Base64 } from "js-base64";
-
-
+//import { Base64 } from "js-base64";
+import { getEndpointsContacts } from "./fromSip";
 
 
 export namespace fromDongle {
@@ -17,7 +16,7 @@ export namespace fromDongle {
 
     export async function sms(imei: string, message: Message) {
 
-        console.log("FROM DONGLE MESSAGE !");
+        console.log("FROM DONGLE MESSAGE");
 
         console.log({ imei, message });
 
@@ -28,25 +27,72 @@ export namespace fromDongle {
 
         let to = "alice";
 
+        let contacts = (await getEndpointsContacts())[to] || [];
+
+        console.log(`Forwarding message to ${contacts.length} endpoints...`);
+
+        for (let contact of contacts) {
+
+            await DongleExtendedClient.localhost().ami.messageSend(
+                `pjsip:${contact}`,
+                `${message.number}`,
+                message.text,
+                {
+                    "True-Content-Type": "text/plain;charset=UTF-8",
+                    "Semasim-Event": "SMS"
+                }
+            );
+
+            console.log(`...forwarded to contact ${contact}`);
+
+        }
+
+        /* With chan_sip: 
         await DongleExtendedClient.localhost().ami.postAction({
             "action": "MessageSend",
             "to": `SIP:${to}`,
-            "from": `"contact_name" <${message.number}>`,
-            "base64body": Base64.encode(message.text),
-            "variable": "Content-Type=text/plain;charset=UTF-8"
+            "from": `<${message.number}>`,
+            "base64body": Base64.encode(message.text)
+            //"variable": "Content-Type=text/plain;charset=UTF-8"
         });
+        */
+
+
+
+
 
 
     }
 
     export async function statusReport(imei: string, statusReport: StatusReport) {
 
+
         console.log("FROM DONGLE STATUS REPORT!");
 
         console.log({ imei, statusReport });
 
-        let to= "alice";
+        let to = "alice";
 
+        let contacts = (await getEndpointsContacts())[to] || [];
+
+        console.log(`Forwarding status report to ${contacts.length} endpoints...`);
+
+        for (let contact of contacts) {
+
+            await DongleExtendedClient.localhost().ami.messageSend(
+                `pjsip:${contact}`,
+                `semasim`,
+                JSON.stringify(statusReport), {
+                    "True-Content-Type": "application/json;charset=UTF-8",
+                    "Semasim-Event": "Status-Report"
+                }
+            );
+
+            console.log(`...forwarded to contact ${contact}`);
+
+        }
+
+        /* With chan_sip
         await DongleExtendedClient.localhost().ami.postAction({
             "action": "MessageSend",
             "to": `SIP:${to}`,
@@ -55,6 +101,7 @@ export namespace fromDongle {
             //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
             "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=status-report"
         });
+        */
 
 
     }
@@ -75,9 +122,24 @@ export namespace fromDongle {
 
         console.log({ dongle });
 
-        let to= "alice";
 
-        await _.exec("Dial", [`SIP/${to}`, "10"]);
+        let to = "alice";
+
+        let contactsToDial= await _.getVariable(`PJSIP_DIAL_CONTACTS(${to})`);
+
+        if( !contactsToDial ){
+
+            console.log("No contact to dial!");
+
+            return;
+
+        }
+
+        console.log({ contactsToDial });
+
+        await _.exec("Dial", [contactsToDial, "10"]);
+
+        //await _.exec("Dial", [`PJSIP/${to}`, "10"]);
 
         /*
         await _.answer();
@@ -90,3 +152,7 @@ export namespace fromDongle {
 
 
 }
+
+
+
+
