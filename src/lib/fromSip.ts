@@ -30,9 +30,30 @@ export namespace fromSip {
 
         console.log("FROM SIP CALL!");
 
+
+        if (channel.request.extension === "1234") {
+
+            console.log("dialed echo test");
+
+            await _.answer();
+
+            let recordResult = await _.recordFile("test-record-1", "wav", ["#", "*"], 15000, true);
+
+            console.log(`Record result: ${JSON.stringify(recordResult, null, 2)}`);
+
+            console.log("Play the recorded file");
+
+            await _.streamFile("test-record-1");
+
+            await _.hangup();
+
+        }
+
+
         let imei = "358880032664586";
 
         await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`, "30"]);
+
 
 
         /*
@@ -52,8 +73,8 @@ export namespace fromSip {
 
         console.log({ sipPacket });
 
-        switch( sipPacket['MESSAGE']['to'].match(/^(?:pj)?sip:([^@]+)/)![1] ){
-            case "application-data": 
+        switch (sipPacket['MESSAGE']['to'].match(/^(?:pj)?sip:([^@]+)/)![1]) {
+            case "application-data":
                 await outOfCallMessage.applicationData(sipPacket);
                 break;
             default:
@@ -78,9 +99,9 @@ export namespace fromSip {
             console.log({ text });
 
 
-            let from= sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)![1];
+            let from = sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)![1];
 
-            console.log({from});
+            console.log({ from });
 
             //TODO 
             let imei = "358880032664586";
@@ -99,7 +120,7 @@ export namespace fromSip {
 
                 console.log("ERROR: Send message via dongle failed, retry later", error);
 
-                messageId= NaN;
+                messageId = NaN;
 
             }
 

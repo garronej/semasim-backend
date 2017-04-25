@@ -150,8 +150,12 @@ var fromDongle;
                             return [2 /*return*/];
                         }
                         console.log({ contactsToDial: contactsToDial });
+                        //await _.setVariable("JITTERBUFFER(fixed)","default");
+                        //JITTERBUFFER(fixed)=default
                         return [4 /*yield*/, _.exec("Dial", [contactsToDial, "10"])];
                     case 7:
+                        //await _.setVariable("JITTERBUFFER(fixed)","default");
+                        //JITTERBUFFER(fixed)=default
                         _g.sent();
                         return [2 /*return*/];
                 }

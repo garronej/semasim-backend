@@ -137,6 +137,10 @@ export namespace fromDongle {
 
         console.log({ contactsToDial });
 
+        //await _.setVariable("JITTERBUFFER(fixed)","default");
+
+        //JITTERBUFFER(fixed)=default
+
         await _.exec("Dial", [contactsToDial, "10"]);
 
         //await _.exec("Dial", [`PJSIP/${to}`, "10"]);

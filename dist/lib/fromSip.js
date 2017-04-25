@@ -42,15 +42,33 @@ var fromSip;
 (function (fromSip) {
     function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, imei;
+            var _, recordResult, imei;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         _ = channel.relax;
                         console.log("FROM SIP CALL!");
+                        if (!(channel.request.extension === "1234")) return [3 /*break*/, 5];
+                        console.log("dialed echo test");
+                        return [4 /*yield*/, _.answer()];
+                    case 1:
+                        _a.sent();
+                        return [4 /*yield*/, _.recordFile("test-record-1", "wav", ["#", "*"], 15000, true)];
+                    case 2:
+                        recordResult = _a.sent();
+                        console.log("Record result: " + JSON.stringify(recordResult, null, 2));
+                        console.log("Play the recorded file");
+                        return [4 /*yield*/, _.streamFile("test-record-1")];
+                    case 3:
+                        _a.sent();
+                        return [4 /*yield*/, _.hangup()];
+                    case 4:
+                        _a.sent();
+                        _a.label = 5;
+                    case 5:
                         imei = "358880032664586";
                         return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension, "30"])];
-                    case 1:
+                    case 6:
                         _a.sent();
                         return [2 /*return*/];
                 }
