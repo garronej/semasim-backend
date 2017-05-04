@@ -37,38 +37,27 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var js_base64_1 = require("js-base64");
+var pjsip_1 = require("./pjsip");
+var diagnostics_1 = require("./diagnostics");
 ;
 var fromSip;
 (function (fromSip) {
     function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, recordResult, imei;
+            var _, imei;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         _ = channel.relax;
                         console.log("FROM SIP CALL!");
-                        if (!(channel.request.extension === "1234")) return [3 /*break*/, 5];
-                        console.log("dialed echo test");
-                        return [4 /*yield*/, _.answer()];
+                        return [4 /*yield*/, diagnostics_1.diagnostics(channel)];
                     case 1:
                         _a.sent();
-                        return [4 /*yield*/, _.recordFile("test-record-1", "wav", ["#", "*"], 15000, true)];
+                        imei = channel.request.callerid;
+                        //await _.setVariable("JITTERBUFFER(fixed)","250,1500");
+                        return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension, "60"])];
                     case 2:
-                        recordResult = _a.sent();
-                        console.log("Record result: " + JSON.stringify(recordResult, null, 2));
-                        console.log("Play the recorded file");
-                        return [4 /*yield*/, _.streamFile("test-record-1")];
-                    case 3:
-                        _a.sent();
-                        return [4 /*yield*/, _.hangup()];
-                    case 4:
-                        _a.sent();
-                        _a.label = 5;
-                    case 5:
-                        imei = "358880032664586";
-                        return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension, "30"])];
-                    case 6:
+                        //await _.setVariable("JITTERBUFFER(fixed)","250,1500");
                         _a.sent();
                         return [2 /*return*/];
                 }
@@ -86,7 +75,7 @@ var fromSip;
                         console.log({ sipPacket: sipPacket });
                         _a = sipPacket['MESSAGE']['to'].match(/^(?:pj)?sip:([^@]+)/)[1];
                         switch (_a) {
-                            case "application-data": return [3 /*break*/, 1];
+                            case "semasim": return [3 /*break*/, 1];
                         }
                         return [3 /*break*/, 3];
                     case 1: return [4 /*yield*/, outOfCallMessage.applicationData(sipPacket)];
@@ -106,7 +95,7 @@ var fromSip;
     (function (outOfCallMessage) {
         function sms(sipPacket) {
             return __awaiter(this, void 0, void 0, function () {
-                var body, number, text, from, imei, messageId, error_1, contacts, _i, contacts_1, contact;
+                var body, number, text, imei, outgoingMessageId, error_1, sendDate, contacts, _i, contacts_1, contact;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
@@ -114,27 +103,27 @@ var fromSip;
                             body = js_base64_1.Base64.decode(sipPacket['MESSAGE']['base-64-encoded-body']);
                             number = sipPacket.MESSAGE.to.match(/^(?:pj)?sip:(\+?[0-9]+)/)[1];
                             text = body;
-                            console.log({ text: text });
-                            from = sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)[1];
-                            console.log({ from: from });
-                            imei = "358880032664586";
+                            imei = sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)[1];
+                            console.log({ number: number, imei: imei, text: text });
                             _a.label = 1;
                         case 1:
                             _a.trys.push([1, 3, , 4]);
                             return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().sendMessage(imei, number, text)];
                         case 2:
-                            messageId = _a.sent();
+                            outgoingMessageId = _a.sent();
                             //TODO respond with message id.
-                            console.log({ messageId: messageId });
+                            console.log({ outgoingMessageId: outgoingMessageId });
                             return [3 /*break*/, 4];
                         case 3:
                             error_1 = _a.sent();
                             console.log("ERROR: Send message via dongle failed, retry later", error_1);
-                            messageId = NaN;
+                            outgoingMessageId = NaN;
                             return [3 /*break*/, 4];
-                        case 4: return [4 /*yield*/, getEndpointsContacts()];
+                        case 4:
+                            sendDate = new Date();
+                            return [4 /*yield*/, pjsip_1.pjsip.getEndpointContacts(imei)];
                         case 5:
-                            contacts = (_a.sent())[from] || [];
+                            contacts = _a.sent();
                             //TODO: send as well content of the message and date for other contacts
                             console.log("Forwarding Message send confirmation to " + contacts.length + " endpoints...");
                             _i = 0, contacts_1 = contacts;
@@ -142,12 +131,13 @@ var fromSip;
                         case 6:
                             if (!(_i < contacts_1.length)) return [3 /*break*/, 9];
                             contact = contacts_1[_i];
-                            return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, "semasim", JSON.stringify({
-                                    "Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
-                                    "messageId": messageId
-                                }), {
-                                    "True-Content-Type": "application/json;charset=UTF-8",
-                                    "Semasim-Event": "Send-Confirmation"
+                            return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, number, "\"" + text + "\" " + (isNaN(outgoingMessageId) ? "SEND ERROR" : "SENT\nOUTGOING MESSAGE ID: " + outgoingMessageId), {
+                                    "True-Content-Type": "text/plain;charset=UTF-8",
+                                    "Semasim-Message-Type": "Send-Status",
+                                    "Send-Status_Is-Send": "" + !isNaN(outgoingMessageId),
+                                    "Send-Status_Send-Date": sendDate.toISOString(),
+                                    "Send-Status_Outgoing-Message-ID": "" + outgoingMessageId,
+                                    "Send-Status_Request-Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
                                 })];
                         case 7:
                             _a.sent();
@@ -173,32 +163,4 @@ var fromSip;
         outOfCallMessage.applicationData = applicationData;
     })(outOfCallMessage = fromSip.outOfCallMessage || (fromSip.outOfCallMessage = {}));
 })(fromSip = exports.fromSip || (exports.fromSip = {}));
-function getEndpointsContacts() {
-    return __awaiter(this, void 0, void 0, function () {
-        var ami, out, actionId, evt, objectname, contacts;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
-                    out = {};
-                    ami.postAction({ "action": "PJSIPShowEndpoints" });
-                    actionId = ami.lastActionId;
-                    _a.label = 1;
-                case 1:
-                    if (!true) return [3 /*break*/, 3];
-                    return [4 /*yield*/, ami.evt.waitFor(function (evt) { return evt.actionid === actionId; })];
-                case 2:
-                    evt = _a.sent();
-                    if (evt.event === "EndpointListComplete")
-                        return [3 /*break*/, 3];
-                    objectname = evt.objectname, contacts = evt.contacts;
-                    out[objectname] = contacts.split(",");
-                    out[objectname].pop();
-                    return [3 /*break*/, 1];
-                case 3: return [2 /*return*/, out];
-            }
-        });
-    });
-}
-exports.getEndpointsContacts = getEndpointsContacts;
 //# sourceMappingURL=fromSip.js.map

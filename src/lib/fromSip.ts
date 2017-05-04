@@ -1,6 +1,8 @@
 import { AGIChannel } from "ts-async-agi";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
+import { pjsip } from "./pjsip";
+import { diagnostics } from "./diagnostics";
 
 export interface OutOfCallMessage {
     'MESSAGE': {
@@ -30,30 +32,13 @@ export namespace fromSip {
 
         console.log("FROM SIP CALL!");
 
+        await diagnostics(channel);
 
-        if (channel.request.extension === "1234") {
+        let imei = channel.request.callerid;
 
-            console.log("dialed echo test");
+        //await _.setVariable("JITTERBUFFER(fixed)","250,1500");
 
-            await _.answer();
-
-            let recordResult = await _.recordFile("test-record-1", "wav", ["#", "*"], 15000, true);
-
-            console.log(`Record result: ${JSON.stringify(recordResult, null, 2)}`);
-
-            console.log("Play the recorded file");
-
-            await _.streamFile("test-record-1");
-
-            await _.hangup();
-
-        }
-
-
-        let imei = "358880032664586";
-
-        await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`, "30"]);
-
+        await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`, "60"]);
 
 
         /*
@@ -74,7 +59,7 @@ export namespace fromSip {
         console.log({ sipPacket });
 
         switch (sipPacket['MESSAGE']['to'].match(/^(?:pj)?sip:([^@]+)/)![1]) {
-            case "application-data":
+            case "semasim":
                 await outOfCallMessage.applicationData(sipPacket);
                 break;
             default:
@@ -96,36 +81,31 @@ export namespace fromSip {
 
             let text = body;
 
-            console.log({ text });
+            let imei = sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)![1];
 
+            console.log({ number, imei, text });
 
-            let from = sipPacket.MESSAGE.from.match(/^<sip:([^@]+)/)![1];
-
-            console.log({ from });
-
-            //TODO 
-            let imei = "358880032664586";
-
-            let messageId: number;
+            let outgoingMessageId: number;
 
             try {
 
-                messageId = await DongleExtendedClient.localhost().sendMessage(imei, number, text);
+                outgoingMessageId = await DongleExtendedClient.localhost().sendMessage(imei, number, text);
 
                 //TODO respond with message id.
 
-                console.log({ messageId });
+                console.log({ outgoingMessageId });
 
             } catch (error) {
 
                 console.log("ERROR: Send message via dongle failed, retry later", error);
 
-                messageId = NaN;
+                outgoingMessageId = NaN;
 
             }
 
+            let sendDate= new Date();
 
-            let contacts = (await getEndpointsContacts())[from] || [];
+            let contacts = await pjsip.getEndpointContacts(imei);
 
             //TODO: send as well content of the message and date for other contacts
 
@@ -135,13 +115,15 @@ export namespace fromSip {
 
                 await DongleExtendedClient.localhost().ami.messageSend(
                     `pjsip:${contact}`,
-                    `semasim`,
-                    JSON.stringify({
-                        "Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
-                        "messageId": messageId
-                    }), {
-                        "True-Content-Type": "application/json;charset=UTF-8",
-                        "Semasim-Event": "Send-Confirmation"
+                    number,
+                    `"${text}" ${isNaN(outgoingMessageId)?"SEND ERROR":`SENT\nOUTGOING MESSAGE ID: ${outgoingMessageId}`}`,
+                    {
+                        "True-Content-Type": "text/plain;charset=UTF-8",
+                        "Semasim-Message-Type": "Send-Status",
+                        "Send-Status_Is-Send": `${!isNaN(outgoingMessageId)}`,
+                        "Send-Status_Send-Date": sendDate.toISOString(),
+                        "Send-Status_Outgoing-Message-ID": `${outgoingMessageId}`,
+                        "Send-Status_Request-Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
                     }
                 );
 
@@ -150,7 +132,8 @@ export namespace fromSip {
             }
 
 
-            /* with chan_sip
+            /*
+            //with chan_sip
             await DongleExtendedClient.localhost().ami.postAction({
                 "action": "MessageSend",
                 "to": `SIP:${"alice"}`,
@@ -175,33 +158,5 @@ export namespace fromSip {
         }
 
     }
-
-}
-
-export async function getEndpointsContacts(): Promise<{ [endpoint: string]: string[] }> {
-
-    let ami = DongleExtendedClient.localhost().ami;
-
-    let out: { [endpoint: string]: string[]; } = {};
-
-    ami.postAction({ "action": "PJSIPShowEndpoints" });
-
-    let actionId = ami.lastActionId;
-
-    while (true) {
-
-        let evt = await ami.evt.waitFor(evt => evt.actionid === actionId);
-
-        if (evt.event === "EndpointListComplete") break;
-
-        let { objectname, contacts } = evt;
-
-        out[objectname] = contacts.split(",");
-
-        out[objectname].pop();
-
-    }
-
-    return out;
 
 }

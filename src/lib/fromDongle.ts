@@ -1,18 +1,12 @@
 import { AGIChannel } from "ts-async-agi";
 import { DongleExtendedClient, StatusReport, Message } from "chan-dongle-extended-client";
-//import { Base64 } from "js-base64";
-import { getEndpointsContacts } from "./fromSip";
+import { Base64 } from "js-base64";
+import { pjsip } from "./pjsip";
+import { diagnostics } from "./diagnostics";
 
 
 export namespace fromDongle {
 
-    export interface DongleIdentifier {
-        name: string;
-        provider: string;
-        imei: string;
-        imsi: string;
-        number: string;
-    }
 
     export async function sms(imei: string, message: Message) {
 
@@ -25,9 +19,7 @@ export namespace fromDongle {
         store message
         */
 
-        let to = "alice";
-
-        let contacts = (await getEndpointsContacts())[to] || [];
+        let contacts = await pjsip.getEndpointContacts(imei);
 
         console.log(`Forwarding message to ${contacts.length} endpoints...`);
 
@@ -35,11 +27,11 @@ export namespace fromDongle {
 
             await DongleExtendedClient.localhost().ami.messageSend(
                 `pjsip:${contact}`,
-                `${message.number}`,
+                message.number,
                 message.text,
                 {
                     "True-Content-Type": "text/plain;charset=UTF-8",
-                    "Semasim-Event": "SMS"
+                    "Semasim-Message-Type": "SMS",
                 }
             );
 
@@ -47,7 +39,8 @@ export namespace fromDongle {
 
         }
 
-        /* With chan_sip: 
+        /*
+        //With chan_sip: 
         await DongleExtendedClient.localhost().ami.postAction({
             "action": "MessageSend",
             "to": `SIP:${to}`,
@@ -58,33 +51,38 @@ export namespace fromDongle {
         */
 
 
-
-
-
-
     }
 
     export async function statusReport(imei: string, statusReport: StatusReport) {
-
 
         console.log("FROM DONGLE STATUS REPORT!");
 
         console.log({ imei, statusReport });
 
-        let to = "alice";
+        let { messageId, dischargeTime, isDelivered, status } = statusReport;
 
-        let contacts = (await getEndpointsContacts())[to] || [];
+        let contacts = await pjsip.getEndpointContacts(imei);
 
         console.log(`Forwarding status report to ${contacts.length} endpoints...`);
 
         for (let contact of contacts) {
 
+            statusReport.dischargeTime;
+            statusReport.isDelivered;
+            statusReport.messageId;
+            statusReport.status;
+
             await DongleExtendedClient.localhost().ami.messageSend(
                 `pjsip:${contact}`,
-                `semasim`,
-                JSON.stringify(statusReport), {
-                    "True-Content-Type": "application/json;charset=UTF-8",
-                    "Semasim-Event": "Status-Report"
+                statusReport.recipient,
+                `OUTGOING MESSAGE ID: ${messageId}, STATUS: ${status}`, 
+                {
+                    "True-Content-Type": "text/plain;charset=UTF-8",
+                    "Semasim-Message-Type": "Status-Report",
+                    "Status-Report_Discharge-Time": dischargeTime.toISOString(),
+                    "Status-Report_Outgoing-Message-ID": `${messageId}`,
+                    "Status-Report_Is-Delivered": `${isDelivered}`,
+                    "Status-Report_Status": status
                 }
             );
 
@@ -92,7 +90,9 @@ export namespace fromDongle {
 
         }
 
-        /* With chan_sip
+
+        /*
+        //With chan_sip
         await DongleExtendedClient.localhost().ami.postAction({
             "action": "MessageSend",
             "to": `SIP:${to}`,
@@ -110,24 +110,41 @@ export namespace fromDongle {
 
         console.log("... FROM DONGLE CALL!");
 
+
         let _ = channel.relax;
 
-        let dongle = {
-            "name": await _.getVariable("DONGLENAME"),
-            "provider": await _.getVariable("DONGLEPROVIDER"),
-            "imei": await _.getVariable("DONGLEIMEI"),
-            "imsi": await _.getVariable("DONGLEIMSI"),
-            "number": await _.getVariable("DONGLENUMBER")
-        } as fromDongle.DongleIdentifier;
+        /*
+        channel.request.extension = "1234";
 
-        console.log({ dongle });
+        await diagnostics(channel);
+
+        if( channel.isHangup ) return;
+        */
+
+        let gain = "4000";
+
+        console.log({ gain });
+
+        console.log("AGC, answer after, no play, gain 4000, rx off");
 
 
-        let to = "alice";
+        await _.setVariable("AGC(rx)", "off");
+        await _.setVariable("AGC(tx)", gain);
 
-        let contactsToDial= await _.getVariable(`PJSIP_DIAL_CONTACTS(${to})`);
+        //await _.streamFile("demo-echotest", ["#", "*"]);
 
-        if( !contactsToDial ){
+
+        let imei= (await _.getVariable("DONGLEIMEI"))!;
+
+        console.log({ imei });
+
+        let contactsToDial_= await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
+
+        console.log({ contactsToDial_ });
+
+        let contactsToDial = (await pjsip.getEndpointContacts(imei)).map(contact => `PJSIP/${contact}`).join("&");
+
+        if (!contactsToDial) {
 
             console.log("No contact to dial!");
 
@@ -135,20 +152,16 @@ export namespace fromDongle {
 
         }
 
+
         console.log({ contactsToDial });
 
-        //await _.setVariable("JITTERBUFFER(fixed)","default");
-
-        //JITTERBUFFER(fixed)=default
-
-        await _.exec("Dial", [contactsToDial, "10"]);
-
-        //await _.exec("Dial", [`PJSIP/${to}`, "10"]);
-
-        /*
         await _.answer();
 
-        await _.streamFile("hello-world");
+        await _.exec("Dial", [contactsToDial, "60"]);
+
+        /*
+        //With chan_sip
+        await _.exec("Dial", [`SIP/${to}`, "10"]);
         */
 
 

@@ -6,14 +6,14 @@ import {
     ChannelStatus, 
 } from "ts-async-agi";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
+import { SyncEvent } from "ts-events-extended";
 import { fromSip } from "./fromSip";
 import { fromDongle } from "./fromDongle";
-import { SyncEvent } from "ts-events-extended";
-
-const dialplanContext = "from-sip-data";
+import { pjsip } from "./pjsip";
 
 console.log("AGI Server is running");
 
+const incomingSipMessageContext = "from-sip-message";
 const client= DongleExtendedClient.localhost();
 const ami = client.ami;
 
@@ -54,21 +54,21 @@ const ami = client.ami;
     extension = "_.";
     let priority = 1;
 
-    await ami.removeExtension(extension, dialplanContext);
+    await ami.removeExtension(extension, incomingSipMessageContext);
 
     for (let variable of variables)
         await ami.addDialplanExtension(
             extension,
             priority++,
             `NoOp(${variable}===\${${variable}})`,
-            dialplanContext
+            incomingSipMessageContext
         );
 
     await ami.addDialplanExtension(
         extension,
         priority++,
         `NoOp(MESSAGE(base-64-encoded-body)===\${BASE64_ENCODE(\${MESSAGE(body)})})`,
-        dialplanContext
+        incomingSipMessageContext
     );
 
 
@@ -76,7 +76,7 @@ const ami = client.ami;
         extension,
         priority,
         "Hangup()",
-        dialplanContext
+        incomingSipMessageContext
     );
 
 })();
@@ -97,9 +97,7 @@ new AsyncAGIServer(async channel => {
             break;
     }
 
-    await _.hangup();
-
-    console.log("Call terminated");
+    console.log("AGI Script Terminated");
 
 }, ami.ami);
 
@@ -111,11 +109,13 @@ client.evtMessageStatusReport.attach(
     ({ imei, ...statusReport }) => fromDongle.statusReport(imei, statusReport)
 );
 
+//ami.evt.attach( evt => console.log({ evt }));
+
 
 ami.evt.attach(
     ({ event, context, priority }) => (
         event === "Newexten" &&
-        context === dialplanContext &&
+        context === incomingSipMessageContext &&
         priority === "1"
     ),
     async newExten => {
@@ -166,21 +166,34 @@ ami.evt.attach(
     }
 );
 
+(async function findConnectedDongles(){
+
+    for( let { imei } of await client.getActiveDongles())
+        await pjsip.addEndpoint(imei);
+
+    for( let { imei } of await client.getLockedDongles())
+        await pjsip.addEndpoint(imei);
+
+})();
+
+
+client.evtNewActiveDongle.attach(
+    ({ imei }) => pjsip.addEndpoint(imei)
+);
+
+client.evtRequestUnlockCode.attach(
+    ({ imei }) => pjsip.addEndpoint(imei)
+);
 
 
 
-
-
-
+/*
 
 export enum DongleStatus {
     DISCONNECTED = 1,
     CONNECTED_AND_FREE = 2,
     CONNECTED_AND_BUSY = 3
 }
-
-
-/*
 
 
 export async function fromDongle_(channel: AGIChannel): Promise<void> {

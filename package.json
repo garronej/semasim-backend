@@ -22,12 +22,15 @@
   "dependencies": {
     "chan-dongle-extended-client": "github:garronej/chan-dongle-extended-client",
     "js-base64": "^2.1.9",
+    "mysql": "^2.13.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "ts-async-agi": "github:garronej/ts-async-agi",
-    "ts-events-extended": "garronej/ts-events-extended"
+    "ts-events-extended": "garronej/ts-events-extended",
+    "ts-exec-queue": "github:garronej/ts-exec-queue"
   },
   "devDependencies": {
     "@types/js-base64": "^2.1.5",
+    "@types/mysql": "0.0.32",
     "@types/node": "^4.0.0",
     "typescript": "^2.2.1"
   }

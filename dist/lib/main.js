@@ -50,8 +50,9 @@ var ts_async_agi_1 = require("ts-async-agi");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var fromSip_1 = require("./fromSip");
 var fromDongle_1 = require("./fromDongle");
-var dialplanContext = "from-sip-data";
+var pjsip_1 = require("./pjsip");
 console.log("AGI Server is running");
+var incomingSipMessageContext = "from-sip-message";
 var client = chan_dongle_extended_client_1.DongleExtendedClient.localhost();
 var ami = client.ami;
 (function initDialplan() {
@@ -96,7 +97,7 @@ var ami = client.ami;
                     ];
                     extension = "_.";
                     priority = 1;
-                    return [4 /*yield*/, ami.removeExtension(extension, dialplanContext)];
+                    return [4 /*yield*/, ami.removeExtension(extension, incomingSipMessageContext)];
                 case 7:
                     _c.sent();
                     _b = 0, variables_1 = variables;
@@ -104,17 +105,17 @@ var ami = client.ami;
                 case 8:
                     if (!(_b < variables_1.length)) return [3 /*break*/, 11];
                     variable = variables_1[_b];
-                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(" + variable + "===${" + variable + "})", dialplanContext)];
+                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(" + variable + "===${" + variable + "})", incomingSipMessageContext)];
                 case 9:
                     _c.sent();
                     _c.label = 10;
                 case 10:
                     _b++;
                     return [3 /*break*/, 8];
-                case 11: return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(MESSAGE(base-64-encoded-body)===${BASE64_ENCODE(${MESSAGE(body)})})", dialplanContext)];
+                case 11: return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(MESSAGE(base-64-encoded-body)===${BASE64_ENCODE(${MESSAGE(body)})})", incomingSipMessageContext)];
                 case 12:
                     _c.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority, "Hangup()", dialplanContext)];
+                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority, "Hangup()", incomingSipMessageContext)];
                 case 13:
                     _c.sent();
                     return [2 /*return*/];
@@ -143,10 +144,8 @@ new ts_async_agi_1.AsyncAGIServer(function (channel) { return __awaiter(_this, v
             case 4:
                 _b.sent();
                 return [3 /*break*/, 5];
-            case 5: return [4 /*yield*/, _.hangup()];
-            case 6:
-                _b.sent();
-                console.log("Call terminated");
+            case 5:
+                console.log("AGI Script Terminated");
                 return [2 /*return*/];
         }
     });
@@ -159,10 +158,11 @@ client.evtMessageStatusReport.attach(function (_a) {
     var imei = _a.imei, statusReport = __rest(_a, ["imei"]);
     return fromDongle_1.fromDongle.statusReport(imei, statusReport);
 });
+//ami.evt.attach( evt => console.log({ evt }));
 ami.evt.attach(function (_a) {
     var event = _a.event, context = _a.context, priority = _a.priority;
     return (event === "Newexten" &&
-        context === dialplanContext &&
+        context === incomingSipMessageContext &&
         priority === "1");
 }, function (newExten) { return __awaiter(_this, void 0, void 0, function () {
     var variables, uniqueId, application, appdata, match, variable, value, key, key_1;
@@ -204,13 +204,63 @@ ami.evt.attach(function (_a) {
         }
     });
 }); });
-var DongleStatus;
-(function (DongleStatus) {
-    DongleStatus[DongleStatus["DISCONNECTED"] = 1] = "DISCONNECTED";
-    DongleStatus[DongleStatus["CONNECTED_AND_FREE"] = 2] = "CONNECTED_AND_FREE";
-    DongleStatus[DongleStatus["CONNECTED_AND_BUSY"] = 3] = "CONNECTED_AND_BUSY";
-})(DongleStatus = exports.DongleStatus || (exports.DongleStatus = {}));
+(function findConnectedDongles() {
+    return __awaiter(this, void 0, void 0, function () {
+        var _i, _a, imei, _b, _c, imei;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0:
+                    _i = 0;
+                    return [4 /*yield*/, client.getActiveDongles()];
+                case 1:
+                    _a = _d.sent();
+                    _d.label = 2;
+                case 2:
+                    if (!(_i < _a.length)) return [3 /*break*/, 5];
+                    imei = _a[_i].imei;
+                    return [4 /*yield*/, pjsip_1.pjsip.addEndpoint(imei)];
+                case 3:
+                    _d.sent();
+                    _d.label = 4;
+                case 4:
+                    _i++;
+                    return [3 /*break*/, 2];
+                case 5:
+                    _b = 0;
+                    return [4 /*yield*/, client.getLockedDongles()];
+                case 6:
+                    _c = _d.sent();
+                    _d.label = 7;
+                case 7:
+                    if (!(_b < _c.length)) return [3 /*break*/, 10];
+                    imei = _c[_b].imei;
+                    return [4 /*yield*/, pjsip_1.pjsip.addEndpoint(imei)];
+                case 8:
+                    _d.sent();
+                    _d.label = 9;
+                case 9:
+                    _b++;
+                    return [3 /*break*/, 7];
+                case 10: return [2 /*return*/];
+            }
+        });
+    });
+})();
+client.evtNewActiveDongle.attach(function (_a) {
+    var imei = _a.imei;
+    return pjsip_1.pjsip.addEndpoint(imei);
+});
+client.evtRequestUnlockCode.attach(function (_a) {
+    var imei = _a.imei;
+    return pjsip_1.pjsip.addEndpoint(imei);
+});
 /*
+
+export enum DongleStatus {
+    DISCONNECTED = 1,
+    CONNECTED_AND_FREE = 2,
+    CONNECTED_AND_BUSY = 3
+}
 
 
 export async function fromDongle_(channel: AGIChannel): Promise<void> {

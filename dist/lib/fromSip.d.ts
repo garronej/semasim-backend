@@ -26,6 +26,3 @@ export declare namespace fromSip {
         function applicationData(sipPacket: OutOfCallMessage): Promise<void>;
     }
 }
-export declare function getEndpointsContacts(): Promise<{
-    [endpoint: string]: string[];
-}>;
