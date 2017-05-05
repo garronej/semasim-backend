@@ -38,7 +38,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var js_base64_1 = require("js-base64");
 var pjsip_1 = require("./pjsip");
-var diagnostics_1 = require("./diagnostics");
+var fromDongle_1 = require("./fromDongle");
+exports.callContext = "from-sip-call";
+exports.messageContext = "from-sip-message";
 ;
 var fromSip;
 (function (fromSip) {
@@ -50,14 +52,15 @@ var fromSip;
                     case 0:
                         _ = channel.relax;
                         console.log("FROM SIP CALL!");
-                        return [4 /*yield*/, diagnostics_1.diagnostics(channel)];
+                        imei = channel.request.callerid;
+                        return [4 /*yield*/, _.setVariable("JITTERBUFFER(fixed)", "2500,10000")];
                     case 1:
                         _a.sent();
-                        imei = channel.request.callerid;
-                        //await _.setVariable("JITTERBUFFER(fixed)","250,1500");
-                        return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension, "60"])];
+                        return [4 /*yield*/, _.setVariable("AGC(rx)", fromDongle_1.gain)];
                     case 2:
-                        //await _.setVariable("JITTERBUFFER(fixed)","250,1500");
+                        _a.sent();
+                        return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension, "60"])];
+                    case 3:
                         _a.sent();
                         return [2 /*return*/];
                 }

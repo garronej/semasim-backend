@@ -52,35 +52,54 @@ var fromSip_1 = require("./fromSip");
 var fromDongle_1 = require("./fromDongle");
 var pjsip_1 = require("./pjsip");
 console.log("AGI Server is running");
-var incomingSipMessageContext = "from-sip-message";
 var client = chan_dongle_extended_client_1.DongleExtendedClient.localhost();
 var ami = client.ami;
 (function initDialplan() {
     return __awaiter(this, void 0, void 0, function () {
-        var extension, _i, _a, context, variables, priority, _b, variables_1, variable;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var phoneNumberExt, _i, _a, context, i_1, _b, _c, action, i, _d, _e, action, variables, priority, _f, variables_1, variable;
+        return __generator(this, function (_g) {
+            switch (_g.label) {
                 case 0:
-                    extension = "_[+0-9].";
-                    _i = 0, _a = ["from-dongle", "from-sip-call"];
-                    _c.label = 1;
+                    phoneNumberExt = "_[+0-9].";
+                    _i = 0, _a = [fromDongle_1.context, fromSip_1.callContext];
+                    _g.label = 1;
                 case 1:
-                    if (!(_i < _a.length)) return [3 /*break*/, 6];
+                    if (!(_i < _a.length)) return [3 /*break*/, 7];
                     context = _a[_i];
-                    return [4 /*yield*/, ami.removeExtension(extension, context)];
+                    return [4 /*yield*/, ami.removeExtension(phoneNumberExt, context)];
                 case 2:
-                    _c.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(extension, 1, "AGI(agi:async)", context)];
+                    _g.sent();
+                    i_1 = 1;
+                    _b = 0, _c = ["AGI(agi:async)", "Hangup()"];
+                    _g.label = 3;
                 case 3:
-                    _c.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(extension, 2, "Hangup()", context)];
+                    if (!(_b < _c.length)) return [3 /*break*/, 6];
+                    action = _c[_b];
+                    return [4 /*yield*/, ami.addDialplanExtension(phoneNumberExt, i_1++, action, context)];
                 case 4:
-                    _c.sent();
-                    _c.label = 5;
+                    _g.sent();
+                    _g.label = 5;
                 case 5:
+                    _b++;
+                    return [3 /*break*/, 3];
+                case 6:
                     _i++;
                     return [3 /*break*/, 1];
-                case 6:
+                case 7:
+                    i = 1;
+                    _d = 0, _e = ["AGI(agi:async)", "Return()"];
+                    _g.label = 8;
+                case 8:
+                    if (!(_d < _e.length)) return [3 /*break*/, 11];
+                    action = _e[_d];
+                    return [4 /*yield*/, ami.addDialplanExtension(fromDongle_1.outboundExt, i++, action, fromDongle_1.context)];
+                case 9:
+                    _g.sent();
+                    _g.label = 10;
+                case 10:
+                    _d++;
+                    return [3 /*break*/, 8];
+                case 11:
                     variables = [
                         "MESSAGE(to)",
                         "MESSAGE(from)",
@@ -95,29 +114,29 @@ var ami = client.ami;
                         "MESSAGE_DATA(Authorization)",
                         "MESSAGE_DATA(Content-Length)"
                     ];
-                    extension = "_.";
+                    phoneNumberExt = "_.";
                     priority = 1;
-                    return [4 /*yield*/, ami.removeExtension(extension, incomingSipMessageContext)];
-                case 7:
-                    _c.sent();
-                    _b = 0, variables_1 = variables;
-                    _c.label = 8;
-                case 8:
-                    if (!(_b < variables_1.length)) return [3 /*break*/, 11];
-                    variable = variables_1[_b];
-                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(" + variable + "===${" + variable + "})", incomingSipMessageContext)];
-                case 9:
-                    _c.sent();
-                    _c.label = 10;
-                case 10:
-                    _b++;
-                    return [3 /*break*/, 8];
-                case 11: return [4 /*yield*/, ami.addDialplanExtension(extension, priority++, "NoOp(MESSAGE(base-64-encoded-body)===${BASE64_ENCODE(${MESSAGE(body)})})", incomingSipMessageContext)];
+                    return [4 /*yield*/, ami.removeExtension(phoneNumberExt, fromSip_1.messageContext)];
                 case 12:
-                    _c.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(extension, priority, "Hangup()", incomingSipMessageContext)];
+                    _g.sent();
+                    _f = 0, variables_1 = variables;
+                    _g.label = 13;
                 case 13:
-                    _c.sent();
+                    if (!(_f < variables_1.length)) return [3 /*break*/, 16];
+                    variable = variables_1[_f];
+                    return [4 /*yield*/, ami.addDialplanExtension(phoneNumberExt, priority++, "NoOp(" + variable + "===${" + variable + "})", fromSip_1.messageContext)];
+                case 14:
+                    _g.sent();
+                    _g.label = 15;
+                case 15:
+                    _f++;
+                    return [3 /*break*/, 13];
+                case 16: return [4 /*yield*/, ami.addDialplanExtension(phoneNumberExt, priority++, "NoOp(MESSAGE(base-64-encoded-body)===${BASE64_ENCODE(${MESSAGE(body)})})", fromSip_1.messageContext)];
+                case 17:
+                    _g.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(phoneNumberExt, priority, "Hangup()", fromSip_1.messageContext)];
+                case 18:
+                    _g.sent();
                     return [2 /*return*/];
             }
         });
@@ -132,8 +151,8 @@ new ts_async_agi_1.AsyncAGIServer(function (channel) { return __awaiter(_this, v
                 console.log("AGI REQUEST...");
                 _a = channel.request.context;
                 switch (_a) {
-                    case "from-dongle": return [3 /*break*/, 1];
-                    case "from-sip-call": return [3 /*break*/, 3];
+                    case fromDongle_1.context: return [3 /*break*/, 1];
+                    case fromSip_1.callContext: return [3 /*break*/, 3];
                 }
                 return [3 /*break*/, 5];
             case 1: return [4 /*yield*/, fromDongle_1.fromDongle.call(channel)];
@@ -162,7 +181,7 @@ client.evtMessageStatusReport.attach(function (_a) {
 ami.evt.attach(function (_a) {
     var event = _a.event, context = _a.context, priority = _a.priority;
     return (event === "Newexten" &&
-        context === incomingSipMessageContext &&
+        context === fromSip_1.messageContext &&
         priority === "1");
 }, function (newExten) { return __awaiter(_this, void 0, void 0, function () {
     var variables, uniqueId, application, appdata, match, variable, value, key, key_1;

@@ -4,6 +4,11 @@ import { Base64 } from "js-base64";
 import { pjsip } from "./pjsip";
 import { diagnostics } from "./diagnostics";
 
+import { gain } from "./fromDongle";
+
+export const callContext= "from-sip-call";
+export const messageContext= "from-sip-message";
+
 export interface OutOfCallMessage {
     'MESSAGE': {
         'to': string;
@@ -32,23 +37,15 @@ export namespace fromSip {
 
         console.log("FROM SIP CALL!");
 
-        await diagnostics(channel);
+        //await diagnostics(channel);
 
         let imei = channel.request.callerid;
 
-        //await _.setVariable("JITTERBUFFER(fixed)","250,1500");
+        await _.setVariable("JITTERBUFFER(fixed)","2500,10000");
+
+        await _.setVariable("AGC(rx)", gain);
 
         await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`, "60"]);
-
-
-        /*
-        await _.answer();
-
-        await _.streamFile("hello-world");
-        */
-
-
-        //exten = s,1,Dial(Dongle/${DONGLE}/${DEST_NUM})
 
     }
 

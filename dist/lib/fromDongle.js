@@ -37,6 +37,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var pjsip_1 = require("./pjsip");
+exports.gain = "4000";
+exports.context = "from-dongle";
+exports.outboundExt = "outbound";
 var fromDongle;
 (function (fromDongle) {
     function sms(imei, message) {
@@ -118,48 +121,84 @@ var fromDongle;
     fromDongle.statusReport = statusReport;
     function call(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, gain, imei, contactsToDial_, contactsToDial;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var _a;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
-                        console.log("... FROM DONGLE CALL!");
-                        _ = channel.relax;
-                        gain = "4000";
-                        console.log({ gain: gain });
-                        console.log("AGC, answer after, no play, gain 4000, rx off");
-                        return [4 /*yield*/, _.setVariable("AGC(rx)", "off")];
-                    case 1:
-                        _a.sent();
-                        return [4 /*yield*/, _.setVariable("AGC(tx)", gain)];
-                    case 2:
-                        _a.sent();
-                        return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
-                    case 3:
-                        imei = (_a.sent());
-                        console.log({ imei: imei });
-                        return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
-                    case 4:
-                        contactsToDial_ = _a.sent();
-                        console.log({ contactsToDial_: contactsToDial_ });
-                        return [4 /*yield*/, pjsip_1.pjsip.getEndpointContacts(imei)];
-                    case 5:
-                        contactsToDial = (_a.sent()).map(function (contact) { return "PJSIP/" + contact; }).join("&");
-                        if (!contactsToDial) {
-                            console.log("No contact to dial!");
-                            return [2 /*return*/];
+                        console.log("... FROM DONGLE CALL");
+                        _a = channel.request.extension;
+                        switch (_a) {
+                            case exports.outboundExt: return [3 /*break*/, 1];
                         }
-                        console.log({ contactsToDial: contactsToDial });
-                        return [4 /*yield*/, _.answer()];
-                    case 6:
-                        _a.sent();
-                        return [4 /*yield*/, _.exec("Dial", [contactsToDial, "60"])];
-                    case 7:
-                        _a.sent();
-                        return [2 /*return*/];
+                        return [3 /*break*/, 3];
+                    case 1: return [4 /*yield*/, call.outbound(channel)];
+                    case 2:
+                        _b.sent();
+                        return [3 /*break*/, 5];
+                    case 3: return [4 /*yield*/, call.inbound(channel)];
+                    case 4:
+                        _b.sent();
+                        return [3 /*break*/, 5];
+                    case 5: return [2 /*return*/];
                 }
             });
         });
     }
     fromDongle.call = call;
+    (function (call) {
+        function inbound(channel) {
+            return __awaiter(this, void 0, void 0, function () {
+                var _, imei, contactsToDial_, contactsToDial;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            console.log("... INBOUND !");
+                            _ = channel.relax;
+                            return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
+                        case 1:
+                            imei = (_a.sent());
+                            console.log({ imei: imei });
+                            return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
+                        case 2:
+                            contactsToDial_ = _a.sent();
+                            console.log({ contactsToDial_: contactsToDial_ });
+                            return [4 /*yield*/, pjsip_1.pjsip.getEndpointContacts(imei)];
+                        case 3:
+                            contactsToDial = (_a.sent()).map(function (contact) { return "PJSIP/" + contact; }).join("&");
+                            if (!contactsToDial) {
+                                console.log("No contact to dial!");
+                                return [2 /*return*/];
+                            }
+                            console.log({ contactsToDial: contactsToDial });
+                            return [4 /*yield*/, _.exec("Dial", [contactsToDial, "", "b(" + exports.context + "^" + exports.outboundExt + "^" + 1 + ")"])];
+                        case 4:
+                            _a.sent();
+                            return [2 /*return*/];
+                    }
+                });
+            });
+        }
+        call.inbound = inbound;
+        function outbound(channel) {
+            return __awaiter(this, void 0, void 0, function () {
+                var _;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0:
+                            _ = channel.relax;
+                            console.log("OUTBOUND !");
+                            return [4 /*yield*/, _.setVariable("JITTERBUFFER(fixed)", "2500,10000")];
+                        case 1:
+                            _a.sent();
+                            return [4 /*yield*/, _.setVariable("AGC(rx)", exports.gain)];
+                        case 2:
+                            _a.sent();
+                            return [2 /*return*/];
+                    }
+                });
+            });
+        }
+        call.outbound = outbound;
+    })(call = fromDongle.call || (fromDongle.call = {}));
 })(fromDongle = exports.fromDongle || (exports.fromDongle = {}));
 //# sourceMappingURL=fromDongle.js.map

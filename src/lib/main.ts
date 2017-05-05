@@ -7,34 +7,44 @@ import {
 } from "ts-async-agi";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { SyncEvent } from "ts-events-extended";
-import { fromSip } from "./fromSip";
-import { fromDongle } from "./fromDongle";
+import { 
+    fromSip, 
+    callContext as fromSipCallContext,
+    messageContext as fromSipMessageContext
+} from "./fromSip";
+import { 
+    fromDongle, 
+    context as fromDongleContext, 
+    outboundExt as fromDongleOutboundExt
+} from "./fromDongle";
 import { pjsip } from "./pjsip";
 
 console.log("AGI Server is running");
 
-const incomingSipMessageContext = "from-sip-message";
 const client= DongleExtendedClient.localhost();
 const ami = client.ami;
 
+
 (async function initDialplan() {
 
-    let extension = "_[+0-9].";
+    let phoneNumberExt = "_[+0-9].";
 
-    for (let context of ["from-dongle", "from-sip-call"]) {
+    for (let context of [fromDongleContext, fromSipCallContext]) {
 
+        await ami.removeExtension(phoneNumberExt, context);
 
-        await ami.removeExtension(extension, context);
-
-        await ami.addDialplanExtension(
-            extension, 1, "AGI(agi:async)", context
-        );
-
-        await ami.addDialplanExtension(
-            extension, 2, "Hangup()", context
-        );
+        let i = 1;
+        for (let action of ["AGI(agi:async)", "Hangup()"])
+            await ami.addDialplanExtension(phoneNumberExt, i++, action, context);
 
     }
+
+
+    let i = 1;
+    for (let action of ["AGI(agi:async)", "Return()"])
+        await ami.addDialplanExtension(fromDongleOutboundExt, i++, action, fromDongleContext);
+
+
 
     const variables = [
         "MESSAGE(to)",
@@ -51,32 +61,32 @@ const ami = client.ami;
         "MESSAGE_DATA(Content-Length)"
     ];
 
-    extension = "_.";
+    phoneNumberExt = "_.";
     let priority = 1;
 
-    await ami.removeExtension(extension, incomingSipMessageContext);
+    await ami.removeExtension(phoneNumberExt, fromSipMessageContext);
 
     for (let variable of variables)
         await ami.addDialplanExtension(
-            extension,
+            phoneNumberExt,
             priority++,
             `NoOp(${variable}===\${${variable}})`,
-            incomingSipMessageContext
+            fromSipMessageContext
         );
 
     await ami.addDialplanExtension(
-        extension,
+        phoneNumberExt,
         priority++,
         `NoOp(MESSAGE(base-64-encoded-body)===\${BASE64_ENCODE(\${MESSAGE(body)})})`,
-        incomingSipMessageContext
+        fromSipMessageContext
     );
 
 
     await ami.addDialplanExtension(
-        extension,
+        phoneNumberExt,
         priority,
         "Hangup()",
-        incomingSipMessageContext
+        fromSipMessageContext
     );
 
 })();
@@ -89,10 +99,10 @@ new AsyncAGIServer(async channel => {
     console.log("AGI REQUEST...");
 
     switch (channel.request.context) {
-        case "from-dongle":
+        case fromDongleContext:
             await fromDongle.call(channel);
             break;
-        case "from-sip-call":
+        case fromSipCallContext:
             await fromSip.call(channel);
             break;
     }
@@ -115,7 +125,7 @@ client.evtMessageStatusReport.attach(
 ami.evt.attach(
     ({ event, context, priority }) => (
         event === "Newexten" &&
-        context === incomingSipMessageContext &&
+        context === fromSipMessageContext &&
         priority === "1"
     ),
     async newExten => {
@@ -166,12 +176,12 @@ ami.evt.attach(
     }
 );
 
-(async function findConnectedDongles(){
+(async function findConnectedDongles() {
 
-    for( let { imei } of await client.getActiveDongles())
+    for (let { imei } of await client.getActiveDongles())
         await pjsip.addEndpoint(imei);
 
-    for( let { imei } of await client.getLockedDongles())
+    for (let { imei } of await client.getLockedDongles())
         await pjsip.addEndpoint(imei);
 
 })();

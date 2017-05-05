@@ -1,4 +1,6 @@
 import { AGIChannel } from "ts-async-agi";
+export declare const callContext = "from-sip-call";
+export declare const messageContext = "from-sip-message";
 export interface OutOfCallMessage {
     'MESSAGE': {
         'to': string;
