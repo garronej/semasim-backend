@@ -22,7 +22,7 @@ export namespace fromDongle {
         store message
         */
 
-        let contacts = await pjsip.getEndpointContacts(imei);
+        let contacts = await pjsip.getAvailableEndpointContacts(imei);
 
         console.log(`Forwarding message to ${contacts.length} endpoints...`);
 
@@ -64,7 +64,7 @@ export namespace fromDongle {
 
         let { messageId, dischargeTime, isDelivered, status } = statusReport;
 
-        let contacts = await pjsip.getEndpointContacts(imei);
+        let contacts = await pjsip.getAvailableEndpointContacts(imei);
 
         console.log(`Forwarding status report to ${contacts.length} endpoints...`);
 
@@ -162,7 +162,7 @@ export namespace fromDongle {
 
             console.log({ contactsToDial_ });
 
-            let contactsToDial = (await pjsip.getEndpointContacts(imei)).map(contact => `PJSIP/${contact}`).join("&");
+            let contactsToDial = (await pjsip.getAvailableEndpointContacts(imei)).map(contact => `PJSIP/${contact}`).join("&");
 
             if (!contactsToDial) {
 

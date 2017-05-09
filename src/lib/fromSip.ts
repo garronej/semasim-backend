@@ -45,7 +45,7 @@ export namespace fromSip {
 
         await _.setVariable("AGC(rx)", gain);
 
-        await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`, "60"]);
+        await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`]);
 
     }
 
@@ -102,7 +102,7 @@ export namespace fromSip {
 
             let sendDate= new Date();
 
-            let contacts = await pjsip.getEndpointContacts(imei);
+            let contacts = await pjsip.getAvailableEndpointContacts(imei);
 
             //TODO: send as well content of the message and date for other contacts
 

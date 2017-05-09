@@ -8,8 +8,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t;
-    return { next: verb(0), "throw": verb(1), "return": verb(2) };
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
@@ -50,7 +50,7 @@ var fromDongle;
                     case 0:
                         console.log("FROM DONGLE MESSAGE");
                         console.log({ imei: imei, message: message });
-                        return [4 /*yield*/, pjsip_1.pjsip.getEndpointContacts(imei)];
+                        return [4 /*yield*/, pjsip_1.pjsip.getAvailableEndpointContacts(imei)];
                     case 1:
                         contacts = _a.sent();
                         console.log("Forwarding message to " + contacts.length + " endpoints...");
@@ -85,7 +85,7 @@ var fromDongle;
                         console.log("FROM DONGLE STATUS REPORT!");
                         console.log({ imei: imei, statusReport: statusReport });
                         messageId = statusReport.messageId, dischargeTime = statusReport.dischargeTime, isDelivered = statusReport.isDelivered, status = statusReport.status;
-                        return [4 /*yield*/, pjsip_1.pjsip.getEndpointContacts(imei)];
+                        return [4 /*yield*/, pjsip_1.pjsip.getAvailableEndpointContacts(imei)];
                     case 1:
                         contacts = _a.sent();
                         console.log("Forwarding status report to " + contacts.length + " endpoints...");
@@ -162,7 +162,7 @@ var fromDongle;
                         case 2:
                             contactsToDial_ = _a.sent();
                             console.log({ contactsToDial_: contactsToDial_ });
-                            return [4 /*yield*/, pjsip_1.pjsip.getEndpointContacts(imei)];
+                            return [4 /*yield*/, pjsip_1.pjsip.getAvailableEndpointContacts(imei)];
                         case 3:
                             contactsToDial = (_a.sent()).map(function (contact) { return "PJSIP/" + contact; }).join("&");
                             if (!contactsToDial) {

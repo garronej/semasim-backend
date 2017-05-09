@@ -119,8 +119,6 @@ client.evtMessageStatusReport.attach(
     ({ imei, ...statusReport }) => fromDongle.statusReport(imei, statusReport)
 );
 
-//ami.evt.attach( evt => console.log({ evt }));
-
 
 ami.evt.attach(
     ({ event, context, priority }) => (
