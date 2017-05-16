@@ -3,7 +3,7 @@
   "description": "Semasim daemon running on user devices",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
     "start": "node ./dist/lib/main"
@@ -32,6 +32,6 @@
     "@types/js-base64": "^2.1.5",
     "@types/mysql": "0.0.32",
     "@types/node": "^4.0.0",
-    "typescript": "^2.2.1"
+    "typescript": "^2.3.2"
   }
 }
