@@ -5,7 +5,7 @@ import * as pjsip from "../pjsip";
 
 //import { diagnostics } from "./diagnostics";
 
-export const gain = "4000";
+export const gain = `${4000}`;
 
 //TODO: Read from config file
 export const context = "from-dongle";
@@ -64,11 +64,12 @@ export namespace call {
 
         let imei = (await _.getVariable("DONGLEIMEI"))!;
 
-        console.log({ imei });
 
+        /*
         let contactsToDial_ = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
 
         console.log({ contactsToDial_ });
+        */
 
         let contactsToDial = (await pjsip.getAvailableContactsOfEndpoint(imei)).map(contact => `PJSIP/${contact}`).join("&");
 

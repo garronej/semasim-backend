@@ -1,5 +1,5 @@
 import { AGIChannel } from "ts-async-agi";
-export declare const gain = "4000";
+export declare const gain: string;
 export declare const context = "from-dongle";
 export declare const outboundExt = "outbound";
 export declare const jitterBuffer: {

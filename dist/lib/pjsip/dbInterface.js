@@ -42,11 +42,31 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spread = (this && this.__spread) || function () {
+    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+    return ar;
+};
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_exec_queue_1 = require("ts-exec-queue");
 var mysql = require("mysql");
-exports.callContext = "from-sip-call";
+exports.callContext = function (endpoint) { return "from-sip-call-" + endpoint; };
 exports.messageContext = "from-sip-message";
 var dbParams = {
     "host": "127.0.0.1",
@@ -60,60 +80,60 @@ function query(sql, values) {
         //console.log(r.sql);
     });
 }
-var authId = "semasim-default-auth";
-var isDbInit = false;
-function initDb() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, query([
+//const authId = "semasim-default-auth";
+exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue({}, "DB_WRITE", function (endpoint, callback) { return __awaiter(_this, void 0, void 0, function () {
+    var ps_aors, ps_endpoints, ps_auths;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log("addOrUpdate", endpoint);
+                ps_aors = (function () {
+                    var id = endpoint;
+                    var max_contacts = 12;
+                    var qualify_frequency = 15000;
+                    return [id, max_contacts, qualify_frequency];
+                })();
+                ps_endpoints = (function () {
+                    var id = endpoint;
+                    var disallow = "all";
+                    var allow = "alaw,ulaw";
+                    var context = exports.callContext(endpoint);
+                    var message_context = exports.messageContext;
+                    var aors = endpoint;
+                    var auth = endpoint;
+                    var force_rport = "no";
+                    return [id, disallow, allow, context, message_context, aors, auth, force_rport];
+                })();
+                ps_auths = (function () {
+                    var id = endpoint;
+                    var auth_type = "userpass";
+                    var username = endpoint;
+                    var password = "password";
+                    return [id, auth_type, username, password];
+                })();
+                return [4 /*yield*/, query([
+                        "INSERT INTO `ps_aors`",
+                        "(`id`,`max_contacts`,`qualify_frequency`) VALUES (?, ?, ?)",
+                        "ON DUPLICATE KEY UPDATE",
+                        "`max_contacts`= VALUES(`max_contacts`),",
+                        "`qualify_frequency`= VALUES(`qualify_frequency`)",
+                        ";",
+                        "INSERT INTO `ps_endpoints`",
+                        "(`id`,`disallow`,`allow`,`context`,`message_context`, `aors`, `auth`, `force_rport`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        "ON DUPLICATE KEY UPDATE",
+                        "`disallow`= VALUES(`disallow`),",
+                        "`allow`= VALUES(`allow`),",
+                        "`context`= VALUES(`context`),",
+                        "`message_context`= VALUES(`message_context`),",
+                        "`aors`= VALUES(`aors`),",
+                        "`auth`= VALUES(`auth`)",
+                        ";",
                         "INSERT INTO `ps_auths`",
                         "(`id`, `auth_type`, `username`, `password`) VALUES (?, ?, ?, ?)",
                         "ON DUPLICATE KEY UPDATE",
                         "`auth_type`= VALUES(`auth_type`), `username`= VALUES(`username`), `password`= VALUES(`password`)"
-                    ].join("\n"), [
-                        authId, "userpass", "admin", "admin"
-                    ])];
-                case 1:
-                    _a.sent();
-                    isDbInit = true;
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-var dbWriteCluster = {};
-exports.addEndpoint = ts_exec_queue_1.execQueue(dbWriteCluster, "DB_WRITE", function (imei, callback) { return __awaiter(_this, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                console.log("addEndpoint", imei);
-                if (!!isDbInit) return [3 /*break*/, 2];
-                return [4 /*yield*/, initDb()];
+                    ].join("\n"), __spread(ps_aors, ps_endpoints, ps_auths))];
             case 1:
-                _a.sent();
-                _a.label = 2;
-            case 2: return [4 /*yield*/, query([
-                    "INSERT INTO `ps_aors`",
-                    "(`id`,`max_contacts`,`qualify_frequency`) VALUES (?, ?, ?)",
-                    "ON DUPLICATE KEY UPDATE",
-                    "`max_contacts`= VALUES(`max_contacts`),",
-                    "`qualify_frequency`= VALUES(`qualify_frequency`)",
-                    ";",
-                    "INSERT INTO `ps_endpoints`",
-                    "(`id`,`disallow`,`allow`,`context`,`message_context`, `aors`, `auth`, `force_rport`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    "ON DUPLICATE KEY UPDATE",
-                    "`disallow`= VALUES(`disallow`),",
-                    "`allow`= VALUES(`allow`),",
-                    "`context`= VALUES(`context`),",
-                    "`message_context`= VALUES(`message_context`),",
-                    "`aors`= VALUES(`aors`),",
-                    "`auth`= VALUES(`auth`)"
-                ].join("\n"), [
-                    imei, 12, 5,
-                    imei, "all", "alaw,ulaw", exports.callContext, exports.messageContext, imei, authId, "no"
-                ])];
-            case 3:
                 _a.sent();
                 callback();
                 return [2 /*return*/];

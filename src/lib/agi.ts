@@ -10,32 +10,52 @@ import * as fromSip from "./fromSip";
 
 import * as fromDongle from "./fromDongle";
 
+export const phoneNumberExt= "_[+0-9].";
 
 
 export async function startServer(script: (channel: AGIChannel) => Promise<void>) {
 
-    await initDialplan();
+    await initDongleSideDialplan();
 
     new AsyncAGIServer(script, DongleExtendedClient.localhost().ami.ami);
 
 }
 
-async function initDialplan() {
+async function initDongleSideDialplan() {
 
-    const ami = DongleExtendedClient.localhost().ami;
+    let ami = DongleExtendedClient.localhost().ami;
 
-    let phoneNumberExt = "_[+0-9].";
+    let { context, outboundExt } = fromDongle;
 
-    for (let context of [fromDongle.context, fromSip.callContext]) {
+    await ami.removeExtension(phoneNumberExt, context);
 
-        await ami.removeExtension(phoneNumberExt, context);
+    let priority= 1;
 
-        await ami.addDialplanExtension(context, phoneNumberExt, 1, "AGI", "agi:async");
-        await ami.addDialplanExtension(context, phoneNumberExt, 2, "Hangup");
-    }
-    
-    await ami.addDialplanExtension(fromDongle.context, fromDongle.outboundExt, 1, "AGI", "agi:async");
-    await ami.addDialplanExtension(fromDongle.context, fromDongle.outboundExt, 2 , "Return");
+    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "AGI", "agi:async");
+    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "Hangup");
+
+    priority= 1;
+
+    await ami.addDialplanExtension(context, outboundExt, priority++, "AGI", "agi:async");
+    await ami.addDialplanExtension(context, outboundExt, priority++, "Return");
+
+}
+
+
+export async function initPjsipSideDialplan(endpoint: string) {
+
+    let ami = DongleExtendedClient.localhost().ami;
+
+    let context= fromSip.callContext(endpoint);
+
+    await ami.removeExtension(phoneNumberExt, context);
+
+    let priority = 1;
+
+    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "AGI", "agi:async");
+    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "Hangup");
+
+    await ami.addDialplanExtension(context, phoneNumberExt, "hint", `Custom:${endpoint}`);
 
 }
 

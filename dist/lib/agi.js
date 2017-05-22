@@ -34,26 +34,17 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_async_agi_1 = require("ts-async-agi");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var fromSip = require("./fromSip");
 var fromDongle = require("./fromDongle");
+exports.phoneNumberExt = "_[+0-9].";
 function startServer(script) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, initDialplan()];
+                case 0: return [4 /*yield*/, initDongleSideDialplan()];
                 case 1:
                     _a.sent();
                     new ts_async_agi_1.AsyncAGIServer(script, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.ami);
@@ -63,57 +54,63 @@ function startServer(script) {
     });
 }
 exports.startServer = startServer;
-function initDialplan() {
+function initDongleSideDialplan() {
     return __awaiter(this, void 0, void 0, function () {
-        var ami, phoneNumberExt, _a, _b, context, e_1_1, e_1, _c;
-        return __generator(this, function (_d) {
-            switch (_d.label) {
+        var ami, context, outboundExt, priority;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
                 case 0:
                     ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
-                    phoneNumberExt = "_[+0-9].";
-                    _d.label = 1;
+                    context = fromDongle.context, outboundExt = fromDongle.outboundExt;
+                    return [4 /*yield*/, ami.removeExtension(exports.phoneNumberExt, context)];
                 case 1:
-                    _d.trys.push([1, 8, 9, 10]);
-                    _a = __values([fromDongle.context, fromSip.callContext]), _b = _a.next();
-                    _d.label = 2;
+                    _a.sent();
+                    priority = 1;
+                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "AGI", "agi:async")];
                 case 2:
-                    if (!!_b.done) return [3 /*break*/, 7];
-                    context = _b.value;
-                    return [4 /*yield*/, ami.removeExtension(phoneNumberExt, context)];
+                    _a.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "Hangup")];
                 case 3:
-                    _d.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(context, phoneNumberExt, 1, "AGI", "agi:async")];
+                    _a.sent();
+                    priority = 1;
+                    return [4 /*yield*/, ami.addDialplanExtension(context, outboundExt, priority++, "AGI", "agi:async")];
                 case 4:
-                    _d.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(context, phoneNumberExt, 2, "Hangup")];
+                    _a.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(context, outboundExt, priority++, "Return")];
                 case 5:
-                    _d.sent();
-                    _d.label = 6;
-                case 6:
-                    _b = _a.next();
-                    return [3 /*break*/, 2];
-                case 7: return [3 /*break*/, 10];
-                case 8:
-                    e_1_1 = _d.sent();
-                    e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 10];
-                case 9:
-                    try {
-                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                    return [7 /*endfinally*/];
-                case 10: return [4 /*yield*/, ami.addDialplanExtension(fromDongle.context, fromDongle.outboundExt, 1, "AGI", "agi:async")];
-                case 11:
-                    _d.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(fromDongle.context, fromDongle.outboundExt, 2, "Return")];
-                case 12:
-                    _d.sent();
+                    _a.sent();
                     return [2 /*return*/];
             }
         });
     });
 }
+function initPjsipSideDialplan(endpoint) {
+    return __awaiter(this, void 0, void 0, function () {
+        var ami, context, priority;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
+                    context = fromSip.callContext(endpoint);
+                    return [4 /*yield*/, ami.removeExtension(exports.phoneNumberExt, context)];
+                case 1:
+                    _a.sent();
+                    priority = 1;
+                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "AGI", "agi:async")];
+                case 2:
+                    _a.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "Hangup")];
+                case 3:
+                    _a.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, "hint", "Custom:" + endpoint)];
+                case 4:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.initPjsipSideDialplan = initPjsipSideDialplan;
 /*
 
 export enum DongleStatus {

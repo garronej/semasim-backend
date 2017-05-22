@@ -51,7 +51,10 @@ export async function sendMessage(
 
     headers = { ...headers, "body_split_count": `${bodyParts.length}` };
 
-    for (let contact of await getAvailableContactsOfEndpoint(endpoint))
+    for (let contact of await getAvailableContactsOfEndpoint(endpoint)){
+
+        console.log("forwarding to contact: ", contact);
+
         for (let index = 0; index < bodyParts.length; index++){
 
             let body:string;
@@ -63,12 +66,13 @@ export async function sendMessage(
 
             await DongleExtendedClient.localhost().ami.messageSend(
                 `pjsip:${contact}`,
-                from,
+                `"foo_bar" <sip:${from}@192.168.0.20>`,
                 body,
                 toSipHeaders(message_type, { ...headers, "part_number": `${index}` })
             );
 
         }
+    }
 
 }
 
@@ -109,7 +113,8 @@ function getActualTo(toUri: string): string {
 
 function getEndpoint(from: string): string {
 
-    return from.match(/^<sip:([^@]+)/)![1];
+
+    return from.match(/^.*<sip:([^@]+)/)![1];
 
 }
 
@@ -359,6 +364,8 @@ async function initDialplan() {
 
     for (let appData of arrAppData)
         await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "NoOp", appData);
+
+    await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
 
     await ami.addDialplanExtension(messageContext, matchAllExt, priority, "Hangup");
 

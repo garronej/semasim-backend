@@ -37,7 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var pjsip = require("../pjsip");
 //import { diagnostics } from "./diagnostics";
-exports.gain = "4000";
+exports.gain = "" + 4000;
 //TODO: Read from config file
 exports.context = "from-dongle";
 exports.outboundExt = "outbound";
@@ -74,7 +74,7 @@ exports.call = call;
 (function (call) {
     function inbound(channel) {
         return __awaiter(this, void 0, void 0, function () {
-            var _, imei, contactsToDial_, contactsToDial;
+            var _, imei, contactsToDial;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -83,13 +83,8 @@ exports.call = call;
                         return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
                     case 1:
                         imei = (_a.sent());
-                        console.log({ imei: imei });
-                        return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
-                    case 2:
-                        contactsToDial_ = _a.sent();
-                        console.log({ contactsToDial_: contactsToDial_ });
                         return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
-                    case 3:
+                    case 2:
                         contactsToDial = (_a.sent()).map(function (contact) { return "PJSIP/" + contact; }).join("&");
                         if (!contactsToDial) {
                             console.log("No contact to dial!");
@@ -97,7 +92,7 @@ exports.call = call;
                         }
                         console.log({ contactsToDial: contactsToDial });
                         return [4 /*yield*/, _.exec("Dial", [contactsToDial, "", "b(" + exports.context + "^" + exports.outboundExt + "^" + 1 + ")"])];
-                    case 4:
+                    case 3:
                         _a.sent();
                         return [2 /*return*/];
                 }

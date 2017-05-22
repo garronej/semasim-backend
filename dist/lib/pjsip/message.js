@@ -96,6 +96,7 @@ function sendMessage(endpoint, from, headers, body, message_type, response_to_ca
                 case 3:
                     if (!!_b.done) return [3 /*break*/, 8];
                     contact = _b.value;
+                    console.log("forwarding to contact: ", contact);
                     index = 0;
                     _d.label = 4;
                 case 4:
@@ -107,7 +108,7 @@ function sendMessage(endpoint, from, headers, body, message_type, response_to_ca
                     }
                     else
                         body_1 = bodyParts[index];
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, from, body_1, toSipHeaders(message_type, __assign({}, headers, { "part_number": "" + index })))];
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, "\"foo_bar\" <sip:" + from + "@192.168.0.20>", body_1, toSipHeaders(message_type, __assign({}, headers, { "part_number": "" + index })))];
                 case 5:
                     _d.sent();
                     _d.label = 6;
@@ -175,7 +176,7 @@ function getActualTo(toUri) {
     return toUri.match(/^(?:pj)?sip:([^@]+)/)[1];
 }
 function getEndpoint(from) {
-    return from.match(/^<sip:([^@]+)/)[1];
+    return from.match(/^.*<sip:([^@]+)/)[1];
 }
 var evtPacketSipMessage = undefined;
 function getEvtPacketSipMessage() {
@@ -352,8 +353,11 @@ function initDialplan() {
                     }
                     finally { if (e_4) throw e_4.error; }
                     return [7 /*endfinally*/];
-                case 9: return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority, "Hangup")];
+                case 9: return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority++, "DumpChan")];
                 case 10:
+                    _b.sent();
+                    return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority, "Hangup")];
+                case 11:
                     _b.sent();
                     return [2 /*return*/];
             }

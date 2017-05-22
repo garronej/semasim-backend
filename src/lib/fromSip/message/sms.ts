@@ -45,17 +45,6 @@ export async function sms(sipPacket: pjsip.PacketSipMessage) {
 
         }
 
-        //TODO move down in process stack
-
-        if (!text && parseInt(sipPacket['MESSAGE_DATA']['Content-Length']) > 0) {
-
-            info_message = `MESSAGE NOT SEND, TOO LONG`;
-
-            return undefined;
-
-        }
-
-
         try {
 
             outgoingMessageId = await DongleExtendedClient.localhost().sendMessage(imei, number, text || " ");

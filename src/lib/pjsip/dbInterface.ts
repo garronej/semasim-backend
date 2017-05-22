@@ -4,7 +4,7 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as mysql from "mysql";
 import { SyncEvent } from "ts-events-extended";
 
-export const callContext= "from-sip-call";
+export const callContext= (endpoint: string)=> `from-sip-call-${endpoint}`;
 export const messageContext= "from-sip-message";
 
 const dbParams = {
@@ -36,36 +36,48 @@ function query(sql: string, values?: any[]): Promise<any> {
 
 }
 
-const authId = "semasim-default-auth";
+//const authId = "semasim-default-auth";
 
-let isDbInit = false;
+export const addOrUpdateEndpoint = execQueue({}, "DB_WRITE",
+    async (endpoint: string, callback?: () => void) => {
 
-async function initDb() {
+        console.log("addOrUpdate", endpoint);
 
-    await query(
-        [
-            "INSERT INTO `ps_auths`",
-            "(`id`, `auth_type`, `username`, `password`) VALUES (?, ?, ?, ?)",
-            "ON DUPLICATE KEY UPDATE",
-            "`auth_type`= VALUES(`auth_type`), `username`= VALUES(`username`), `password`= VALUES(`password`)"
-        ].join("\n"),
-        [
-            authId, "userpass", "admin", "admin"
-        ]
-    );
+        let ps_aors = (() => {
 
-    isDbInit = true;
+            let id = endpoint;
+            let max_contacts = 12;
+            let qualify_frequency = 15000;
 
-}
+            return [id, max_contacts, qualify_frequency];
 
-const dbWriteCluster = {};
+        })();
 
-export const addEndpoint = execQueue(dbWriteCluster, "DB_WRITE",
-    async (imei: string, callback?: () => void) => {
+        let ps_endpoints = (() => {
 
-        console.log("addEndpoint", imei);
+            let id = endpoint;
+            let disallow = "all";
+            let allow = "alaw,ulaw";
+            let context = callContext(endpoint);
+            let message_context = messageContext;
+            let aors = endpoint;
+            let auth = endpoint;
+            let force_rport = "no";
 
-        if (!isDbInit) await initDb();
+            return [id, disallow, allow, context, message_context, aors, auth, force_rport];
+
+        })();
+
+        let ps_auths = (() => {
+
+            let id = endpoint;
+            let auth_type = "userpass";
+            let username = endpoint;
+            let password = "password";
+
+            return [id, auth_type, username, password];
+
+        })();
 
         await query(
             [
@@ -83,12 +95,14 @@ export const addEndpoint = execQueue(dbWriteCluster, "DB_WRITE",
                 "`context`= VALUES(`context`),",
                 "`message_context`= VALUES(`message_context`),",
                 "`aors`= VALUES(`aors`),",
-                "`auth`= VALUES(`auth`)"
+                "`auth`= VALUES(`auth`)",
+                ";",
+                "INSERT INTO `ps_auths`",
+                "(`id`, `auth_type`, `username`, `password`) VALUES (?, ?, ?, ?)",
+                "ON DUPLICATE KEY UPDATE",
+                "`auth_type`= VALUES(`auth_type`), `username`= VALUES(`username`), `password`= VALUES(`password`)"
             ].join("\n"),
-            [
-                imei, 12, 5,
-                imei, "all", "alaw,ulaw", callContext, messageContext, imei, authId, "no"
-            ]
+            [...ps_aors, ...ps_endpoints, ...ps_auths]
         );
 
         callback!();

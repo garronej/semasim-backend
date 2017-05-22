@@ -99,11 +99,6 @@ function sms(sipPacket) {
                                             info_message = "MESSAGE NOT SEND, DONGLE NOT ACTIVE";
                                             return [2 /*return*/, undefined];
                                         }
-                                        //TODO move down in process stack
-                                        if (!text && parseInt(sipPacket['MESSAGE_DATA']['Content-Length']) > 0) {
-                                            info_message = "MESSAGE NOT SEND, TOO LONG";
-                                            return [2 /*return*/, undefined];
-                                        }
                                         _d.label = 8;
                                     case 8:
                                         _d.trys.push([8, 10, , 11]);
