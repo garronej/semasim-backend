@@ -69,9 +69,44 @@ var js_base64_1 = require("js-base64");
 var dbInterface_1 = require("./dbInterface");
 var appKeyword = "semasim";
 var body_id = 0;
+function getContactName(imei, number) {
+    return __awaiter(this, void 0, void 0, function () {
+        var numberPayload, contacts, contacts_1, contacts_1_1, _a, number_1, name, e_1, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0:
+                    numberPayload = getNumberPayload(number);
+                    if (!numberPayload)
+                        return [2 /*return*/, undefined];
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getSimPhonebook(imei)];
+                case 1:
+                    contacts = (_c.sent()).contacts;
+                    try {
+                        for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
+                            _a = contacts_1_1.value, number_1 = _a.number, name = _a.name;
+                            if (numberPayload === getNumberPayload(number_1))
+                                return [2 /*return*/, name];
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (contacts_1_1 && !contacts_1_1.done && (_b = contacts_1.return)) _b.call(contacts_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    return [2 /*return*/, undefined];
+            }
+        });
+    });
+}
+function getNumberPayload(number) {
+    var match = number.match(/^(?:0*|(?:\+[0-9]{2}))([0-9]+)$/);
+    return match ? match[1] : undefined;
+}
 function sendMessage(endpoint, from, headers, body, message_type, response_to_call_id, visible_message) {
     return __awaiter(this, void 0, void 0, function () {
-        var bodyInHeader, offsetKey, bodyParts, _a, _b, contact, index, body_1, e_1_1, e_1, _c;
+        var bodyInHeader, offsetKey, bodyParts, name, fromField, _a, _b, contact, index, body_1, e_2_1, e_2, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
@@ -86,21 +121,27 @@ function sendMessage(endpoint, from, headers, body, message_type, response_to_ca
                         offsetKey = "Base64Body";
                     bodyParts = chan_dongle_extended_client_1.textSplitBase64ForAmiSplitFirst(body, offsetKey).map(function (part) { return js_base64_1.Base64.decode(part); });
                     headers = __assign({}, headers, { "body_split_count": "" + bodyParts.length });
-                    _d.label = 1;
+                    return [4 /*yield*/, getContactName(endpoint, from)];
                 case 1:
-                    _d.trys.push([1, 9, 10, 11]);
-                    return [4 /*yield*/, endpointsContacts_1.getAvailableContactsOfEndpoint(endpoint)];
+                    name = _d.sent();
+                    fromField = "<sip:" + from + "@192.168.0.20>";
+                    if (name)
+                        fromField = "\"" + name + " (" + from + ")\" " + fromField;
+                    _d.label = 2;
                 case 2:
-                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                    _d.label = 3;
+                    _d.trys.push([2, 10, 11, 12]);
+                    return [4 /*yield*/, endpointsContacts_1.getAvailableContactsOfEndpoint(endpoint)];
                 case 3:
-                    if (!!_b.done) return [3 /*break*/, 8];
+                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                    _d.label = 4;
+                case 4:
+                    if (!!_b.done) return [3 /*break*/, 9];
                     contact = _b.value;
                     console.log("forwarding to contact: ", contact);
                     index = 0;
-                    _d.label = 4;
-                case 4:
-                    if (!(index < bodyParts.length)) return [3 /*break*/, 7];
+                    _d.label = 5;
+                case 5:
+                    if (!(index < bodyParts.length)) return [3 /*break*/, 8];
                     body_1 = void 0;
                     if (bodyInHeader) {
                         headers = __assign({}, headers, { "base64_body": js_base64_1.Base64.encode(bodyParts[index]) });
@@ -108,28 +149,30 @@ function sendMessage(endpoint, from, headers, body, message_type, response_to_ca
                     }
                     else
                         body_1 = bodyParts[index];
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, "\"foo_bar\" <sip:" + from + "@192.168.0.20>", body_1, toSipHeaders(message_type, __assign({}, headers, { "part_number": "" + index })))];
-                case 5:
-                    _d.sent();
-                    _d.label = 6;
+                    //{ ...toSipHeaders(message_type, { ...headers, "part_number": `${index}` }), "Content-Type": "text/html" }
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact, fromField, body_1, toSipHeaders(message_type, __assign({}, headers, { "part_number": "" + index })))];
                 case 6:
-                    index++;
-                    return [3 /*break*/, 4];
+                    //{ ...toSipHeaders(message_type, { ...headers, "part_number": `${index}` }), "Content-Type": "text/html" }
+                    _d.sent();
+                    _d.label = 7;
                 case 7:
+                    index++;
+                    return [3 /*break*/, 5];
+                case 8:
                     _b = _a.next();
-                    return [3 /*break*/, 3];
-                case 8: return [3 /*break*/, 11];
-                case 9:
-                    e_1_1 = _d.sent();
-                    e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 11];
+                    return [3 /*break*/, 4];
+                case 9: return [3 /*break*/, 12];
                 case 10:
+                    e_2_1 = _d.sent();
+                    e_2 = { error: e_2_1 };
+                    return [3 /*break*/, 12];
+                case 11:
                     try {
                         if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
-                    finally { if (e_1) throw e_1.error; }
+                    finally { if (e_2) throw e_2.error; }
                     return [7 /*endfinally*/];
-                case 11: return [2 /*return*/];
+                case 12: return [2 /*return*/];
             }
         });
     });
@@ -144,15 +187,15 @@ function toSipHeaders(message_type, headers) {
             sipHeaders[appKeyword + "-" + message_type + "-" + key] = headers[key];
         }
     }
-    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+    catch (e_3_1) { e_3 = { error: e_3_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_2) throw e_2.error; }
+        finally { if (e_3) throw e_3.error; }
     }
     return sipHeaders;
-    var e_2, _c;
+    var e_3, _c;
 }
 function computeVariableLine(sipHeaders) {
     var line = "";
@@ -162,15 +205,15 @@ function computeVariableLine(sipHeaders) {
             line += key + "=" + sipHeaders[key] + ",";
         }
     }
-    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+    catch (e_4_1) { e_4 = { error: e_4_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_3) throw e_3.error; }
+        finally { if (e_4) throw e_4.error; }
     }
     return "Variables" + line.slice(0, -1);
-    var e_3, _c;
+    var e_4, _c;
 }
 function getActualTo(toUri) {
     return toUri.match(/^(?:pj)?sip:([^@]+)/)[1];
@@ -310,7 +353,7 @@ function getEvtPacketRaw() {
 }
 function initDialplan() {
     return __awaiter(this, void 0, void 0, function () {
-        var ami, arrAppData, matchAllExt, priority, arrAppData_1, arrAppData_1_1, appData, e_4_1, e_4, _a;
+        var ami, arrAppData, matchAllExt, priority, arrAppData_1, arrAppData_1_1, appData, e_5_1, e_5, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -344,14 +387,14 @@ function initDialplan() {
                     return [3 /*break*/, 3];
                 case 6: return [3 /*break*/, 9];
                 case 7:
-                    e_4_1 = _b.sent();
-                    e_4 = { error: e_4_1 };
+                    e_5_1 = _b.sent();
+                    e_5 = { error: e_5_1 };
                     return [3 /*break*/, 9];
                 case 8:
                     try {
                         if (arrAppData_1_1 && !arrAppData_1_1.done && (_a = arrAppData_1.return)) _a.call(arrAppData_1);
                     }
-                    finally { if (e_4) throw e_4.error; }
+                    finally { if (e_5) throw e_5.error; }
                     return [7 /*endfinally*/];
                 case 9: return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority++, "DumpChan")];
                 case 10:

@@ -14,6 +14,30 @@ const appKeyword = "semasim";
 
 let body_id= 0;
 
+async function getContactName(imei: string, number: string): Promise<string | undefined> {
+
+    let numberPayload= getNumberPayload(number);
+
+    if( !numberPayload ) return undefined;
+
+    let { contacts } = await DongleExtendedClient.localhost().getSimPhonebook(imei);
+
+    for( let {number, name} of contacts )
+        if( numberPayload === getNumberPayload(number) ) return name;
+    
+    return undefined;
+
+}
+
+function getNumberPayload(number: string): string | undefined {
+
+    let match = number.match(/^(?:0*|(?:\+[0-9]{2}))([0-9]+)$/);
+
+    return match?match[1]:undefined;
+
+}
+
+
 export async function sendMessage(
     endpoint: string,
     from: string,
@@ -51,6 +75,13 @@ export async function sendMessage(
 
     headers = { ...headers, "body_split_count": `${bodyParts.length}` };
 
+    
+    let name= await getContactName(endpoint, from);
+
+    let fromField= `<sip:${from}@192.168.0.20>`;
+
+    if( name ) fromField= `"${name} (${from})" ${fromField}`;
+
     for (let contact of await getAvailableContactsOfEndpoint(endpoint)){
 
         console.log("forwarding to contact: ", contact);
@@ -64,9 +95,11 @@ export async function sendMessage(
                 body= (index===0)?visible_message!:"";
             }else body= bodyParts[index];
 
+            //{ ...toSipHeaders(message_type, { ...headers, "part_number": `${index}` }), "Content-Type": "text/html" }
+
             await DongleExtendedClient.localhost().ami.messageSend(
                 `pjsip:${contact}`,
-                `"foo_bar" <sip:${from}@192.168.0.20>`,
+                fromField,
                 body,
                 toSipHeaders(message_type, { ...headers, "part_number": `${index}` })
             );
