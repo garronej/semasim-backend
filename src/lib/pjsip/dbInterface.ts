@@ -38,7 +38,21 @@ function query(sql: string, values?: any[]): Promise<any> {
 
 //const authId = "semasim-default-auth";
 
-export const addOrUpdateEndpoint = execQueue({}, "DB_WRITE",
+const cluster= {};
+
+export const queryEndpoints= execQueue(cluster, "DB_ACCESS",
+    async (callback?: (endpoints: string[])=> void): Promise<string[]> =>{
+
+        let res= await query("SELECT `id` FROM `ps_endpoints`");
+
+        let endpoints: string[]= res.map( ({ id })=> id );
+
+        callback!(endpoints);
+        return null as any;
+    }
+);
+
+export const addOrUpdateEndpoint = execQueue(cluster, "DB_ACCESS",
     async (endpoint: string, callback?: () => void) => {
 
         console.log("addOrUpdate", endpoint);

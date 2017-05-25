@@ -76,11 +76,23 @@ async function initEndpoint(endpoint: string) {
 
 (async function findConnectedDongles() {
 
-    for (let { imei } of await dongleClient.getActiveDongles())
-        dongleEvtHandlers.onNewActiveDongle(imei);
 
-    for (let { imei } of await dongleClient.getLockedDongles())
-        dongleEvtHandlers.onRequestUnlockCode(imei);
+    let activeDongles= (await dongleClient.getActiveDongles()).map(({imei})=> imei);
+
+    let lockedDongles= (await dongleClient.getLockedDongles()).map(({imei})=> imei);
+
+    let disconnectedDongles= (await pjsip.queryEndpoints()).filter( imei => 
+        [ ...activeDongles, ...lockedDongles ].indexOf(imei) < 0
+    );
+
+    for( let imei of activeDongles ) dongleEvtHandlers.onNewActiveDongle(imei);
+
+    for( let imei of lockedDongles ) dongleEvtHandlers.onRequestUnlockCode(imei);
+
+    for( let imei of disconnectedDongles ) initEndpoint(imei);
+
+    console.log( { activeDongles, lockedDongles, disconnectedDongles });
+
 
 })();
 

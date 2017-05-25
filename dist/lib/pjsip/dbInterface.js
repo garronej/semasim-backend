@@ -81,7 +81,24 @@ function query(sql, values) {
     });
 }
 //const authId = "semasim-default-auth";
-exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue({}, "DB_WRITE", function (endpoint, callback) { return __awaiter(_this, void 0, void 0, function () {
+var cluster = {};
+exports.queryEndpoints = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", function (callback) { return __awaiter(_this, void 0, void 0, function () {
+    var res, endpoints;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, query("SELECT `id` FROM `ps_endpoints`")];
+            case 1:
+                res = _a.sent();
+                endpoints = res.map(function (_a) {
+                    var id = _a.id;
+                    return id;
+                });
+                callback(endpoints);
+                return [2 /*return*/, null];
+        }
+    });
+}); });
+exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", function (endpoint, callback) { return __awaiter(_this, void 0, void 0, function () {
     var ps_aors, ps_endpoints, ps_auths;
     return __generator(this, function (_a) {
         switch (_a.label) {

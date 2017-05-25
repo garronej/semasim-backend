@@ -78,30 +78,30 @@ export async function sendMessage(
     
     let name= await getContactName(endpoint, from);
 
-    let fromField= `<sip:${from}@192.168.0.20>`;
+    let fromField = `<sip:${from}@192.168.0.20>`;
 
-    if( name ) fromField= `"${name} (${from})" ${fromField}`;
+    if (name) fromField = `"${name} (${from})" ${fromField}`;
 
-    for (let contact of await getAvailableContactsOfEndpoint(endpoint)){
+    for (let contact of await getAvailableContactsOfEndpoint(endpoint)) {
 
         console.log("forwarding to contact: ", contact);
 
-        for (let index = 0; index < bodyParts.length; index++){
+        for (let index = 0; index < bodyParts.length; index++) {
 
-            let body:string;
+            let body: string;
 
-            if( bodyInHeader ){
-                headers= { ...headers, "base64_body": Base64.encode(bodyParts[index]) };
-                body= (index===0)?visible_message!:"";
-            }else body= bodyParts[index];
+            if (bodyInHeader) {
+                headers = { ...headers, "base64_body": Base64.encode(bodyParts[index]) };
+                body = (index === 0) ? visible_message! : "";
+            } else body = bodyParts[index];
 
-            //{ ...toSipHeaders(message_type, { ...headers, "part_number": `${index}` }), "Content-Type": "text/html" }
+                //{ ...toSipHeaders(message_type, { ...headers, "part_number": `${index}` }), "Content-Type": "text/html" }
 
             await DongleExtendedClient.localhost().ami.messageSend(
                 `pjsip:${contact}`,
                 fromField,
                 body,
-                toSipHeaders(message_type, { ...headers, "part_number": `${index}` })
+                toSipHeaders(message_type, { ...headers, "part_number": `${index}` }),
             );
 
         }
@@ -218,7 +218,7 @@ function getEvtPacketReassembled(): SyncEvent<PacketReassembled> {
 
         bodyParts[headers.body_part_number] = body;
 
-        while (bodyParts.filter(v=>v).length !== parseInt(body_split_count)) {
+        while (bodyParts.filter(v => v).length !== parseInt(body_split_count)) {
 
             let { headers, body } = await evtPacketWithExtraHeaders.waitFor(newPacket => (
                 to === newPacket.to &&
@@ -398,9 +398,9 @@ async function initDialplan() {
     for (let appData of arrAppData)
         await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "NoOp", appData);
 
-    await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
+    //await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
 
-    await ami.addDialplanExtension(messageContext, matchAllExt, priority, "Hangup");
+    await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "Hangup");
 
 }
 

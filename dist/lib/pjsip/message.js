@@ -396,11 +396,11 @@ function initDialplan() {
                     }
                     finally { if (e_5) throw e_5.error; }
                     return [7 /*endfinally*/];
-                case 9: return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority++, "DumpChan")];
+                case 9: 
+                //await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
+                return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority++, "Hangup")];
                 case 10:
-                    _b.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority, "Hangup")];
-                case 11:
+                    //await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
                     _b.sent();
                     return [2 /*return*/];
             }

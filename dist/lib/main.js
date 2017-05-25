@@ -43,6 +43,26 @@ var __rest = (this && this.__rest) || function (s, e) {
             t[p[i]] = s[p[i]];
     return t;
 };
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spread = (this && this.__spread) || function () {
+    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+    return ar;
+};
 var __values = (this && this.__values) || function (o) {
     var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
     if (m) return m.call(o);
@@ -159,60 +179,67 @@ function initEndpoint(endpoint) {
 }
 (function findConnectedDongles() {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, _b, imei, e_1_1, _c, _d, imei, e_2_1, e_1, _e, e_2, _f;
-        return __generator(this, function (_g) {
-            switch (_g.label) {
-                case 0:
-                    _g.trys.push([0, 5, 6, 7]);
-                    return [4 /*yield*/, dongleClient.getActiveDongles()];
+        var activeDongles, lockedDongles, disconnectedDongles, activeDongles_1, activeDongles_1_1, imei, lockedDongles_1, lockedDongles_1_1, imei, disconnectedDongles_1, disconnectedDongles_1_1, imei, e_1, _a, e_2, _b, e_3, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0: return [4 /*yield*/, dongleClient.getActiveDongles()];
                 case 1:
-                    _a = __values.apply(void 0, [_g.sent()]), _b = _a.next();
-                    _g.label = 2;
-                case 2:
-                    if (!!_b.done) return [3 /*break*/, 4];
-                    imei = _b.value.imei;
-                    dongleEvtHandlers.onNewActiveDongle(imei);
-                    _g.label = 3;
-                case 3:
-                    _b = _a.next();
-                    return [3 /*break*/, 2];
-                case 4: return [3 /*break*/, 7];
-                case 5:
-                    e_1_1 = _g.sent();
-                    e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 7];
-                case 6:
-                    try {
-                        if (_b && !_b.done && (_e = _a.return)) _e.call(_a);
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                    return [7 /*endfinally*/];
-                case 7:
-                    _g.trys.push([7, 12, 13, 14]);
+                    activeDongles = (_d.sent()).map(function (_a) {
+                        var imei = _a.imei;
+                        return imei;
+                    });
                     return [4 /*yield*/, dongleClient.getLockedDongles()];
-                case 8:
-                    _c = __values.apply(void 0, [_g.sent()]), _d = _c.next();
-                    _g.label = 9;
-                case 9:
-                    if (!!_d.done) return [3 /*break*/, 11];
-                    imei = _d.value.imei;
-                    dongleEvtHandlers.onRequestUnlockCode(imei);
-                    _g.label = 10;
-                case 10:
-                    _d = _c.next();
-                    return [3 /*break*/, 9];
-                case 11: return [3 /*break*/, 14];
-                case 12:
-                    e_2_1 = _g.sent();
-                    e_2 = { error: e_2_1 };
-                    return [3 /*break*/, 14];
-                case 13:
+                case 2:
+                    lockedDongles = (_d.sent()).map(function (_a) {
+                        var imei = _a.imei;
+                        return imei;
+                    });
+                    return [4 /*yield*/, pjsip.queryEndpoints()];
+                case 3:
+                    disconnectedDongles = (_d.sent()).filter(function (imei) {
+                        return __spread(activeDongles, lockedDongles).indexOf(imei) < 0;
+                    });
                     try {
-                        if (_d && !_d.done && (_f = _c.return)) _f.call(_c);
+                        for (activeDongles_1 = __values(activeDongles), activeDongles_1_1 = activeDongles_1.next(); !activeDongles_1_1.done; activeDongles_1_1 = activeDongles_1.next()) {
+                            imei = activeDongles_1_1.value;
+                            dongleEvtHandlers.onNewActiveDongle(imei);
+                        }
                     }
-                    finally { if (e_2) throw e_2.error; }
-                    return [7 /*endfinally*/];
-                case 14: return [2 /*return*/];
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (activeDongles_1_1 && !activeDongles_1_1.done && (_a = activeDongles_1.return)) _a.call(activeDongles_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    try {
+                        for (lockedDongles_1 = __values(lockedDongles), lockedDongles_1_1 = lockedDongles_1.next(); !lockedDongles_1_1.done; lockedDongles_1_1 = lockedDongles_1.next()) {
+                            imei = lockedDongles_1_1.value;
+                            dongleEvtHandlers.onRequestUnlockCode(imei);
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (lockedDongles_1_1 && !lockedDongles_1_1.done && (_b = lockedDongles_1.return)) _b.call(lockedDongles_1);
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    try {
+                        for (disconnectedDongles_1 = __values(disconnectedDongles), disconnectedDongles_1_1 = disconnectedDongles_1.next(); !disconnectedDongles_1_1.done; disconnectedDongles_1_1 = disconnectedDongles_1.next()) {
+                            imei = disconnectedDongles_1_1.value;
+                            initEndpoint(imei);
+                        }
+                    }
+                    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                    finally {
+                        try {
+                            if (disconnectedDongles_1_1 && !disconnectedDongles_1_1.done && (_c = disconnectedDongles_1.return)) _c.call(disconnectedDongles_1);
+                        }
+                        finally { if (e_3) throw e_3.error; }
+                    }
+                    console.log({ activeDongles: activeDongles, lockedDongles: lockedDongles, disconnectedDongles: disconnectedDongles });
+                    return [2 /*return*/];
             }
         });
     });
