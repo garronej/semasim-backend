@@ -81,34 +81,17 @@ var fromSip = require("./fromSip");
 var fromDongle = require("./fromDongle");
 var pjsip = require("./pjsip");
 var agi = require("./agi");
+var _debug = require("debug");
+var debug = _debug("_main");
 //TODO periodically check if message can be sent
-console.log("Started");
-agi.startServer(function (channel) { return __awaiter(_this, void 0, void 0, function () {
-    var _a;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
-            case 0:
-                console.log("AGI REQUEST...");
-                _a = channel.request.context;
-                switch (_a) {
-                    case fromDongle.context: return [3 /*break*/, 1];
-                    case fromSip.callContext(channel.request.callerid): return [3 /*break*/, 3];
-                }
-                return [3 /*break*/, 5];
-            case 1: return [4 /*yield*/, fromDongle.call(channel)];
-            case 2:
-                _b.sent();
-                return [3 /*break*/, 5];
-            case 3: return [4 /*yield*/, fromSip.call(channel)];
-            case 4:
-                _b.sent();
-                return [3 /*break*/, 5];
-            case 5:
-                console.log("AGI Script Terminated");
-                return [2 /*return*/];
-        }
-    });
-}); });
+debug("Started!");
+var scripts = {};
+var phoneNumberAsteriskExtensionPattern = "_[+0-9].";
+scripts[pjsip.callContext] = {};
+scripts[pjsip.callContext][phoneNumberAsteriskExtensionPattern] = fromSip.call;
+scripts[fromDongle.context] = {};
+scripts[fromDongle.context][phoneNumberAsteriskExtensionPattern] = fromDongle.call;
+agi.startServer(scripts);
 var dongleClient = chan_dongle_extended_client_1.DongleExtendedClient.localhost();
 dongleClient.evtNewMessage.attach(function (_a) {
     var imei = _a.imei, message = __rest(_a, ["imei"]);
@@ -123,8 +106,8 @@ var dongleEvtHandlers = {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("onDongleDisconnect", { imei: imei });
-                    return [4 /*yield*/, pjsip.setPresence(imei, "ONHOLD")];
+                    debug("onDongleDisconnect", { imei: imei });
+                    return [4 /*yield*/, pjsip.setDevicePresence(imei, "ONHOLD")];
                 case 1:
                     _a.sent();
                     return [2 /*return*/];
@@ -135,8 +118,8 @@ var dongleEvtHandlers = {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("onNewActiveDongle");
-                    return [4 /*yield*/, pjsip.setPresence(imei, "NOT_INUSE")];
+                    debug("onNewActiveDongle");
+                    return [4 /*yield*/, pjsip.setDevicePresence(imei, "NOT_INUSE")];
                 case 1:
                     _a.sent();
                     return [4 /*yield*/, initEndpoint(imei)];
@@ -150,8 +133,8 @@ var dongleEvtHandlers = {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("onRequestUnlockCode");
-                    return [4 /*yield*/, pjsip.setPresence(imei, "UNAVAILABLE")];
+                    debug("onRequestUnlockCode");
+                    return [4 /*yield*/, pjsip.setDevicePresence(imei, "UNAVAILABLE")];
                 case 1:
                     _a.sent();
                     return [4 /*yield*/, initEndpoint(imei)];
@@ -166,7 +149,7 @@ function initEndpoint(endpoint) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, agi.initPjsipSideDialplan(endpoint)];
+                case 0: return [4 /*yield*/, pjsip.enableDevicePresenceNotification(endpoint)];
                 case 1:
                     _a.sent();
                     return [4 /*yield*/, pjsip.addOrUpdateEndpoint(endpoint)];
@@ -199,6 +182,7 @@ function initEndpoint(endpoint) {
                     disconnectedDongles = (_d.sent()).filter(function (imei) {
                         return __spread(activeDongles, lockedDongles).indexOf(imei) < 0;
                     });
+                    debug({ activeDongles: activeDongles, lockedDongles: lockedDongles, disconnectedDongles: disconnectedDongles });
                     try {
                         for (activeDongles_1 = __values(activeDongles), activeDongles_1_1 = activeDongles_1.next(); !activeDongles_1_1.done; activeDongles_1_1 = activeDongles_1.next()) {
                             imei = activeDongles_1_1.value;
@@ -238,7 +222,6 @@ function initEndpoint(endpoint) {
                         }
                         finally { if (e_3) throw e_3.error; }
                     }
-                    console.log({ activeDongles: activeDongles, lockedDongles: lockedDongles, disconnectedDongles: disconnectedDongles });
                     return [2 /*return*/];
             }
         });
@@ -259,111 +242,8 @@ dongleClient.evtRequestUnlockCode.attach(function (_a) {
 pjsip.getEvtNewContact().attach(function (_a) {
     //TODO Send initialization information.
     var endpoint = _a.endpoint, contact = _a.contact;
-    console.log("New contact", { endpoint: endpoint, contact: contact });
+    debug("New contact", { endpoint: endpoint, contact: contact });
 });
+//TODO: Include contact information in the packet
 pjsip.getEvtPacketSipMessage().attach(function (sipPacket) { return fromSip.message(sipPacket); });
-(function test() {
-    return __awaiter(this, void 0, void 0, function () {
-        var res, ami, state, presence;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 1000); })];
-                case 1:
-                    _a.sent();
-                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
-                    state = "NOT_INUSE";
-                    console.log({ state: state });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "SetVar",
-                            "variable": "DEVICE_STATE(Custom:bob)",
-                            "value": state
-                        })];
-                case 2:
-                    res = _a.sent();
-                    console.log(res.message);
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "DEVICE_STATE(Custom:bob)"
-                        })];
-                case 3:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    presence = "available,value subtype,value message";
-                    console.log({ presence: presence });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "SetVar",
-                            "variable": "PRESENCE_STATE(CustomPresence:bob)",
-                            "value": presence
-                        })];
-                case 4:
-                    res = _a.sent();
-                    console.log(res.message);
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "PRESENCE_STATE(CustomPresence:bob,value)"
-                        })];
-                case 5:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "PRESENCE_STATE(CustomPresence:bob,subtype)"
-                        })];
-                case 6:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "PRESENCE_STATE(CustomPresence:bob,message)"
-                        })];
-                case 7:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [2 /*return*/];
-            }
-        });
-    });
-});
-(function test2() {
-    return __awaiter(this, void 0, void 0, function () {
-        var res, ami;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 1000); })];
-                case 1:
-                    _a.sent();
-                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "DEVICE_STATE(PJSIP/358880032664586)"
-                        })];
-                case 2:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "PRESENCE_STATE(PJSIP/358880032664586,value)"
-                        })];
-                case 3:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "PRESENCE_STATE(PJSIP/358880032664586,subtype)"
-                        })];
-                case 4:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [4 /*yield*/, ami.postAction({
-                            "action": "GetVar",
-                            "variable": "PRESENCE_STATE(PJSIP/358880032664586,message)"
-                        })];
-                case 5:
-                    res = _a.sent();
-                    console.log({ res: res });
-                    return [2 /*return*/];
-            }
-        });
-    });
-});
 //# sourceMappingURL=main.js.map

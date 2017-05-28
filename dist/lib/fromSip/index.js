@@ -5,7 +5,4 @@ function __export(m) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __export(require("./message"));
 __export(require("./call"));
-var pjsip_1 = require("../pjsip");
-exports.callContext = pjsip_1.callContext;
-exports.messageContext = pjsip_1.messageContext;
 //# sourceMappingURL=index.js.map

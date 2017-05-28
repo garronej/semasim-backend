@@ -5,4 +5,6 @@ function __export(m) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __export(require("./call"));
 __export(require("./message"));
+//TODO import this from dongle.conf
+exports.context = "from-dongle";
 //# sourceMappingURL=index.js.map

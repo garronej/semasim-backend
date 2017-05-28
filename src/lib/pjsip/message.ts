@@ -14,7 +14,7 @@ const appKeyword = "semasim";
 
 let body_id= 0;
 
-async function getContactName(imei: string, number: string): Promise<string | undefined> {
+export async function getContactName(imei: string, number: string): Promise<string | undefined> {
 
     let numberPayload= getNumberPayload(number);
 
@@ -391,16 +391,16 @@ async function initDialplan() {
 
     let matchAllExt = "_.";
 
-    await ami.removeExtension(matchAllExt, messageContext);
+    await ami.dialplanExtensionRemove(matchAllExt, messageContext);
 
     let priority = 1;
 
     for (let appData of arrAppData)
-        await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "NoOp", appData);
+        await ami.dialplanExtensionAdd(messageContext, matchAllExt, priority++, "NoOp", appData);
 
     //await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
 
-    await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "Hangup");
+    await ami.dialplanExtensionAdd(messageContext, matchAllExt, priority++, "Hangup");
 
 }
 

@@ -34,83 +34,175 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_async_agi_1 = require("ts-async-agi");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var fromSip = require("./fromSip");
-var fromDongle = require("./fromDongle");
-exports.phoneNumberExt = "_[+0-9].";
-function startServer(script) {
+var _debug = require("debug");
+var debug = _debug("_agi");
+var outboundHandlers = {};
+function startServer(scripts) {
     return __awaiter(this, void 0, void 0, function () {
+        var _this = this;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, initDongleSideDialplan()];
+                case 0: return [4 /*yield*/, initDialplan(scripts)];
                 case 1:
                     _a.sent();
-                    new ts_async_agi_1.AsyncAGIServer(script, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.ami);
+                    new ts_async_agi_1.AsyncAGIServer(function (channel) { return __awaiter(_this, void 0, void 0, function () {
+                        var _a, context, threadid, extensionPattern;
+                        return __generator(this, function (_b) {
+                            switch (_b.label) {
+                                case 0:
+                                    _a = channel.request, context = _a.context, threadid = _a.threadid;
+                                    return [4 /*yield*/, channel.relax.getVariable("EXTENSION_PATTERN")];
+                                case 1:
+                                    extensionPattern = _b.sent();
+                                    if (!!extensionPattern) return [3 /*break*/, 3];
+                                    return [4 /*yield*/, outboundHandlers[context + "_" + threadid](channel)];
+                                case 2:
+                                    _b.sent();
+                                    return [2 /*return*/];
+                                case 3: return [4 /*yield*/, scripts[context][extensionPattern](channel)];
+                                case 4:
+                                    _b.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    }); }, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.ami);
                     return [2 /*return*/];
             }
         });
     });
 }
 exports.startServer = startServer;
-function initDongleSideDialplan() {
+function dialAndGetOutboundChannel(channel, dialString, outboundHandler) {
     return __awaiter(this, void 0, void 0, function () {
-        var ami, context, outboundExt, priority;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var _a, context, threadid, context_threadid;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
-                    context = fromDongle.context, outboundExt = fromDongle.outboundExt;
-                    return [4 /*yield*/, ami.removeExtension(exports.phoneNumberExt, context)];
+                    _a = channel.request, context = _a.context, threadid = _a.threadid;
+                    context_threadid = context + "_" + threadid;
+                    outboundHandlers[context_threadid] = outboundHandler;
+                    setTimeout(function () { return delete outboundHandlers[context_threadid]; }, 2000);
+                    return [4 /*yield*/, channel.relax.exec("Dial", [dialString, "", "b(" + context + "^outbound^1)"])];
                 case 1:
-                    _a.sent();
-                    priority = 1;
-                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "AGI", "agi:async")];
-                case 2:
-                    _a.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "Hangup")];
-                case 3:
-                    _a.sent();
-                    priority = 1;
-                    return [4 /*yield*/, ami.addDialplanExtension(context, outboundExt, priority++, "AGI", "agi:async")];
-                case 4:
-                    _a.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(context, outboundExt, priority++, "Return")];
-                case 5:
-                    _a.sent();
+                    _b.sent();
                     return [2 /*return*/];
             }
         });
     });
 }
-function initPjsipSideDialplan(endpoint) {
+exports.dialAndGetOutboundChannel = dialAndGetOutboundChannel;
+function initDialplan(scripts) {
     return __awaiter(this, void 0, void 0, function () {
-        var ami, context, priority;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var ami, _loop_1, _a, _b, context, e_1_1, e_1, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
                     ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
-                    context = fromSip.callContext(endpoint);
-                    return [4 /*yield*/, ami.removeExtension(exports.phoneNumberExt, context)];
+                    _loop_1 = function (context) {
+                        var _loop_2, _a, _b, extensionPattern, e_2_1, priority, pushExt, e_2, _c;
+                        return __generator(this, function (_d) {
+                            switch (_d.label) {
+                                case 0:
+                                    _loop_2 = function (extensionPattern) {
+                                        var priority_1, pushExt_1;
+                                        return __generator(this, function (_a) {
+                                            switch (_a.label) {
+                                                case 0: return [4 /*yield*/, ami.dialplanExtensionRemove(extensionPattern, context)];
+                                                case 1:
+                                                    _a.sent();
+                                                    priority_1 = 1;
+                                                    pushExt_1 = function (application, applicationData) {
+                                                        return ami.dialplanExtensionAdd(context, extensionPattern, priority_1++, application, applicationData);
+                                                    };
+                                                    pushExt_1("Set", "EXTENSION_PATTERN=" + extensionPattern);
+                                                    //pushExt("DumpChan");
+                                                    pushExt_1("AGI", "agi:async");
+                                                    pushExt_1("Hangup");
+                                                    return [2 /*return*/];
+                                            }
+                                        });
+                                    };
+                                    _d.label = 1;
+                                case 1:
+                                    _d.trys.push([1, 6, 7, 8]);
+                                    _a = __values(Object.keys(scripts[context])), _b = _a.next();
+                                    _d.label = 2;
+                                case 2:
+                                    if (!!_b.done) return [3 /*break*/, 5];
+                                    extensionPattern = _b.value;
+                                    return [5 /*yield**/, _loop_2(extensionPattern)];
+                                case 3:
+                                    _d.sent();
+                                    _d.label = 4;
+                                case 4:
+                                    _b = _a.next();
+                                    return [3 /*break*/, 2];
+                                case 5: return [3 /*break*/, 8];
+                                case 6:
+                                    e_2_1 = _d.sent();
+                                    e_2 = { error: e_2_1 };
+                                    return [3 /*break*/, 8];
+                                case 7:
+                                    try {
+                                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                                    }
+                                    finally { if (e_2) throw e_2.error; }
+                                    return [7 /*endfinally*/];
+                                case 8:
+                                    priority = 1;
+                                    pushExt = function (application, applicationData) {
+                                        return ami.dialplanExtensionAdd(context, "outbound", priority++, application, applicationData);
+                                    };
+                                    pushExt("AGI", "agi:async");
+                                    pushExt("Return");
+                                    return [2 /*return*/];
+                            }
+                        });
+                    };
+                    _d.label = 1;
                 case 1:
-                    _a.sent();
-                    priority = 1;
-                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "AGI", "agi:async")];
+                    _d.trys.push([1, 6, 7, 8]);
+                    _a = __values(Object.keys(scripts)), _b = _a.next();
+                    _d.label = 2;
                 case 2:
-                    _a.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, priority++, "Hangup")];
+                    if (!!_b.done) return [3 /*break*/, 5];
+                    context = _b.value;
+                    return [5 /*yield**/, _loop_1(context)];
                 case 3:
-                    _a.sent();
-                    return [4 /*yield*/, ami.addDialplanExtension(context, exports.phoneNumberExt, "hint", "Custom:" + endpoint)];
+                    _d.sent();
+                    _d.label = 4;
                 case 4:
-                    _a.sent();
-                    return [2 /*return*/];
+                    _b = _a.next();
+                    return [3 /*break*/, 2];
+                case 5: return [3 /*break*/, 8];
+                case 6:
+                    e_1_1 = _d.sent();
+                    e_1 = { error: e_1_1 };
+                    return [3 /*break*/, 8];
+                case 7:
+                    try {
+                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                    return [7 /*endfinally*/];
+                case 8: return [2 /*return*/];
             }
         });
     });
 }
-exports.initPjsipSideDialplan = initPjsipSideDialplan;
 /*
 
 export enum DongleStatus {
@@ -154,45 +246,6 @@ export async function fromDongle_(channel: AGIChannel): Promise<void> {
 
     let { extension } = channel.request;
 
-    if (extension === "sms") {
-
-        let sms64 = await _.getVariable("SMS_BASE64");
-
-        console.log("SMS from chan dongle: ", await _.getVariable(`BASE64_DECODE(${sms64})`));
-
-    } else if (extension === "reassembled-sms") {
-
-        let sms = await _.getVariable("SMS");
-
-        console.log("SMS: ", sms);
-
-        let date = new Date((await _.getVariable("SMS_DATE"))!);
-
-        console.log("SMS_NUMBER: ", await _.getVariable("SMS_NUMBER"));
-
-        console.log("DATE: ", date.toUTCString());
-
-        let textSplitCount = parseInt((await _.getVariable("SMS_TEXT_SPLIT_COUNT"))!);
-
-        let reassembledSms = "";
-
-        for (let i = 0; i < textSplitCount; i++)
-            reassembledSms += await _.getVariable(`SMS_TEXT_P${i}`);
-
-        console.log("SMS (REASSEMLED): ", decodeURI(reassembledSms));
-
-    } else if (extension === "sms-status-report") {
-
-        let statusReport = {
-            "dischargeTime": await _.getVariable("STATUS_REPORT_DISCHARGE_TIME"),
-            "isDelivered": await _.getVariable("STATUS_REPORT_IS_DELIVERED"),
-            "id": await _.getVariable("STATUS_REPORT_ID"),
-            "status": await _.getVariable("STATUS_REPORT_STATUS")
-        };
-
-        console.log("status report: ", statusReport);
-
-    } else {
 
         await _.exec("DongleStatus", [activeDongle.id!, "DONGLE_STATUS"]);
 
@@ -200,24 +253,9 @@ export async function fromDongle_(channel: AGIChannel): Promise<void> {
 
         console.log("Dongle status: ", DongleStatus[dongleStatus]);
 
-        await _.exec("Dial", ["SIP/alice", "10"]);
-
-    }
-}
-
-async function fromSip_(channel: AGIChannel): Promise<void> {
-
-    console.log("FROM SIP");
-
-    let _ = channel.relax;
-
-    await _.answer();
-
-    console.log(await _.streamFile("hello-world"));
-
-    //exten = s,1,Dial(Dongle/${DONGLE}/${DEST_NUM})
 
 }
+
 
 */
 //# sourceMappingURL=agi.js.map

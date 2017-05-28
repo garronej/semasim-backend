@@ -36,6 +36,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var fromDongle_1 = require("../fromDongle");
+var _debug = require("debug");
+var debug = _debug("_fromSip/call");
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
         var _, imei;
@@ -43,7 +45,7 @@ function call(channel) {
             switch (_a.label) {
                 case 0:
                     _ = channel.relax;
-                    console.log("FROM SIP CALL!");
+                    debug("FROM SIP CALL!");
                     imei = channel.request.callerid;
                     return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + fromDongle_1.jitterBuffer.type + ")", fromDongle_1.jitterBuffer.params)];
                 case 1:
@@ -54,6 +56,7 @@ function call(channel) {
                     return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension])];
                 case 3:
                     _a.sent();
+                    debug("call terminated");
                     return [2 /*return*/];
             }
         });

@@ -6,58 +6,98 @@ import {
 
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 
-import * as fromSip from "./fromSip";
-
-import * as fromDongle from "./fromDongle";
-
-export const phoneNumberExt= "_[+0-9].";
+import * as _debug from "debug";
+let debug = _debug("_agi");
 
 
-export async function startServer(script: (channel: AGIChannel) => Promise<void>) {
+export type Scripts = {
+    [context: string]: {
+        [extensionPattern: string]: (channel: AGIChannel)=> Promise<void>
+    };
+};
 
-    await initDongleSideDialplan();
+let outboundHandlers: { 
+    [context_threadid: string]: (channel: AGIChannel) => Promise<void> 
+} = {};
 
-    new AsyncAGIServer(script, DongleExtendedClient.localhost().ami.ami);
+export async function startServer( scripts: Scripts ) {
+
+    await initDialplan(scripts);
+
+    new AsyncAGIServer(async (channel) => {
+
+        let { context, threadid } = channel.request;
+
+        let extensionPattern = await channel.relax.getVariable("EXTENSION_PATTERN");
+
+        if( !extensionPattern ){
+
+            await outboundHandlers[`${context}_${threadid}`](channel);
+
+            return;
+
+        }
+
+        await scripts[context][extensionPattern](channel);
+
+    }, DongleExtendedClient.localhost().ami.ami);
 
 }
 
-async function initDongleSideDialplan() {
+export async function dialAndGetOutboundChannel(
+    channel: AGIChannel,
+    dialString: string,
+    outboundHandler: (channel: AGIChannel) => Promise<void>
+) {
+
+    let { context, threadid } = channel.request;
+
+    let context_threadid= `${context}_${threadid}`;
+
+    outboundHandlers[context_threadid] = outboundHandler;
+
+    setTimeout(()=> delete outboundHandlers[context_threadid], 2000);
+
+    await channel.relax.exec("Dial", [dialString, "", `b(${context}^outbound^1)`]);
+
+}
+
+
+async function initDialplan(scripts: Scripts) {
 
     let ami = DongleExtendedClient.localhost().ami;
 
-    let { context, outboundExt } = fromDongle;
+    for( let context of Object.keys(scripts) ){
 
-    await ami.removeExtension(phoneNumberExt, context);
+        for( let extensionPattern of Object.keys(scripts[context]) ){
 
-    let priority= 1;
+            await ami.dialplanExtensionRemove(extensionPattern, context);
 
-    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "AGI", "agi:async");
-    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "Hangup");
+            let priority = 1;
+            let pushExt = (application: string, applicationData?: string) =>
+                ami.dialplanExtensionAdd(context, extensionPattern, priority++, application, applicationData);
 
-    priority= 1;
-
-    await ami.addDialplanExtension(context, outboundExt, priority++, "AGI", "agi:async");
-    await ami.addDialplanExtension(context, outboundExt, priority++, "Return");
-
-}
+            pushExt("Set", `EXTENSION_PATTERN=${extensionPattern}`);
+            //pushExt("DumpChan");
+            pushExt("AGI", "agi:async");
+            pushExt("Hangup");
 
 
-export async function initPjsipSideDialplan(endpoint: string) {
+        }
 
-    let ami = DongleExtendedClient.localhost().ami;
+        let priority = 1;
+        let pushExt = (application: string, applicationData?: string) =>
+            ami.dialplanExtensionAdd(context, "outbound", priority++, application, applicationData);
 
-    let context= fromSip.callContext(endpoint);
+        pushExt("AGI", "agi:async");
+        pushExt("Return");
 
-    await ami.removeExtension(phoneNumberExt, context);
+    }
 
-    let priority = 1;
 
-    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "AGI", "agi:async");
-    await ami.addDialplanExtension(context, phoneNumberExt, priority++, "Hangup");
-
-    await ami.addDialplanExtension(context, phoneNumberExt, "hint", `Custom:${endpoint}`);
 
 }
+
 
 
 
@@ -104,45 +144,6 @@ export async function fromDongle_(channel: AGIChannel): Promise<void> {
 
     let { extension } = channel.request;
 
-    if (extension === "sms") {
-
-        let sms64 = await _.getVariable("SMS_BASE64");
-
-        console.log("SMS from chan dongle: ", await _.getVariable(`BASE64_DECODE(${sms64})`));
-
-    } else if (extension === "reassembled-sms") {
-
-        let sms = await _.getVariable("SMS");
-
-        console.log("SMS: ", sms);
-
-        let date = new Date((await _.getVariable("SMS_DATE"))!);
-
-        console.log("SMS_NUMBER: ", await _.getVariable("SMS_NUMBER"));
-
-        console.log("DATE: ", date.toUTCString());
-
-        let textSplitCount = parseInt((await _.getVariable("SMS_TEXT_SPLIT_COUNT"))!);
-
-        let reassembledSms = "";
-
-        for (let i = 0; i < textSplitCount; i++)
-            reassembledSms += await _.getVariable(`SMS_TEXT_P${i}`);
-
-        console.log("SMS (REASSEMLED): ", decodeURI(reassembledSms));
-
-    } else if (extension === "sms-status-report") {
-
-        let statusReport = {
-            "dischargeTime": await _.getVariable("STATUS_REPORT_DISCHARGE_TIME"),
-            "isDelivered": await _.getVariable("STATUS_REPORT_IS_DELIVERED"),
-            "id": await _.getVariable("STATUS_REPORT_ID"),
-            "status": await _.getVariable("STATUS_REPORT_STATUS")
-        };
-
-        console.log("status report: ", statusReport);
-
-    } else {
 
         await _.exec("DongleStatus", [activeDongle.id!, "DONGLE_STATUS"]);
 
@@ -150,23 +151,8 @@ export async function fromDongle_(channel: AGIChannel): Promise<void> {
 
         console.log("Dongle status: ", DongleStatus[dongleStatus]);
 
-        await _.exec("Dial", ["SIP/alice", "10"]);
-
-    }
-}
-
-async function fromSip_(channel: AGIChannel): Promise<void> {
-
-    console.log("FROM SIP");
-
-    let _ = channel.relax;
-
-    await _.answer();
-
-    console.log(await _.streamFile("hello-world"));
-
-    //exten = s,1,Dial(Dongle/${DONGLE}/${DEST_NUM})
 
 }
+
 
 */

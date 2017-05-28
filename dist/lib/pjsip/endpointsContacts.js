@@ -47,6 +47,8 @@ var __values = (this && this.__values) || function (o) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var ts_events_extended_1 = require("ts-events-extended");
+var _debug = require("debug");
+var debug = _debug("_pjsip/endpointsContacts");
 function getContacts() {
     var _this = this;
     return new Promise(function (resolve) { return __awaiter(_this, void 0, void 0, function () {
@@ -140,17 +142,18 @@ function getContacts() {
 }
 function getContactStatus(contact) {
     return __awaiter(this, void 0, void 0, function () {
-        var resp;
+        var output;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.postAction({
-                        "action": "Command",
-                        "Command": "pjsip show contact " + contact
-                    })];
+                case 0: return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.runCliCommand("pjsip show contact " + contact)];
                 case 1:
-                    resp = _a.sent();
+                    output = _a.sent();
                     try {
-                        return [2 /*return*/, resp.content.split("\n")[7].match(/^[ \t]*Contact:[ \t]*[^ \t]+[ \t]*[0-9a-fA-F]+[ \t]*([^ \t]+).*$/)[1]];
+                        return [2 /*return*/, output
+                                .split("\n")
+                                .filter(function (line) { return line.match(/^[ \t]*Contact:/); })
+                                .pop()
+                                .match(/^[ \t]*Contact:[ \t]*[^ \t]+[ \t]*[0-9a-fA-F]+[ \t]*([^ \t]+).*$/)[1]];
                     }
                     catch (error) {
                         return [2 /*return*/, undefined];
@@ -197,7 +200,8 @@ function getEvtNewContact() {
     var out = new ts_events_extended_1.SyncEvent();
     var pendingRegistrations = new Set();
     chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.evt.attach(function (managerEvt) { return (managerEvt.event === "ContactStatus" &&
-        managerEvt.contactstatus === "Created"); }, function callee(contactStatusEvt) {
+        managerEvt.contactstatus === "Created" &&
+        managerEvt.uri); }, function callee(contactStatusEvt) {
         return __awaiter(this, void 0, void 0, function () {
             var endpointname, uri, endpoint, contact, match, port, rinstance, registrationId, status;
             return __generator(this, function (_a) {
@@ -227,7 +231,7 @@ function getEvtNewContact() {
                                 out.post({ contact: contact, endpoint: endpoint });
                                 break;
                             default:
-                                console.log({ status: status });
+                                console.log("Unexpected contact status " + status);
                                 callee(contactStatusEvt);
                                 break;
                         }

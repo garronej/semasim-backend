@@ -4,8 +4,13 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as mysql from "mysql";
 import { SyncEvent } from "ts-events-extended";
 
-export const callContext= (endpoint: string)=> `from-sip-call-${endpoint}`;
+export const callContext= "from-sip-call";
 export const messageContext= "from-sip-message";
+export const subscribeContext= (imei: string)=> `from-sip-subscribe-${imei}`;
+
+
+import * as _debug from "debug";
+let debug = _debug("_fromDongles/dbInterface");
 
 const dbParams = {
     "host": "127.0.0.1",
@@ -53,9 +58,9 @@ export const queryEndpoints= execQueue(cluster, "DB_ACCESS",
 );
 
 export const addOrUpdateEndpoint = execQueue(cluster, "DB_ACCESS",
-    async (endpoint: string, callback?: () => void) => {
+    async (endpoint: string, callback?: () => void): Promise<void> => {
 
-        console.log("addOrUpdate", endpoint);
+        debug(`Add or update endpoint ${endpoint} in real time configuration`);
 
         let ps_aors = (() => {
 
@@ -72,13 +77,14 @@ export const addOrUpdateEndpoint = execQueue(cluster, "DB_ACCESS",
             let id = endpoint;
             let disallow = "all";
             let allow = "alaw,ulaw";
-            let context = callContext(endpoint);
+            let context = callContext;
             let message_context = messageContext;
+            let subscribe_context= subscribeContext(endpoint);
             let aors = endpoint;
             let auth = endpoint;
             let force_rport = "no";
 
-            return [id, disallow, allow, context, message_context, aors, auth, force_rport];
+            return [id, disallow, allow, context, message_context, subscribe_context, aors, auth, force_rport];
 
         })();
 
@@ -95,14 +101,16 @@ export const addOrUpdateEndpoint = execQueue(cluster, "DB_ACCESS",
 
         await query(
             [
-                "INSERT INTO `ps_aors`",
-                "(`id`,`max_contacts`,`qualify_frequency`) VALUES (?, ?, ?)",
+                "INSERT INTO `ps_aors`", 
+                "(`id`,`max_contacts`,`qualify_frequency`)",
+                "VALUES ( ?, ?, ?)",
                 "ON DUPLICATE KEY UPDATE",
                 "`max_contacts`= VALUES(`max_contacts`),",
                 "`qualify_frequency`= VALUES(`qualify_frequency`)",
                 ";",
                 "INSERT INTO `ps_endpoints`",
-                "(`id`,`disallow`,`allow`,`context`,`message_context`, `aors`, `auth`, `force_rport`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "(`id`,`disallow`,`allow`,`context`,`message_context`,`subscribe_context`,`aors`,`auth`,`force_rport`)",
+                "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 "ON DUPLICATE KEY UPDATE",
                 "`disallow`= VALUES(`disallow`),",
                 "`allow`= VALUES(`allow`),",
@@ -120,21 +128,7 @@ export const addOrUpdateEndpoint = execQueue(cluster, "DB_ACCESS",
         );
 
         callback!();
+        return null as any;
 
     }
 );
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

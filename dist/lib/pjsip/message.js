@@ -100,6 +100,7 @@ function getContactName(imei, number) {
         });
     });
 }
+exports.getContactName = getContactName;
 function getNumberPayload(number) {
     var match = number.match(/^(?:0*|(?:\+[0-9]{2}))([0-9]+)$/);
     return match ? match[1] : undefined;
@@ -366,7 +367,7 @@ function initDialplan() {
                         "base64_body===${BASE64_ENCODE(${MESSAGE(body)})}"
                     ];
                     matchAllExt = "_.";
-                    return [4 /*yield*/, ami.removeExtension(matchAllExt, dbInterface_1.messageContext)];
+                    return [4 /*yield*/, ami.dialplanExtensionRemove(matchAllExt, dbInterface_1.messageContext)];
                 case 1:
                     _b.sent();
                     priority = 1;
@@ -378,7 +379,7 @@ function initDialplan() {
                 case 3:
                     if (!!arrAppData_1_1.done) return [3 /*break*/, 6];
                     appData = arrAppData_1_1.value;
-                    return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority++, "NoOp", appData)];
+                    return [4 /*yield*/, ami.dialplanExtensionAdd(dbInterface_1.messageContext, matchAllExt, priority++, "NoOp", appData)];
                 case 4:
                     _b.sent();
                     _b.label = 5;
@@ -398,7 +399,7 @@ function initDialplan() {
                     return [7 /*endfinally*/];
                 case 9: 
                 //await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
-                return [4 /*yield*/, ami.addDialplanExtension(dbInterface_1.messageContext, matchAllExt, priority++, "Hangup")];
+                return [4 /*yield*/, ami.dialplanExtensionAdd(dbInterface_1.messageContext, matchAllExt, priority++, "Hangup")];
                 case 10:
                     //await ami.addDialplanExtension(messageContext, matchAllExt, priority++, "DumpChan");
                     _b.sent();

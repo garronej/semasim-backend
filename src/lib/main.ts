@@ -1,4 +1,4 @@
-require("rejection-tracker").main(__dirname, "..","..");
+require("rejection-tracker").main(__dirname, "..", "..");
 
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as fromSip from "./fromSip";
@@ -6,26 +6,27 @@ import * as fromDongle from "./fromDongle";
 import * as pjsip from "./pjsip";
 import * as agi from "./agi";
 
+import * as _debug from "debug";
+let debug = _debug("_main");
+
 //TODO periodically check if message can be sent
 
-console.log("Started");
 
-agi.startServer(async channel => {
+debug("Started!");
 
-    console.log("AGI REQUEST...");
 
-    switch (channel.request.context) {
-        case fromDongle.context:
-            await fromDongle.call(channel);
-            break;
-        case fromSip.callContext(channel.request.callerid):
-            await fromSip.call(channel);
-            break;
-    }
+let scripts: agi.Scripts= {};
 
-    console.log("AGI Script Terminated");
+let phoneNumberAsteriskExtensionPattern= "_[+0-9].";
 
-});
+scripts[pjsip.callContext]= {};
+scripts[pjsip.callContext][phoneNumberAsteriskExtensionPattern]= fromSip.call;
+
+scripts[fromDongle.context]= {};
+scripts[fromDongle.context][phoneNumberAsteriskExtensionPattern]= fromDongle.call;
+
+agi.startServer(scripts);
+
 
 const dongleClient = DongleExtendedClient.localhost();
 
@@ -40,16 +41,16 @@ dongleClient.evtMessageStatusReport.attach(
 let dongleEvtHandlers = {
     "onDongleDisconnect": async (imei: string) => {
 
-        console.log("onDongleDisconnect", { imei });
+        debug("onDongleDisconnect", { imei });
 
-        await pjsip.setPresence(imei, "ONHOLD");
+        await pjsip.setDevicePresence(imei, "ONHOLD");
 
     },
     "onNewActiveDongle": async (imei: string) => {
 
-        console.log("onNewActiveDongle");
+        debug("onNewActiveDongle");
 
-        await pjsip.setPresence(imei, "NOT_INUSE");
+        await pjsip.setDevicePresence(imei, "NOT_INUSE");
 
         await initEndpoint(imei);
 
@@ -57,9 +58,9 @@ let dongleEvtHandlers = {
     },
     "onRequestUnlockCode": async (imei: string) => {
 
-        console.log("onRequestUnlockCode");
+        debug("onRequestUnlockCode");
 
-        await pjsip.setPresence(imei, "UNAVAILABLE");
+        await pjsip.setDevicePresence(imei, "UNAVAILABLE");
 
         await initEndpoint(imei);
 
@@ -68,7 +69,7 @@ let dongleEvtHandlers = {
 
 async function initEndpoint(endpoint: string) {
 
-    await agi.initPjsipSideDialplan(endpoint);
+    await pjsip.enableDevicePresenceNotification(endpoint);
     await pjsip.addOrUpdateEndpoint(endpoint);
 
 }
@@ -77,21 +78,22 @@ async function initEndpoint(endpoint: string) {
 (async function findConnectedDongles() {
 
 
-    let activeDongles= (await dongleClient.getActiveDongles()).map(({imei})=> imei);
+    let activeDongles = (await dongleClient.getActiveDongles()).map(({ imei }) => imei);
 
-    let lockedDongles= (await dongleClient.getLockedDongles()).map(({imei})=> imei);
+    let lockedDongles = (await dongleClient.getLockedDongles()).map(({ imei }) => imei);
 
-    let disconnectedDongles= (await pjsip.queryEndpoints()).filter( imei => 
-        [ ...activeDongles, ...lockedDongles ].indexOf(imei) < 0
+    let disconnectedDongles = (await pjsip.queryEndpoints()).filter(imei =>
+        [...activeDongles, ...lockedDongles].indexOf(imei) < 0
     );
 
-    for( let imei of activeDongles ) dongleEvtHandlers.onNewActiveDongle(imei);
+    debug({ activeDongles, lockedDongles, disconnectedDongles });
 
-    for( let imei of lockedDongles ) dongleEvtHandlers.onRequestUnlockCode(imei);
+    for (let imei of activeDongles) dongleEvtHandlers.onNewActiveDongle(imei);
 
-    for( let imei of disconnectedDongles ) initEndpoint(imei);
+    for (let imei of lockedDongles) dongleEvtHandlers.onRequestUnlockCode(imei);
 
-    console.log( { activeDongles, lockedDongles, disconnectedDongles });
+    for (let imei of disconnectedDongles) initEndpoint(imei);
+
 
 
 })();
@@ -106,130 +108,10 @@ pjsip.getEvtNewContact().attach(({ endpoint, contact }) => {
 
     //TODO Send initialization information.
 
-    console.log("New contact", { endpoint, contact });
+    debug("New contact", { endpoint, contact });
 
 });
 
 
+//TODO: Include contact information in the packet
 pjsip.getEvtPacketSipMessage().attach(sipPacket => fromSip.message(sipPacket));
-
-
-(async function test() {
-
-    await new Promise<void>(resolve => setTimeout(resolve, 1000));
-
-
-    let res: any;
-
-    let ami = DongleExtendedClient.localhost().ami;
-
-
-
-    // UNKNOWN | NOT_INUSE | INUSE | BUSY | INVALID | UNAVAILABLE | RINGING | RINGINUSE | ONHOLD
-
-    let state = "NOT_INUSE";
-
-    console.log({ state });
-
-    res = await ami.postAction({
-        "action": "SetVar",
-        "variable": "DEVICE_STATE(Custom:bob)",
-        "value": state
-    });
-
-    console.log(res.message);
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "DEVICE_STATE(Custom:bob)"
-    });
-
-    console.log({ res });
-
-
-    //not_set | unavailable | available | away | xa | chat | dnd
-
-    let presence = "available,value subtype,value message";
-
-    console.log({ presence });
-
-    res = await ami.postAction({
-        "action": "SetVar",
-        "variable": "PRESENCE_STATE(CustomPresence:bob)",
-        "value": presence
-    });
-
-    console.log(res.message);
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "PRESENCE_STATE(CustomPresence:bob,value)"
-    });
-
-    console.log({ res });
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "PRESENCE_STATE(CustomPresence:bob,subtype)"
-    });
-
-    console.log({ res });
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "PRESENCE_STATE(CustomPresence:bob,message)"
-    });
-
-    console.log({ res });
-
-
-});
-
-
-(async function test2() {
-
-    await new Promise<void>(resolve => setTimeout(resolve, 1000));
-
-
-    let res: any;
-
-    let ami = DongleExtendedClient.localhost().ami;
-
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "DEVICE_STATE(PJSIP/358880032664586)"
-
-    });
-
-    console.log({ res });
-
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "PRESENCE_STATE(PJSIP/358880032664586,value)"
-    });
-
-    console.log({ res });
-
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "PRESENCE_STATE(PJSIP/358880032664586,subtype)"
-    });
-
-    console.log({ res });
-
-
-    res = await ami.postAction({
-        "action": "GetVar",
-        "variable": "PRESENCE_STATE(PJSIP/358880032664586,message)"
-    });
-
-    console.log({ res });
-
-
-
-});
-
-

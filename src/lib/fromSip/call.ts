@@ -2,11 +2,16 @@ import { AGIChannel } from "ts-async-agi";
 
 import { gain, jitterBuffer } from "../fromDongle";
 
+import * as _debug from "debug";
+let debug = _debug("_fromSip/call");
+
+
+
 export async function call(channel: AGIChannel) {
 
     let _ = channel.relax;
 
-    console.log("FROM SIP CALL!");
+    debug("FROM SIP CALL!");
 
     let imei = channel.request.callerid;
 
@@ -15,5 +20,8 @@ export async function call(channel: AGIChannel) {
     await _.setVariable("AGC(rx)", gain);
 
     await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`]);
+
+    debug("call terminated");
+
 
 }

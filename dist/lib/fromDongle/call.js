@@ -36,89 +36,85 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var pjsip = require("../pjsip");
-//import { diagnostics } from "./diagnostics";
+var agi = require("../agi");
+var _debug = require("debug");
+var debug = _debug("_fromDongle/call");
 exports.gain = "" + 4000;
-//TODO: Read from config file
-exports.context = "from-dongle";
-exports.outboundExt = "outbound";
-exports.jitterBuffer = {
+/*
+export const jitterBuffer = {
     type: "fixed",
     params: "2500,10000"
 };
+*/
+exports.jitterBuffer = {
+    type: "adaptive",
+    params: "default"
+};
+/*
+export const jitterBuffer = {
+    type: "fixed",
+    params: "default"
+};
+*/
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
-        var _a;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
+        var _this = this;
+        var _, imei, _a, _b, _c, _d, contactsToDial;
+        return __generator(this, function (_e) {
+            switch (_e.label) {
                 case 0:
-                    console.log("... FROM DONGLE CALL");
-                    _a = channel.request.extension;
-                    switch (_a) {
-                        case exports.outboundExt: return [3 /*break*/, 1];
-                    }
-                    return [3 /*break*/, 3];
-                case 1: return [4 /*yield*/, call.outbound(channel)];
-                case 2:
-                    _b.sent();
-                    return [3 /*break*/, 5];
-                case 3: return [4 /*yield*/, call.inbound(channel)];
+                    debug("Call from " + channel.request.callerid);
+                    _ = channel.relax;
+                    return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
+                case 1:
+                    imei = (_e.sent());
+                    _b = (_a = _).setVariable;
+                    _c = ["CALLERID(name)"];
+                    _d = "\"";
+                    return [4 /*yield*/, pjsip.getContactName(imei, channel.request.callerid)];
+                case 2: 
+                //await _.setVariable("CALLERID(name-charset)", "utf8");
+                return [4 /*yield*/, _b.apply(_a, _c.concat([_d + ((_e.sent()) || channel.request.callerid) + "\""]))];
+                case 3:
+                    //await _.setVariable("CALLERID(name-charset)", "utf8");
+                    _e.sent();
+                    return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
                 case 4:
-                    _b.sent();
-                    return [3 /*break*/, 5];
-                case 5: return [2 /*return*/];
+                    contactsToDial = (_e.sent())
+                        .map(function (contact) { return "PJSIP/" + contact; })
+                        .join("&");
+                    if (!contactsToDial) {
+                        debug("No contact to dial!");
+                        return [2 /*return*/];
+                    }
+                    debug({ contactsToDial: contactsToDial });
+                    debug("Dial...");
+                    return [4 /*yield*/, agi.dialAndGetOutboundChannel(channel, contactsToDial, function (outboundChannel) { return __awaiter(_this, void 0, void 0, function () {
+                            var _;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0:
+                                        _ = outboundChannel.relax;
+                                        debug("...OUTBOUND PJSIP channel!");
+                                        debug("set jitterbuffer", exports.jitterBuffer);
+                                        return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + exports.jitterBuffer.type + ")", exports.jitterBuffer.params)];
+                                    case 1:
+                                        _a.sent();
+                                        debug("set automatic gain control rx", { gain: exports.gain });
+                                        return [4 /*yield*/, _.setVariable("AGC(rx)", exports.gain)];
+                                    case 2:
+                                        _a.sent();
+                                        return [2 /*return*/];
+                                }
+                            });
+                        }); })];
+                case 5:
+                    _e.sent();
+                    debug("Call ended");
+                    return [2 /*return*/];
             }
         });
     });
 }
 exports.call = call;
-(function (call) {
-    function inbound(channel) {
-        return __awaiter(this, void 0, void 0, function () {
-            var _, imei, contactsToDial;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        console.log("... INBOUND !");
-                        _ = channel.relax;
-                        return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
-                    case 1:
-                        imei = (_a.sent());
-                        return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
-                    case 2:
-                        contactsToDial = (_a.sent()).map(function (contact) { return "PJSIP/" + contact; }).join("&");
-                        if (!contactsToDial) {
-                            console.log("No contact to dial!");
-                            return [2 /*return*/];
-                        }
-                        console.log({ contactsToDial: contactsToDial });
-                        return [4 /*yield*/, _.exec("Dial", [contactsToDial, "", "b(" + exports.context + "^" + exports.outboundExt + "^" + 1 + ")"])];
-                    case 3:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    }
-    call.inbound = inbound;
-    function outbound(channel) {
-        return __awaiter(this, void 0, void 0, function () {
-            var _;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        _ = channel.relax;
-                        console.log("OUTBOUND !");
-                        return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + exports.jitterBuffer.type + ")", exports.jitterBuffer.params)];
-                    case 1:
-                        _a.sent();
-                        return [4 /*yield*/, _.setVariable("AGC(rx)", exports.gain)];
-                    case 2:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    }
-    call.outbound = outbound;
-})(call = exports.call || (exports.call = {}));
 //# sourceMappingURL=call.js.map

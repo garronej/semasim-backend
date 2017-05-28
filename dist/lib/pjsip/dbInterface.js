@@ -66,8 +66,11 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_exec_queue_1 = require("ts-exec-queue");
 var mysql = require("mysql");
-exports.callContext = function (endpoint) { return "from-sip-call-" + endpoint; };
+exports.callContext = "from-sip-call";
 exports.messageContext = "from-sip-message";
+exports.subscribeContext = function (imei) { return "from-sip-subscribe-" + imei; };
+var _debug = require("debug");
+var debug = _debug("_fromDongles/dbInterface");
 var dbParams = {
     "host": "127.0.0.1",
     "user": "root",
@@ -103,7 +106,7 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", fu
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                console.log("addOrUpdate", endpoint);
+                debug("Add or update endpoint " + endpoint + " in real time configuration");
                 ps_aors = (function () {
                     var id = endpoint;
                     var max_contacts = 12;
@@ -114,12 +117,13 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", fu
                     var id = endpoint;
                     var disallow = "all";
                     var allow = "alaw,ulaw";
-                    var context = exports.callContext(endpoint);
+                    var context = exports.callContext;
                     var message_context = exports.messageContext;
+                    var subscribe_context = exports.subscribeContext(endpoint);
                     var aors = endpoint;
                     var auth = endpoint;
                     var force_rport = "no";
-                    return [id, disallow, allow, context, message_context, aors, auth, force_rport];
+                    return [id, disallow, allow, context, message_context, subscribe_context, aors, auth, force_rport];
                 })();
                 ps_auths = (function () {
                     var id = endpoint;
@@ -130,13 +134,15 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", fu
                 })();
                 return [4 /*yield*/, query([
                         "INSERT INTO `ps_aors`",
-                        "(`id`,`max_contacts`,`qualify_frequency`) VALUES (?, ?, ?)",
+                        "(`id`,`max_contacts`,`qualify_frequency`)",
+                        "VALUES ( ?, ?, ?)",
                         "ON DUPLICATE KEY UPDATE",
                         "`max_contacts`= VALUES(`max_contacts`),",
                         "`qualify_frequency`= VALUES(`qualify_frequency`)",
                         ";",
                         "INSERT INTO `ps_endpoints`",
-                        "(`id`,`disallow`,`allow`,`context`,`message_context`, `aors`, `auth`, `force_rport`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        "(`id`,`disallow`,`allow`,`context`,`message_context`,`subscribe_context`,`aors`,`auth`,`force_rport`)",
+                        "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         "ON DUPLICATE KEY UPDATE",
                         "`disallow`= VALUES(`disallow`),",
                         "`allow`= VALUES(`allow`),",
@@ -153,7 +159,7 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", fu
             case 1:
                 _a.sent();
                 callback();
-                return [2 /*return*/];
+                return [2 /*return*/, null];
         }
     });
 }); });

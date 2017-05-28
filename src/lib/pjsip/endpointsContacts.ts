@@ -3,6 +3,9 @@ import { SyncEvent } from "ts-events-extended";
 
 import { messageContext } from "./dbInterface";
 
+import * as _debug from "debug";
+let debug = _debug("_pjsip/endpointsContacts");
+
 type ContactStatus = "Avail" | "Unavail" | "Unknown" | "Created";
 
 function getContacts(): Promise<{
@@ -85,16 +88,15 @@ function getContacts(): Promise<{
 
 async function getContactStatus(contact: string): Promise<ContactStatus | undefined> {
 
-    let resp = await DongleExtendedClient.localhost().ami.postAction({
-        "action": "Command",
-        "Command": `pjsip show contact ${contact}`
-    });
+    let output= await DongleExtendedClient.localhost().ami.runCliCommand(`pjsip show contact ${contact}`);
 
     try {
 
-        return resp.content.split("\n")[7].match(
-            /^[ \t]*Contact:[ \t]*[^ \t]+[ \t]*[0-9a-fA-F]+[ \t]*([^ \t]+).*$/
-        )[1];
+        return output
+        .split("\n")
+        .filter( line => line.match(/^[ \t]*Contact:/) )
+        .pop()!
+        .match( /^[ \t]*Contact:[ \t]*[^ \t]+[ \t]*[0-9a-fA-F]+[ \t]*([^ \t]+).*$/)![1] as any;
 
     } catch (error) {
 
@@ -138,7 +140,8 @@ export function getEvtNewContact(): SyncEvent<{ endpoint: string; contact: strin
     DongleExtendedClient.localhost().ami.evt.attach(
         managerEvt => (
             managerEvt.event === "ContactStatus" &&
-            managerEvt.contactstatus === "Created"
+            managerEvt.contactstatus === "Created" &&
+            managerEvt.uri
         ),
         async function callee(contactStatusEvt) {
 
@@ -147,9 +150,12 @@ export function getEvtNewContact(): SyncEvent<{ endpoint: string; contact: strin
             let endpoint = endpointname;
             let contact = `${endpoint}/${uri}`;
 
+
             let match = contact.match(/@[^:]+:([0-9]+).*rinstance=([^;]+)/)!;
 
             let port = parseInt(match[1]);
+
+
             let rinstance = match[2];
 
             let registrationId = `${port}_${rinstance}`;
@@ -170,7 +176,7 @@ export function getEvtNewContact(): SyncEvent<{ endpoint: string; contact: strin
                     out.post({ contact, endpoint });
                     break;
                 default:
-                    console.log({ status });
+                    console.log(`Unexpected contact status ${status}`);
                     callee(contactStatusEvt);
                     break;
             }
