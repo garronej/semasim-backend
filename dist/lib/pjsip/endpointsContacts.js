@@ -58,9 +58,9 @@ function getContacts() {
                 case 0:
                     ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
                     proxyEvt = ami.evt.createProxy();
-                    ami.postAction({ "action": "PJSIPShowEndpoints" }).catch(function (error) {
+                    ami.postAction("PJSIPShowEndpoints", {}).catch(function (error) {
                         proxyEvt.stopWaiting();
-                        resolve({});
+                        resolve();
                     });
                     actionId = ami.lastActionId;
                     contactsByEndpoint = {};

@@ -78,7 +78,7 @@ function startServer(scripts) {
                                     return [2 /*return*/];
                             }
                         });
-                    }); }, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.ami);
+                    }); }, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.connection);
                     return [2 /*return*/];
             }
         });
@@ -106,6 +106,7 @@ function dialAndGetOutboundChannel(channel, dialString, outboundHandler) {
 exports.dialAndGetOutboundChannel = dialAndGetOutboundChannel;
 function initDialplan(scripts) {
     return __awaiter(this, void 0, void 0, function () {
+        var _this = this;
         var ami, _loop_1, _a, _b, context, e_1_1, e_1, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
@@ -124,13 +125,23 @@ function initDialplan(scripts) {
                                                 case 1:
                                                     _a.sent();
                                                     priority_1 = 1;
-                                                    pushExt_1 = function (application, applicationData) {
-                                                        return ami.dialplanExtensionAdd(context, extensionPattern, priority_1++, application, applicationData);
-                                                    };
-                                                    pushExt_1("Set", "EXTENSION_PATTERN=" + extensionPattern);
+                                                    pushExt_1 = function (application, applicationData) { return __awaiter(_this, void 0, void 0, function () { return __generator(this, function (_a) {
+                                                        switch (_a.label) {
+                                                            case 0: return [4 /*yield*/, ami.dialplanExtensionAdd(context, extensionPattern, priority_1++, application, applicationData)];
+                                                            case 1: return [2 /*return*/, _a.sent()];
+                                                        }
+                                                    }); }); };
+                                                    return [4 /*yield*/, pushExt_1("Set", "EXTENSION_PATTERN=" + extensionPattern)];
+                                                case 2:
+                                                    _a.sent();
                                                     //pushExt("DumpChan");
-                                                    pushExt_1("AGI", "agi:async");
-                                                    pushExt_1("Hangup");
+                                                    return [4 /*yield*/, pushExt_1("AGI", "agi:async")];
+                                                case 3:
+                                                    //pushExt("DumpChan");
+                                                    _a.sent();
+                                                    return [4 /*yield*/, pushExt_1("Hangup")];
+                                                case 4:
+                                                    _a.sent();
                                                     return [2 /*return*/];
                                             }
                                         });
@@ -163,11 +174,18 @@ function initDialplan(scripts) {
                                     return [7 /*endfinally*/];
                                 case 8:
                                     priority = 1;
-                                    pushExt = function (application, applicationData) {
-                                        return ami.dialplanExtensionAdd(context, "outbound", priority++, application, applicationData);
-                                    };
-                                    pushExt("AGI", "agi:async");
-                                    pushExt("Return");
+                                    pushExt = function (application, applicationData) { return __awaiter(_this, void 0, void 0, function () { return __generator(this, function (_a) {
+                                        switch (_a.label) {
+                                            case 0: return [4 /*yield*/, ami.dialplanExtensionAdd(context, "outbound", priority++, application, applicationData)];
+                                            case 1: return [2 /*return*/, _a.sent()];
+                                        }
+                                    }); }); };
+                                    return [4 /*yield*/, pushExt("AGI", "agi:async")];
+                                case 9:
+                                    _d.sent();
+                                    return [4 /*yield*/, pushExt("Return")];
+                                case 10:
+                                    _d.sent();
                                     return [2 /*return*/];
                             }
                         });

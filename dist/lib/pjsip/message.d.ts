@@ -1,6 +1,6 @@
 import { SyncEvent } from "ts-events-extended";
-export declare function getContactName(imei: string, number: string): Promise<string | undefined>;
-export declare function sendMessage(endpoint: string, from: string, headers: Record<string, string>, body: string, message_type: string, response_to_call_id?: string, visible_message?: string): Promise<void>;
+export declare function sendHiddenMessage(contacts: string[], from: string, extraHeaders: Record<string, string>, hidden_payload: string, body: string, message_type: string, response_to_call_id?: string): Promise<void>;
+export declare function sendMessage(contacts: string[], from: string, extraHeaders: Record<string, string>, payload: string, message_type: string, response_to_call_id?: string): Promise<void>;
 export interface PacketSipMessage {
     to: string;
     from_endpoint: string;

@@ -35,52 +35,45 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var pjsip = require("../pjsip");
 var agi = require("../agi");
 var _debug = require("debug");
 var debug = _debug("_fromDongle/call");
 exports.gain = "" + 4000;
-/*
-export const jitterBuffer = {
-    type: "fixed",
-    params: "2500,10000"
-};
-*/
 exports.jitterBuffer = {
+    //type: "fixed",
+    //params: "2500,10000"
+    //type: "fixed",
+    //params: "default"
     type: "adaptive",
     params: "default"
 };
-/*
-export const jitterBuffer = {
-    type: "fixed",
-    params: "default"
-};
-*/
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var _, imei, _a, _b, _c, _d, contactsToDial;
-        return __generator(this, function (_e) {
-            switch (_e.label) {
+        var _, imei, name, contactsToDial;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
                 case 0:
                     debug("Call from " + channel.request.callerid);
                     _ = channel.relax;
                     return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
                 case 1:
-                    imei = (_e.sent());
-                    _b = (_a = _).setVariable;
-                    _c = ["CALLERID(name)"];
-                    _d = "\"";
-                    return [4 /*yield*/, pjsip.getContactName(imei, channel.request.callerid)];
-                case 2: 
-                //await _.setVariable("CALLERID(name-charset)", "utf8");
-                return [4 /*yield*/, _b.apply(_a, _c.concat([_d + ((_e.sent()) || channel.request.callerid) + "\""]))];
+                    imei = (_a.sent());
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
+                case 2:
+                    name = _a.sent();
+                    if (!name) return [3 /*break*/, 4];
+                    //await _.setVariable("CALLERID(name-charset)", "utf8");
+                    return [4 /*yield*/, _.setVariable("CALLERID(name)", name)];
                 case 3:
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
-                    _e.sent();
-                    return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
-                case 4:
-                    contactsToDial = (_e.sent())
+                    _a.sent();
+                    _a.label = 4;
+                case 4: return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
+                case 5:
+                    contactsToDial = (_a.sent())
                         .map(function (contact) { return "PJSIP/" + contact; })
                         .join("&");
                     if (!contactsToDial) {
@@ -108,8 +101,8 @@ function call(channel) {
                                 }
                             });
                         }); })];
-                case 5:
-                    _e.sent();
+                case 6:
+                    _a.sent();
                     debug("Call ended");
                     return [2 /*return*/];
             }

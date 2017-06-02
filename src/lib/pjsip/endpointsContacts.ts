@@ -21,16 +21,13 @@ function getContacts(): Promise<{
 
         let proxyEvt = ami.evt.createProxy();
 
-        ami.postAction(
-            { "action": "PJSIPShowEndpoints" }
-        ).catch(error => {
+        ami.postAction( "PJSIPShowEndpoints", {}).catch( error => {
 
             proxyEvt.stopWaiting();
 
-            resolve({});
+            resolve();
 
         });
-
 
         let actionId = ami.lastActionId;
 

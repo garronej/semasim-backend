@@ -1,7 +1,4 @@
-import { 
-    DongleExtendedClient,
-    textSplitBase64ForAmiSplitFirst
-} from "chan-dongle-extended-client";
+import { DongleExtendedClient, Ami } from "chan-dongle-extended-client";
 
 import { getAvailableContactsOfEndpoint } from "./endpointsContacts";
 
@@ -10,109 +7,24 @@ import { Base64 } from "js-base64";
 
 import { messageContext } from "./dbInterface";
 
-const appKeyword = "semasim";
 
-let body_id= 0;
-
-export async function getContactName(imei: string, number: string): Promise<string | undefined> {
-
-    let numberPayload= getNumberPayload(number);
-
-    if( !numberPayload ) return undefined;
-
-    let { contacts } = await DongleExtendedClient.localhost().getSimPhonebook(imei);
-
-    for( let {number, name} of contacts )
-        if( numberPayload === getNumberPayload(number) ) return name;
-    
-    return undefined;
-
-}
-
-function getNumberPayload(number: string): string | undefined {
-
-    let match = number.match(/^(?:0*|(?:\+[0-9]{2}))([0-9]+)$/);
-
-    return match?match[1]:undefined;
-
-}
+import * as _debug from "debug";
+let debug = _debug("_pjsip/message");
 
 
-export async function sendMessage(
-    endpoint: string,
-    from: string,
-    headers: Record<string, string>,
-    body: string,
-    message_type: string,
-    response_to_call_id?: string,
-    visible_message?: string
-) {
-
-    let bodyInHeader= typeof( visible_message ) === "string";
-
-    headers = { ...headers, "body_id": `${body_id++}` };
-
-    if (response_to_call_id)
-        headers = { ...headers, response_to_call_id };
-
-
-    let offsetKey: string;
-
-    if (bodyInHeader) {
-        offsetKey = computeVariableLine(
-            toSipHeaders(
-                message_type,
-                { ...headers, "body_split_count": "XXXX", "part_number": "XXXX", "base64_body": "" }
-            )
-        );
-    } else offsetKey = "Base64Body";
-
-
-    let bodyParts = textSplitBase64ForAmiSplitFirst(
-        body,
-        offsetKey
-    ).map(part => Base64.decode(part));
-
-    headers = { ...headers, "body_split_count": `${bodyParts.length}` };
-
-    
-    let name= await getContactName(endpoint, from);
-
-    let fromField = `<sip:${from}@192.168.0.20>`;
-
-    if (name) fromField = `"${name} (${from})" ${fromField}`;
-
-    for (let contact of await getAvailableContactsOfEndpoint(endpoint)) {
-
-        console.log("forwarding to contact: ", contact);
-
-        for (let index = 0; index < bodyParts.length; index++) {
-
-            let body: string;
-
-            if (bodyInHeader) {
-                headers = { ...headers, "base64_body": Base64.encode(bodyParts[index]) };
-                body = (index === 0) ? visible_message! : "";
-            } else body = bodyParts[index];
-
-                //{ ...toSipHeaders(message_type, { ...headers, "part_number": `${index}` }), "Content-Type": "text/html" }
-
-            await DongleExtendedClient.localhost().ami.messageSend(
-                `pjsip:${contact}`,
-                fromField,
-                body,
-                toSipHeaders(message_type, { ...headers, "part_number": `${index}` }),
-            );
-
-        }
-    }
-
-}
+type Headers= {
+    payload_id: string;
+    parts_count: string;
+    part_number: string;
+    [key: string]: string;
+};
 
 function toSipHeaders(
     message_type: string,
-    headers: Record<string, string>
+    headers: Headers
 ): Record<string, string> {
+
+    const appKeyword= "semasim";
 
     let sipHeaders: Record<string, string> = {};
 
@@ -123,29 +35,126 @@ function toSipHeaders(
 
     return sipHeaders;
 
+}
+
+async function __sendMessage__(
+    contacts: string[],
+    from: string,
+    extraHeaders: Record<string, string>,
+    message_type: string,
+    params:
+        {
+            isHiddenPayload: true;
+            hidden_payload: string;
+            body: string;
+        } |
+        {
+            isHiddenPayload: false,
+            payload: string,
+        },
+    payload_id?: string
+) {
+
+    if( !contacts.length ) return;
+
+
+    let payloadSplit = Ami.base64TextSplit(
+        params.isHiddenPayload ? params.hidden_payload : params.payload
+    );
+
+    let headers= { 
+        ...extraHeaders, 
+        "payload_id": payload_id || Ami.generateUniqueActionId(),
+        "parts_count": `${payloadSplit.length}`,
+    };
+
+    if (!payload_id) payload_id = Ami.generateUniqueActionId();
+
+
+    let imei= contacts[0].match(/^([0-9]{15})\//)![1];
+
+    let name = await DongleExtendedClient.localhost().getContactName(imei, from);
+
+
+    for (let contact of contacts)
+        for (let part_number = 1; part_number <= payloadSplit.length; part_number++) {
+
+            let payloadPart = payloadSplit[part_number - 1];
+
+            let partHeader= { ...headers, "part_number": `${part_number}` };
+
+            let body: string;
+
+            if (params.isHiddenPayload){
+                partHeader = { ...partHeader, "base64_payload": payloadPart };
+                body= (part_number === payloadSplit.length)?params.body:"";
+            }else
+                body= Base64.decode(payloadPart);
+
+            await DongleExtendedClient.localhost().ami.messageSend(
+                `pjsip:${contact}`,
+                name?`"${name}" <sip:${from}@semasim>`:from,
+                body,
+                toSipHeaders( message_type, partHeader )
+            );
+
+
+        }
+
 
 }
 
-function computeVariableLine(sipHeaders: Record<string, string>): string {
 
-    let line = "";
+export async function sendHiddenMessage(
+    contacts: string[],
+    from: string,
+    extraHeaders: Record<string, string>,
+    hidden_payload: string,
+    body: string,
+    message_type: string,
+    response_to_call_id?: string
+) {
 
-    for (let key of Object.keys(sipHeaders))
-        line += `${key}=${sipHeaders[key]},`;
+    await __sendMessage__(
+        contacts,
+        from,
+        extraHeaders,
+        message_type,
+        { "isHiddenPayload": true, hidden_payload, body },
+        response_to_call_id
+    );
 
-    return "Variables" + line.slice(0, -1);
+}
+
+
+export async function sendMessage(
+    contacts: string[],
+    from: string,
+    extraHeaders: Record<string, string>,
+    payload: string,
+    message_type: string,
+    response_to_call_id?: string
+) {
+
+    await __sendMessage__(
+        contacts,
+        from,
+        extraHeaders,
+        message_type,
+        { "isHiddenPayload": false, payload },
+        response_to_call_id
+    );
 
 }
 
 
 function getActualTo(toUri: string): string {
 
-    return toUri.match(/^(?:pj)?sip:([^@]+)/)![1];
+    return toUri.match(/^pjsip:([^@]+)/)![1];
 
 }
 
 function getEndpoint(from: string): string {
-
 
     return from.match(/^.*<sip:([^@]+)/)![1];
 
@@ -198,6 +207,7 @@ interface PacketReassembled {
     body: string;
 }
 
+
 function getEvtPacketReassembled(): SyncEvent<PacketReassembled> {
 
     let evt = new SyncEvent<PacketReassembled>();
@@ -206,27 +216,26 @@ function getEvtPacketReassembled(): SyncEvent<PacketReassembled> {
 
     evtPacketWithExtraHeaders.attach(async ({ to, from, headers, body }) => {
 
-
-        let { body_split_count, body_part_number, body_id, ...restHeaders } = headers;
+        let { payload_id, parts_count, part_number, ...restHeaders } = headers;
 
         let packet: Partial<PacketReassembled> = {
             to, from,
-            "headers": restHeaders,
+            "headers": restHeaders
         };
 
         let bodyParts: string[] = [];
 
-        bodyParts[headers.body_part_number] = body;
+        bodyParts[part_number] = body;
 
-        while (bodyParts.filter(v => v).length !== parseInt(body_split_count)) {
+        while (bodyParts.filter(v => v).length !== parseInt(parts_count)) {
 
             let { headers, body } = await evtPacketWithExtraHeaders.waitFor(newPacket => (
-                to === newPacket.to &&
-                from === newPacket.from &&
-                body_id === newPacket.headers.body_id
+                newPacket.to === to &&
+                newPacket.from === from &&
+                newPacket.headers.payload_id === payload_id
             ));
 
-            bodyParts[headers.body_part_number] = body;
+            bodyParts[headers.part_number] = body;
 
         }
 
@@ -241,18 +250,10 @@ function getEvtPacketReassembled(): SyncEvent<PacketReassembled> {
 }
 
 
-
-
 interface PacketWithExtraHeaders {
     to: string;
     from: string;
-    headers: {
-        call_id: string;
-        body_split_count: string;
-        body_part_number: string;
-        body_id: string;
-        [key: string]: string;
-    };
+    headers: Headers & { call_id: string; };
     body: string;
 }
 
@@ -270,9 +271,9 @@ function getEvtPacketWithExtraHeaders(): SyncEvent<PacketWithExtraHeaders> {
             "from": packetRaw.from,
             "headers": {
                 "call_id": packetRaw.call_id,
-                "body_split_count": `${1}`,
-                "body_part_number": `${1}`,
-                "body_id": `${undefined}`,
+                "payload_id": `${undefined}`,
+                "parts_count": `${1}`,
+                "part_number": `${1}`
             },
             "body": mainBody
         };
@@ -300,6 +301,7 @@ function getEvtPacketWithExtraHeaders(): SyncEvent<PacketWithExtraHeaders> {
     return evt;
 
 }
+
 
 
 interface PacketRaw {
@@ -352,7 +354,7 @@ function getEvtPacketRaw(): SyncEvent<PacketRaw> {
                 if (!packet.base64_body && packet.content_length) {
 
                     sendMessage(
-                        getEndpoint(packet.from!),
+                        await getAvailableContactsOfEndpoint(getEndpoint(packet.from!)),
                         getActualTo(packet.to!),
                         {},
                         "TOO LONG!",

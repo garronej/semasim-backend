@@ -34,103 +34,113 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var pjsip = require("../../pjsip");
+var fromDongle = require("../../fromDongle");
+var _debug = require("debug");
+var debug = _debug("_fromSip/sms");
 function sms(sipPacket) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var text, number, imei, outgoingMessageId, info_message, imsi, isSent, headers;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var text, number, imei, outgoingMessageId, info_message, imsi, isSent, headers, name, _a, _b, error_1;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
                 case 0:
-                    console.log("...SMS!");
+                    debug("...SMS!");
                     text = sipPacket.body;
                     number = sipPacket.to;
                     imei = sipPacket.from_endpoint;
-                    console.log("SMS: ", { number: number, imei: imei, text: text });
                     outgoingMessageId = NaN;
                     info_message = "";
                     imsi = "";
                     return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
-                            var _a, _b, dongle, e_1_1, error_1, e_1, _c;
-                            return __generator(this, function (_d) {
-                                switch (_d.label) {
-                                    case 0:
-                                        _d.trys.push([0, 5, 6, 7]);
-                                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongles()];
+                            var dongle, error_2;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0: return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongle(imei)];
                                     case 1:
-                                        _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                                        _d.label = 2;
-                                    case 2:
-                                        if (!!_b.done) return [3 /*break*/, 4];
-                                        dongle = _b.value;
-                                        if (dongle.imei !== imei)
-                                            return [3 /*break*/, 3];
-                                        imsi = dongle.imsi;
-                                        return [3 /*break*/, 4];
-                                    case 3:
-                                        _b = _a.next();
-                                        return [3 /*break*/, 2];
-                                    case 4: return [3 /*break*/, 7];
-                                    case 5:
-                                        e_1_1 = _d.sent();
-                                        e_1 = { error: e_1_1 };
-                                        return [3 /*break*/, 7];
-                                    case 6:
-                                        try {
-                                            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                                        }
-                                        finally { if (e_1) throw e_1.error; }
-                                        return [7 /*endfinally*/];
-                                    case 7:
-                                        if (!imsi) {
-                                            //Should not be allowed by client, cf presence state
+                                        dongle = _a.sent();
+                                        if (!dongle) {
+                                            //TODO: Should not be allowed by client, cf presence state
                                             info_message = "MESSAGE NOT SEND, DONGLE NOT ACTIVE";
                                             return [2 /*return*/, undefined];
                                         }
-                                        _d.label = 8;
-                                    case 8:
-                                        _d.trys.push([8, 10, , 11]);
-                                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().sendMessage(imei, number, text || " ")];
-                                    case 9:
-                                        outgoingMessageId = _d.sent();
-                                        return [3 /*break*/, 11];
-                                    case 10:
-                                        error_1 = _d.sent();
-                                        info_message = "MESSAGE NOT SEND, INTERNAL ERROR, " + error_1.message;
+                                        imsi = dongle.imsi;
+                                        _a.label = 2;
+                                    case 2:
+                                        _a.trys.push([2, 4, , 5]);
+                                        return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient
+                                                .localhost()
+                                                .sendMessage(imei, number, text)];
+                                    case 3:
+                                        outgoingMessageId = _a.sent();
+                                        return [3 /*break*/, 5];
+                                    case 4:
+                                        error_2 = _a.sent();
+                                        info_message = "MESSAGE NOT SEND, INTERNAL ERROR, " + error_2.message;
                                         return [2 /*return*/, false];
-                                    case 11:
+                                    case 5:
                                         if (isNaN(outgoingMessageId)) {
                                             info_message = "MESSAGE NOT SEND, DONGLE ERROR";
                                             return [2 /*return*/, false];
                                         }
-                                        info_message = "";
+                                        info_message = "MESSAGE SUCCESSFULLY SENT";
                                         return [2 /*return*/, true];
                                 }
                             });
                         }); })()];
                 case 1:
-                    isSent = _a.sent();
+                    isSent = _c.sent();
                     headers = {
                         "outgoing_message_id": "" + outgoingMessageId,
                         "imsi": imsi,
                         "is_sent": "" + isSent,
-                        "date": (new Date()).toISOString(),
                         "info_message": info_message
                     };
-                    pjsip.sendMessage(sipPacket.from_endpoint, number, headers, text, "sms_send_status", sipPacket.headers.call_id, info_message);
-                    return [2 /*return*/];
+                    debug("SMS: ", { number: number, imei: imei, text: text, headers: headers });
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, number)];
+                case 2:
+                    name = _c.sent();
+                    _b = (_a = pjsip).sendHiddenMessage;
+                    return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(sipPacket.from_endpoint)];
+                case 3:
+                    _b.apply(_a, [_c.sent(),
+                        number,
+                        headers,
+                        text,
+                        isSent ? "✓" : info_message,
+                        "sms_send_status",
+                        sipPacket.headers.call_id]);
+                    if (!isSent)
+                        return [2 /*return*/];
+                    _c.label = 4;
+                case 4:
+                    _c.trys.push([4, 6, , 8]);
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient
+                            .localhost()
+                            .evtMessageStatusReport
+                            .waitFor(function (_a) {
+                            var messageId = _a.messageId;
+                            return messageId === outgoingMessageId;
+                        }, 15000)];
+                case 5:
+                    _c.sent();
+                    return [3 /*break*/, 8];
+                case 6:
+                    error_1 = _c.sent();
+                    debug("no status report received");
+                    return [4 /*yield*/, fromDongle.statusReport(imei, {
+                            "messageId": outgoingMessageId,
+                            "dischargeTime": new Date(NaN),
+                            "isDelivered": false,
+                            "recipient": number,
+                            "status": ""
+                        })];
+                case 7:
+                    _c.sent();
+                    return [3 /*break*/, 8];
+                case 8: return [2 /*return*/];
             }
         });
     });

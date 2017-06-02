@@ -12,25 +12,15 @@ let debug = _debug("_fromDongle/call");
 export const gain = `${4000}`;
 
 
-/*
 export const jitterBuffer = {
-    type: "fixed",
-    params: "2500,10000"
-};
-*/
-
-export const jitterBuffer = {
+    //type: "fixed",
+    //params: "2500,10000"
+    //type: "fixed",
+    //params: "default"
     type: "adaptive",
     params: "default"
 };
 
-
-/*
-export const jitterBuffer = {
-    type: "fixed",
-    params: "default"
-};
-*/
 
 
 export async function call(channel: AGIChannel) {
@@ -39,24 +29,14 @@ export async function call(channel: AGIChannel) {
 
     let _ = channel.relax;
 
-    /*
-
-    console.log("AGC, answer after, no play, gain 4000, rx undefined");
-
-    await _.setVariable("AGC(tx)", gain);
-
-    */
-
-
     let imei = (await _.getVariable("DONGLEIMEI"))!;
 
-    //await _.setVariable("CALLERID(name-charset)", "utf8");
+    let name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
 
-    await _.setVariable(
-        "CALLERID(name)",
-        `"${(await pjsip.getContactName(imei, channel.request.callerid)) || channel.request.callerid}"`
-    );
-
+    if (name) {
+        //await _.setVariable("CALLERID(name-charset)", "utf8");
+        await _.setVariable("CALLERID(name)", name);
+    }
 
     /*
     let contactsToDial_ = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
@@ -76,7 +56,6 @@ export async function call(channel: AGIChannel) {
     }
 
     debug({ contactsToDial });
-
 
     debug("Dial...");
 

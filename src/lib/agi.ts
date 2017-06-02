@@ -40,7 +40,7 @@ export async function startServer( scripts: Scripts ) {
 
         await scripts[context][extensionPattern](channel);
 
-    }, DongleExtendedClient.localhost().ami.ami);
+    }, DongleExtendedClient.localhost().ami.connection);
 
 }
 
@@ -74,23 +74,23 @@ async function initDialplan(scripts: Scripts) {
             await ami.dialplanExtensionRemove(extensionPattern, context);
 
             let priority = 1;
-            let pushExt = (application: string, applicationData?: string) =>
-                ami.dialplanExtensionAdd(context, extensionPattern, priority++, application, applicationData);
+            let pushExt = async (application: string, applicationData?: string) =>
+                await ami.dialplanExtensionAdd(context, extensionPattern, priority++, application, applicationData);
 
-            pushExt("Set", `EXTENSION_PATTERN=${extensionPattern}`);
+            await pushExt("Set", `EXTENSION_PATTERN=${extensionPattern}`);
             //pushExt("DumpChan");
-            pushExt("AGI", "agi:async");
-            pushExt("Hangup");
+            await pushExt("AGI", "agi:async");
+            await pushExt("Hangup");
 
 
         }
 
         let priority = 1;
-        let pushExt = (application: string, applicationData?: string) =>
-            ami.dialplanExtensionAdd(context, "outbound", priority++, application, applicationData);
+        let pushExt = async (application: string, applicationData?: string) =>
+            await ami.dialplanExtensionAdd(context, "outbound", priority++, application, applicationData);
 
-        pushExt("AGI", "agi:async");
-        pushExt("Return");
+        await pushExt("AGI", "agi:async");
+        await pushExt("Return");
 
     }
 

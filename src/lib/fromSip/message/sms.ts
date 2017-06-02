@@ -1,11 +1,15 @@
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
 import * as pjsip from "../../pjsip";
+import * as fromDongle from "../../fromDongle";
 
+
+import * as _debug from "debug";
+let debug = _debug("_fromSip/sms");
 
 export async function sms(sipPacket: pjsip.PacketSipMessage) {
 
-    console.log("...SMS!");
+    debug("...SMS!");
 
     let text = sipPacket.body;
 
@@ -13,7 +17,6 @@ export async function sms(sipPacket: pjsip.PacketSipMessage) {
 
     let imei = sipPacket.from_endpoint
 
-    console.log("SMS: ", { number, imei, text });
 
     let outgoingMessageId: number = NaN;
 
@@ -21,23 +24,13 @@ export async function sms(sipPacket: pjsip.PacketSipMessage) {
 
     let imsi: string = "";
 
-    //TODO ensure dongle activated for send
-
     let isSent: boolean | undefined = await (async () => {
 
-        for( let dongle of await DongleExtendedClient.localhost().getActiveDongles() ){
+        let dongle = await DongleExtendedClient.localhost().getActiveDongle(imei);
 
-            if( dongle.imei !== imei ) continue;
+        if (!dongle) {
 
-            imsi= dongle.imsi;
-
-            break;
-
-        }
-
-        if( !imsi ){
-
-            //Should not be allowed by client, cf presence state
+            //TODO: Should not be allowed by client, cf presence state
 
             info_message = `MESSAGE NOT SEND, DONGLE NOT ACTIVE`;
 
@@ -45,72 +38,86 @@ export async function sms(sipPacket: pjsip.PacketSipMessage) {
 
         }
 
+        imsi = dongle.imsi;
+
         try {
 
-            outgoingMessageId = await DongleExtendedClient.localhost().sendMessage(imei, number, text || " ");
+            outgoingMessageId = await DongleExtendedClient
+                .localhost()
+                .sendMessage(imei, number, text);
 
         } catch (error) {
 
             info_message = `MESSAGE NOT SEND, INTERNAL ERROR, ${error.message}`;
 
             return false;
+
         }
 
         if (isNaN(outgoingMessageId)) {
 
-            info_message = `MESSAGE NOT SEND, DONGLE ERROR`;
+            info_message = "MESSAGE NOT SEND, DONGLE ERROR";
 
             return false;
 
         }
 
-        info_message = ``;
+        info_message = "MESSAGE SUCCESSFULLY SENT";
 
         return true;
 
-
     })();
+
 
     let headers = {
         "outgoing_message_id": `${outgoingMessageId}`,
         "imsi": imsi,
         "is_sent": `${isSent}`,
-        "date": (new Date()).toISOString(),
         "info_message": info_message
     };
 
+    debug("SMS: ", { number, imei, text, headers });
 
-    pjsip.sendMessage(
-        sipPacket.from_endpoint,
+    //TODO: is send fail the info message should be sent only to the contact
+
+    let name = await DongleExtendedClient.localhost().getContactName(imei, number);
+
+    pjsip.sendHiddenMessage(
+        await pjsip.getAvailableContactsOfEndpoint(sipPacket.from_endpoint),
         number,
         headers,
         text,
+        isSent ? "✓" : info_message,
         "sms_send_status",
-        sipPacket.headers.call_id, 
-        info_message
+        sipPacket.headers.call_id
     );
 
+    if (!isSent) return;
 
-    //console.log("TODO store in DB: ", { messageType, headers, text, body });
+    try {
 
-    /*
-    //with chan_sip
-    await DongleExtendedClient.localhost().ami.postAction({
-        "action": "MessageSend",
-        "to": `SIP:${"alice"}`,
-        "from": `<semasim>`,
-        "base64body": Base64.encode(JSON.stringify({
-            "Call-ID": sipPacket.MESSAGE_DATA["Call-ID"],
-            "messageId": messageId
-        })),
-        //"variable": "Content-Type=application/json;charset=UTF-8,Semasim-Event=status-report"
-        "variable": "Content-Type=text/plain;charset=UTF-8,Semasim-Event=send-confirmation"
-    });
-    */
+        await DongleExtendedClient
+            .localhost()
+            .evtMessageStatusReport
+            .waitFor(({ messageId }) => messageId === outgoingMessageId, 15000);
+
+    } catch (error) {
+
+        debug("no status report received");
+
+        await fromDongle.statusReport(
+            imei,
+            {
+                "messageId": outgoingMessageId,
+                "dischargeTime": new Date(NaN),
+                "isDelivered": false,
+                "recipient": number,
+                "status": ""
+            }
+        );
+
+    }
 
 
 
 }
-
-
-

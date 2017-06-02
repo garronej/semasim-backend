@@ -34,63 +34,32 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var pjsip = require("../pjsip");
+var _debug = require("debug");
+var debug = _debug("_fromDongle/message");
 function sms(imei, _a) {
     var number = _a.number, date = _a.date, text = _a.text;
     return __awaiter(this, void 0, void 0, function () {
-        var imsi, _a, _b, dongle, e_1_1, headers, e_1, _c;
-        return __generator(this, function (_d) {
-            switch (_d.label) {
+        var imsi, _a, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
                 case 0:
-                    console.log("FROM DONGLE MESSAGE");
-                    console.log({ imei: imei }, { number: number, date: date, text: text });
-                    imsi = undefined;
-                    _d.label = 1;
+                    debug("FROM DONGLE MESSAGE");
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongle(imei)];
                 case 1:
-                    _d.trys.push([1, 6, 7, 8]);
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongles()];
-                case 2:
-                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                    _d.label = 3;
+                    imsi = (_c.sent()).imsi;
+                    debug({ imsi: imsi, number: number, date: date, text: text });
+                    _b = (_a = pjsip).sendMessage;
+                    return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
+                case 2: return [4 /*yield*/, _b.apply(_a, [_c.sent(),
+                        number,
+                        { imsi: imsi, "date": "" + date.toISOString() },
+                        text,
+                        "sms"])];
                 case 3:
-                    if (!!_b.done) return [3 /*break*/, 5];
-                    dongle = _b.value;
-                    if (dongle.imei !== imei)
-                        return [3 /*break*/, 4];
-                    imsi = dongle.imsi;
-                    return [3 /*break*/, 5];
-                case 4:
-                    _b = _a.next();
-                    return [3 /*break*/, 3];
-                case 5: return [3 /*break*/, 8];
-                case 6:
-                    e_1_1 = _d.sent();
-                    e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 8];
-                case 7:
-                    try {
-                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                    return [7 /*endfinally*/];
-                case 8:
-                    headers = {
-                        "imsi": "" + imsi,
-                        "date": "" + date.toISOString()
-                    };
-                    pjsip.sendMessage(imei, number, headers, text, "sms");
+                    _c.sent();
                     return [2 /*return*/];
             }
         });
@@ -99,20 +68,37 @@ function sms(imei, _a) {
 exports.sms = sms;
 function statusReport(imei, statusReport) {
     return __awaiter(this, void 0, void 0, function () {
-        var messageId, dischargeTime, isDelivered, status, recipient, body, headers;
-        return __generator(this, function (_a) {
-            console.log("FROM DONGLE STATUS REPORT!");
-            messageId = statusReport.messageId, dischargeTime = statusReport.dischargeTime, isDelivered = statusReport.isDelivered, status = statusReport.status, recipient = statusReport.recipient;
-            body = "SMS RECEPTION STATUS: " + status;
-            headers = {
-                "content_type": "text/plain;charset=UTF-8",
-                "outgoing_sms_id": "" + messageId,
-                "is_delivered": "" + isDelivered,
-                "status": "" + status,
-                "discharge_time": dischargeTime.toISOString()
-            };
-            pjsip.sendMessage(imei, recipient, headers, body, "sms_reception_status");
-            return [2 /*return*/];
+        var messageId, dischargeTime, isDelivered, status, recipient, body, headers, _a, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0:
+                    debug("FROM DONGLE STATUS REPORT!");
+                    messageId = statusReport.messageId, dischargeTime = statusReport.dischargeTime, isDelivered = statusReport.isDelivered, status = statusReport.status, recipient = statusReport.recipient;
+                    body = (function () {
+                        if (isDelivered)
+                            return "✓✓";
+                        if (!status)
+                            return "NO STATUS REPORT RECEIVED";
+                        return "SMS STATUS REPORT: " + status;
+                    })();
+                    debug({ statusReport: statusReport, body: body });
+                    headers = {
+                        "outgoing_sms_id": "" + messageId,
+                        "is_delivered": "" + isDelivered,
+                        "status": "" + status,
+                        "discharge_time": isNaN(dischargeTime.getTime()) ? "" + dischargeTime : dischargeTime.toISOString()
+                    };
+                    _b = (_a = pjsip).sendMessage;
+                    return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
+                case 1: return [4 /*yield*/, _b.apply(_a, [_c.sent(),
+                        recipient,
+                        headers,
+                        body,
+                        "sms_status_report"])];
+                case 2:
+                    _c.sent();
+                    return [2 /*return*/];
+            }
         });
     });
 }
