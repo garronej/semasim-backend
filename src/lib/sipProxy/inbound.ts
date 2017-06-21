@@ -43,6 +43,8 @@ export function sendMessage(
 
             debug("message send failed", error.message);            
 
+            resolve(false);
+
         });
 
         evtOutgoingMessage.attachOnce(

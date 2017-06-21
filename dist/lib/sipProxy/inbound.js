@@ -75,6 +75,7 @@ function sendMessage(pjsipContactUri, fromUriUser, headers, content, fromName) {
         var actionId = chan_dongle_extended_client_1.Ami.generateUniqueActionId();
         chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + pjsipContactUri, fromUriUser, actionId).catch(function (error) {
             debug("message send failed", error.message);
+            resolve(false);
         });
         evtOutgoingMessage.attachOnce(function (_a) {
             var sipRequest = _a.sipRequest;
