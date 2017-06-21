@@ -36,7 +36,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var pjsip = require("../pjsip");
 var agi = require("../agi");
 var _debug = require("debug");
 var debug = _debug("_fromDongle/call");
@@ -71,11 +70,14 @@ function call(channel) {
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
                     _a.sent();
                     _a.label = 4;
-                case 4: return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(imei)];
+                case 4: return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
                 case 5:
-                    contactsToDial = (_a.sent())
-                        .map(function (contact) { return "PJSIP/" + contact; })
+                    contactsToDial = _a.sent();
+                    /*
+                    let contactsToDial = (await pjsip.getAvailableContactsOfEndpoint(imei))
+                        .map(contact => `PJSIP/${contact}`)
                         .join("&");
+                    */
                     if (!contactsToDial) {
                         debug("No contact to dial!");
                         return [2 /*return*/];

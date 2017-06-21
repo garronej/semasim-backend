@@ -5,7 +5,6 @@ function __export(m) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __export(require("./dbInterface"));
 __export(require("./endpointsContacts"));
-__export(require("./message"));
 __export(require("./presence"));
 //pjsip.getContacts().then(contacts => console.log(JSON.stringify(contacts, null, 2)));
 /*

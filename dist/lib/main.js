@@ -81,10 +81,11 @@ var fromSip = require("./fromSip");
 var fromDongle = require("./fromDongle");
 var pjsip = require("./pjsip");
 var agi = require("./agi");
+var inbound = require("./sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_main");
-//TODO periodically check if message can be sent
 debug("Started!");
+//TODO: every call to dongleExtendedClient may throw error.
 var scripts = {};
 var phoneNumberAsteriskExtensionPattern = "_[+0-9].";
 scripts[pjsip.callContext] = {};
@@ -97,12 +98,8 @@ dongleClient.evtNewMessage.attach(function (_a) {
     var imei = _a.imei, message = __rest(_a, ["imei"]);
     return fromDongle.sms(imei, message);
 });
-dongleClient.evtMessageStatusReport.attach(function (_a) {
-    var imei = _a.imei, statusReport = __rest(_a, ["imei"]);
-    return fromDongle.statusReport(imei, statusReport);
-});
 var dongleEvtHandlers = {
-    "onDongleDisconnect": function (imei) { return __awaiter(_this, void 0, void 0, function () {
+    "onActiveDongleDisconnect": function (imei) { return __awaiter(_this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -122,7 +119,7 @@ var dongleEvtHandlers = {
                     return [4 /*yield*/, pjsip.setDevicePresence(imei, "NOT_INUSE")];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, initEndpoint(imei)];
+                    return [4 /*yield*/, initEndpoint(imei, true)];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];
@@ -137,7 +134,7 @@ var dongleEvtHandlers = {
                     return [4 /*yield*/, pjsip.setDevicePresence(imei, "UNAVAILABLE")];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, initEndpoint(imei)];
+                    return [4 /*yield*/, initEndpoint(imei, true)];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];
@@ -145,14 +142,14 @@ var dongleEvtHandlers = {
         });
     }); }
 };
-function initEndpoint(endpoint) {
+function initEndpoint(endpoint, isDongleConnected) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, pjsip.enableDevicePresenceNotification(endpoint)];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, pjsip.addOrUpdateEndpoint(endpoint)];
+                    return [4 /*yield*/, pjsip.addOrUpdateEndpoint(endpoint, isDongleConnected)];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];
@@ -162,7 +159,7 @@ function initEndpoint(endpoint) {
 }
 (function findConnectedDongles() {
     return __awaiter(this, void 0, void 0, function () {
-        var activeDongles, lockedDongles, disconnectedDongles, activeDongles_1, activeDongles_1_1, imei, lockedDongles_1, lockedDongles_1_1, imei, disconnectedDongles_1, disconnectedDongles_1_1, imei, e_1, _a, e_2, _b, e_3, _c;
+        var activeDongles, lockedDongles, knownDisconnectedDongles, activeDongles_1, activeDongles_1_1, imei, lockedDongles_1, lockedDongles_1_1, imei, knownDisconnectedDongles_1, knownDisconnectedDongles_1_1, imei, e_1, _a, e_2, _b, e_3, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0: return [4 /*yield*/, dongleClient.getActiveDongles()];
@@ -179,10 +176,15 @@ function initEndpoint(endpoint) {
                     });
                     return [4 /*yield*/, pjsip.queryEndpoints()];
                 case 3:
-                    disconnectedDongles = (_d.sent()).filter(function (imei) {
+                    knownDisconnectedDongles = (_d.sent())
+                        .map(function (_a) {
+                        var endpoint = _a.endpoint;
+                        return endpoint;
+                    })
+                        .filter(function (imei) {
                         return __spread(activeDongles, lockedDongles).indexOf(imei) < 0;
                     });
-                    debug({ activeDongles: activeDongles, lockedDongles: lockedDongles, disconnectedDongles: disconnectedDongles });
+                    debug({ activeDongles: activeDongles, lockedDongles: lockedDongles, knownDisconnectedDongles: knownDisconnectedDongles });
                     try {
                         for (activeDongles_1 = __values(activeDongles), activeDongles_1_1 = activeDongles_1.next(); !activeDongles_1_1.done; activeDongles_1_1 = activeDongles_1.next()) {
                             imei = activeDongles_1_1.value;
@@ -210,15 +212,15 @@ function initEndpoint(endpoint) {
                         finally { if (e_2) throw e_2.error; }
                     }
                     try {
-                        for (disconnectedDongles_1 = __values(disconnectedDongles), disconnectedDongles_1_1 = disconnectedDongles_1.next(); !disconnectedDongles_1_1.done; disconnectedDongles_1_1 = disconnectedDongles_1.next()) {
-                            imei = disconnectedDongles_1_1.value;
-                            initEndpoint(imei);
+                        for (knownDisconnectedDongles_1 = __values(knownDisconnectedDongles), knownDisconnectedDongles_1_1 = knownDisconnectedDongles_1.next(); !knownDisconnectedDongles_1_1.done; knownDisconnectedDongles_1_1 = knownDisconnectedDongles_1.next()) {
+                            imei = knownDisconnectedDongles_1_1.value;
+                            initEndpoint(imei, false);
                         }
                     }
                     catch (e_3_1) { e_3 = { error: e_3_1 }; }
                     finally {
                         try {
-                            if (disconnectedDongles_1_1 && !disconnectedDongles_1_1.done && (_c = disconnectedDongles_1.return)) _c.call(disconnectedDongles_1);
+                            if (knownDisconnectedDongles_1_1 && !knownDisconnectedDongles_1_1.done && (_c = knownDisconnectedDongles_1.return)) _c.call(knownDisconnectedDongles_1);
                         }
                         finally { if (e_3) throw e_3.error; }
                     }
@@ -227,9 +229,9 @@ function initEndpoint(endpoint) {
         });
     });
 })();
-dongleClient.evtDongleDisconnect.attach(function (_a) {
+dongleClient.evtActiveDongleDisconnect.attach(function (_a) {
     var imei = _a.imei;
-    return dongleEvtHandlers.onDongleDisconnect(imei);
+    return dongleEvtHandlers.onActiveDongleDisconnect(imei);
 });
 dongleClient.evtNewActiveDongle.attach(function (_a) {
     var imei = _a.imei;
@@ -239,11 +241,32 @@ dongleClient.evtRequestUnlockCode.attach(function (_a) {
     var imei = _a.imei;
     return dongleEvtHandlers.onRequestUnlockCode(imei);
 });
-pjsip.getEvtNewContact().attach(function (_a) {
+pjsip.getEvtNewContact().attach(function (contact) {
     //TODO Send initialization information.
-    var endpoint = _a.endpoint, contact = _a.contact;
-    debug("New contact", { endpoint: endpoint, contact: contact });
+    debug("New contact", contact);
 });
-//TODO: Include contact information in the packet
-pjsip.getEvtPacketSipMessage().attach(function (sipPacket) { return fromSip.message(sipPacket); });
+(function initVoidDialplanForMessage() {
+    return __awaiter(this, void 0, void 0, function () {
+        var ami, matchAllExt;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
+                    matchAllExt = "_.";
+                    return [4 /*yield*/, ami.dialplanExtensionRemove(matchAllExt, pjsip.messageContext)];
+                case 1:
+                    _a.sent();
+                    return [4 /*yield*/, ami.dialplanExtensionAdd(pjsip.messageContext, matchAllExt, 1, "Hangup")];
+                case 2:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
+    });
+})();
+pjsip.truncateContacts().then(function () { return inbound.start(); });
+inbound.evtIncomingMessage.attach(function (_a) {
+    var message = _a.message, fromContact = _a.fromContact;
+    return fromSip.message(fromContact, message);
+});
 //# sourceMappingURL=main.js.map

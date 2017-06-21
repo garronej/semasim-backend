@@ -2,21 +2,33 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
 import * as pjsip from "../../pjsip";
 import * as fromDongle from "../../fromDongle";
+import * as sip from "../../sipProxy/sip";
+import * as inbound from "../../sipProxy/inbound";
+import { flowTokenKey } from "../../sipProxy/shared";
 
 
 import * as _debug from "debug";
 let debug = _debug("_fromSip/sms");
 
-export async function sms(sipPacket: pjsip.PacketSipMessage) {
+const statusReportTimeout = 15000;
+
+export async function sms(fromContact: string, sipRequest: sip.Request) {
 
     debug("...SMS!");
 
-    let text = sipPacket.body;
+    console.log(sip.stringify(sipRequest));
 
-    let number = sipPacket.to;
+    let text = sipRequest.content;
 
-    let imei = sipPacket.from_endpoint
+    let number = sip.parseUri(sipRequest.headers.to.uri).user!;
 
+    //TODO: this is only a fix
+    if (!number.match(/^[\+0]/))
+        number = `+${number}`;
+
+    console.log("after reformating",{ number });
+
+    let imei = sip.parseUriWithEndpoint(fromContact).endpoint;
 
     let outgoingMessageId: number = NaN;
 
@@ -29,8 +41,6 @@ export async function sms(sipPacket: pjsip.PacketSipMessage) {
         let dongle = await DongleExtendedClient.localhost().getActiveDongle(imei);
 
         if (!dongle) {
-
-            //TODO: Should not be allowed by client, cf presence state
 
             info_message = `MESSAGE NOT SEND, DONGLE NOT ACTIVE`;
 
@@ -68,56 +78,56 @@ export async function sms(sipPacket: pjsip.PacketSipMessage) {
 
     })();
 
-
-    let headers = {
-        "outgoing_message_id": `${outgoingMessageId}`,
-        "imsi": imsi,
-        "is_sent": `${isSent}`,
-        "info_message": info_message
-    };
-
-    debug("SMS: ", { number, imei, text, headers });
-
-    //TODO: is send fail the info message should be sent only to the contact
+    debug("SMS: ", { number, imei, text, info_message });
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, number);
 
-    pjsip.sendHiddenMessage(
-        await pjsip.getAvailableContactsOfEndpoint(sipPacket.from_endpoint),
+    console.log("confirmation", { name, number });
+
+    inbound.sendMessage(
+        fromContact,
         number,
-        headers,
-        text,
+        {},
         isSent ? "✓" : info_message,
-        "sms_send_status",
-        sipPacket.headers.call_id
+        name
     );
 
+
+    /*
+
+
+    //TODO: dongle on connect should access the database and send message not sent
     if (!isSent) return;
+
+    let statusReportText = "NO STATUS REPORT RECEIVED";
 
     try {
 
-        await DongleExtendedClient
+        let statusReport = await DongleExtendedClient
             .localhost()
             .evtMessageStatusReport
-            .waitFor(({ messageId }) => messageId === outgoingMessageId, 15000);
+            .waitFor(({ messageId }) => messageId === outgoingMessageId, statusReportTimeout);
+
+        if (statusReport.isDelivered)
+            statusReportText = "✓✓";
+        else
+            statusReportText = `${statusReport.status}`;
 
     } catch (error) {
 
-        debug("no status report received");
-
-        await fromDongle.statusReport(
-            imei,
-            {
-                "messageId": outgoingMessageId,
-                "dischargeTime": new Date(NaN),
-                "isDelivered": false,
-                "recipient": number,
-                "status": ""
-            }
-        );
+        debug("No status report received in time");
 
     }
+    
+    inbound.sendMessage(
+        senderContact.pjsipUri,
+        imei,
+        {},
+        statusReportText,
+        name
+    );
 
-
+    */
 
 }
+

@@ -36,33 +36,38 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var pjsip = require("../../pjsip");
-var fromDongle = require("../../fromDongle");
+var sip = require("../../sipProxy/sip");
+var inbound = require("../../sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_fromSip/sms");
-function sms(sipPacket) {
+var statusReportTimeout = 15000;
+function sms(fromContact, sipRequest) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var text, number, imei, outgoingMessageId, info_message, imsi, isSent, headers, name, _a, _b, error_1;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var text, number, imei, outgoingMessageId, info_message, imsi, isSent, name;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
                 case 0:
                     debug("...SMS!");
-                    text = sipPacket.body;
-                    number = sipPacket.to;
-                    imei = sipPacket.from_endpoint;
+                    console.log(sip.stringify(sipRequest));
+                    text = sipRequest.content;
+                    number = sip.parseUri(sipRequest.headers.to.uri).user;
+                    //TODO: this is only a fix
+                    if (!number.match(/^[\+0]/))
+                        number = "+" + number;
+                    console.log("after reformating", { number: number });
+                    imei = sip.parseUriWithEndpoint(fromContact).endpoint;
                     outgoingMessageId = NaN;
                     info_message = "";
                     imsi = "";
                     return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
-                            var dongle, error_2;
+                            var dongle, error_1;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0: return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongle(imei)];
                                     case 1:
                                         dongle = _a.sent();
                                         if (!dongle) {
-                                            //TODO: Should not be allowed by client, cf presence state
                                             info_message = "MESSAGE NOT SEND, DONGLE NOT ACTIVE";
                                             return [2 /*return*/, undefined];
                                         }
@@ -77,8 +82,8 @@ function sms(sipPacket) {
                                         outgoingMessageId = _a.sent();
                                         return [3 /*break*/, 5];
                                     case 4:
-                                        error_2 = _a.sent();
-                                        info_message = "MESSAGE NOT SEND, INTERNAL ERROR, " + error_2.message;
+                                        error_1 = _a.sent();
+                                        info_message = "MESSAGE NOT SEND, INTERNAL ERROR, " + error_1.message;
                                         return [2 /*return*/, false];
                                     case 5:
                                         if (isNaN(outgoingMessageId)) {
@@ -91,56 +96,14 @@ function sms(sipPacket) {
                             });
                         }); })()];
                 case 1:
-                    isSent = _c.sent();
-                    headers = {
-                        "outgoing_message_id": "" + outgoingMessageId,
-                        "imsi": imsi,
-                        "is_sent": "" + isSent,
-                        "info_message": info_message
-                    };
-                    debug("SMS: ", { number: number, imei: imei, text: text, headers: headers });
+                    isSent = _a.sent();
+                    debug("SMS: ", { number: number, imei: imei, text: text, info_message: info_message });
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, number)];
                 case 2:
-                    name = _c.sent();
-                    _b = (_a = pjsip).sendHiddenMessage;
-                    return [4 /*yield*/, pjsip.getAvailableContactsOfEndpoint(sipPacket.from_endpoint)];
-                case 3:
-                    _b.apply(_a, [_c.sent(),
-                        number,
-                        headers,
-                        text,
-                        isSent ? "✓" : info_message,
-                        "sms_send_status",
-                        sipPacket.headers.call_id]);
-                    if (!isSent)
-                        return [2 /*return*/];
-                    _c.label = 4;
-                case 4:
-                    _c.trys.push([4, 6, , 8]);
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient
-                            .localhost()
-                            .evtMessageStatusReport
-                            .waitFor(function (_a) {
-                            var messageId = _a.messageId;
-                            return messageId === outgoingMessageId;
-                        }, 15000)];
-                case 5:
-                    _c.sent();
-                    return [3 /*break*/, 8];
-                case 6:
-                    error_1 = _c.sent();
-                    debug("no status report received");
-                    return [4 /*yield*/, fromDongle.statusReport(imei, {
-                            "messageId": outgoingMessageId,
-                            "dischargeTime": new Date(NaN),
-                            "isDelivered": false,
-                            "recipient": number,
-                            "status": ""
-                        })];
-                case 7:
-                    _c.sent();
-                    return [3 /*break*/, 8];
-                case 8: return [2 /*return*/];
+                    name = _a.sent();
+                    console.log("confirmation", { name: name, number: number });
+                    inbound.sendMessage(fromContact, number, {}, isSent ? "✓" : info_message, name);
+                    return [2 /*return*/];
             }
         });
     });

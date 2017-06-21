@@ -42,6 +42,16 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
 var __read = (this && this.__read) || function (o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
@@ -66,11 +76,13 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_exec_queue_1 = require("ts-exec-queue");
 var mysql = require("mysql");
+var sharedSipProxy = require("../sipProxy/shared");
+var sip = require("../sipProxy/sip");
 exports.callContext = "from-sip-call";
 exports.messageContext = "from-sip-message";
 exports.subscribeContext = function (imei) { return "from-sip-subscribe-" + imei; };
 var _debug = require("debug");
-var debug = _debug("_fromDongles/dbInterface");
+var debug = _debug("_pjsip/dbInterface");
 var dbParams = {
     "host": "127.0.0.1",
     "user": "root",
@@ -80,38 +92,161 @@ var connection = mysql.createConnection(__assign({}, dbParams, { "database": "as
 function query(sql, values) {
     return new Promise(function (resolve, reject) {
         var r = connection.query(sql, values || [], function (err, results) { return err ? reject(err) : resolve(results); });
-        //console.log(r.sql);
     });
 }
-//const authId = "semasim-default-auth";
 var cluster = {};
-exports.queryEndpoints = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", function (callback) { return __awaiter(_this, void 0, void 0, function () {
+var group = "DB_ACCESS";
+exports.queryEndpoints = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
     var res, endpoints;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, query("SELECT `id` FROM `ps_endpoints`")];
+            case 0: return [4 /*yield*/, query("SELECT `username`,`realm` FROM `ps_auths`")];
             case 1:
                 res = _a.sent();
                 endpoints = res.map(function (_a) {
-                    var id = _a.id;
-                    return id;
+                    var username = _a.username, realm = _a.realm;
+                    return ({ "endpoint": username, "lastUpdated": parseInt(realm) });
                 });
                 callback(endpoints);
-                return [2 /*return*/, null];
+                return [2 /*return*/, endpoints];
         }
     });
 }); });
-exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", function (endpoint, callback) { return __awaiter(_this, void 0, void 0, function () {
-    var ps_aors, ps_endpoints, ps_auths;
+exports.truncateContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, query("TRUNCATE ps_contacts")];
+            case 1:
+                _a.sent();
+                callback();
+                return [2 /*return*/];
+        }
+    });
+}); });
+var queryContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
+    var res, contacts;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                debug("entering queryContact");
+                return [4 /*yield*/, query("SELECT `uri`,`endpoint` FROM `ps_contacts`")];
+            case 1:
+                res = _a.sent();
+                contacts = res.map(function (_a) {
+                    var uri = _a.uri, endpoint = _a.endpoint;
+                    return endpoint + "/" + uri.replace(/\^3B/g, ";");
+                });
+                callback(contacts);
+                return [2 /*return*/, contacts];
+        }
+    });
+}); });
+function queryContactsOfEndpoints(endpoint) {
+    return __awaiter(this, void 0, void 0, function () {
+        var contacts;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, queryContacts()];
+                case 1:
+                    contacts = _a.sent();
+                    return [2 /*return*/, contacts.filter(function (uri) { return sip.parseUriWithEndpoint(uri).endpoint === endpoint; })];
+            }
+        });
+    });
+}
+exports.queryContactsOfEndpoints = queryContactsOfEndpoints;
+function getContactOfFlow(flowToken) {
+    return __awaiter(this, void 0, void 0, function () {
+        var contacts, contacts_1, contacts_1_1, contactUri, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    debug("entering getContactOfFlow", flowToken);
+                    return [4 /*yield*/, queryContacts()];
+                case 1:
+                    contacts = _b.sent();
+                    try {
+                        for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
+                            contactUri = contacts_1_1.value;
+                            if (sip.parseUriWithEndpoint(contactUri).params[sharedSipProxy.flowTokenKey] === flowToken)
+                                return [2 /*return*/, contactUri];
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    return [2 /*return*/, undefined];
+            }
+        });
+    });
+}
+exports.getContactOfFlow = getContactOfFlow;
+var deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (uri, callback) { return __awaiter(_this, void 0, void 0, function () {
+    var match, affectedRows, isDeleted;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                debug("entering deleteContact", uri);
+                match = uri.match(/^([^\/]+)\/(.*)$/);
+                return [4 /*yield*/, query("DELETE FROM `ps_contacts` WHERE `endpoint`=? AND `uri`=?", [match[1], match[2].replace(/;/g, "^3B")])];
+            case 1:
+                affectedRows = (_a.sent()).affectedRows;
+                isDeleted = affectedRows ? true : false;
+                callback(isDeleted);
+                return [2 /*return*/, isDeleted];
+        }
+    });
+}); });
+function deleteContactOfFlow(flowToken) {
+    return __awaiter(this, void 0, void 0, function () {
+        var isDeleted, uri;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    debug("entering deleteContactOfFlow", flowToken);
+                    return [4 /*yield*/, getContactOfFlow(flowToken)];
+                case 1:
+                    uri = _a.sent();
+                    if (!uri) {
+                        isDeleted = true;
+                        return [2 /*return*/, isDeleted];
+                    }
+                    return [4 /*yield*/, deleteContact(uri)];
+                case 2:
+                    isDeleted = _a.sent();
+                    return [2 /*return*/, isDeleted];
+            }
+        });
+    });
+}
+exports.deleteContactOfFlow = deleteContactOfFlow;
+exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, isDongleConnected, callback) { return __awaiter(_this, void 0, void 0, function () {
+    var queryLines, ps_aors, ps_endpoints, ps_auths;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 debug("Add or update endpoint " + endpoint + " in real time configuration");
+                queryLines = [];
                 ps_aors = (function () {
                     var id = endpoint;
                     var max_contacts = 12;
                     var qualify_frequency = 15000;
-                    return [id, max_contacts, qualify_frequency];
+                    var support_path = "no";
+                    queryLines = __spread(queryLines, [
+                        "INSERT INTO `ps_aors`",
+                        "(`id`,`max_contacts`,`qualify_frequency`, `support_path`)",
+                        "VALUES ( ?, ?, ?, ?)",
+                        "ON DUPLICATE KEY UPDATE",
+                        "`max_contacts`= VALUES(`max_contacts`),",
+                        "`qualify_frequency`= VALUES(`qualify_frequency`),",
+                        "`support_path`= VALUES(`support_path`)",
+                        ";"
+                    ]);
+                    return [id, max_contacts, qualify_frequency, support_path];
                 })();
                 ps_endpoints = (function () {
                     var id = endpoint;
@@ -122,24 +257,8 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", fu
                     var subscribe_context = exports.subscribeContext(endpoint);
                     var aors = endpoint;
                     var auth = endpoint;
-                    var force_rport = "no";
-                    return [id, disallow, allow, context, message_context, subscribe_context, aors, auth, force_rport];
-                })();
-                ps_auths = (function () {
-                    var id = endpoint;
-                    var auth_type = "userpass";
-                    var username = endpoint;
-                    var password = "password";
-                    return [id, auth_type, username, password];
-                })();
-                return [4 /*yield*/, query([
-                        "INSERT INTO `ps_aors`",
-                        "(`id`,`max_contacts`,`qualify_frequency`)",
-                        "VALUES ( ?, ?, ?)",
-                        "ON DUPLICATE KEY UPDATE",
-                        "`max_contacts`= VALUES(`max_contacts`),",
-                        "`qualify_frequency`= VALUES(`qualify_frequency`)",
-                        ";",
+                    var force_rport = "yes";
+                    queryLines = __spread(queryLines, [
                         "INSERT INTO `ps_endpoints`",
                         "(`id`,`disallow`,`allow`,`context`,`message_context`,`subscribe_context`,`aors`,`auth`,`force_rport`)",
                         "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -148,18 +267,44 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, "DB_ACCESS", fu
                         "`allow`= VALUES(`allow`),",
                         "`context`= VALUES(`context`),",
                         "`message_context`= VALUES(`message_context`),",
+                        "`subscribe_context`= VALUES(`subscribe_context`),",
                         "`aors`= VALUES(`aors`),",
-                        "`auth`= VALUES(`auth`)",
+                        "`auth`= VALUES(`auth`),",
+                        "`force_rport`= VALUES(`force_rport`)",
                         ";",
+                    ]);
+                    return [id, disallow, allow, context, message_context, subscribe_context, aors, auth, force_rport];
+                })();
+                ps_auths = (function () {
+                    var id = endpoint;
+                    var auth_type = "userpass";
+                    var username = endpoint;
+                    var password = "password";
+                    queryLines = __spread(queryLines, [
                         "INSERT INTO `ps_auths`",
                         "(`id`, `auth_type`, `username`, `password`) VALUES (?, ?, ?, ?)",
                         "ON DUPLICATE KEY UPDATE",
-                        "`auth_type`= VALUES(`auth_type`), `username`= VALUES(`username`), `password`= VALUES(`password`)"
-                    ].join("\n"), __spread(ps_aors, ps_endpoints, ps_auths))];
+                        "`auth_type`= VALUES(`auth_type`),",
+                        "`username`= VALUES(`username`),",
+                        "`password`= VALUES(`password`)",
+                        ";"
+                    ]);
+                    var values = [id, auth_type, username, password];
+                    if (isDongleConnected) {
+                        var realm = "" + Date.now();
+                        queryLines = __spread(queryLines, [
+                            "UPDATE `ps_auths` SET `realm` = ? WHERE `id` = ?",
+                            ";"
+                        ]);
+                        values = __spread(values, [realm, id]);
+                    }
+                    return values;
+                })();
+                return [4 /*yield*/, query(queryLines.join("\n"), __spread(ps_aors, ps_endpoints, ps_auths))];
             case 1:
                 _a.sent();
                 callback();
-                return [2 /*return*/, null];
+                return [2 /*return*/];
         }
     });
 }); });

@@ -1,2 +1,2 @@
-import * as pjsip from "../../pjsip";
-export declare function sms(sipPacket: pjsip.PacketSipMessage): Promise<void>;
+import * as sip from "../../sipProxy/sip";
+export declare function sms(fromContact: string, sipRequest: sip.Request): Promise<void>;

@@ -5,6 +5,7 @@ import {
 } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
 import * as pjsip from "../pjsip";
+import * as inbound from "../sipProxy/inbound";
 
 import * as _debug from "debug";
 let debug = _debug("_fromDongle/message");
@@ -20,53 +21,25 @@ export async function sms(
     //TODO: See edge case when dongle send a message and immediately disconnect
     let { imsi } = (await DongleExtendedClient.localhost().getActiveDongle(imei))!;
 
-    debug({ imsi, number, date, text });
+    let name = await DongleExtendedClient.localhost().getContactName(imei, number);
 
-    await pjsip.sendMessage(
-        await pjsip.getAvailableContactsOfEndpoint(imei),
-        number,
-        { imsi, "date": `${date.toISOString()}` },
-        text,
-        "sms"
-    );
+    debug({ imsi, number, date, text, name });
 
-}
+    let contacts= await pjsip.queryContactsOfEndpoints(imei);
 
-export async function statusReport(
-    imei: string,
-    statusReport: StatusReport
-) {
+    for (let contact of contacts){
 
-    debug("FROM DONGLE STATUS REPORT!");
+        debug({ contact });
 
-    let { messageId, dischargeTime, isDelivered, status, recipient } = statusReport;
+        inbound.sendMessage(
+            contact,
+            number,
+            { "message-type": "sms" },
+            text,
+            name
+        ).then(isReceived=> debug("received", isReceived, contact));
 
-    let body = (() => {
-
-        if (isDelivered) return "✓✓";
-
-        if (!status) return "NO STATUS REPORT RECEIVED";
-
-        return `SMS STATUS REPORT: ${status}`;
-
-    })();
-
-    debug({ statusReport, body});
-
-    let headers = {
-        "outgoing_sms_id": `${messageId}`,
-        "is_delivered": `${isDelivered}`,
-        "status": `${status}`,
-        "discharge_time": isNaN(dischargeTime.getTime())?`${dischargeTime}`:dischargeTime.toISOString()
-    };
-
-    await pjsip.sendMessage(
-        await pjsip.getAvailableContactsOfEndpoint(imei),
-        recipient,
-        headers,
-        body,
-        "sms_status_report"
-    );
+    }
 
 
 }

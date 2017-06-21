@@ -36,16 +36,16 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var sms_1 = require("./sms");
-function message(sipPacket) {
+function message(fromContact, sipRequest) {
     return __awaiter(this, void 0, void 0, function () {
         var _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     console.log(" FROM SIP MESSAGE...");
-                    _a = sipPacket.to;
+                    _a = sipRequest.headers.to;
                     return [3 /*break*/, 1];
-                case 1: return [4 /*yield*/, sms_1.sms(sipPacket)];
+                case 1: return [4 /*yield*/, sms_1.sms(fromContact, sipRequest)];
                 case 2:
                     _b.sent();
                     return [3 /*break*/, 3];

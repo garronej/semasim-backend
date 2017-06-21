@@ -1,18 +1,16 @@
 import * as pjsip from "../../pjsip";
+import * as sip from "../../sipProxy/sip";
 
 import { sms } from "./sms";
 
 
-export async function message(sipPacket: pjsip.PacketSipMessage) {
+export async function message(fromContact: string, sipRequest: sip.Request) {
 
     console.log(" FROM SIP MESSAGE...");
 
-    //console.log({ sipPacket });
-
-    //TODO make a better mask for incoming message extension
-    switch ( sipPacket.to ) {
+    switch ( sipRequest.headers.to ) {
         default:
-            await sms(sipPacket);
+            await sms(fromContact, sipRequest);
             break;
     }
 }

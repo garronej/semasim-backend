@@ -6,7 +6,8 @@
   "version": "0.0.5",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
-    "start": "DEBUG=_* node ./dist/lib/main"
+    "start": "DEBUG=_* node ./dist/lib/main",
+    "outbound": "node ./dist/lib/sipProxy/outbound"
   },
   "repository": {
     "type": "git",
@@ -21,17 +22,22 @@
   ],
   "dependencies": {
     "chan-dongle-extended-client": "github:garronej/chan-dongle-extended-client",
+    "colors": "^1.1.2",
     "debug": "^2.6.8",
     "js-base64": "^2.1.9",
+    "md5": "^2.2.1",
     "mysql": "^2.13.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
+    "sip": "github:garronej/sip.js",
     "ts-async-agi": "github:garronej/ts-async-agi",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-exec-queue": "github:garronej/ts-exec-queue"
   },
   "devDependencies": {
+    "@types/colors": "^1.1.3",
     "@types/debug": "0.0.29",
     "@types/js-base64": "^2.1.5",
+    "@types/md5": "^2.1.32",
     "@types/mysql": "0.0.32",
     "@types/node": "^4.0.0",
     "typescript": "^2.3.2"

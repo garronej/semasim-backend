@@ -38,14 +38,13 @@ export async function call(channel: AGIChannel) {
         await _.setVariable("CALLERID(name)", name);
     }
 
-    /*
-    let contactsToDial_ = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
-    console.log({ contactsToDial_ });
-    */
+    let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
 
+    /*
     let contactsToDial = (await pjsip.getAvailableContactsOfEndpoint(imei))
         .map(contact => `PJSIP/${contact}`)
         .join("&");
+    */
 
     if (!contactsToDial) {
 
