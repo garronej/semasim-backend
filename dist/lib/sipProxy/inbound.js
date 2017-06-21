@@ -195,6 +195,7 @@ function start() {
                     );
                     */
                     proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
+                        var _this = this;
                         var flowToken, asteriskSocket, branch;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
@@ -215,20 +216,27 @@ function start() {
                                         extraParams[shared.flowTokenKey] = flowToken;
                                         return extraParams;
                                     })());
-                                    //TODO make sure the message is accepted instead of authorization
-                                    if (matchTextMessage(sipRequest) && "authorization" in sipRequest.headers)
-                                        pjsip.getContactOfFlow(flowToken)
-                                            .then(function (contact) {
-                                            return exports.evtIncomingMessage.post({ "message": sipRequest, "fromContact": contact });
-                                        });
                                     asteriskSocket.write(sipRequest);
                                     asteriskSocket.evtResponse.attachOnce(function (_a) {
                                         var headers = _a.headers;
                                         return headers.via[0].params["branch"] === branch;
-                                    }, function (sipResponse) {
-                                        sipResponse.headers.via.shift();
-                                        proxySocket.write(sipResponse);
-                                    });
+                                    }, function (sipResponse) { return __awaiter(_this, void 0, void 0, function () {
+                                        var fromContact;
+                                        return __generator(this, function (_a) {
+                                            switch (_a.label) {
+                                                case 0:
+                                                    sipResponse.headers.via.shift();
+                                                    proxySocket.write(sipResponse);
+                                                    if (!(matchTextMessage(sipRequest) && sipResponse.status === 202)) return [3 /*break*/, 2];
+                                                    return [4 /*yield*/, pjsip.getContactOfFlow(flowToken)];
+                                                case 1:
+                                                    fromContact = (_a.sent());
+                                                    exports.evtIncomingMessage.post({ fromContact: fromContact, "message": sipRequest });
+                                                    _a.label = 2;
+                                                case 2: return [2 /*return*/];
+                                            }
+                                        });
+                                    }); });
                                     return [2 /*return*/];
                             }
                         });

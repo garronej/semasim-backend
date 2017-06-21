@@ -16,8 +16,6 @@ export async function sms(fromContact: string, sipRequest: sip.Request) {
 
     debug("...SMS!");
 
-    console.log(sip.stringify(sipRequest));
-
     let text = sipRequest.content;
 
     let number = sip.parseUri(sipRequest.headers.to.uri).user!;

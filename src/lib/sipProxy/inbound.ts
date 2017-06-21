@@ -131,24 +131,24 @@ export async function start() {
 
         })());
 
-        //TODO make sure the message is accepted instead of authorization
-        if (matchTextMessage(sipRequest) && "authorization" in sipRequest.headers) 
-            pjsip.getContactOfFlow(flowToken)
-                .then(contact =>
-                    evtIncomingMessage.post(
-                        { "message": sipRequest, "fromContact": contact! }
-                    )
-                );
-
         asteriskSocket.write(sipRequest);
 
         asteriskSocket.evtResponse.attachOnce(
             ({ headers }) => headers.via[0].params["branch"] === branch,
-            sipResponse => {
+            async sipResponse => {
 
                 sipResponse.headers.via.shift();
 
                 proxySocket.write(sipResponse);
+
+                if( matchTextMessage(sipRequest) && sipResponse.status === 202 ){
+
+                    let fromContact= (await pjsip.getContactOfFlow(flowToken))!;
+
+                    evtIncomingMessage.post({ fromContact, "message": sipRequest });
+
+                }
+
 
             }
         );

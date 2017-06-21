@@ -49,7 +49,6 @@ function sms(fromContact, sipRequest) {
             switch (_a.label) {
                 case 0:
                     debug("...SMS!");
-                    console.log(sip.stringify(sipRequest));
                     text = sipRequest.content;
                     number = sip.parseUri(sipRequest.headers.to.uri).user;
                     //TODO: this is only a fix

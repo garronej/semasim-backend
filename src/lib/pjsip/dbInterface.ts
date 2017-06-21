@@ -72,8 +72,6 @@ export const truncateContacts= execQueue(cluster, group,
 const queryContacts= execQueue(cluster , group,
     async (callback?): Promise<string[]> => {
 
-        debug("entering queryContact");
-
         let res: any[] = await query("SELECT `uri`,`endpoint` FROM `ps_contacts`");
 
         let contacts = res.map(
@@ -98,8 +96,6 @@ export async function queryContactsOfEndpoints(endpoint: string): Promise<string
 
 export async function getContactOfFlow(flowToken: string): Promise<string | undefined> {
 
-    debug("entering getContactOfFlow", flowToken);
-
     let contacts = await queryContacts();
 
     for (let contactUri of contacts) 
@@ -114,8 +110,6 @@ export async function getContactOfFlow(flowToken: string): Promise<string | unde
 
 const deleteContact = execQueue(cluster, group,
     async (uri: string, callback?): Promise<boolean> => {
-
-        debug("entering deleteContact", uri);
 
         let match = uri.match(/^([^\/]+)\/(.*)$/)!;
 
@@ -134,8 +128,6 @@ const deleteContact = execQueue(cluster, group,
 
 
 export async function deleteContactOfFlow(flowToken: string): Promise<boolean> {
-
-    debug("entering deleteContactOfFlow", flowToken);
 
     let isDeleted: boolean;
 

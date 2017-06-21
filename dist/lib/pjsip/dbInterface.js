@@ -127,9 +127,7 @@ var queryContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback
     var res, contacts;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0:
-                debug("entering queryContact");
-                return [4 /*yield*/, query("SELECT `uri`,`endpoint` FROM `ps_contacts`")];
+            case 0: return [4 /*yield*/, query("SELECT `uri`,`endpoint` FROM `ps_contacts`")];
             case 1:
                 res = _a.sent();
                 contacts = res.map(function (_a) {
@@ -160,9 +158,7 @@ function getContactOfFlow(flowToken) {
         var contacts, contacts_1, contacts_1_1, contactUri, e_1, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0:
-                    debug("entering getContactOfFlow", flowToken);
-                    return [4 /*yield*/, queryContacts()];
+                case 0: return [4 /*yield*/, queryContacts()];
                 case 1:
                     contacts = _b.sent();
                     try {
@@ -190,7 +186,6 @@ var deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (uri, cal
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                debug("entering deleteContact", uri);
                 match = uri.match(/^([^\/]+)\/(.*)$/);
                 return [4 /*yield*/, query("DELETE FROM `ps_contacts` WHERE `endpoint`=? AND `uri`=?", [match[1], match[2].replace(/;/g, "^3B")])];
             case 1:
@@ -206,9 +201,7 @@ function deleteContactOfFlow(flowToken) {
         var isDeleted, uri;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    debug("entering deleteContactOfFlow", flowToken);
-                    return [4 /*yield*/, getContactOfFlow(flowToken)];
+                case 0: return [4 /*yield*/, getContactOfFlow(flowToken)];
                 case 1:
                     uri = _a.sent();
                     if (!uri) {
