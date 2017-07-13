@@ -194,4 +194,3 @@ export function getEvtNewContact(): SyncEvent<Contact> {
 
 
 */
-//# sourceMappingURL=endpointsContacts.js.map

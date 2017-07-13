@@ -84,7 +84,7 @@ var agi = require("./agi");
 var inbound = require("./sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_main");
-debug("Started!");
+debug("Started !!");
 //TODO: every call to dongleExtendedClient may throw error.
 var scripts = {};
 var phoneNumberAsteriskExtensionPattern = "_[+0-9].";
@@ -265,8 +265,8 @@ pjsip.getEvtNewContact().attach(function (contact) {
     });
 })();
 pjsip.truncateContacts().then(function () { return inbound.start(); });
+//pjsip.truncateContacts();
 inbound.evtIncomingMessage.attach(function (_a) {
-    var message = _a.message, fromContact = _a.fromContact;
+    var fromContact = _a.fromContact, message = _a.message;
     return fromSip.message(fromContact, message);
 });
-//# sourceMappingURL=main.js.map

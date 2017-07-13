@@ -100,12 +100,12 @@ exports.queryEndpoints = ts_exec_queue_1.execQueue(cluster, group, function (cal
     var res, endpoints;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, query("SELECT `username`,`realm` FROM `ps_auths`")];
+            case 0: return [4 /*yield*/, query("SELECT `id`,`set_var` FROM `ps_endpoints`")];
             case 1:
                 res = _a.sent();
                 endpoints = res.map(function (_a) {
-                    var username = _a.username, realm = _a.realm;
-                    return ({ "endpoint": username, "lastUpdated": parseInt(realm) });
+                    var id = _a.id, set_var = _a.set_var;
+                    return ({ "endpoint": id, "lastUpdated": parseInt(set_var.split("=")[1]) });
                 });
                 callback(endpoints);
                 return [2 /*return*/, endpoints];
@@ -217,83 +217,80 @@ function deleteContactOfFlow(flowToken) {
     });
 }
 exports.deleteContactOfFlow = deleteContactOfFlow;
+function generateQueryInsert(table, values) {
+    var keys = Object.keys(values);
+    var backtickKeys = keys.map(function (key) { return "`" + key + "`"; });
+    var queryLines = [
+        "INSERT INTO " + table + " ( " + backtickKeys.join(", ") + " )",
+        "VALUES ( " + keys.map(function () { return "?"; }).join(", ") + " )",
+        "ON DUPLICATE KEY UPDATE",
+        backtickKeys.map(function (backtickKey) { return backtickKey + " = VALUES(" + backtickKey + ")"; }).join(", "),
+        ";"
+    ];
+    return [
+        queryLines.join("\n"),
+        keys.map(function (key) { return values[key]; })
+    ];
+}
 exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, isDongleConnected, callback) { return __awaiter(_this, void 0, void 0, function () {
-    var queryLines, ps_aors, ps_endpoints, ps_auths;
+    var queryLine, values;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 debug("Add or update endpoint " + endpoint + " in real time configuration");
-                queryLines = [];
-                ps_aors = (function () {
-                    var id = endpoint;
-                    var max_contacts = 12;
-                    var qualify_frequency = 15000;
-                    var support_path = "no";
-                    queryLines = __spread(queryLines, [
-                        "INSERT INTO `ps_aors`",
-                        "(`id`,`max_contacts`,`qualify_frequency`, `support_path`)",
-                        "VALUES ( ?, ?, ?, ?)",
-                        "ON DUPLICATE KEY UPDATE",
-                        "`max_contacts`= VALUES(`max_contacts`),",
-                        "`qualify_frequency`= VALUES(`qualify_frequency`),",
-                        "`support_path`= VALUES(`support_path`)",
-                        ";"
-                    ]);
-                    return [id, max_contacts, qualify_frequency, support_path];
+                queryLine = "";
+                values = [];
+                (function () {
+                    var _a = __read(generateQueryInsert("ps_aors", {
+                        "id": endpoint,
+                        "max_contacts": 12,
+                        "qualify_frequency": 15000,
+                        "support_path": "yes"
+                    }), 2), _query = _a[0], _values = _a[1];
+                    queryLine += "\n" + _query;
+                    values = __spread(values, _values);
                 })();
-                ps_endpoints = (function () {
-                    var id = endpoint;
-                    var disallow = "all";
-                    var allow = "alaw,ulaw";
-                    var context = exports.callContext;
-                    var message_context = exports.messageContext;
-                    var subscribe_context = exports.subscribeContext(endpoint);
-                    var aors = endpoint;
-                    var auth = endpoint;
-                    var force_rport = "yes";
-                    queryLines = __spread(queryLines, [
-                        "INSERT INTO `ps_endpoints`",
-                        "(`id`,`disallow`,`allow`,`context`,`message_context`,`subscribe_context`,`aors`,`auth`,`force_rport`)",
-                        "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        "ON DUPLICATE KEY UPDATE",
-                        "`disallow`= VALUES(`disallow`),",
-                        "`allow`= VALUES(`allow`),",
-                        "`context`= VALUES(`context`),",
-                        "`message_context`= VALUES(`message_context`),",
-                        "`subscribe_context`= VALUES(`subscribe_context`),",
-                        "`aors`= VALUES(`aors`),",
-                        "`auth`= VALUES(`auth`),",
-                        "`force_rport`= VALUES(`force_rport`)",
-                        ";",
-                    ]);
-                    return [id, disallow, allow, context, message_context, subscribe_context, aors, auth, force_rport];
-                })();
-                ps_auths = (function () {
-                    var id = endpoint;
-                    var auth_type = "userpass";
-                    var username = endpoint;
-                    var password = "password";
-                    queryLines = __spread(queryLines, [
-                        "INSERT INTO `ps_auths`",
-                        "(`id`, `auth_type`, `username`, `password`) VALUES (?, ?, ?, ?)",
-                        "ON DUPLICATE KEY UPDATE",
-                        "`auth_type`= VALUES(`auth_type`),",
-                        "`username`= VALUES(`username`),",
-                        "`password`= VALUES(`password`)",
-                        ";"
-                    ]);
-                    var values = [id, auth_type, username, password];
+                (function () {
+                    var _a = __read(generateQueryInsert("ps_endpoints", {
+                        "id": endpoint,
+                        "disallow": "all",
+                        "allow": "alaw,ulaw",
+                        "context": exports.callContext,
+                        "message_context": exports.messageContext,
+                        "subscribe_context": exports.subscribeContext(endpoint),
+                        "aors": endpoint,
+                        "auth": endpoint,
+                        "force_rport": null,
+                        "from_domain": "semasim.com",
+                        "ice_support": "yes",
+                        "direct_media": null,
+                        "asymmetric_rtp_codec": null,
+                        "rtcp_mux": null,
+                        "direct_media_method": null,
+                        "connected_line_method": null
+                    }), 2), _query = _a[0], _values = _a[1];
                     if (isDongleConnected) {
-                        var realm = "" + Date.now();
-                        queryLines = __spread(queryLines, [
-                            "UPDATE `ps_auths` SET `realm` = ? WHERE `id` = ?",
+                        _query += [
+                            "UPDATE `ps_endpoints` SET `set_var` = ? WHERE `id` = ?",
                             ";"
-                        ]);
-                        values = __spread(values, [realm, id]);
+                        ].join("\n");
+                        _values = __spread(_values, ["LAST_UPDATED=" + Date.now(), endpoint]);
                     }
-                    return values;
+                    queryLine += "\n" + _query;
+                    values = __spread(values, _values);
                 })();
-                return [4 /*yield*/, query(queryLines.join("\n"), __spread(ps_aors, ps_endpoints, ps_auths))];
+                (function () {
+                    var _a = __read(generateQueryInsert("ps_auths", {
+                        "id": endpoint,
+                        "auth_type": "userpass",
+                        "username": endpoint,
+                        "password": "password",
+                        "realm": "semasim"
+                    }), 2), _query = _a[0], _values = _a[1];
+                    queryLine += "\n" + _query;
+                    values = __spread(values, _values);
+                })();
+                return [4 /*yield*/, query(queryLine, values)];
             case 1:
                 _a.sent();
                 callback();
@@ -301,4 +298,3 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function
         }
     });
 }); });
-//# sourceMappingURL=dbInterface.js.map

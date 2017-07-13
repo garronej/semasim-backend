@@ -60,4 +60,3 @@ DongleExtendedClient.localhost().ami.evt.attach(
 );
 
 */
-//# sourceMappingURL=index.js.map

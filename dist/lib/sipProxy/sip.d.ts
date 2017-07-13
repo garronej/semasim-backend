@@ -1,6 +1,8 @@
 /// <reference types="node" />
 import * as net from "net";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+export declare const regIdKey = "reg-id";
+export declare const instanceIdKey = "+sip.instance";
 export declare const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((chunk: Buffer | string) => void);
 export declare class Socket {
     private readonly connection;
@@ -12,15 +14,23 @@ export declare class Socket {
     readonly evtConnect: VoidSyncEvent;
     readonly evtPing: VoidSyncEvent;
     readonly evtData: SyncEvent<string>;
+    disablePong: boolean;
     constructor(connection: net.Socket);
     readonly setKeepAlive: net.Socket['setKeepAlive'];
     write(sipPacket: Packet): boolean;
+    overrideContact(sipPacket: Packet): void;
     destroy(): void;
     readonly localPort: number;
     readonly localAddress: string;
     readonly remotePort: number;
     readonly remoteAddress: string;
+    readonly encrypted: boolean;
+    readonly protocol: "TCP" | "TLS";
     addViaHeader(sipRequest: Request, extraParams?: Record<string, string>): string;
+    addPathHeader(sipRequest: Request, host?: string): void;
+    private buildRecordRoute(host);
+    shiftRouteAndAddRecordRoute(sipRequest: Request, host?: string): void;
+    rewriteRecordRoute(sipResponse: Response, host?: string): void;
 }
 export declare class Store {
     private readonly record;
@@ -33,18 +43,20 @@ export declare class Store {
 }
 export declare const stringify: (sipPacket: Packet) => string;
 export declare const parseUri: (uri: string) => ParsedUri;
-export declare const copyMessage: <T extends Packet>(sipPacket: T) => T;
 export declare const generateBranch: () => string;
 export declare const stringifyUri: (parsedUri: ParsedUri) => string;
 export declare const parse: (rawSipPacket: string) => Packet;
+export declare function copyMessage<T extends Packet>(sipPacket: T, deep?: boolean): T;
+export declare function createParsedUri(): ParsedUri;
 export declare function parseUriWithEndpoint(uri: string): ParsedUri & {
     endpoint: string;
 };
-export declare function updateContactHeader(sipRequest: Request, host: string, port: number, transport: TransportProtocol, extraParams?: Record<string, string>): void;
-export declare function shiftViaHeader(sipResponse: Response): void;
 export declare function updateUri(wrap: {
-    uri: string;
+    uri: string | undefined;
 } | undefined, updatedField: Partial<ParsedUri>): void;
+export declare function parseOptionTags(headerFieldValue: string | undefined): string[];
+export declare function hasOptionTag(headers: Headers, headerField: string, optionTag: string): boolean;
+export declare function addOptionTag(headers: Headers, headerField: string, optionTag: string): void;
 export declare function matchRequest(sipPacket: Packet): sipPacket is Request;
 export declare type TransportProtocol = "TCP" | "UDP" | "TLS" | "WSS";
 export interface Via {
@@ -72,7 +84,7 @@ export declare type UriWrap2 = {
     uri: ParsedUri;
     params: Record<string, string | null>;
 };
-export declare type SipHeaders = {
+export declare type Headers = {
     via: Via[];
     from: UriWrap1;
     to: UriWrap1;
@@ -89,7 +101,7 @@ export declare type SipHeaders = {
 export interface PacketBase {
     uri: string;
     version: string;
-    headers: SipHeaders;
+    headers: Headers;
     content: string;
 }
 export interface Request extends PacketBase {

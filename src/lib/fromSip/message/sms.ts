@@ -6,7 +6,6 @@ import * as sip from "../../sipProxy/sip";
 import * as inbound from "../../sipProxy/inbound";
 import { flowTokenKey } from "../../sipProxy/shared";
 
-
 import * as _debug from "debug";
 let debug = _debug("_fromSip/sms");
 
@@ -23,8 +22,6 @@ export async function sms(fromContact: string, sipRequest: sip.Request) {
     //TODO: this is only a fix
     if (!number.match(/^[\+0]/))
         number = `+${number}`;
-
-    console.log("after reformating",{ number });
 
     let imei = sip.parseUriWithEndpoint(fromContact).endpoint;
 
@@ -80,15 +77,17 @@ export async function sms(fromContact: string, sipRequest: sip.Request) {
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, number);
 
-    console.log("confirmation", { name, number });
+    debug("confirmation", { name, number, fromContact });
 
-    inbound.sendMessage(
+    let sendConfirmationReceived= await inbound.sendMessage(
         fromContact,
         number,
         {},
         isSent ? "✓" : info_message,
         name
     );
+
+    debug({ sendConfirmationReceived });
 
 
     /*

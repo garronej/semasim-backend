@@ -38,13 +38,14 @@ export async function call(channel: AGIChannel) {
         await _.setVariable("CALLERID(name)", name);
     }
 
-    let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
-
     /*
     let contactsToDial = (await pjsip.getAvailableContactsOfEndpoint(imei))
         .map(contact => `PJSIP/${contact}`)
         .join("&");
     */
+
+
+    let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
 
     if (!contactsToDial) {
 
@@ -56,10 +57,12 @@ export async function call(channel: AGIChannel) {
 
     debug({ contactsToDial });
 
-    debug("Dial...");
+
+    debug("Dialing...");
 
     await agi.dialAndGetOutboundChannel(
         channel,
+        //`PJSIP/${imei}`,
         contactsToDial,
         async (outboundChannel) => {
 
@@ -75,6 +78,7 @@ export async function call(channel: AGIChannel) {
 
         }
     );
+    
 
     debug("Call ended");
 

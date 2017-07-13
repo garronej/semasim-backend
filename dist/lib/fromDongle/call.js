@@ -73,18 +73,15 @@ function call(channel) {
                 case 4: return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
                 case 5:
                     contactsToDial = _a.sent();
-                    /*
-                    let contactsToDial = (await pjsip.getAvailableContactsOfEndpoint(imei))
-                        .map(contact => `PJSIP/${contact}`)
-                        .join("&");
-                    */
                     if (!contactsToDial) {
                         debug("No contact to dial!");
                         return [2 /*return*/];
                     }
                     debug({ contactsToDial: contactsToDial });
-                    debug("Dial...");
-                    return [4 /*yield*/, agi.dialAndGetOutboundChannel(channel, contactsToDial, function (outboundChannel) { return __awaiter(_this, void 0, void 0, function () {
+                    debug("Dialing...");
+                    return [4 /*yield*/, agi.dialAndGetOutboundChannel(channel, 
+                        //`PJSIP/${imei}`,
+                        contactsToDial, function (outboundChannel) { return __awaiter(_this, void 0, void 0, function () {
                             var _;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
@@ -112,4 +109,3 @@ function call(channel) {
     });
 }
 exports.call = call;
-//# sourceMappingURL=call.js.map

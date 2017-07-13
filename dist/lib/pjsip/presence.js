@@ -69,4 +69,3 @@ function enableDevicePresenceNotification(imei) {
     });
 }
 exports.enableDevicePresenceNotification = enableDevicePresenceNotification;
-//# sourceMappingURL=presence.js.map

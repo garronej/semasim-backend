@@ -40,16 +40,19 @@ var net = require("net");
 var shared = require("./shared");
 var md5 = require("md5");
 var sip = require("./sip");
+var path = require("path");
+var fs = require("fs");
+var tls = require("tls");
 require("colors");
 //TODO device is not trustable.
 //TODO: decrement max forward
-console.log("outbound sipProxy started!");
-var publicPort = 5060;
+console.log("Outbound sipProxy started!");
 var publicIp;
 var deviceSockets;
 var clientSockets;
 (function startServer() {
     return __awaiter(this, void 0, void 0, function () {
+        var options;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, shared.getOutboundProxyPublicIp()];
@@ -57,14 +60,25 @@ var clientSockets;
                     publicIp = _a.sent();
                     deviceSockets = new sip.Store();
                     clientSockets = new sip.Store();
+                    options = (function () {
+                        var pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
+                        var key = fs.readFileSync(path.join(pathToCerts, "privkey2.pem"), "utf8");
+                        var cert = fs.readFileSync(path.join(pathToCerts, "fullchain2.pem"), "utf8");
+                        var ca = fs.readFileSync(path.join(pathToCerts, "chain2.pem"), "utf8");
+                        return { key: key, cert: cert, ca: ca };
+                    })();
                     net.createServer()
                         .on("error", function (error) { throw error; })
-                        .listen(publicPort, "0.0.0.0")
+                        .listen(5060, "0.0.0.0")
                         .on("connection", onClientConnection);
-                    net.createServer()
+                    tls.createServer(options)
+                        .on("error", function (error) { throw error; })
+                        .listen(5061, "0.0.0.0")
+                        .on("secureConnection", onClientConnection);
+                    tls.createServer(options)
                         .on("error", function (error) { throw error; })
                         .listen(shared.relayPort, "0.0.0.0")
-                        .on("connection", onDeviceConnection);
+                        .on("secureConnection", onDeviceConnection);
                     return [2 /*return*/];
             }
         });
@@ -72,6 +86,8 @@ var clientSockets;
 })();
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new sip.Socket(clientSocketRaw);
+    //clientSocket.disablePong= true;
+    clientSocket.evtPing.attach(function () { return console.log("Client ping!"); });
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
     console.log((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);
@@ -97,10 +113,11 @@ function onClientConnection(clientSocketRaw) {
         }
         catch (error) {
             console.log("Can't route to proxy: ".yellow, error.message);
+            //Should send 480 temporary unavailable
             clientSocket.destroy();
             return;
         }
-        boundDeviceSocket.evtClose.attachOnce(function () {
+        boundDeviceSocket.evtClose.attachOnce(clientSocket, function () {
             console.log((flowToken + " Device Socket bound closed, destroying client socket").yellow);
             boundDeviceSocket = undefined;
             clientSocket.destroy();
@@ -109,31 +126,41 @@ function onClientConnection(clientSocketRaw) {
     clientSocket.evtRequest.attach(function (sipRequest) {
         if (!boundDeviceSocket)
             return;
-        var branch = boundDeviceSocket.addViaHeader(sipRequest, (function () {
+        if (sipRequest.method === "REGISTER") {
+            console.log("new register on flow token: " + flowToken);
+        }
+        boundDeviceSocket.addViaHeader(sipRequest, (function () {
             var extraParams = {};
             extraParams[shared.flowTokenKey] = flowToken;
             return extraParams;
         })());
+        var displayedAddr = "semasim-outbound-proxy.invalid";
+        if (sipRequest.method === "REGISTER") {
+            sip.addOptionTag(sipRequest.headers, "supported", "path");
+            boundDeviceSocket.addPathHeader(sipRequest, displayedAddr);
+        }
+        else {
+            boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedAddr);
+        }
         boundDeviceSocket.write(sipRequest);
-        boundDeviceSocket.evtResponse.attachOnce(function (_a) {
-            var headers = _a.headers;
-            return headers.via[0].params["branch"] === branch;
-        }, function (sipResponse) {
-            if (clientSocket.evtClose.postCount)
-                return;
-            sip.shiftViaHeader(sipResponse);
-            clientSocket.write(sipResponse);
-        });
+    });
+    clientSocket.evtResponse.attach(function (sipResponse) {
+        if (!boundDeviceSocket)
+            return;
+        boundDeviceSocket.rewriteRecordRoute(sipResponse, "semasim-outbound-proxy.invalid");
+        sipResponse.headers.via.shift();
+        boundDeviceSocket.write(sipResponse);
     });
     clientSocket.evtClose.attachOnce(function () {
         if (!boundDeviceSocket)
             return;
         console.log((flowToken + " Client socket closed AND boundDeviceSocket is not, notify device").yellow);
         boundDeviceSocket.write(shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken));
+        boundDeviceSocket.evtClose.detach({ "boundTo": clientSocket });
     });
 }
 function onDeviceConnection(deviceSocketRaw) {
-    console.log("New device socket\n\n".grey);
+    console.log("New device socket !\n\n".grey);
     var deviceSocket = new sip.Socket(deviceSocketRaw);
     deviceSocket.setKeepAlive(true);
     /*
@@ -159,18 +186,17 @@ function onDeviceConnection(deviceSocketRaw) {
         var clientSocket = clientSockets.get(flowToken);
         if (!clientSocket)
             return;
-        var branch = clientSocket.addViaHeader(sipRequest);
-        sip.updateContactHeader(sipRequest, publicIp, publicPort, "TCP");
+        clientSocket.addViaHeader(sipRequest);
+        clientSocket.shiftRouteAndAddRecordRoute(sipRequest, publicIp);
         clientSocket.write(sipRequest);
-        clientSocket.evtResponse.attachOnce(function (_a) {
-            var headers = _a.headers;
-            return headers.via[0].params["branch"] === branch;
-        }, function (sipResponse) {
-            if (deviceSocket.evtClose.postCount)
-                return;
-            sip.shiftViaHeader(sipResponse);
-            deviceSocket.write(sipResponse);
-        });
+    });
+    deviceSocket.evtResponse.attach(function (sipResponse) {
+        var flowToken = sipResponse.headers.via[0].params[shared.flowTokenKey];
+        var clientSocket = clientSockets.get(flowToken);
+        if (!clientSocket)
+            return;
+        clientSocket.rewriteRecordRoute(sipResponse, publicIp);
+        sipResponse.headers.via.shift();
+        clientSocket.write(sipResponse);
     });
 }
-//# sourceMappingURL=outbound.js.map

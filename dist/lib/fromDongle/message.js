@@ -91,4 +91,3 @@ function sms(imei, _a) {
     });
 }
 exports.sms = sms;
-//# sourceMappingURL=message.js.map

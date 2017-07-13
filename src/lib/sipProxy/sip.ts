@@ -1,6 +1,10 @@
 import * as sip from "sip";
 import * as net from "net";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
+import * as md5 from "md5";
+
+export const regIdKey= "reg-id";
+export const instanceIdKey= "+sip.instance";
 
 import * as _debug from "debug";
 let debug = _debug("_sipProxy/sip");
@@ -20,6 +24,8 @@ export class Socket {
     public readonly evtPing= new VoidSyncEvent();
 
     public readonly evtData=new SyncEvent<string>();
+
+    public disablePong= false;
 
     constructor(
         private readonly connection: net.Socket
@@ -46,6 +52,14 @@ export class Socket {
 
                 this.evtPing.post();
 
+                if( this.disablePong ){
+
+                    console.log("pong disabled");
+
+                    return;
+
+                }
+
                 this.connection.write("\r\n");
 
                 return;
@@ -57,8 +71,12 @@ export class Socket {
         })
         .once("close", had_error => this.evtClose.post(had_error))
         .once("error", error => this.evtError.post(error))
-        .once("connect", ()=> this.evtConnect.post())
         .setMaxListeners(Infinity);
+
+        if( this.encrypted ) 
+            connection.once("secureConnect", ()=>this.evtConnect.post());
+        else
+            connection.once("connect", () => this.evtConnect.post());
         
 
     }
@@ -70,7 +88,16 @@ export class Socket {
 
         if( this.evtClose.postCount ) return false;
 
+        //TODO: wait response of: https://support.counterpath.com/topic/what-is-the-use-of-the-first-options-request-send-before-registration
+        if( matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0 ) 
+            return false;
+
         return this.connection.write(stringify(sipPacket));
+    }
+
+    public overrideContact(sipPacket: Packet) {
+
+
     }
 
     public destroy(){
@@ -120,28 +147,128 @@ export class Socket {
         return remoteAddress;
     }
 
+    public get encrypted(): boolean {
+
+        return this.connection["encrypted"]?true:false;
+
+    }
+
+    public get protocol(): "TCP" | "TLS" {
+        return this.encrypted?"TLS":"TCP";
+    }
+
+    //TODO: need validate or crash
     public addViaHeader(
     sipRequest: Request,
     extraParams?: Record<string, string>
     ): string {
 
-        let branch= generateBranch();
+        let branch = (() => {
 
-        let params = { ...extraParams, branch, "rport": null };
+            let via = sipRequest.headers.via;
 
-        sipRequest.headers.via.splice(0, 0, {
+            if (!via.length) return generateBranch();
+
+            let previousBranch = via[0].params["branch"]!;
+
+            return `z9hG4bK-${md5(previousBranch)}`;
+
+        })();
+
+        let params = { ...(extraParams || {}), branch, "rport": null };
+
+        sipRequest.headers.via.unshift({
             "version": "2.0",
-            "protocol": "TCP",
-            "host": this.localAddress, 
-            "port": this.localPort, 
+            "protocol": this.protocol,
+            "host": this.localAddress,
+            "port": this.localPort,
             params
         });
 
-        sipRequest.headers["max-forwards"]= `${parseInt(sipRequest.headers["max-forwards"]) - 1}`;
+        sipRequest.headers["max-forwards"] = `${parseInt(sipRequest.headers["max-forwards"]) - 1}`;
 
         return branch;
 
     }
+
+    public addPathHeader(sipRequest: Request, host?: string) {
+
+        let parsedUri = createParsedUri();
+
+        parsedUri.host = host || this.localAddress;
+
+        parsedUri.port = this.localPort;
+
+        parsedUri.params["transport"] = this.protocol;
+
+        parsedUri.params["lr"] = null;
+
+        if( !sipRequest.headers.path ) 
+            sipRequest.headers.path = [];
+
+        sipRequest.headers.path!.unshift({
+            "uri": parsedUri,
+            "params": {}
+        });
+
+    }
+
+
+    private buildRecordRoute(host: string | undefined): UriWrap2 {
+
+        let parsedUri= createParsedUri();
+
+        parsedUri.host = host || this.localAddress;
+
+        parsedUri.port = this.localPort;
+
+        parsedUri.params["transport"] = this.protocol;
+
+        parsedUri.params["lr"] = null;
+
+        return { "uri": parsedUri, "params": {} };
+
+    }
+
+    public shiftRouteAndAddRecordRoute(sipRequest: Request, host?: string) {
+
+        if( sipRequest.headers.route )
+            sipRequest.headers.route.shift();
+
+        if( !sipRequest.headers.contact ) return;
+
+        if( !sipRequest.headers["record-route"] )
+            sipRequest.headers["record-route"] = [];
+
+        (sipRequest.headers["record-route"] as Headers["record-route"])!.unshift(
+            this.buildRecordRoute(host)
+        );
+
+    }
+
+
+    public rewriteRecordRoute(sipResponse: Response, host?: string) {
+
+        if( sipResponse.headers.cseq.method === "REGISTER") return;
+
+        let lastHopAddr= sipResponse.headers.via[0].host;
+
+        if( lastHopAddr === this.localAddress )
+            sipResponse.headers["record-route"]= undefined;
+        
+        if( !sipResponse.headers.contact ) return;
+
+        if( !sipResponse.headers["record-route"])
+            sipResponse.headers["record-route"]= [];
+        
+        (sipResponse.headers["record-route"] as Headers["record-route"])!.push(
+            this.buildRecordRoute(host)
+        );
+
+    }
+
+
+
 
 
 
@@ -187,10 +314,40 @@ export class Store {
 
 export const stringify: (sipPacket: Packet) => string = sip.stringify;
 export const parseUri: (uri: string) => ParsedUri = sip.parseUri;
-export const copyMessage: <T extends Packet>(sipPacket: T) => T = sip.copyMessage;
 export const generateBranch: () => string = sip.generateBranch;
 export const stringifyUri: (parsedUri: ParsedUri) => string = sip.stringifyUri;
 export const parse: (rawSipPacket: string) => Packet = sip.parse;
+
+
+/*
+export const copyMessage: <T extends Packet>(sipPacket: T, deep?: boolean) => T = sip.copyMessage;
+REGISTER sip:semasim.com SIP/2.0
+Via: SIP/2.0/TCP 172.31.31.1:8883;flowtoken=582faf054f660bbdd9e14c32bdb71e89;branch=z9hG4bK578943;rport
+Via: SIP/2.0/TCP 100.122.234.122:60006;branch=z9hG4bK-524287-1---6093e050d634776b;rport;alias
+Max-Forwards: 69
+Contact:  <sip:358880032664586@100.122.234.122:60006;rinstance=c2b1e3c576ad2cf8;transport=tcp>;+sip.instance="<urn:uuid:26388600-1cde-40aa-8eba-5802edfa3322>";reg-id=1
+To:  <sip:358880032664586@semasim.com>
+From:  <sip:358880032664586@semasim.com>;tag=8ee6bf48
+Call-ID: ZGZmMzllZjNhODIzZDQxMDlmOTA4YTY5ZWE3NGRlN2M
+CSeq: 1 REGISTER
+Expires: 900
+Allow: INVITE, ACK, CANCEL, BYE, REFER, INFO, NOTIFY, OPTIONS, UPDATE, PRACK, MESSAGE, SUBSCRIBE
+Supported: outbound, path
+User-Agent: Bria iOS release 3.9.5 stamp 38501.38502
+Content-Length: 0
+*/
+
+export function copyMessage<T extends Packet>(sipPacket: T, deep?: boolean): T {
+
+    return parse(stringify(sipPacket)) as T;
+
+}
+
+export function createParsedUri(): ParsedUri {
+    return parseUri(`sip:127.0.0.1`);
+}
+
+
 
 export function parseUriWithEndpoint(uri: string): ParsedUri & { endpoint: string } {
 
@@ -203,51 +360,72 @@ export function parseUriWithEndpoint(uri: string): ParsedUri & { endpoint: strin
 
 }
 
-export function updateContactHeader(
-    sipRequest: Request,
-    host: string,
-    port: number,
-    transport: TransportProtocol,
-    extraParams?: Record<string, string>
+
+export function updateUri(
+    wrap: { uri: string | undefined } | undefined,
+    updatedField: Partial<ParsedUri>
 ) {
 
-    if (!sipRequest.headers.contact) return;
+    if (!wrap || !wrap.uri) return;
 
-    let parsedContact = {
-        ...parseUri(sipRequest.headers.contact[0].uri),
-        host, port
-    };
 
-    parsedContact.params = {
-        ...parsedContact.params,
-        ...extraParams,
-        transport
-    };
+    let parsedUri = parseUri(wrap.uri);
 
-    sipRequest.headers.contact[0].uri = stringifyUri(parsedContact);
-
-}
-
-export function shiftViaHeader(sipResponse: Response) {
-    sipResponse.headers.via.shift();
-}
-
-export function updateUri( wrap: { uri: string } | undefined, updatedField: Partial<ParsedUri>){
-
-    if(!wrap) return;
-
-    let parsedUri= parseUri(wrap.uri);
-
-    for( let key of [ "schema", "user", "password", "host", "port" ])
+    for (let key of ["schema", "user", "password", "host", "port"])
         if (key in updatedField)
-            parsedUri[key]= updatedField[key];
-        
-    if( "params" in updatedField )
-        parsedUri.params= { ...parsedUri.params, ...updatedField.params };
+            parsedUri[key] = updatedField[key];
 
-    wrap.uri= stringifyUri(parsedUri);
+    if (updatedField.params)
+        parsedUri.params = { ...parsedUri.params, ...updatedField.params };
+
+    for (let key of Object.keys(parsedUri.params))
+        if (parsedUri.params[key] === "")
+            delete parsedUri.params[key];
+
+    wrap.uri = stringifyUri(parsedUri);
 
 }
+
+export function parseOptionTags(headerFieldValue: string | undefined): string[] {
+
+    if (!headerFieldValue) return [];
+
+    return headerFieldValue.split(",").map(optionTag => optionTag.replace(/\s/g, ""));
+
+}
+
+
+export function hasOptionTag(
+    headers: Headers,
+    headerField: string,
+    optionTag: string
+): boolean {
+
+    let headerFieldValue = headers[headerField];
+
+    let optionTags = parseOptionTags(headerFieldValue);
+
+    return optionTags.indexOf(optionTag) >= 0;
+
+}
+
+export function addOptionTag(
+    headers: Headers,
+    headerField: string,
+    optionTag: string
+) {
+
+    if (hasOptionTag(headers, headerField, optionTag))
+        return;
+
+    let optionTags = parseOptionTags(headers[headerField]);
+
+    optionTags.push(optionTag);
+
+    headers[headerField] = optionTags.join(", ");
+
+}
+
 
 
 
@@ -290,7 +468,7 @@ export type UriWrap2 = {
 }
 
 
-export type SipHeaders = {
+export type Headers = {
     via: Via[];
     from: UriWrap1;
     to: UriWrap1;
@@ -305,7 +483,7 @@ export type SipHeaders = {
 export interface PacketBase {
     uri: string;
     version: string;
-    headers: SipHeaders;
+    headers: Headers;
     content: string;
 }
 
@@ -319,4 +497,6 @@ export interface Response extends PacketBase {
 }
 
 export type Packet = Request | Response;
+
+
 

@@ -48,10 +48,18 @@ const group= "DB_ACCESS";
 export const queryEndpoints= execQueue(cluster, group,
     async (callback?): Promise<{ endpoint: string; lastUpdated: number}[]> =>{
 
-        let res= await query("SELECT `username`,`realm` FROM `ps_auths`");
+        //let res= await query("SELECT `username`,`realm` FROM `ps_auths`");
 
+        let res= await query("SELECT `id`,`set_var` FROM `ps_endpoints`");
+
+        /*
         let endpoints= res.map( ({ username, realm})=> 
             ({ "endpoint": username, "lastUpdated": parseInt(realm) })
+        );
+        */
+
+        let endpoints= res.map(({ id, set_var })=>
+        ( {"endpoint": id, "lastUpdated": parseInt(set_var.split("=")[1]) } )
         );
 
         callback(endpoints);
@@ -147,109 +155,111 @@ export async function deleteContactOfFlow(flowToken: string): Promise<boolean> {
 
 }
 
+function generateQueryInsert(
+    table: string,
+    values: Record<string, string | number | null>
+): [string, (string | number | null)[]] {
+
+    let keys = Object.keys(values);
+
+    let backtickKeys = keys.map(key => "`" + key + "`");
+
+    let queryLines = [
+        `INSERT INTO ${table} ( ${backtickKeys.join(", ")} )`,
+        `VALUES ( ${keys.map(() => "?").join(", ")} )`,
+        "ON DUPLICATE KEY UPDATE",
+        backtickKeys.map(backtickKey => `${backtickKey} = VALUES(${backtickKey})`).join(", "),
+        ";"
+    ];
+
+    return [
+        queryLines.join("\n"),
+        keys.map(key => values[key])
+    ];
+
+}
+
 
 export const addOrUpdateEndpoint = execQueue(cluster, group,
     async (endpoint: string, isDongleConnected: boolean, callback?): Promise<void> => {
 
         debug(`Add or update endpoint ${endpoint} in real time configuration`);
 
-        let queryLines: string[] = [];
+        let queryLine = "";
 
-        let ps_aors = (() => {
+        let values: (string | number | null)[] = [];
 
-            let id = endpoint;
-            let max_contacts = 12;
-            let qualify_frequency = 15000;
-            let support_path = "no";
+        (() => {
 
-            queryLines = [
-                ...queryLines,
-                "INSERT INTO `ps_aors`",
-                "(`id`,`max_contacts`,`qualify_frequency`, `support_path`)",
-                "VALUES ( ?, ?, ?, ?)",
-                "ON DUPLICATE KEY UPDATE",
-                "`max_contacts`= VALUES(`max_contacts`),",
-                "`qualify_frequency`= VALUES(`qualify_frequency`),",
-                "`support_path`= VALUES(`support_path`)",
-                ";"
-            ];
+            let [_query, _values] = generateQueryInsert("ps_aors", {
+                "id": endpoint,
+                "max_contacts": 12,
+                "qualify_frequency": 15000, //0
+                "support_path": "yes"
+            });
 
-            return [id, max_contacts, qualify_frequency, support_path];
+            queryLine += "\n" + _query;
+
+            values = [...values, ..._values];
 
         })();
 
-        let ps_endpoints = (() => {
+        (() => {
 
-            let id = endpoint;
-            let disallow = "all";
-            let allow = "alaw,ulaw";
-            let context = callContext;
-            let message_context = messageContext;
-            let subscribe_context = subscribeContext(endpoint);
-            let aors = endpoint;
-            let auth = endpoint;
-            let force_rport = "yes";
-
-            queryLines = [
-                ...queryLines,
-                "INSERT INTO `ps_endpoints`",
-                "(`id`,`disallow`,`allow`,`context`,`message_context`,`subscribe_context`,`aors`,`auth`,`force_rport`)",
-                "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                "ON DUPLICATE KEY UPDATE",
-                "`disallow`= VALUES(`disallow`),",
-                "`allow`= VALUES(`allow`),",
-                "`context`= VALUES(`context`),",
-                "`message_context`= VALUES(`message_context`),",
-                "`subscribe_context`= VALUES(`subscribe_context`),",
-                "`aors`= VALUES(`aors`),",
-                "`auth`= VALUES(`auth`),",
-                "`force_rport`= VALUES(`force_rport`)",
-                ";",
-            ];
-
-            return [id, disallow, allow, context, message_context, subscribe_context, aors, auth, force_rport];
-
-        })();
-
-        let ps_auths = (() => {
-
-            let id = endpoint;
-            let auth_type = "userpass";
-            let username = endpoint;
-            let password = "password";
-
-            queryLines = [
-                ...queryLines,
-                "INSERT INTO `ps_auths`",
-                "(`id`, `auth_type`, `username`, `password`) VALUES (?, ?, ?, ?)",
-                "ON DUPLICATE KEY UPDATE",
-                "`auth_type`= VALUES(`auth_type`),",
-                "`username`= VALUES(`username`),",
-                "`password`= VALUES(`password`)",
-                ";"
-            ];
-
-            let values = [id, auth_type, username, password];
+            let [_query, _values] = generateQueryInsert("ps_endpoints", {
+                "id": endpoint,
+                "disallow": "all",
+                "allow": "alaw,ulaw",
+                "context": callContext,
+                "message_context": messageContext,
+                "subscribe_context": subscribeContext(endpoint),
+                "aors": endpoint,
+                "auth": endpoint,
+                "force_rport": null,
+                "from_domain": "semasim.com",
+                "ice_support": "yes",
+                "direct_media": null,
+                "asymmetric_rtp_codec": null,
+                "rtcp_mux": null,
+                "direct_media_method": null,
+                "connected_line_method": null
+            });
 
             if (isDongleConnected) {
 
-                let realm = `${Date.now()}`;
-
-                queryLines = [
-                    ...queryLines,
-                    "UPDATE `ps_auths` SET `realm` = ? WHERE `id` = ?",
+                _query += [
+                    "UPDATE `ps_endpoints` SET `set_var` = ? WHERE `id` = ?",
                     ";"
-                ];
+                ].join("\n");
 
-                values = [...values, realm, id];
+                _values = [..._values, `LAST_UPDATED=${Date.now()}`, endpoint];
 
             }
 
-            return values;
+            queryLine += "\n" + _query;
+
+            values = [...values, ..._values];
 
         })();
 
-        await query(queryLines.join("\n"), [...ps_aors, ...ps_endpoints, ...ps_auths]);
+        (() => {
+
+            let [_query, _values] = generateQueryInsert("ps_auths", {
+                "id": endpoint,
+                "auth_type": "userpass",
+                "username": endpoint,
+                "password": "password",
+                "realm": "semasim"
+            });
+
+
+            queryLine += "\n" + _query;
+
+            values = [...values, ..._values];
+
+        })();
+
+        await query(queryLine, values);
 
         callback();
 

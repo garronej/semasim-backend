@@ -7,4 +7,3 @@ __export(require("./call"));
 __export(require("./message"));
 //TODO import this from dongle.conf
 exports.context = "from-dongle";
-//# sourceMappingURL=index.js.map

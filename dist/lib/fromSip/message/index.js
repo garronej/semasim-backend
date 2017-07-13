@@ -55,4 +55,3 @@ function message(fromContact, sipRequest) {
     });
 }
 exports.message = message;
-//# sourceMappingURL=index.js.map

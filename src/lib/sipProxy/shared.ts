@@ -25,6 +25,8 @@ export async function getOutboundProxyPublicIp(): Promise<string> {
 
 }
 
+//TODO: implement ping/pong
+
 export interface Message {
     messageId: string;
 }
