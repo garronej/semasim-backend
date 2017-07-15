@@ -2,7 +2,6 @@ import * as tls from "tls";
 import * as fs from "fs";
 import * as path from "path";
 
-
 let method = process.argv[2];
 
 let port = 8000;

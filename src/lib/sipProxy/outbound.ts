@@ -64,9 +64,9 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sip.Socket(clientSocketRaw);
 
-    //clientSocket.disablePong= true;
+    clientSocket.disablePong= true;
 
-    clientSocket.evtPing.attach(() => console.log("Client ping!"));
+    //clientSocket.evtPing.attach(() => console.log("Client ping!"));
 
 
     let flowToken = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
@@ -85,6 +85,19 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     clientSocket.evtData.attach(chunk =>
         console.log("From Client:\n", chunk.yellow, "\n\n")
+    );
+
+    clientSocket.evtPacket.attachPrepend(
+        ({ headers }) => headers["content-type"] === "application/sdp",
+        sipPacket => {
+
+            let sdp = sip.parseSdp(sipPacket.content);
+
+            sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+
+            sipPacket.content = sip.stringifySdp(sdp);
+
+        }
     );
 
     clientSocket.evtRequest.attachOnce(firstRequest => {
@@ -149,15 +162,15 @@ function onClientConnection(clientSocketRaw: net.Socket) {
         })());
 
 
-        let displayedAddr= "semasim-outbound-proxy.invalid";
+        let displayedAddr = "semasim-outbound-proxy.invalid";
 
-        if( sipRequest.method === "REGISTER" ){
+        if (sipRequest.method === "REGISTER") {
 
             sip.addOptionTag(sipRequest.headers, "supported", "path");
 
             boundDeviceSocket.addPathHeader(sipRequest, displayedAddr);
 
-        }else{
+        } else {
 
             boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedAddr);
 
@@ -165,9 +178,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
         boundDeviceSocket.write(sipRequest);
 
-
     });
-
 
     clientSocket.evtResponse.attach(sipResponse => {
 
@@ -196,8 +207,6 @@ function onClientConnection(clientSocketRaw: net.Socket) {
     });
 
 }
-
-
 
 function onDeviceConnection(deviceSocketRaw: net.Socket) {
 
@@ -240,7 +249,6 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
         }
     );
 
-
     deviceSocket.evtRequest.attach(sipRequest => {
 
         let flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey]!;
@@ -275,4 +283,3 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
 
 
 }
-

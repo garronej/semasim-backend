@@ -86,8 +86,8 @@ var clientSockets;
 })();
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new sip.Socket(clientSocketRaw);
-    //clientSocket.disablePong= true;
-    clientSocket.evtPing.attach(function () { return console.log("Client ping!"); });
+    clientSocket.disablePong = true;
+    //clientSocket.evtPing.attach(() => console.log("Client ping!"));
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
     console.log((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);
@@ -99,6 +99,14 @@ function onClientConnection(clientSocketRaw) {
     */
     clientSocket.evtData.attach(function (chunk) {
         return console.log("From Client:\n", chunk.yellow, "\n\n");
+    });
+    clientSocket.evtPacket.attachPrepend(function (_a) {
+        var headers = _a.headers;
+        return headers["content-type"] === "application/sdp";
+    }, function (sipPacket) {
+        var sdp = sip.parseSdp(sipPacket.content);
+        sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+        sipPacket.content = sip.stringifySdp(sdp);
     });
     clientSocket.evtRequest.attachOnce(function (firstRequest) {
         try {

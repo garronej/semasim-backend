@@ -3,6 +3,13 @@ import * as net from "net";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 export declare const regIdKey = "reg-id";
 export declare const instanceIdKey = "+sip.instance";
+export declare const parseSdp: (rawSdp: string) => any;
+export declare const stringifySdp: (sdp: any) => string;
+export declare function purgeCandidates(sdp: any, toPurge: {
+    host: boolean;
+    srflx: boolean;
+    relay: boolean;
+}): void;
 export declare const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((chunk: Buffer | string) => void);
 export declare class Socket {
     private readonly connection;

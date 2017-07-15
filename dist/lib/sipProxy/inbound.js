@@ -127,13 +127,21 @@ function start() {
             //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
             var asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
             asteriskSockets.add(flowToken, asteriskSocket);
+            asteriskSocket.evtPacket.attach(function (sipPacket) {
+                return console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n");
+            });
             /*
-            asteriskSocket.evtPacket.attach(sipPacket =>
-                console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
+            asteriskSocket.evtData.attach(chunk =>
+                console.log("From Asterisk:\n", chunk.grey, "\n\n")
             );
             */
-            asteriskSocket.evtData.attach(function (chunk) {
-                return console.log("From Asterisk:\n", chunk.grey, "\n\n");
+            asteriskSocket.evtPacket.attachPrepend(function (_a) {
+                var headers = _a.headers;
+                return headers["content-type"] === "application/sdp";
+            }, function (sipPacket) {
+                var sdp = sip.parseSdp(sipPacket.content);
+                sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+                sipPacket.content = sip.stringifySdp(sdp);
             });
             asteriskSocket.evtRequest.attach(function (sipRequest) {
                 var branch = proxySocket.addViaHeader(sipRequest, (function () {

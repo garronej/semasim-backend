@@ -2,57 +2,116 @@ import * as sip from "sip";
 import * as net from "net";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import * as md5 from "md5";
+import * as _sdp_ from "sip/sdp";
 
-export const regIdKey= "reg-id";
-export const instanceIdKey= "+sip.instance";
+
+
+
+
+
+export const regIdKey = "reg-id";
+export const instanceIdKey = "+sip.instance";
 
 import * as _debug from "debug";
 let debug = _debug("_sipProxy/sip");
 
-export const makeStreamParser: (handler: (sipPacket: Packet)=> void) => ((chunk: Buffer | string)=> void)= sip.makeStreamParser;
+export const parseSdp: (rawSdp: string)=> any = _sdp_.parse;
+export const stringifySdp: (sdp: any)=> string= _sdp_.stringify;
+
+
+export function purgeCandidates(sdp: any, toPurge: { host: boolean; srflx: boolean; relay: boolean }){
+
+    for( let m_i of sdp.m ){
+
+        let new_a: string[]= [];
+
+        for( let a_i of m_i.a ){
+
+            if(  a_i.match(/^candidate.*host$/) ){
+
+                if( toPurge.host ){
+
+                    console.log("==========================================> purged", a_i);
+                    continue;
+
+                }
+
+            }else if( a_i.match(/^candidate.*srflx/) ){
+
+                if( toPurge.srflx ){
+
+                    console.log("==========================================> purged", a_i);
+                    continue;
+
+                }
+
+            }else if( a_i.match(/^candidate/) ){
+
+                if( toPurge.relay ){
+
+                    console.log("==========================================> purged", a_i);
+                    continue;
+
+                }
+
+            }
+
+            new_a.push(a_i);
+
+        }
+
+        m_i.a= new_a;
+
+    }
+
+
+
+}
+
+export const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((chunk: Buffer | string) => void) = sip.makeStreamParser;
 
 //TODO: make a function to test if message are well formed: have from, to via ect.
 export class Socket {
 
-    public readonly evtPacket= new SyncEvent<Packet>();
-    public readonly evtResponse= new SyncEvent<Response>();
-    public readonly evtRequest= new SyncEvent<Request>();
+    public readonly evtPacket = new SyncEvent<Packet>();
+    public readonly evtResponse = new SyncEvent<Response>();
+    public readonly evtRequest = new SyncEvent<Request>();
 
-    public readonly evtClose= new SyncEvent<boolean>();
-    public readonly evtError= new SyncEvent<Error>();
-    public readonly evtConnect= new VoidSyncEvent();
-    public readonly evtPing= new VoidSyncEvent();
+    public readonly evtClose = new SyncEvent<boolean>();
+    public readonly evtError = new SyncEvent<Error>();
+    public readonly evtConnect = new VoidSyncEvent();
+    public readonly evtPing = new VoidSyncEvent();
 
-    public readonly evtData=new SyncEvent<string>();
+    public readonly evtData = new SyncEvent<string>();
 
-    public disablePong= false;
+    public disablePong = false;
 
     constructor(
         private readonly connection: net.Socket
-    ){
+    ) {
 
-        let streamParser= makeStreamParser(sipPacket => {
+        let streamParser = makeStreamParser(sipPacket => {
 
             this.evtPacket.post(sipPacket);
 
-            if( matchRequest(sipPacket) ) 
+            if (matchRequest(sipPacket))
                 this.evtRequest.post(sipPacket);
-            else 
+            else
                 this.evtResponse.post(sipPacket);
 
         });
 
         connection.on("data", (chunk: Buffer | string) => {
 
-            let rawStr= (chunk as Buffer).toString("utf8");
+            let rawStr = (chunk as Buffer).toString("utf8");
 
             this.evtData.post(rawStr);
 
-            if( rawStr === "\r\n\r\n" ){
+            if (rawStr === "\r\n\r\n") {
 
                 this.evtPing.post();
 
-                if( this.disablePong ){
+                if (this.disablePong) {
 
                     console.log("pong disabled");
 
@@ -69,30 +128,41 @@ export class Socket {
             streamParser(rawStr);
 
         })
-        .once("close", had_error => this.evtClose.post(had_error))
-        .once("error", error => this.evtError.post(error))
-        .setMaxListeners(Infinity);
+            .once("close", had_error => this.evtClose.post(had_error))
+            .once("error", error => this.evtError.post(error))
+            .setMaxListeners(Infinity);
 
-        if( this.encrypted ) 
-            connection.once("secureConnect", ()=>this.evtConnect.post());
+        if (this.encrypted)
+            connection.once("secureConnect", () => this.evtConnect.post());
         else
             connection.once("connect", () => this.evtConnect.post());
-        
+
 
     }
 
-    public readonly setKeepAlive: net.Socket['setKeepAlive']=
-    (...inputs)=> this.connection.setKeepAlive.apply(this.connection, inputs);
+    public readonly setKeepAlive: net.Socket['setKeepAlive'] =
+    (...inputs) => this.connection.setKeepAlive.apply(this.connection, inputs);
 
-    public write(sipPacket: Packet): boolean{
+    public write(sipPacket: Packet): boolean {
 
-        if( this.evtClose.postCount ) return false;
+        if (this.evtClose.postCount) return false;
 
         //TODO: wait response of: https://support.counterpath.com/topic/what-is-the-use-of-the-first-options-request-send-before-registration
-        if( matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0 ) 
+        if (matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0)
             return false;
 
-        return this.connection.write(stringify(sipPacket));
+        try{
+
+            return this.connection.write(stringify(sipPacket));
+
+        }catch(error){
+
+            console.log("error while stringifying: ", sipPacket);
+
+            throw error;
+
+        }
+
     }
 
     public overrideContact(sipPacket: Packet) {
@@ -100,7 +170,7 @@ export class Socket {
 
     }
 
-    public destroy(){
+    public destroy() {
 
         /*
         this.evtData.detach();
@@ -114,53 +184,53 @@ export class Socket {
     }
 
     public get localPort(): number {
-        let localPort= this.connection.localPort;
+        let localPort = this.connection.localPort;
 
-        if( typeof localPort !== "number" || isNaN(localPort) )
+        if (typeof localPort !== "number" || isNaN(localPort))
             throw new Error("LocalPort not yet set");
-        
+
         return localPort;
     }
     public get localAddress(): string {
-        let localAddress= this.connection.localAddress;
+        let localAddress = this.connection.localAddress;
 
-        if( !localAddress ) throw new Error("LocalAddress not yet set");
+        if (!localAddress) throw new Error("LocalAddress not yet set");
 
         return localAddress;
     }
 
     public get remotePort(): number {
-        let remotePort= this.connection.remotePort;
+        let remotePort = this.connection.remotePort;
 
-        if( typeof remotePort !== "number" || isNaN(remotePort) )
+        if (typeof remotePort !== "number" || isNaN(remotePort))
             throw new Error("Remote port not yet set");
-        
+
         return remotePort;
 
     }
     public get remoteAddress(): string {
 
-        let remoteAddress= this.connection.remoteAddress;
+        let remoteAddress = this.connection.remoteAddress;
 
-        if( !remoteAddress ) throw new Error("Remote address not yes set");
+        if (!remoteAddress) throw new Error("Remote address not yes set");
 
         return remoteAddress;
     }
 
     public get encrypted(): boolean {
 
-        return this.connection["encrypted"]?true:false;
+        return this.connection["encrypted"] ? true : false;
 
     }
 
     public get protocol(): "TCP" | "TLS" {
-        return this.encrypted?"TLS":"TCP";
+        return this.encrypted ? "TLS" : "TCP";
     }
 
     //TODO: need validate or crash
     public addViaHeader(
-    sipRequest: Request,
-    extraParams?: Record<string, string>
+        sipRequest: Request,
+        extraParams?: Record<string, string>
     ): string {
 
         let branch = (() => {
@@ -203,7 +273,7 @@ export class Socket {
 
         parsedUri.params["lr"] = null;
 
-        if( !sipRequest.headers.path ) 
+        if (!sipRequest.headers.path)
             sipRequest.headers.path = [];
 
         sipRequest.headers.path!.unshift({
@@ -216,7 +286,7 @@ export class Socket {
 
     private buildRecordRoute(host: string | undefined): UriWrap2 {
 
-        let parsedUri= createParsedUri();
+        let parsedUri = createParsedUri();
 
         parsedUri.host = host || this.localAddress;
 
@@ -232,12 +302,12 @@ export class Socket {
 
     public shiftRouteAndAddRecordRoute(sipRequest: Request, host?: string) {
 
-        if( sipRequest.headers.route )
+        if (sipRequest.headers.route)
             sipRequest.headers.route.shift();
 
-        if( !sipRequest.headers.contact ) return;
+        if (!sipRequest.headers.contact) return;
 
-        if( !sipRequest.headers["record-route"] )
+        if (!sipRequest.headers["record-route"])
             sipRequest.headers["record-route"] = [];
 
         (sipRequest.headers["record-route"] as Headers["record-route"])!.unshift(
@@ -249,18 +319,18 @@ export class Socket {
 
     public rewriteRecordRoute(sipResponse: Response, host?: string) {
 
-        if( sipResponse.headers.cseq.method === "REGISTER") return;
+        if (sipResponse.headers.cseq.method === "REGISTER") return;
 
-        let lastHopAddr= sipResponse.headers.via[0].host;
+        let lastHopAddr = sipResponse.headers.via[0].host;
 
-        if( lastHopAddr === this.localAddress )
-            sipResponse.headers["record-route"]= undefined;
-        
-        if( !sipResponse.headers.contact ) return;
+        if (lastHopAddr === this.localAddress)
+            sipResponse.headers["record-route"] = undefined;
 
-        if( !sipResponse.headers["record-route"])
-            sipResponse.headers["record-route"]= [];
-        
+        if (!sipResponse.headers.contact) return;
+
+        if (!sipResponse.headers["record-route"])
+            sipResponse.headers["record-route"] = [];
+
         (sipResponse.headers["record-route"] as Headers["record-route"])!.push(
             this.buildRecordRoute(host)
         );

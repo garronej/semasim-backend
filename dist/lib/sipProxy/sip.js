@@ -21,10 +21,94 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var sip = require("sip");
 var ts_events_extended_1 = require("ts-events-extended");
 var md5 = require("md5");
+var _sdp_ = require("sip/sdp");
 exports.regIdKey = "reg-id";
 exports.instanceIdKey = "+sip.instance";
 var _debug = require("debug");
 var debug = _debug("_sipProxy/sip");
+exports.parseSdp = _sdp_.parse;
+exports.stringifySdp = _sdp_.stringify;
+/*
+let rawSdp = [
+    "v=0",
+    "o=- 2056 413 IN IP4 192.168.0.20",
+    "s=Asterisk",
+    "c=IN IP4 192.168.0.20",
+    "t=0 0",
+    "m=audio 18666 RTP/AVP 8 0 102",
+    "a=ice-ufrag:6b43470406ed308e26e759cd19948a2b",
+    "a=ice-pwd:165b1b235a1d2e8d044b7ced028ec694",
+    "a=candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 18666 typ host",
+    "a=candidate:S5140886d 1 UDP 1694498815 81.64.136.109 61361 typ srflx raddr 192.168.0.20 rport 18666",
+    "a=candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 18667 typ host",
+    "a=candidate:S5140886d 2 UDP 1694498814 81.64.136.109 61362 typ srflx raddr 192.168.0.20 rport 18667",
+    "a=rtpmap:8 PCMA/8000",
+    "a=rtpmap:0 PCMU/8000",
+    "a=ptime:20",
+    "a=maxptime:150",
+    "a=sendrecv",
+    "a=rtpmap:102 telephone-event/8000",
+    "a=fmtp:102 0-16"
+].join("\r\n");
+
+
+let sdp= _sdp_.parse(rawSdp);
+
+console.log(JSON.stringify(sdp.m[0].a, null,2));
+
+purgeHostCandidate(sdp);
+
+console.log(JSON.stringify(sdp.m[0].a, null,2));
+*/
+function purgeCandidates(sdp, toPurge) {
+    try {
+        for (var _a = __values(sdp.m), _b = _a.next(); !_b.done; _b = _a.next()) {
+            var m_i = _b.value;
+            var new_a = [];
+            try {
+                for (var _c = __values(m_i.a), _d = _c.next(); !_d.done; _d = _c.next()) {
+                    var a_i = _d.value;
+                    if (a_i.match(/^candidate.*host$/)) {
+                        if (toPurge.host) {
+                            console.log("==========================================> purged", a_i);
+                            continue;
+                        }
+                    }
+                    else if (a_i.match(/^candidate.*srflx/)) {
+                        if (toPurge.srflx) {
+                            console.log("==========================================> purged", a_i);
+                            continue;
+                        }
+                    }
+                    else if (a_i.match(/^candidate/)) {
+                        if (toPurge.relay) {
+                            console.log("==========================================> purged", a_i);
+                            continue;
+                        }
+                    }
+                    new_a.push(a_i);
+                }
+            }
+            catch (e_1_1) { e_1 = { error: e_1_1 }; }
+            finally {
+                try {
+                    if (_d && !_d.done && (_e = _c.return)) _e.call(_c);
+                }
+                finally { if (e_1) throw e_1.error; }
+            }
+            m_i.a = new_a;
+        }
+    }
+    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+    finally {
+        try {
+            if (_b && !_b.done && (_f = _a.return)) _f.call(_a);
+        }
+        finally { if (e_2) throw e_2.error; }
+    }
+    var e_2, _f, e_1, _e;
+}
+exports.purgeCandidates = purgeCandidates;
 exports.makeStreamParser = sip.makeStreamParser;
 //TODO: make a function to test if message are well formed: have from, to via ect.
 var Socket = (function () {
@@ -82,7 +166,13 @@ var Socket = (function () {
         //TODO: wait response of: https://support.counterpath.com/topic/what-is-the-use-of-the-first-options-request-send-before-registration
         if (matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0)
             return false;
-        return this.connection.write(exports.stringify(sipPacket));
+        try {
+            return this.connection.write(exports.stringify(sipPacket));
+        }
+        catch (error) {
+            console.log("error while stringifying: ", sipPacket);
+            throw error;
+        }
     };
     Socket.prototype.overrideContact = function (sipPacket) {
     };
@@ -242,14 +332,14 @@ var Store = (function () {
                 this.record[key].destroy();
             }
         }
-        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        catch (e_3_1) { e_3 = { error: e_3_1 }; }
         finally {
             try {
                 if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
             }
-            finally { if (e_1) throw e_1.error; }
+            finally { if (e_3) throw e_3.error; }
         }
-        var e_1, _c;
+        var e_3, _c;
     };
     return Store;
 }());
@@ -300,12 +390,12 @@ function updateUri(wrap, updatedField) {
                 parsedUri[key] = updatedField[key];
         }
     }
-    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+    catch (e_4_1) { e_4 = { error: e_4_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_2) throw e_2.error; }
+        finally { if (e_4) throw e_4.error; }
     }
     if (updatedField.params)
         parsedUri.params = __assign({}, parsedUri.params, updatedField.params);
@@ -316,15 +406,15 @@ function updateUri(wrap, updatedField) {
                 delete parsedUri.params[key];
         }
     }
-    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+    catch (e_5_1) { e_5 = { error: e_5_1 }; }
     finally {
         try {
             if (_e && !_e.done && (_f = _d.return)) _f.call(_d);
         }
-        finally { if (e_3) throw e_3.error; }
+        finally { if (e_5) throw e_5.error; }
     }
     wrap.uri = exports.stringifyUri(parsedUri);
-    var e_2, _c, e_3, _f;
+    var e_4, _c, e_5, _f;
 }
 exports.updateUri = updateUri;
 function parseOptionTags(headerFieldValue) {

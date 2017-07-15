@@ -274,14 +274,27 @@ export async function start() {
 
         asteriskSockets.add(flowToken, asteriskSocket);
 
-        /*
         asteriskSocket.evtPacket.attach(sipPacket =>
             console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
         );
-        */
 
+        /*
         asteriskSocket.evtData.attach(chunk =>
             console.log("From Asterisk:\n", chunk.grey, "\n\n")
+        );
+        */
+
+        asteriskSocket.evtPacket.attachPrepend(
+            ({ headers }) => headers["content-type"] === "application/sdp",
+            sipPacket => {
+
+                let sdp = sip.parseSdp(sipPacket.content);
+
+                sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+
+                sipPacket.content = sip.stringifySdp(sdp);
+
+            }
         );
 
 
