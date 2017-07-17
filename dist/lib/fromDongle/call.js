@@ -51,27 +51,41 @@ exports.jitterBuffer = {
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var _, imei, name, contactsToDial;
+        var _, imei, name, error_1, contactsToDial;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    debug("Call from " + channel.request.callerid);
+                    debug("Call from " + channel.request.callerid + " !");
                     _ = channel.relax;
                     return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
                 case 1:
                     imei = (_a.sent());
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
+                    name = undefined;
+                    _a.label = 2;
                 case 2:
+                    _a.trys.push([2, 4, , 5]);
+                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
+                case 3:
                     name = _a.sent();
-                    if (!name) return [3 /*break*/, 4];
+                    return [3 /*break*/, 5];
+                case 4:
+                    error_1 = _a.sent();
+                    console.log("The strange bug", { imei: imei });
+                    return [3 /*break*/, 5];
+                case 5:
+                    if (!name) return [3 /*break*/, 7];
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
                     return [4 /*yield*/, _.setVariable("CALLERID(name)", name)];
-                case 3:
+                case 6:
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
                     _a.sent();
-                    _a.label = 4;
-                case 4: return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
-                case 5:
+                    return [3 /*break*/, 9];
+                case 7: return [4 /*yield*/, _.setVariable("CALLERID(name)", "")];
+                case 8:
+                    _a.sent();
+                    _a.label = 9;
+                case 9: return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
+                case 10:
                     contactsToDial = _a.sent();
                     if (!contactsToDial) {
                         debug("No contact to dial!");
@@ -100,7 +114,7 @@ function call(channel) {
                                 }
                             });
                         }); })];
-                case 6:
+                case 11:
                     _a.sent();
                     debug("Call ended");
                     return [2 /*return*/];

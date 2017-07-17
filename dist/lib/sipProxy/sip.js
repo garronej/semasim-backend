@@ -29,37 +29,117 @@ var debug = _debug("_sipProxy/sip");
 exports.parseSdp = _sdp_.parse;
 exports.stringifySdp = _sdp_.stringify;
 /*
+
+{
+  "m": [
+    {
+      "media": "audio",
+      "port": 25662,
+      "portnum": 1,
+      "proto": "RTP/AVP",
+      "fmt": [
+        8,
+        0,
+        100
+      ],
+      "a": [
+        "ice-ufrag:626f23b80317e0f227f2b2f30911c6b6",
+        "ice-pwd:0abedefc1c343e6d495892ab4772f237",
+        "candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 25662 typ host",
+        "candidate:S5140886d 1 UDP 1694498815 81.64.136.109 25662 typ srflx raddr 192.168.0.20 rport 25662",
+        "candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 25663 typ host",
+        "candidate:S5140886d 2 UDP 1694498814 81.64.136.109 25663 typ srflx raddr 192.168.0.20 rport 25663",
+        "rtpmap:8 PCMA/8000",
+        "rtpmap:0 PCMU/8000",
+        "ptime:20",
+        "maxptime:150",
+        "sendrecv",
+        "rtpmap:100 telephone-event/8000",
+        "fmtp:100 0-16"
+      ]
+    }
+  ],
+  "v": "0",
+  "o": {
+    "username": "-",
+    "id": "1549",
+    "version": "2955",
+    "nettype": "IN",
+    "addrtype": "IP4",
+    "address": "192.168.0.20"
+  },
+  "s": "Asterisk",
+  "c": {
+    "nettype": "IN",
+    "addrtype": "IP4",
+    "address": "192.168.0.20"
+  },
+  "t": "0 0"
+}
+
+
 let rawSdp = [
     "v=0",
-    "o=- 2056 413 IN IP4 192.168.0.20",
+    "o=- 1549 2955 IN IP4 192.168.0.20",
     "s=Asterisk",
     "c=IN IP4 192.168.0.20",
     "t=0 0",
-    "m=audio 18666 RTP/AVP 8 0 102",
-    "a=ice-ufrag:6b43470406ed308e26e759cd19948a2b",
-    "a=ice-pwd:165b1b235a1d2e8d044b7ced028ec694",
-    "a=candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 18666 typ host",
-    "a=candidate:S5140886d 1 UDP 1694498815 81.64.136.109 61361 typ srflx raddr 192.168.0.20 rport 18666",
-    "a=candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 18667 typ host",
-    "a=candidate:S5140886d 2 UDP 1694498814 81.64.136.109 61362 typ srflx raddr 192.168.0.20 rport 18667",
+    "m=audio 25662 RTP/AVP 8 0 100",
+    "a=ice-ufrag:626f23b80317e0f227f2b2f30911c6b6",
+    "a=ice-pwd:0abedefc1c343e6d495892ab4772f237",
+    "a=candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 25662 typ host",
+    "a=candidate:S5140886d 1 UDP 1694498815 81.64.136.109 25662 typ srflx raddr 192.168.0.20 rport 25662",
+    "a=candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 25663 typ host",
+    "a=candidate:S5140886d 2 UDP 1694498814 81.64.136.109 25663 typ srflx raddr 192.168.0.20 rport 25663",
     "a=rtpmap:8 PCMA/8000",
     "a=rtpmap:0 PCMU/8000",
     "a=ptime:20",
     "a=maxptime:150",
     "a=sendrecv",
-    "a=rtpmap:102 telephone-event/8000",
-    "a=fmtp:102 0-16"
+    "a=rtpmap:100 telephone-event/8000",
+    "a=fmtp:100 0-16"
 ].join("\r\n");
-
-
-let sdp= _sdp_.parse(rawSdp);
-
-console.log(JSON.stringify(sdp.m[0].a, null,2));
-
-purgeHostCandidate(sdp);
-
-console.log(JSON.stringify(sdp.m[0].a, null,2));
 */
+function overwriteGlobalAndAudioAddrInSdpCandidates(sdp) {
+    var getSrflxAddr = function () {
+        try {
+            for (var _a = __values(sdp.m), _b = _a.next(); !_b.done; _b = _a.next()) {
+                var m_i = _b.value;
+                if (m_i.media !== "audio")
+                    continue;
+                try {
+                    for (var _c = __values(m_i.a), _d = _c.next(); !_d.done; _d = _c.next()) {
+                        var a_i = _d.value;
+                        var match = a_i.match(/^candidate(?:[^\s]+\s){4}((?:[0-9]{1,3}\.){3}[0-9]{1,3})\s(?:[^\s]+\s){2}srflx/);
+                        if (match)
+                            return match[1];
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (_d && !_d.done && (_e = _c.return)) _e.call(_c);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+            }
+        }
+        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+        finally {
+            try {
+                if (_b && !_b.done && (_f = _a.return)) _f.call(_a);
+            }
+            finally { if (e_2) throw e_2.error; }
+        }
+        throw new Error("srflx not found in SDP candidates");
+        var e_2, _f, e_1, _e;
+    };
+    var srflxAddr = getSrflxAddr();
+    sdp.c.address = srflxAddr;
+    sdp.o.address = srflxAddr;
+    //TODO: see if need to update port in m as well.
+}
+exports.overwriteGlobalAndAudioAddrInSdpCandidates = overwriteGlobalAndAudioAddrInSdpCandidates;
 function purgeCandidates(sdp, toPurge) {
     try {
         for (var _a = __values(sdp.m), _b = _a.next(); !_b.done; _b = _a.next()) {
@@ -89,24 +169,24 @@ function purgeCandidates(sdp, toPurge) {
                     new_a.push(a_i);
                 }
             }
-            catch (e_1_1) { e_1 = { error: e_1_1 }; }
+            catch (e_3_1) { e_3 = { error: e_3_1 }; }
             finally {
                 try {
                     if (_d && !_d.done && (_e = _c.return)) _e.call(_c);
                 }
-                finally { if (e_1) throw e_1.error; }
+                finally { if (e_3) throw e_3.error; }
             }
             m_i.a = new_a;
         }
     }
-    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+    catch (e_4_1) { e_4 = { error: e_4_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_f = _a.return)) _f.call(_a);
         }
-        finally { if (e_2) throw e_2.error; }
+        finally { if (e_4) throw e_4.error; }
     }
-    var e_2, _f, e_1, _e;
+    var e_4, _f, e_3, _e;
 }
 exports.purgeCandidates = purgeCandidates;
 exports.makeStreamParser = sip.makeStreamParser;
@@ -332,14 +412,14 @@ var Store = (function () {
                 this.record[key].destroy();
             }
         }
-        catch (e_3_1) { e_3 = { error: e_3_1 }; }
+        catch (e_5_1) { e_5 = { error: e_5_1 }; }
         finally {
             try {
                 if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
             }
-            finally { if (e_3) throw e_3.error; }
+            finally { if (e_5) throw e_5.error; }
         }
-        var e_3, _c;
+        var e_5, _c;
     };
     return Store;
 }());
@@ -390,12 +470,12 @@ function updateUri(wrap, updatedField) {
                 parsedUri[key] = updatedField[key];
         }
     }
-    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+    catch (e_6_1) { e_6 = { error: e_6_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_4) throw e_4.error; }
+        finally { if (e_6) throw e_6.error; }
     }
     if (updatedField.params)
         parsedUri.params = __assign({}, parsedUri.params, updatedField.params);
@@ -406,15 +486,15 @@ function updateUri(wrap, updatedField) {
                 delete parsedUri.params[key];
         }
     }
-    catch (e_5_1) { e_5 = { error: e_5_1 }; }
+    catch (e_7_1) { e_7 = { error: e_7_1 }; }
     finally {
         try {
             if (_e && !_e.done && (_f = _d.return)) _f.call(_d);
         }
-        finally { if (e_5) throw e_5.error; }
+        finally { if (e_7) throw e_7.error; }
     }
     wrap.uri = exports.stringifyUri(parsedUri);
-    var e_4, _c, e_5, _f;
+    var e_6, _c, e_7, _f;
 }
 exports.updateUri = updateUri;
 function parseOptionTags(headerFieldValue) {

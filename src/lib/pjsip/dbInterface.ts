@@ -9,7 +9,6 @@ export const callContext= "from-sip-call";
 export const messageContext= "from-sip-message";
 export const subscribeContext= (imei: string)=> `from-sip-subscribe-${imei}`;
 
-
 import * as _debug from "debug";
 let debug = _debug("_pjsip/dbInterface");
 

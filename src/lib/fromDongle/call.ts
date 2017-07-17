@@ -25,17 +25,32 @@ export const jitterBuffer = {
 
 export async function call(channel: AGIChannel) {
 
-    debug(`Call from ${channel.request.callerid}`);
+    debug(`Call from ${channel.request.callerid} !`);
 
     let _ = channel.relax;
 
+    //let imsi = (await _.getVariable("DONGLEIMSI"))!;
+    //console.log({ imsi });
+
     let imei = (await _.getVariable("DONGLEIMEI"))!;
 
-    let name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
+    let name: string | undefined = undefined;
+
+    try {
+
+        name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
+
+    } catch (error) {
+
+        console.log("The strange bug", { imei })
+
+    }
 
     if (name) {
         //await _.setVariable("CALLERID(name-charset)", "utf8");
         await _.setVariable("CALLERID(name)", name);
+    } else {
+        await _.setVariable("CALLERID(name)", "");
     }
 
     /*
@@ -78,7 +93,7 @@ export async function call(channel: AGIChannel) {
 
         }
     );
-    
+
 
     debug("Call ended");
 

@@ -140,7 +140,8 @@ function start() {
                 return headers["content-type"] === "application/sdp";
             }, function (sipPacket) {
                 var sdp = sip.parseSdp(sipPacket.content);
-                sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+                //sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+                sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
                 sipPacket.content = sip.stringifySdp(sdp);
             });
             asteriskSocket.evtRequest.attach(function (sipRequest) {

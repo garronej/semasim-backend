@@ -290,7 +290,9 @@ export async function start() {
 
                 let sdp = sip.parseSdp(sipPacket.content);
 
-                sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+                //sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
+
+                sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
 
                 sipPacket.content = sip.stringifySdp(sdp);
 

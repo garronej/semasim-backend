@@ -5,6 +5,7 @@ export declare const regIdKey = "reg-id";
 export declare const instanceIdKey = "+sip.instance";
 export declare const parseSdp: (rawSdp: string) => any;
 export declare const stringifySdp: (sdp: any) => string;
+export declare function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any): void;
 export declare function purgeCandidates(sdp: any, toPurge: {
     host: boolean;
     srflx: boolean;

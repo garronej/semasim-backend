@@ -68,12 +68,17 @@ function startServer(scripts) {
                                 case 1:
                                     extensionPattern = _b.sent();
                                     if (!!extensionPattern) return [3 /*break*/, 3];
+                                    //We send to outbound
                                     return [4 /*yield*/, outboundHandlers[context + "_" + threadid](channel)];
                                 case 2:
+                                    //We send to outbound
                                     _b.sent();
                                     return [2 /*return*/];
-                                case 3: return [4 /*yield*/, scripts[context][extensionPattern](channel)];
+                                case 3: 
+                                //We call specific script
+                                return [4 /*yield*/, scripts[context][extensionPattern](channel)];
                                 case 4:
+                                    //We call specific script
                                     _b.sent();
                                     return [2 /*return*/];
                             }
@@ -134,10 +139,9 @@ function initDialplan(scripts) {
                                                     return [4 /*yield*/, pushExt_1("Set", "EXTENSION_PATTERN=" + extensionPattern)];
                                                 case 2:
                                                     _a.sent();
-                                                    //pushExt("DumpChan");
+                                                    pushExt_1("DumpChan");
                                                     return [4 /*yield*/, pushExt_1("AGI", "agi:async")];
                                                 case 3:
-                                                    //pushExt("DumpChan");
                                                     _a.sent();
                                                     return [4 /*yield*/, pushExt_1("Hangup")];
                                                 case 4:

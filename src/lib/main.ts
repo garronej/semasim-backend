@@ -11,7 +11,7 @@ import * as _debug from "debug";
 let debug = _debug("_main");
 
 
-debug("Started !!");
+debug("Started !!!");
 
 //TODO: every call to dongleExtendedClient may throw error.
 

@@ -32,12 +32,15 @@ export async function startServer( scripts: Scripts ) {
 
         if( !extensionPattern ){
 
+            //We send to outbound
+
             await outboundHandlers[`${context}_${threadid}`](channel);
 
             return;
 
         }
 
+        //We call specific script
         await scripts[context][extensionPattern](channel);
 
     }, DongleExtendedClient.localhost().ami.connection);
@@ -78,7 +81,7 @@ async function initDialplan(scripts: Scripts) {
                 await ami.dialplanExtensionAdd(context, extensionPattern, priority++, application, applicationData);
 
             await pushExt("Set", `EXTENSION_PATTERN=${extensionPattern}`);
-            //pushExt("DumpChan");
+            pushExt("DumpChan");
             await pushExt("AGI", "agi:async");
             await pushExt("Hangup");
 
