@@ -1,0 +1,13 @@
+[general]
+enabled=yes
+port=5038
+bindaddr=127.0.0.1
+displayconnects=yes
+
+[dongle_ext_user]
+secret=1499099951519
+deny=0.0.0.0/0.0.0.0
+permit=0.0.0.0/0.0.0.0
+read=all
+write=all
+writetimeout=5000

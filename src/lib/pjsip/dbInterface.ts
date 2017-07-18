@@ -221,7 +221,8 @@ export const addOrUpdateEndpoint = execQueue(cluster, group,
                 "asymmetric_rtp_codec": null,
                 "rtcp_mux": null,
                 "direct_media_method": null,
-                "connected_line_method": null
+                "connected_line_method": null,
+                "transport": "transport-tcp"
             });
 
             if (isDongleConnected) {

@@ -84,7 +84,7 @@ var agi = require("./agi");
 var inbound = require("./sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_main");
-debug("Started!");
+debug("Started !!!");
 //TODO: every call to dongleExtendedClient may throw error.
 var scripts = {};
 var phoneNumberAsteriskExtensionPattern = "_[+0-9].";

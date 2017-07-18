@@ -267,7 +267,8 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function
                         "asymmetric_rtp_codec": null,
                         "rtcp_mux": null,
                         "direct_media_method": null,
-                        "connected_line_method": null
+                        "connected_line_method": null,
+                        "transport": "transport-tcp"
                     }), 2), _query = _a[0], _values = _a[1];
                     if (isDongleConnected) {
                         _query += [
