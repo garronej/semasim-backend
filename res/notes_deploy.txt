@@ -1,0 +1,1 @@
+ps_contact table must be modified uri VARCHAR(255) => VARCHAR(1024)

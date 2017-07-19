@@ -76,8 +76,6 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_exec_queue_1 = require("ts-exec-queue");
 var mysql = require("mysql");
-var sharedSipProxy = require("../sipProxy/shared");
-var sip = require("../sipProxy/sip");
 exports.callContext = "from-sip-call";
 exports.messageContext = "from-sip-message";
 exports.subscribeContext = function (imei) { return "from-sip-subscribe-" + imei; };
@@ -123,71 +121,37 @@ exports.truncateContacts = ts_exec_queue_1.execQueue(cluster, group, function (c
         }
     });
 }); });
-var queryContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
-    var res, contacts;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, query("SELECT `uri`,`endpoint` FROM `ps_contacts`")];
+exports.queryContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
+    var contacts, contacts_1, contacts_1_1, contact, e_1, _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0: return [4 /*yield*/, query("SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM `ps_contacts`")];
             case 1:
-                res = _a.sent();
-                contacts = res.map(function (_a) {
-                    var uri = _a.uri, endpoint = _a.endpoint;
-                    return endpoint + "/" + uri.replace(/\^3B/g, ";");
-                });
+                contacts = _b.sent();
+                try {
+                    for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
+                        contact = contacts_1_1.value;
+                        contact.uri = contact.uri.replace(/\^3B/g, ";");
+                        contact.path = contact.path.replace(/\^3B/g, ";");
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
                 callback(contacts);
                 return [2 /*return*/, contacts];
         }
     });
 }); });
-function queryContactsOfEndpoints(endpoint) {
-    return __awaiter(this, void 0, void 0, function () {
-        var contacts;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, queryContacts()];
-                case 1:
-                    contacts = _a.sent();
-                    return [2 /*return*/, contacts.filter(function (uri) { return sip.parseUriWithEndpoint(uri).endpoint === endpoint; })];
-            }
-        });
-    });
-}
-exports.queryContactsOfEndpoints = queryContactsOfEndpoints;
-function getContactOfFlow(flowToken) {
-    return __awaiter(this, void 0, void 0, function () {
-        var contacts, contacts_1, contacts_1_1, contactUri, e_1, _a;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
-                case 0: return [4 /*yield*/, queryContacts()];
-                case 1:
-                    contacts = _b.sent();
-                    try {
-                        for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
-                            contactUri = contacts_1_1.value;
-                            if (sip.parseUriWithEndpoint(contactUri).params[sharedSipProxy.flowTokenKey] === flowToken)
-                                return [2 /*return*/, contactUri];
-                        }
-                    }
-                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                    finally {
-                        try {
-                            if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
-                        }
-                        finally { if (e_1) throw e_1.error; }
-                    }
-                    return [2 /*return*/, undefined];
-            }
-        });
-    });
-}
-exports.getContactOfFlow = getContactOfFlow;
-var deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (uri, callback) { return __awaiter(_this, void 0, void 0, function () {
-    var match, affectedRows, isDeleted;
+exports.deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (id, callback) { return __awaiter(_this, void 0, void 0, function () {
+    var affectedRows, isDeleted;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0:
-                match = uri.match(/^([^\/]+)\/(.*)$/);
-                return [4 /*yield*/, query("DELETE FROM `ps_contacts` WHERE `endpoint`=? AND `uri`=?", [match[1], match[2].replace(/;/g, "^3B")])];
+            case 0: return [4 /*yield*/, query("DELETE FROM `ps_contacts` WHERE `id`=?", [id])];
             case 1:
                 affectedRows = (_a.sent()).affectedRows;
                 isDeleted = affectedRows ? true : false;
@@ -196,27 +160,83 @@ var deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (uri, cal
         }
     });
 }); });
-function deleteContactOfFlow(flowToken) {
-    return __awaiter(this, void 0, void 0, function () {
-        var isDeleted, uri;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, getContactOfFlow(flowToken)];
-                case 1:
-                    uri = _a.sent();
-                    if (!uri) {
-                        isDeleted = true;
-                        return [2 /*return*/, isDeleted];
-                    }
-                    return [4 /*yield*/, deleteContact(uri)];
-                case 2:
-                    isDeleted = _a.sent();
-                    return [2 /*return*/, isDeleted];
-            }
-        });
-    });
+/*
+const queryContacts= execQueue(cluster , group,
+    async (callback?): Promise<string[]> => {
+
+        let res: any[] = await query("SELECT `uri`,`endpoint` FROM `ps_contacts`");
+
+        let contacts = res.map(
+            ({ uri, endpoint }) => `${endpoint}/${uri.replace(/\^3B/g, ";")}`
+        );
+
+        callback(contacts);
+        return contacts;
+
+    }
+);
+
+export async function queryContactsOfEndpoints(endpoint: string): Promise<string[]> {
+
+    let contacts = await queryContacts();
+
+    return contacts.filter( uri => sip.parseUriWithEndpoint(uri).endpoint === endpoint);
+
 }
-exports.deleteContactOfFlow = deleteContactOfFlow;
+
+export async function getContactOfFlow(flowToken: string): Promise<string | undefined> {
+
+    let contacts = await queryContacts();
+
+    for (let contactUri of contacts)
+        if (sip.parseUriWithEndpoint(contactUri).params[sharedSipProxy.flowTokenKey] === flowToken)
+            return contactUri;
+
+
+    return undefined;
+
+}
+
+
+const deleteContact = execQueue(cluster, group,
+    async (uri: string, callback?): Promise<boolean> => {
+
+        let match = uri.match(/^([^\/]+)\/(.*)$/)!;
+
+        let { affectedRows } = await query(
+            "DELETE FROM `ps_contacts` WHERE `endpoint`=? AND `uri`=?",
+            [match[1], match[2].replace(/;/g, "^3B")]
+        );
+
+        let isDeleted = affectedRows ? true : false;
+
+        callback!(isDeleted);
+        return isDeleted;
+
+    }
+);
+
+
+export async function deleteContactOfFlow(flowToken: string): Promise<boolean> {
+
+    let isDeleted: boolean;
+
+    let uri = await getContactOfFlow(flowToken);
+
+    if (!uri) {
+
+        isDeleted = true;
+
+        return isDeleted;
+
+    }
+
+    isDeleted = await deleteContact(uri);
+
+    return isDeleted;
+
+}
+*/
 function generateQueryInsert(table, values) {
     var keys = Object.keys(values);
     var backtickKeys = keys.map(function (key) { return "`" + key + "`"; });

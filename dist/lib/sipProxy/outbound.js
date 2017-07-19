@@ -85,9 +85,14 @@ var clientSockets;
     });
 })();
 function onClientConnection(clientSocketRaw) {
+    //let clientSocket = new sip.Socket(clientSocketRaw, 31000);
     var clientSocket = new sip.Socket(clientSocketRaw);
     clientSocket.disablePong = true;
-    //clientSocket.evtPing.attach(() => console.log("Client ping!"));
+    clientSocket.evtPing.attach(function () { return console.log("Client ping!"); });
+    clientSocket.evtTimeout.attachOnce(function () {
+        console.log("Client timeout!");
+        clientSocket.destroy();
+    });
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
     console.log((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);
@@ -99,14 +104,6 @@ function onClientConnection(clientSocketRaw) {
     */
     clientSocket.evtData.attach(function (chunk) {
         return console.log("From Client:\n", chunk.yellow, "\n\n");
-    });
-    clientSocket.evtPacket.attachPrepend(function (_a) {
-        var headers = _a.headers;
-        return headers["content-type"] === "application/sdp";
-    }, function (sipPacket) {
-        var sdp = sip.parseSdp(sipPacket.content);
-        sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
-        sipPacket.content = sip.stringifySdp(sdp);
     });
     clientSocket.evtRequest.attachOnce(function (firstRequest) {
         try {
@@ -171,14 +168,14 @@ function onDeviceConnection(deviceSocketRaw) {
     console.log("New device socket !\n\n".grey);
     var deviceSocket = new sip.Socket(deviceSocketRaw);
     deviceSocket.setKeepAlive(true);
+    deviceSocket.evtPacket.attach(function (sipPacket) {
+        return console.log("From device:\n", sip.stringify(sipPacket).grey, "\n\n");
+    });
     /*
-    deviceSocket.evtPacket.attach(sipPacket =>
-        console.log("From device:\n", sip.stringify(sipPacket).grey, "\n\n")
+    deviceSocket.evtData.attach(chunk =>
+        console.log("From device:\n", chunk.grey, "\n\n")
     );
     */
-    deviceSocket.evtData.attach(function (chunk) {
-        return console.log("From device:\n", chunk.grey, "\n\n");
-    });
     deviceSocket.evtRequest.attachExtract(function (sipRequest) { return shared.Message.matchSipRequest(sipRequest); }, function (sipRequest) {
         var message = shared.Message.parseSipRequest(sipRequest);
         if (shared.Message.NotifyKnownDongle.match(message)) {
@@ -187,6 +184,16 @@ function onDeviceConnection(deviceSocketRaw) {
                 console.log(("Device socket handle dongle imei: " + message.imei).grey);
                 deviceSockets.add(message.imei, deviceSocket, message.lastConnection);
             }
+        }
+        else if (shared.Message.NotifyBrokenFlow.match(message)) {
+            console.log(message.flowToken + " Device notify connection closed, destroying client socket");
+            var clientSocket = clientSockets.get(message.flowToken);
+            if (!clientSocket) {
+                console.log(message.flowToken + " Client connection was closed already");
+                return;
+            }
+            ;
+            clientSocket.destroy();
         }
     });
     deviceSocket.evtRequest.attach(function (sipRequest) {

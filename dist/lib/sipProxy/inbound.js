@@ -121,20 +121,22 @@ function start() {
                 });
             });
         }
-        function createAsteriskSocket(flowToken, boundProxySocket) {
+        function createAsteriskSocket(flowToken, proxySocket) {
             var _this = this;
             debug(flowToken + " Creating asterisk socket");
             //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
             var asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
-            asteriskSockets.add(flowToken, asteriskSocket);
-            asteriskSocket.evtPacket.attach(function (sipPacket) {
-                return console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n");
-            });
+            asteriskSocket.disablePong = true;
+            asteriskSocket.evtPing.attach(function () { return console.log("Asterisk ping!"); });
+            exports.asteriskSockets.add(flowToken, asteriskSocket);
             /*
-            asteriskSocket.evtData.attach(chunk =>
-                console.log("From Asterisk:\n", chunk.grey, "\n\n")
+            asteriskSocket.evtPacket.attach(sipPacket =>
+                console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
             );
             */
+            asteriskSocket.evtData.attach(function (chunk) {
+                return console.log("From Asterisk:\n", chunk.grey, "\n\n");
+            });
             asteriskSocket.evtPacket.attachPrepend(function (_a) {
                 var headers = _a.headers;
                 return headers["content-type"] === "application/sdp";
@@ -164,32 +166,65 @@ function start() {
                 proxySocket.write(sipRequest);
             });
             asteriskSocket.evtResponse.attach(function (sipResponse) {
-                if (boundProxySocket.evtClose.postCount)
+                if (proxySocket.evtClose.postCount)
                     return;
-                boundProxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
+                proxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
                 sipResponse.headers.via.shift();
-                boundProxySocket.write(sipResponse);
+                proxySocket.write(sipResponse);
             });
             asteriskSocket.evtClose.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
-                var isDeleted;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
+                var _a, _b, contact, isDeleted, e_1_1, e_1, _c;
+                return __generator(this, function (_d) {
+                    switch (_d.label) {
                         case 0:
-                            debug(flowToken + " asteriskSocket closed, removing contact");
-                            return [4 /*yield*/, pjsip.deleteContactOfFlow(flowToken)];
+                            debug(flowToken + " asteriskSocket closed!");
+                            _d.label = 1;
                         case 1:
-                            isDeleted = _a.sent();
+                            _d.trys.push([1, 7, 8, 9]);
+                            return [4 /*yield*/, pjsip.queryContacts()];
+                        case 2:
+                            _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                            _d.label = 3;
+                        case 3:
+                            if (!!_b.done) return [3 /*break*/, 6];
+                            contact = _b.value;
+                            if (pjsip.readAsteriskSocketLocalPortFromPath(contact.path) !== asteriskSocket.localPort)
+                                return [3 /*break*/, 5];
+                            debug(flowToken + " We have to delete this contact:  ", contact);
+                            return [4 /*yield*/, pjsip.deleteContact(contact.id)];
+                        case 4:
+                            isDeleted = _d.sent();
                             debug(flowToken + " is contact deleted from db: " + isDeleted);
+                            _d.label = 5;
+                        case 5:
+                            _b = _a.next();
+                            return [3 /*break*/, 3];
+                        case 6: return [3 /*break*/, 9];
+                        case 7:
+                            e_1_1 = _d.sent();
+                            e_1 = { error: e_1_1 };
+                            return [3 /*break*/, 9];
+                        case 8:
+                            try {
+                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                            }
+                            finally { if (e_1) throw e_1.error; }
+                            return [7 /*endfinally*/];
+                        case 9:
+                            if (proxySocket.evtClose.postCount)
+                                return [2 /*return*/];
+                            debug(flowToken + " We notify proxy that flow has been closed");
+                            proxySocket.write(shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken));
                             return [2 /*return*/];
                     }
                 });
             }); });
             return asteriskSocket;
         }
-        var asteriskSockets, proxySocket;
+        var proxySocket;
         return __generator(this, function (_a) {
             debug("(re)Staring !");
-            asteriskSockets = new sip.Store();
+            exports.asteriskSockets = new sip.Store();
             proxySocket = new sip.Socket(tls.connect({ "host": "ns.semasim.com", "port": shared.relayPort }));
             proxySocket.setKeepAlive(true);
             /*
@@ -207,7 +242,7 @@ function start() {
                         case 0:
                             sipRequestDump = sip.copyMessage(sipRequest, true);
                             flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey];
-                            asteriskSocket = asteriskSockets.get(flowToken);
+                            asteriskSocket = exports.asteriskSockets.get(flowToken);
                             if (!asteriskSocket)
                                 asteriskSocket = createAsteriskSocket(flowToken, proxySocket);
                             if (!!asteriskSocket.evtConnect.postCount) return [3 /*break*/, 2];
@@ -218,12 +253,15 @@ function start() {
                         case 2:
                             branch = asteriskSocket.addViaHeader(sipRequest);
                             if (sipRequest.method === "REGISTER") {
-                                sipRequest.headers["user-agent"] += sipRequest.headers.contact[0].params["+sip.instance"];
+                                sipRequest.headers["user-agent"] = [
+                                    "user-agent=" + sipRequest.headers["user-agent"],
+                                    "endpoint=" + sip.parseUri(sipRequest.headers.from.uri).user,
+                                    "+sip.instance=" + sipRequest.headers.contact[0].params["+sip.instance"]
+                                ].join("_");
                                 asteriskSocket.addPathHeader(sipRequest);
                             }
-                            else {
+                            else
                                 asteriskSocket.shiftRouteAndAddRecordRoute(sipRequest);
-                            }
                             /*
                             if (matchTextMessage(sipRequestDump)) {
                     
@@ -264,7 +302,7 @@ function start() {
             }); });
             proxySocket.evtResponse.attach(function (sipResponse) {
                 var flowToken = sipResponse.headers.via[0].params[shared.flowTokenKey];
-                var asteriskSocket = asteriskSockets.get(flowToken);
+                var asteriskSocket = exports.asteriskSockets.get(flowToken);
                 if (!asteriskSocket)
                     return;
                 asteriskSocket.rewriteRecordRoute(sipResponse);
@@ -275,7 +313,7 @@ function start() {
                 var message = shared.Message.parseSipRequest(sipRequest);
                 if (shared.Message.NotifyBrokenFlow.match(message)) {
                     debug(message.flowToken + " Outbound notify flow ended, destroying asterisk socket");
-                    var asteriskSocket = asteriskSockets.get(message.flowToken);
+                    var asteriskSocket = exports.asteriskSockets.get(message.flowToken);
                     if (!asteriskSocket) {
                         debug(message.flowToken + " asterisk socket was close already");
                         return;
@@ -287,11 +325,11 @@ function start() {
             proxySocket.evtClose.attachOnce(function () {
                 //TODO see what is the state of contacts
                 debug("proxy socket closed, destroying all asterisk socket, waiting and restarting");
-                asteriskSockets.destroyAll();
+                exports.asteriskSockets.destroyAll();
                 setTimeout(function () { return start(); }, 10000);
             });
             proxySocket.evtConnect.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
-                var _a, _b, _c, endpoint, lastUpdated, e_1_1, e_1, _d;
+                var _a, _b, _c, endpoint, lastUpdated, e_2_1, e_2, _d;
                 return __generator(this, function (_e) {
                     switch (_e.label) {
                         case 0:
@@ -313,14 +351,14 @@ function start() {
                             return [3 /*break*/, 3];
                         case 5: return [3 /*break*/, 8];
                         case 6:
-                            e_1_1 = _e.sent();
-                            e_1 = { error: e_1_1 };
+                            e_2_1 = _e.sent();
+                            e_2 = { error: e_2_1 };
                             return [3 /*break*/, 8];
                         case 7:
                             try {
                                 if (_b && !_b.done && (_d = _a.return)) _d.call(_a);
                             }
-                            finally { if (e_1) throw e_1.error; }
+                            finally { if (e_2) throw e_2.error; }
                             return [7 /*endfinally*/];
                         case 8: return [2 /*return*/];
                     }

@@ -4,11 +4,6 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import * as md5 from "md5";
 import * as _sdp_ from "sip/sdp";
 
-
-
-
-
-
 export const regIdKey = "reg-id";
 export const instanceIdKey = "+sip.instance";
 
@@ -22,79 +17,6 @@ export const parseSdp: (rawSdp: string) => any = _sdp_.parse;
 export const stringifySdp: (sdp: any) => string = _sdp_.stringify;
 
 
-
-/*
-
-{
-  "m": [
-    {
-      "media": "audio",
-      "port": 25662,
-      "portnum": 1,
-      "proto": "RTP/AVP",
-      "fmt": [
-        8,
-        0,
-        100
-      ],
-      "a": [
-        "ice-ufrag:626f23b80317e0f227f2b2f30911c6b6",
-        "ice-pwd:0abedefc1c343e6d495892ab4772f237",
-        "candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 25662 typ host",
-        "candidate:S5140886d 1 UDP 1694498815 81.64.136.109 25662 typ srflx raddr 192.168.0.20 rport 25662",
-        "candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 25663 typ host",
-        "candidate:S5140886d 2 UDP 1694498814 81.64.136.109 25663 typ srflx raddr 192.168.0.20 rport 25663",
-        "rtpmap:8 PCMA/8000",
-        "rtpmap:0 PCMU/8000",
-        "ptime:20",
-        "maxptime:150",
-        "sendrecv",
-        "rtpmap:100 telephone-event/8000",
-        "fmtp:100 0-16"
-      ]
-    }
-  ],
-  "v": "0",
-  "o": {
-    "username": "-",
-    "id": "1549",
-    "version": "2955",
-    "nettype": "IN",
-    "addrtype": "IP4",
-    "address": "192.168.0.20"
-  },
-  "s": "Asterisk",
-  "c": {
-    "nettype": "IN",
-    "addrtype": "IP4",
-    "address": "192.168.0.20"
-  },
-  "t": "0 0"
-}
-
-
-let rawSdp = [
-    "v=0",
-    "o=- 1549 2955 IN IP4 192.168.0.20",
-    "s=Asterisk",
-    "c=IN IP4 192.168.0.20",
-    "t=0 0",
-    "m=audio 25662 RTP/AVP 8 0 100",
-    "a=ice-ufrag:626f23b80317e0f227f2b2f30911c6b6",
-    "a=ice-pwd:0abedefc1c343e6d495892ab4772f237",
-    "a=candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 25662 typ host",
-    "a=candidate:S5140886d 1 UDP 1694498815 81.64.136.109 25662 typ srflx raddr 192.168.0.20 rport 25662",
-    "a=candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 25663 typ host",
-    "a=candidate:S5140886d 2 UDP 1694498814 81.64.136.109 25663 typ srflx raddr 192.168.0.20 rport 25663",
-    "a=rtpmap:8 PCMA/8000",
-    "a=rtpmap:0 PCMU/8000",
-    "a=ptime:20",
-    "a=maxptime:150",
-    "a=sendrecv",
-    "a=rtpmap:100 telephone-event/8000",
-    "a=fmtp:100 0-16"
-].join("\r\n");
-*/
 
 export function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any) {
 
@@ -114,12 +36,18 @@ export function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any) {
 
             }
         }
+
+        return "";
         
-        throw new Error("srflx not found in SDP candidates");
 
     };
 
     let srflxAddr= getSrflxAddr();
+
+    if( !srflxAddr ){
+        console.log("No srflx candidate was present in the offer");
+        return;
+    }
 
     sdp.c.address= srflxAddr;
 
@@ -128,13 +56,6 @@ export function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any) {
     //TODO: see if need to update port in m as well.
 
 }
-
-
-
-
-
-
-
 
 
 export function purgeCandidates(sdp: any, toPurge: { host: boolean; srflx: boolean; relay: boolean }) {
@@ -148,7 +69,6 @@ export function purgeCandidates(sdp: any, toPurge: { host: boolean; srflx: boole
             if (a_i.match(/^candidate.*host$/)) {
 
                 if (toPurge.host) {
-
                     console.log("==========================================> purged", a_i);
                     continue;
 
@@ -157,7 +77,6 @@ export function purgeCandidates(sdp: any, toPurge: { host: boolean; srflx: boole
             } else if (a_i.match(/^candidate.*srflx/)) {
 
                 if (toPurge.srflx) {
-
                     console.log("==========================================> purged", a_i);
                     continue;
 
@@ -166,7 +85,6 @@ export function purgeCandidates(sdp: any, toPurge: { host: boolean; srflx: boole
             } else if (a_i.match(/^candidate/)) {
 
                 if (toPurge.relay) {
-
                     console.log("==========================================> purged", a_i);
                     continue;
 
@@ -200,12 +118,16 @@ export class Socket {
     public readonly evtConnect = new VoidSyncEvent();
     public readonly evtPing = new VoidSyncEvent();
 
+    private timer: NodeJS.Timer;
+    public readonly evtTimeout= new VoidSyncEvent();
+
     public readonly evtData = new SyncEvent<string>();
 
     public disablePong = false;
 
     constructor(
-        private readonly connection: net.Socket
+        private readonly connection: net.Socket,
+        timeoutDelay?: number
     ) {
 
         let streamParser = makeStreamParser(sipPacket => {
@@ -221,6 +143,15 @@ export class Socket {
 
         connection.on("data", (chunk: Buffer | string) => {
 
+            if( timeoutDelay ){
+
+                clearTimeout(this.timer);
+
+                this.timer = setTimeout(() => this.evtTimeout.post(), timeoutDelay);
+
+            }
+
+
             let rawStr = (chunk as Buffer).toString("utf8");
 
             this.evtData.post(rawStr);
@@ -229,13 +160,7 @@ export class Socket {
 
                 this.evtPing.post();
 
-                if (this.disablePong) {
-
-                    console.log("pong disabled");
-
-                    return;
-
-                }
+                if (this.disablePong) return; 
 
                 this.connection.write("\r\n");
 
@@ -246,15 +171,38 @@ export class Socket {
             streamParser(rawStr);
 
         })
-            .once("close", had_error => this.evtClose.post(had_error))
+            .once("close", had_error => {
+                if( timeoutDelay ) clearTimeout(this.timer);
+                this.evtClose.post(had_error);
+            })
             .once("error", error => this.evtError.post(error))
             .setMaxListeners(Infinity);
 
         if (this.encrypted)
-            connection.once("secureConnect", () => this.evtConnect.post());
+            connection.once("secureConnect", () => {
+                this.fixPortAndAddr();
+                this.evtConnect.post(); 
+            });
         else
-            connection.once("connect", () => this.evtConnect.post());
+            connection.once("connect", () => { 
+                this.fixPortAndAddr();
+                this.evtConnect.post();
+            });
 
+
+    }
+
+    private __localPort__: number= NaN;
+    private __remotePort__: number = NaN;
+    private __localAddress__: string | undefined= undefined;
+    private __remoteAddress__: string | undefined= undefined;
+
+    private fixPortAndAddr(){
+
+        this.__localPort__= this.connection.localPort;
+        this.__remotePort__= this.connection.remotePort;
+        this.__localAddress__= this.connection.localAddress;
+        this.__remoteAddress__= this.connection.remoteAddress;
 
     }
 
@@ -283,10 +231,6 @@ export class Socket {
 
     }
 
-    public overrideContact(sipPacket: Packet) {
-
-
-    }
 
     public destroy() {
 
@@ -302,7 +246,7 @@ export class Socket {
     }
 
     public get localPort(): number {
-        let localPort = this.connection.localPort;
+        let localPort = this.__localPort__ || this.connection.localPort;
 
         if (typeof localPort !== "number" || isNaN(localPort))
             throw new Error("LocalPort not yet set");
@@ -310,7 +254,7 @@ export class Socket {
         return localPort;
     }
     public get localAddress(): string {
-        let localAddress = this.connection.localAddress;
+        let localAddress = this.__localAddress__ || this.connection.localAddress;
 
         if (!localAddress) throw new Error("LocalAddress not yet set");
 
@@ -318,7 +262,7 @@ export class Socket {
     }
 
     public get remotePort(): number {
-        let remotePort = this.connection.remotePort;
+        let remotePort = this.__remotePort__ || this.connection.remotePort;
 
         if (typeof remotePort !== "number" || isNaN(remotePort))
             throw new Error("Remote port not yet set");
@@ -328,7 +272,7 @@ export class Socket {
     }
     public get remoteAddress(): string {
 
-        let remoteAddress = this.connection.remoteAddress;
+        let remoteAddress = this.__remoteAddress__ || this.connection.remoteAddress;
 
         if (!remoteAddress) throw new Error("Remote address not yes set");
 
@@ -484,6 +428,17 @@ export class Store {
 
     public get(key: string): Socket | undefined {
         return this.record[key];
+    }
+
+    public getAll(): Socket[]{
+
+        let out: Socket[]= [];
+
+        for( let key of Object.keys(this.record))
+            out.push(this.record[key]);
+        
+        return out;
+
     }
 
     public getTimestamp(key: string): number {

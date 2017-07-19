@@ -94,12 +94,13 @@ function matchTextMessage(sipRequest: sip.Request): boolean {
 
 }
 
+export let asteriskSockets: sip.Store;
+
 export async function start() {
 
     debug("(re)Staring !");
 
-    let asteriskSockets = new sip.Store();
-
+    asteriskSockets = new sip.Store();
 
     let proxySocket = new sip.Socket(
         tls.connect({ "host": "ns.semasim.com", "port": shared.relayPort }) as any
@@ -134,15 +135,17 @@ export async function start() {
 
         if( sipRequest.method === "REGISTER" ){
 
-            sipRequest.headers["user-agent"] += sipRequest.headers.contact![0].params["+sip.instance"];
+            sipRequest.headers["user-agent"]= [
+                `user-agent=${sipRequest.headers["user-agent"]}`,
+                `endpoint=${sip.parseUri(sipRequest.headers.from.uri).user}`,
+                `+sip.instance=${sipRequest.headers.contact![0].params["+sip.instance"]}`
+            ].join("_");
 
             asteriskSocket.addPathHeader(sipRequest);
 
-        }else{
-
+        }else
             asteriskSocket.shiftRouteAndAddRecordRoute(sipRequest);
 
-        }
 
         /*
         if (matchTextMessage(sipRequestDump)) {
@@ -265,24 +268,28 @@ export async function start() {
 
     }
 
-    function createAsteriskSocket(flowToken: string, boundProxySocket: sip.Socket): sip.Socket {
+    function createAsteriskSocket(flowToken: string, proxySocket: sip.Socket): sip.Socket {
 
         debug(`${flowToken} Creating asterisk socket`);
 
         //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
         let asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
 
+        asteriskSocket.disablePong= true;
+
+        asteriskSocket.evtPing.attach(() => console.log("Asterisk ping!"));
+
         asteriskSockets.add(flowToken, asteriskSocket);
 
+        /*
         asteriskSocket.evtPacket.attach(sipPacket =>
             console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
         );
+        */
 
-        /*
         asteriskSocket.evtData.attach(chunk =>
             console.log("From Asterisk:\n", chunk.grey, "\n\n")
         );
-        */
 
         asteriskSocket.evtPacket.attachPrepend(
             ({ headers }) => headers["content-type"] === "application/sdp",
@@ -331,27 +338,43 @@ export async function start() {
 
         asteriskSocket.evtResponse.attach(sipResponse => {
 
-            if (boundProxySocket.evtClose.postCount) return;
+            if (proxySocket.evtClose.postCount) return;
 
-            boundProxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
+            proxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
 
             sipResponse.headers.via.shift();
 
-            boundProxySocket.write(sipResponse);
+            proxySocket.write(sipResponse);
 
 
         });
 
         asteriskSocket.evtClose.attachOnce(async () => {
 
-            debug(`${flowToken} asteriskSocket closed, removing contact`);
+            debug(`${flowToken} asteriskSocket closed!`);
 
             //TODO: what if contact not yet registered?
 
-            let isDeleted = await pjsip.deleteContactOfFlow(flowToken);
+            for( let contact of await pjsip.queryContacts() ){
 
-            debug(`${flowToken} is contact deleted from db: ${isDeleted}`);
+                if( pjsip.readAsteriskSocketLocalPortFromPath(contact.path) !== asteriskSocket.localPort )
+                    continue;
 
+                debug(`${flowToken} We have to delete this contact:  `, contact);
+
+                let isDeleted= await pjsip.deleteContact(contact.id);
+
+                debug(`${flowToken} is contact deleted from db: ${isDeleted}`);
+
+            }
+
+            if( proxySocket.evtClose.postCount ) return;
+
+            debug(`${flowToken} We notify proxy that flow has been closed`);
+
+            proxySocket.write(
+                shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken)
+            );
 
         });
 

@@ -28,78 +28,6 @@ var _debug = require("debug");
 var debug = _debug("_sipProxy/sip");
 exports.parseSdp = _sdp_.parse;
 exports.stringifySdp = _sdp_.stringify;
-/*
-
-{
-  "m": [
-    {
-      "media": "audio",
-      "port": 25662,
-      "portnum": 1,
-      "proto": "RTP/AVP",
-      "fmt": [
-        8,
-        0,
-        100
-      ],
-      "a": [
-        "ice-ufrag:626f23b80317e0f227f2b2f30911c6b6",
-        "ice-pwd:0abedefc1c343e6d495892ab4772f237",
-        "candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 25662 typ host",
-        "candidate:S5140886d 1 UDP 1694498815 81.64.136.109 25662 typ srflx raddr 192.168.0.20 rport 25662",
-        "candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 25663 typ host",
-        "candidate:S5140886d 2 UDP 1694498814 81.64.136.109 25663 typ srflx raddr 192.168.0.20 rport 25663",
-        "rtpmap:8 PCMA/8000",
-        "rtpmap:0 PCMU/8000",
-        "ptime:20",
-        "maxptime:150",
-        "sendrecv",
-        "rtpmap:100 telephone-event/8000",
-        "fmtp:100 0-16"
-      ]
-    }
-  ],
-  "v": "0",
-  "o": {
-    "username": "-",
-    "id": "1549",
-    "version": "2955",
-    "nettype": "IN",
-    "addrtype": "IP4",
-    "address": "192.168.0.20"
-  },
-  "s": "Asterisk",
-  "c": {
-    "nettype": "IN",
-    "addrtype": "IP4",
-    "address": "192.168.0.20"
-  },
-  "t": "0 0"
-}
-
-
-let rawSdp = [
-    "v=0",
-    "o=- 1549 2955 IN IP4 192.168.0.20",
-    "s=Asterisk",
-    "c=IN IP4 192.168.0.20",
-    "t=0 0",
-    "m=audio 25662 RTP/AVP 8 0 100",
-    "a=ice-ufrag:626f23b80317e0f227f2b2f30911c6b6",
-    "a=ice-pwd:0abedefc1c343e6d495892ab4772f237",
-    "a=candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 25662 typ host",
-    "a=candidate:S5140886d 1 UDP 1694498815 81.64.136.109 25662 typ srflx raddr 192.168.0.20 rport 25662",
-    "a=candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 25663 typ host",
-    "a=candidate:S5140886d 2 UDP 1694498814 81.64.136.109 25663 typ srflx raddr 192.168.0.20 rport 25663",
-    "a=rtpmap:8 PCMA/8000",
-    "a=rtpmap:0 PCMU/8000",
-    "a=ptime:20",
-    "a=maxptime:150",
-    "a=sendrecv",
-    "a=rtpmap:100 telephone-event/8000",
-    "a=fmtp:100 0-16"
-].join("\r\n");
-*/
 function overwriteGlobalAndAudioAddrInSdpCandidates(sdp) {
     var getSrflxAddr = function () {
         try {
@@ -131,10 +59,14 @@ function overwriteGlobalAndAudioAddrInSdpCandidates(sdp) {
             }
             finally { if (e_2) throw e_2.error; }
         }
-        throw new Error("srflx not found in SDP candidates");
+        return "";
         var e_2, _f, e_1, _e;
     };
     var srflxAddr = getSrflxAddr();
+    if (!srflxAddr) {
+        console.log("No srflx candidate was present in the offer");
+        return;
+    }
     sdp.c.address = srflxAddr;
     sdp.o.address = srflxAddr;
     //TODO: see if need to update port in m as well.
@@ -192,7 +124,7 @@ exports.purgeCandidates = purgeCandidates;
 exports.makeStreamParser = sip.makeStreamParser;
 //TODO: make a function to test if message are well formed: have from, to via ect.
 var Socket = (function () {
-    function Socket(connection) {
+    function Socket(connection, timeoutDelay) {
         var _this = this;
         this.connection = connection;
         this.evtPacket = new ts_events_extended_1.SyncEvent();
@@ -202,8 +134,13 @@ var Socket = (function () {
         this.evtError = new ts_events_extended_1.SyncEvent();
         this.evtConnect = new ts_events_extended_1.VoidSyncEvent();
         this.evtPing = new ts_events_extended_1.VoidSyncEvent();
+        this.evtTimeout = new ts_events_extended_1.VoidSyncEvent();
         this.evtData = new ts_events_extended_1.SyncEvent();
         this.disablePong = false;
+        this.__localPort__ = NaN;
+        this.__remotePort__ = NaN;
+        this.__localAddress__ = undefined;
+        this.__remoteAddress__ = undefined;
         this.setKeepAlive = function () {
             var inputs = [];
             for (var _i = 0; _i < arguments.length; _i++) {
@@ -219,27 +156,45 @@ var Socket = (function () {
                 _this.evtResponse.post(sipPacket);
         });
         connection.on("data", function (chunk) {
+            if (timeoutDelay) {
+                clearTimeout(_this.timer);
+                _this.timer = setTimeout(function () { return _this.evtTimeout.post(); }, timeoutDelay);
+            }
             var rawStr = chunk.toString("utf8");
             _this.evtData.post(rawStr);
             if (rawStr === "\r\n\r\n") {
                 _this.evtPing.post();
-                if (_this.disablePong) {
-                    console.log("pong disabled");
+                if (_this.disablePong)
                     return;
-                }
                 _this.connection.write("\r\n");
                 return;
             }
             streamParser(rawStr);
         })
-            .once("close", function (had_error) { return _this.evtClose.post(had_error); })
+            .once("close", function (had_error) {
+            if (timeoutDelay)
+                clearTimeout(_this.timer);
+            _this.evtClose.post(had_error);
+        })
             .once("error", function (error) { return _this.evtError.post(error); })
             .setMaxListeners(Infinity);
         if (this.encrypted)
-            connection.once("secureConnect", function () { return _this.evtConnect.post(); });
+            connection.once("secureConnect", function () {
+                _this.fixPortAndAddr();
+                _this.evtConnect.post();
+            });
         else
-            connection.once("connect", function () { return _this.evtConnect.post(); });
+            connection.once("connect", function () {
+                _this.fixPortAndAddr();
+                _this.evtConnect.post();
+            });
     }
+    Socket.prototype.fixPortAndAddr = function () {
+        this.__localPort__ = this.connection.localPort;
+        this.__remotePort__ = this.connection.remotePort;
+        this.__localAddress__ = this.connection.localAddress;
+        this.__remoteAddress__ = this.connection.remoteAddress;
+    };
     Socket.prototype.write = function (sipPacket) {
         if (this.evtClose.postCount)
             return false;
@@ -254,8 +209,6 @@ var Socket = (function () {
             throw error;
         }
     };
-    Socket.prototype.overrideContact = function (sipPacket) {
-    };
     Socket.prototype.destroy = function () {
         /*
         this.evtData.detach();
@@ -267,7 +220,7 @@ var Socket = (function () {
     };
     Object.defineProperty(Socket.prototype, "localPort", {
         get: function () {
-            var localPort = this.connection.localPort;
+            var localPort = this.__localPort__ || this.connection.localPort;
             if (typeof localPort !== "number" || isNaN(localPort))
                 throw new Error("LocalPort not yet set");
             return localPort;
@@ -277,7 +230,7 @@ var Socket = (function () {
     });
     Object.defineProperty(Socket.prototype, "localAddress", {
         get: function () {
-            var localAddress = this.connection.localAddress;
+            var localAddress = this.__localAddress__ || this.connection.localAddress;
             if (!localAddress)
                 throw new Error("LocalAddress not yet set");
             return localAddress;
@@ -287,7 +240,7 @@ var Socket = (function () {
     });
     Object.defineProperty(Socket.prototype, "remotePort", {
         get: function () {
-            var remotePort = this.connection.remotePort;
+            var remotePort = this.__remotePort__ || this.connection.remotePort;
             if (typeof remotePort !== "number" || isNaN(remotePort))
                 throw new Error("Remote port not yet set");
             return remotePort;
@@ -297,7 +250,7 @@ var Socket = (function () {
     });
     Object.defineProperty(Socket.prototype, "remoteAddress", {
         get: function () {
-            var remoteAddress = this.connection.remoteAddress;
+            var remoteAddress = this.__remoteAddress__ || this.connection.remoteAddress;
             if (!remoteAddress)
                 throw new Error("Remote address not yes set");
             return remoteAddress;
@@ -402,6 +355,24 @@ var Store = (function () {
     Store.prototype.get = function (key) {
         return this.record[key];
     };
+    Store.prototype.getAll = function () {
+        var out = [];
+        try {
+            for (var _a = __values(Object.keys(this.record)), _b = _a.next(); !_b.done; _b = _a.next()) {
+                var key = _b.value;
+                out.push(this.record[key]);
+            }
+        }
+        catch (e_5_1) { e_5 = { error: e_5_1 }; }
+        finally {
+            try {
+                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+            }
+            finally { if (e_5) throw e_5.error; }
+        }
+        return out;
+        var e_5, _c;
+    };
     Store.prototype.getTimestamp = function (key) {
         return this.timestampRecord[key] || -1;
     };
@@ -412,14 +383,14 @@ var Store = (function () {
                 this.record[key].destroy();
             }
         }
-        catch (e_5_1) { e_5 = { error: e_5_1 }; }
+        catch (e_6_1) { e_6 = { error: e_6_1 }; }
         finally {
             try {
                 if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
             }
-            finally { if (e_5) throw e_5.error; }
+            finally { if (e_6) throw e_6.error; }
         }
-        var e_5, _c;
+        var e_6, _c;
     };
     return Store;
 }());
@@ -470,12 +441,12 @@ function updateUri(wrap, updatedField) {
                 parsedUri[key] = updatedField[key];
         }
     }
-    catch (e_6_1) { e_6 = { error: e_6_1 }; }
+    catch (e_7_1) { e_7 = { error: e_7_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_6) throw e_6.error; }
+        finally { if (e_7) throw e_7.error; }
     }
     if (updatedField.params)
         parsedUri.params = __assign({}, parsedUri.params, updatedField.params);
@@ -486,15 +457,15 @@ function updateUri(wrap, updatedField) {
                 delete parsedUri.params[key];
         }
     }
-    catch (e_7_1) { e_7 = { error: e_7_1 }; }
+    catch (e_8_1) { e_8 = { error: e_8_1 }; }
     finally {
         try {
             if (_e && !_e.done && (_f = _d.return)) _f.call(_d);
         }
-        finally { if (e_7) throw e_7.error; }
+        finally { if (e_8) throw e_8.error; }
     }
     wrap.uri = exports.stringifyUri(parsedUri);
-    var e_6, _c, e_7, _f;
+    var e_7, _c, e_8, _f;
 }
 exports.updateUri = updateUri;
 function parseOptionTags(headerFieldValue) {

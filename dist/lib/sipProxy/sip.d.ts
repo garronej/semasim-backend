@@ -21,12 +21,18 @@ export declare class Socket {
     readonly evtError: SyncEvent<Error>;
     readonly evtConnect: VoidSyncEvent;
     readonly evtPing: VoidSyncEvent;
+    private timer;
+    readonly evtTimeout: VoidSyncEvent;
     readonly evtData: SyncEvent<string>;
     disablePong: boolean;
-    constructor(connection: net.Socket);
+    constructor(connection: net.Socket, timeoutDelay?: number);
+    private __localPort__;
+    private __remotePort__;
+    private __localAddress__;
+    private __remoteAddress__;
+    private fixPortAndAddr();
     readonly setKeepAlive: net.Socket['setKeepAlive'];
     write(sipPacket: Packet): boolean;
-    overrideContact(sipPacket: Packet): void;
     destroy(): void;
     readonly localPort: number;
     readonly localAddress: string;
@@ -46,6 +52,7 @@ export declare class Store {
     constructor();
     add(key: string, socket: Socket, timestamp?: number): void;
     get(key: string): Socket | undefined;
+    getAll(): Socket[];
     getTimestamp(key: string): number;
     destroyAll(): void;
 }

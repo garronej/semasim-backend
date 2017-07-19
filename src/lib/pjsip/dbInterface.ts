@@ -4,6 +4,7 @@ import * as mysql from "mysql";
 import { SyncEvent } from "ts-events-extended";
 import * as sharedSipProxy from "../sipProxy/shared";
 import * as sip from "../sipProxy/sip";
+import { Contact } from "./endpointsContacts";
 
 export const callContext= "from-sip-call";
 export const messageContext= "from-sip-message";
@@ -76,6 +77,40 @@ export const truncateContacts= execQueue(cluster, group,
     }
 );
 
+export const queryContacts= execQueue(cluster , group,
+    async (callback?): Promise<Contact[]> => {
+
+        let contacts: Contact[] = await query(
+            "SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM `ps_contacts`"
+        );
+
+        for( let contact of contacts ){
+            contact.uri= contact.uri.replace(/\^3B/g, ";");
+            contact.path= contact.path.replace(/\^3B/g, ";");
+        }
+
+        callback(contacts);
+        return contacts;
+
+    }
+);
+
+export const deleteContact = execQueue(cluster, group,
+    async (id: string, callback?): Promise<boolean> => {
+
+        let { affectedRows } = await query(
+            "DELETE FROM `ps_contacts` WHERE `id`=?", [id]
+        );
+
+        let isDeleted = affectedRows ? true : false;
+
+        callback(isDeleted);
+        return isDeleted;
+
+    }
+);
+
+/*
 const queryContacts= execQueue(cluster , group,
     async (callback?): Promise<string[]> => {
 
@@ -92,8 +127,6 @@ const queryContacts= execQueue(cluster , group,
 );
 
 export async function queryContactsOfEndpoints(endpoint: string): Promise<string[]> {
-
-
 
     let contacts = await queryContacts();
 
@@ -153,6 +186,7 @@ export async function deleteContactOfFlow(flowToken: string): Promise<boolean> {
     return isDeleted;
 
 }
+*/
 
 function generateQueryInsert(
     table: string,

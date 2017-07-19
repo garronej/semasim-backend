@@ -6,4 +6,5 @@ export declare const evtIncomingMessage: SyncEvent<{
     fromContact: string;
 }>;
 export declare function sendMessage(pjsipContactUri: string, fromUriUser: string, headers: Record<string, string>, content: string, fromName?: string): Promise<boolean>;
+export declare let asteriskSockets: sip.Store;
 export declare function start(): Promise<void>;

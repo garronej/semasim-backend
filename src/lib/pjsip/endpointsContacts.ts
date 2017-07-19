@@ -2,20 +2,29 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { SyncEvent } from "ts-events-extended";
 import * as sip from "../sipProxy/sip";
 import { flowTokenKey } from "../sipProxy/shared";
+import * as dbInterface from "./dbInterface";
+import { asteriskSockets } from "../sipProxy/inbound";
 
 import { messageContext } from "./dbInterface";
 
 import * as _debug from "debug";
 let debug = _debug("_pjsip/endpointsContacts");
 
+export interface Contact {
+    id: string;
+    uri: string;
+    path: string;
+    endpoint: string;
+    user_agent: string;
+}
 
-let evtNewContact: SyncEvent<string> | undefined = undefined;
+let evtNewContact: SyncEvent<Contact> | undefined = undefined;
 
-export function getEvtNewContact(): SyncEvent<string> {
+export function getEvtNewContact(): SyncEvent<Contact> {
 
     if (evtNewContact) return evtNewContact;
 
-    evtNewContact = new SyncEvent<string>();
+    evtNewContact = new SyncEvent<Contact>();
 
     DongleExtendedClient.localhost().ami.evt.attach(
         managerEvt => (
@@ -23,13 +32,68 @@ export function getEvtNewContact(): SyncEvent<string> {
             managerEvt.contactstatus === "Created" &&
             managerEvt.uri
         ),
-        ({ endpointname, uri })=> evtNewContact!.post(`${endpointname}/${uri}`)
+        async ({ endpointname, uri })=> {
+
+            let contacts= await dbInterface.queryContacts();
+
+            let newContact = contacts.filter(
+                contact => contact.endpoint === endpointname && contact.uri === uri
+            )[0];
+
+            let contactsToDelete = contacts.filter(
+                contact => contact !== newContact && contact.user_agent === newContact.user_agent
+            );
+
+            for( let contactToDelete of contactsToDelete){
+
+                debug({ contactToDelete });
+
+                let asteriskSocketLocalPort= readAsteriskSocketLocalPortFromPath(contactToDelete.path);
+
+                for( let asteriskSocket of asteriskSockets.getAll() ){
+
+                    if( asteriskSocket.localPort !== asteriskSocketLocalPort ) continue;
+
+                    debug(`Deleting socket: ${asteriskSocket.localPort}:${asteriskSocket.localAddress}->${asteriskSocket.remoteAddress}:${asteriskSocket.remotePort}`);
+
+                    asteriskSocket.destroy();
+
+                }
+
+            }
+
+            evtNewContact!.post(newContact);
+
+        }
     );
 
     return evtNewContact;
 
+}
+
+export function readAsteriskSocketLocalPortFromPath(path: string): number{
+
+    return sip.parseUri(path.match(/^<(.*)>,/)![1]).port;
 
 }
+
+
+/*
+
+avec endpoint et uri on recupère le contact. 
+
+avec le contact on recupère tous les autre contact qui on la mème user_agent
+
+tous ses contact on retrouve leurs socket et on les ferme.
+
+pb: le socket doit être capable de retrouver son contact. 
+il peux le faire grâce a route parsque il y a le src port!
+
+
+
+
+
+*/
 
 
 
