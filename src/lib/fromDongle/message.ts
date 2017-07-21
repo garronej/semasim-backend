@@ -18,7 +18,7 @@ export async function sms(
 
     debug("FROM DONGLE MESSAGE");
 
-    //TODO: See edge case when dongle send a message and immediately disconnect
+    //TODO: See edge case when dongle send a message and immediately disconnect, maybe send imsi in dongle-extended
     let { imsi } = (await DongleExtendedClient.localhost().getActiveDongle(imei))!;
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, number);
@@ -28,6 +28,12 @@ export async function sms(
     let targetContacts= (await pjsip.queryContacts()).filter(({endpoint})=> endpoint === imei);
 
     debug("TODO: I have to send the message to all those contacts: ", targetContacts);
+
+    for( let contact of targetContacts){
+
+        await inbound.sendMessage(contact, number, {}, text, name);
+
+    }
 
     /*
 

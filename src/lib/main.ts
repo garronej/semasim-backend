@@ -11,7 +11,7 @@ import * as _debug from "debug";
 let debug = _debug("_main");
 
 
-debug("Started !!!");
+debug("Started !!");
 
 //TODO: every call to dongleExtendedClient may throw error.
 
@@ -129,4 +129,4 @@ pjsip.truncateContacts().then( ()=> inbound.start() );
 //pjsip.truncateContacts();
 
 
-inbound.evtIncomingMessage.attach(({ fromContact, message }) => fromSip.message(fromContact, message));
+inbound.evtIncomingMessage.attach(({ contact, message }) => fromSip.message(contact, message));

@@ -71,12 +71,13 @@ var localIp = os.networkInterfaces()["eth0"].filter(function (_a) {
 console.log({ localIp: localIp });
 exports.evtIncomingMessage = new ts_events_extended_1.SyncEvent();
 var evtOutgoingMessage = new ts_events_extended_1.SyncEvent();
-function sendMessage(pjsipContactUri, fromUriUser, headers, content, fromName) {
+function sendMessage(contact, number, headers, content, contactName) {
     return new Promise(function (resolve) {
         //console.log("sending message", { contact, fromUriUser, headers, content, fromName });
-        debug("sendMessage", { pjsipContactUri: pjsipContactUri, fromUriUser: fromUriUser, headers: headers, content: content, fromName: fromName });
+        debug("sendMessage", { contact: contact, number: number, headers: headers, content: content, contactName: contactName });
         var actionId = chan_dongle_extended_client_1.Ami.generateUniqueActionId();
-        chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + pjsipContactUri, fromUriUser, actionId).catch(function (error) {
+        var uri = contact.path.split(",")[0].match(/^<(.*)>$/)[1].replace(/;lr/, "");
+        chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact.endpoint + "/" + uri, number, actionId).catch(function (error) {
             debug("message send failed", error.message);
             resolve(false);
         });
@@ -86,9 +87,10 @@ function sendMessage(pjsipContactUri, fromUriUser, headers, content, fromName) {
         }, function (_a) {
             var sipRequest = _a.sipRequest, evtReceived = _a.evtReceived;
             debug("outgoingMessageCaught");
-            if (fromName)
-                sipRequest.headers.from.name = fromName;
-            sipRequest.headers.to.params["messagetype"] = "SMS";
+            //TODO: inform that the name come from the SD card
+            if (contactName)
+                sipRequest.headers.from.name = contactName;
+            //sipRequest.headers.to.params["messagetype"]="SMS";
             delete sipRequest.headers.contact;
             sipRequest.content = content;
             sipRequest.headers = __assign({}, sipRequest.headers, headers);
@@ -97,6 +99,57 @@ function sendMessage(pjsipContactUri, fromUriUser, headers, content, fromName) {
     });
 }
 exports.sendMessage = sendMessage;
+function getContactOfFlow(asteriskSocketLocalPort) {
+    var _this = this;
+    var returned = false;
+    return new Promise(function (resolve) { return __awaiter(_this, void 0, void 0, function () {
+        var contacts, contacts_1, contacts_1_1, contact, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    pjsip.getEvtNewContact().waitFor(function (_a) {
+                        var path = _a.path;
+                        return pjsip.readAsteriskSocketLocalPortFromPath(path) === asteriskSocketLocalPort;
+                    }, 1200).then(function (contact) {
+                        if (returned)
+                            return;
+                        returned = true;
+                        debug("contact resolved from event");
+                        resolve(contact);
+                    }).catch(function () {
+                        if (returned)
+                            return;
+                        returned = true;
+                        debug("contact not found timeout");
+                        resolve(undefined);
+                    });
+                    return [4 /*yield*/, pjsip.queryContacts()];
+                case 1:
+                    contacts = _b.sent();
+                    if (returned)
+                        return [2 /*return*/];
+                    try {
+                        for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
+                            contact = contacts_1_1.value;
+                            if (pjsip.readAsteriskSocketLocalPortFromPath(contact.path) !== asteriskSocketLocalPort)
+                                continue;
+                            returned = true;
+                            debug("contact found from db");
+                            resolve(contact);
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+}
 function matchTextMessage(sipRequest) {
     return (sipRequest.method === "MESSAGE" &&
         sipRequest.headers["content-type"].match(/^text\/plain/));
@@ -153,16 +206,14 @@ function start() {
                     return extraParams;
                 })());
                 proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
-                /*
                 if (matchTextMessage(sipRequest)) {
-                    let evtReceived = new VoidSyncEvent();
-                    evtOutgoingMessage.post({ sipRequest, evtReceived });
-                    proxySocket.evtResponse.attachOnce(
-                        ({ headers }) => headers.via[0].params["branch"] === branch,
-                        () => evtReceived.post()
-                    )
+                    var evtReceived_1 = new ts_events_extended_1.VoidSyncEvent();
+                    evtOutgoingMessage.post({ sipRequest: sipRequest, evtReceived: evtReceived_1 });
+                    proxySocket.evtResponse.attachOnce(function (_a) {
+                        var headers = _a.headers;
+                        return headers.via[0].params["branch"] === branch;
+                    }, function () { return evtReceived_1.post(); });
                 }
-                */
                 proxySocket.write(sipRequest);
             });
             asteriskSocket.evtResponse.attach(function (sipResponse) {
@@ -173,49 +224,26 @@ function start() {
                 proxySocket.write(sipResponse);
             });
             asteriskSocket.evtClose.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
-                var _a, _b, contact, isDeleted, e_1_1, e_1, _c;
-                return __generator(this, function (_d) {
-                    switch (_d.label) {
+                var contact, isDeleted;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
                         case 0:
                             debug(flowToken + " asteriskSocket closed!");
-                            _d.label = 1;
+                            if (!proxySocket.evtClose.postCount) {
+                                debug(flowToken + " We notify proxy that flow has been closed");
+                                proxySocket.write(shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken));
+                            }
+                            return [4 /*yield*/, getContactOfFlow(asteriskSocket.localPort)];
                         case 1:
-                            _d.trys.push([1, 7, 8, 9]);
-                            return [4 /*yield*/, pjsip.queryContacts()];
-                        case 2:
-                            _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                            _d.label = 3;
-                        case 3:
-                            if (!!_b.done) return [3 /*break*/, 6];
-                            contact = _b.value;
-                            if (pjsip.readAsteriskSocketLocalPortFromPath(contact.path) !== asteriskSocket.localPort)
-                                return [3 /*break*/, 5];
+                            contact = _a.sent();
+                            if (!contact) return [3 /*break*/, 3];
                             debug(flowToken + " We have to delete this contact:  ", contact);
                             return [4 /*yield*/, pjsip.deleteContact(contact.id)];
-                        case 4:
-                            isDeleted = _d.sent();
+                        case 2:
+                            isDeleted = _a.sent();
                             debug(flowToken + " is contact deleted from db: " + isDeleted);
-                            _d.label = 5;
-                        case 5:
-                            _b = _a.next();
-                            return [3 /*break*/, 3];
-                        case 6: return [3 /*break*/, 9];
-                        case 7:
-                            e_1_1 = _d.sent();
-                            e_1 = { error: e_1_1 };
-                            return [3 /*break*/, 9];
-                        case 8:
-                            try {
-                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                            }
-                            finally { if (e_1) throw e_1.error; }
-                            return [7 /*endfinally*/];
-                        case 9:
-                            if (proxySocket.evtClose.postCount)
-                                return [2 /*return*/];
-                            debug(flowToken + " We notify proxy that flow has been closed");
-                            proxySocket.write(shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken));
-                            return [2 /*return*/];
+                            _a.label = 3;
+                        case 3: return [2 /*return*/];
                     }
                 });
             }); });
@@ -236,11 +264,11 @@ function start() {
                 return console.log("From proxy:\n", chunk.yellow, "\n\n");
             });
             proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
-                var sipRequestDump, flowToken, asteriskSocket, branch;
+                var _this = this;
+                var flowToken, asteriskSocket, branch, sipRequestDump;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            sipRequestDump = sip.copyMessage(sipRequest, true);
                             flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey];
                             asteriskSocket = exports.asteriskSockets.get(flowToken);
                             if (!asteriskSocket)
@@ -262,39 +290,32 @@ function start() {
                             }
                             else
                                 asteriskSocket.shiftRouteAndAddRecordRoute(sipRequest);
-                            /*
+                            sipRequestDump = sip.copyMessage(sipRequest, true);
+                            //TODO match with authentication
                             if (matchTextMessage(sipRequestDump)) {
-                    
-                                asteriskSocket.evtResponse.attachOnce(
-                                    ({ headers }) => headers.via[0].params["branch"] === branch,
-                                    async sipResponse => {
-                                        //restoreContacts(sipResponse);
-                    
-                                        if (sipResponse.status !== 202) return;
-                    
-                                        let fromContact: string | undefined = undefined;
-                    
-                                        while (true) {
-                    
-                                            fromContact = await pjsip.getContactOfFlow(flowToken);
-                    
-                                            if (fromContact) break;
-                    
-                                            debug("contact not yet registered");
-                    
-                                            await new Promise<void>(resolve => setTimeout(resolve, 1000));
-                    
+                                asteriskSocket.evtResponse.attachOncePrepend(function (_a) {
+                                    var headers = _a.headers;
+                                    return headers.via[0].params["branch"] === branch;
+                                }, function (sipResponse) { return __awaiter(_this, void 0, void 0, function () {
+                                    var contact;
+                                    return __generator(this, function (_a) {
+                                        switch (_a.label) {
+                                            case 0:
+                                                if (sipResponse.status !== 202)
+                                                    return [2 /*return*/];
+                                                return [4 /*yield*/, getContactOfFlow(asteriskSocket.localPort)];
+                                            case 1:
+                                                contact = _a.sent();
+                                                if (!contact) {
+                                                    debug("Contact not found for incoming message!!! TODO change result code");
+                                                    return [2 /*return*/];
+                                                }
+                                                exports.evtIncomingMessage.post({ contact: contact, "message": sipRequestDump });
+                                                return [2 /*return*/];
                                         }
-                    
-                                        debug({ fromContact });
-                    
-                                        evtIncomingMessage.post({ fromContact, "message": sipRequestDump });
-                    
-                                    }
-                                );
-                    
+                                    });
+                                }); });
                             }
-                            */
                             asteriskSocket.write(sipRequest);
                             return [2 /*return*/];
                     }

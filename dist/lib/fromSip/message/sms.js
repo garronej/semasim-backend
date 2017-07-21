@@ -37,24 +37,20 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var sip = require("../../sipProxy/sip");
-var inbound = require("../../sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_fromSip/sms");
 var statusReportTimeout = 15000;
 function sms(fromContact, sipRequest) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var text, number, imei, outgoingMessageId, info_message, imsi, isSent, name, sendConfirmationReceived;
+        var text, number, imei, outgoingMessageId, info_message, imsi, isSent, name;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     debug("...SMS!");
                     text = sipRequest.content;
                     number = sip.parseUri(sipRequest.headers.to.uri).user;
-                    //TODO: this is only a fix
-                    if (!number.match(/^[\+0]/))
-                        number = "+" + number;
-                    imei = sip.parseUriWithEndpoint(fromContact).endpoint;
+                    imei = fromContact.endpoint;
                     outgoingMessageId = NaN;
                     info_message = "";
                     imsi = "";
@@ -99,11 +95,7 @@ function sms(fromContact, sipRequest) {
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, number)];
                 case 2:
                     name = _a.sent();
-                    debug("confirmation", { name: name, number: number, fromContact: fromContact });
-                    return [4 /*yield*/, inbound.sendMessage(fromContact, number, {}, isSent ? "✓" : info_message, name)];
-                case 3:
-                    sendConfirmationReceived = _a.sent();
-                    debug({ sendConfirmationReceived: sendConfirmationReceived });
+                    debug("confirmation", { name: name, isSent: isSent, info_message: info_message, outgoingMessageId: outgoingMessageId });
                     return [2 /*return*/];
             }
         });

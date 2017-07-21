@@ -160,83 +160,6 @@ exports.deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (id, 
         }
     });
 }); });
-/*
-const queryContacts= execQueue(cluster , group,
-    async (callback?): Promise<string[]> => {
-
-        let res: any[] = await query("SELECT `uri`,`endpoint` FROM `ps_contacts`");
-
-        let contacts = res.map(
-            ({ uri, endpoint }) => `${endpoint}/${uri.replace(/\^3B/g, ";")}`
-        );
-
-        callback(contacts);
-        return contacts;
-
-    }
-);
-
-export async function queryContactsOfEndpoints(endpoint: string): Promise<string[]> {
-
-    let contacts = await queryContacts();
-
-    return contacts.filter( uri => sip.parseUriWithEndpoint(uri).endpoint === endpoint);
-
-}
-
-export async function getContactOfFlow(flowToken: string): Promise<string | undefined> {
-
-    let contacts = await queryContacts();
-
-    for (let contactUri of contacts)
-        if (sip.parseUriWithEndpoint(contactUri).params[sharedSipProxy.flowTokenKey] === flowToken)
-            return contactUri;
-
-
-    return undefined;
-
-}
-
-
-const deleteContact = execQueue(cluster, group,
-    async (uri: string, callback?): Promise<boolean> => {
-
-        let match = uri.match(/^([^\/]+)\/(.*)$/)!;
-
-        let { affectedRows } = await query(
-            "DELETE FROM `ps_contacts` WHERE `endpoint`=? AND `uri`=?",
-            [match[1], match[2].replace(/;/g, "^3B")]
-        );
-
-        let isDeleted = affectedRows ? true : false;
-
-        callback!(isDeleted);
-        return isDeleted;
-
-    }
-);
-
-
-export async function deleteContactOfFlow(flowToken: string): Promise<boolean> {
-
-    let isDeleted: boolean;
-
-    let uri = await getContactOfFlow(flowToken);
-
-    if (!uri) {
-
-        isDeleted = true;
-
-        return isDeleted;
-
-    }
-
-    isDeleted = await deleteContact(uri);
-
-    return isDeleted;
-
-}
-*/
 function generateQueryInsert(table, values) {
     var keys = Object.keys(values);
     var backtickKeys = keys.map(function (key) { return "`" + key + "`"; });
@@ -288,7 +211,8 @@ exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function
                         "rtcp_mux": null,
                         "direct_media_method": null,
                         "connected_line_method": null,
-                        "transport": "transport-tcp"
+                        "transport": "transport-tcp",
+                        "callerid_tag": null
                     }), 2), _query = _a[0], _values = _a[1];
                     if (isDongleConnected) {
                         _query += [

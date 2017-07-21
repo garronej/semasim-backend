@@ -34,34 +34,71 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var pjsip = require("../pjsip");
+var inbound = require("../sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_fromDongle/message");
 function sms(imei, _a) {
     var number = _a.number, date = _a.date, text = _a.text;
     return __awaiter(this, void 0, void 0, function () {
-        var imsi, name, targetContacts;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var imsi, name, targetContacts, targetContacts_1, targetContacts_1_1, contact, e_1_1, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
                     debug("FROM DONGLE MESSAGE");
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongle(imei)];
                 case 1:
-                    imsi = (_a.sent()).imsi;
+                    imsi = (_b.sent()).imsi;
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, number)];
                 case 2:
-                    name = _a.sent();
+                    name = _b.sent();
                     debug({ imsi: imsi, number: number, date: date, text: text, name: name });
                     return [4 /*yield*/, pjsip.queryContacts()];
                 case 3:
-                    targetContacts = (_a.sent()).filter(function (_a) {
+                    targetContacts = (_b.sent()).filter(function (_a) {
                         var endpoint = _a.endpoint;
                         return endpoint === imei;
                     });
                     debug("TODO: I have to send the message to all those contacts: ", targetContacts);
-                    return [2 /*return*/];
+                    _b.label = 4;
+                case 4:
+                    _b.trys.push([4, 9, 10, 11]);
+                    targetContacts_1 = __values(targetContacts), targetContacts_1_1 = targetContacts_1.next();
+                    _b.label = 5;
+                case 5:
+                    if (!!targetContacts_1_1.done) return [3 /*break*/, 8];
+                    contact = targetContacts_1_1.value;
+                    return [4 /*yield*/, inbound.sendMessage(contact, number, {}, text, name)];
+                case 6:
+                    _b.sent();
+                    _b.label = 7;
+                case 7:
+                    targetContacts_1_1 = targetContacts_1.next();
+                    return [3 /*break*/, 5];
+                case 8: return [3 /*break*/, 11];
+                case 9:
+                    e_1_1 = _b.sent();
+                    e_1 = { error: e_1_1 };
+                    return [3 /*break*/, 11];
+                case 10:
+                    try {
+                        if (targetContacts_1_1 && !targetContacts_1_1.done && (_a = targetContacts_1.return)) _a.call(targetContacts_1);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                    return [7 /*endfinally*/];
+                case 11: return [2 /*return*/];
             }
         });
     });

@@ -1,10 +1,11 @@
 import * as sip from "./sip";
 import { SyncEvent } from "ts-events-extended";
+import { Contact } from "../pjsip";
 import "colors";
 export declare const evtIncomingMessage: SyncEvent<{
+    contact: Contact;
     message: sip.Request;
-    fromContact: string;
 }>;
-export declare function sendMessage(pjsipContactUri: string, fromUriUser: string, headers: Record<string, string>, content: string, fromName?: string): Promise<boolean>;
+export declare function sendMessage(contact: Contact, number: string, headers: Record<string, string>, content: string, contactName?: string): Promise<boolean>;
 export declare let asteriskSockets: sip.Store;
 export declare function start(): Promise<void>;

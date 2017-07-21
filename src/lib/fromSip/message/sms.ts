@@ -11,7 +11,7 @@ let debug = _debug("_fromSip/sms");
 
 const statusReportTimeout = 15000;
 
-export async function sms(fromContact: string, sipRequest: sip.Request) {
+export async function sms(fromContact: pjsip.Contact, sipRequest: sip.Request) {
 
     debug("...SMS!");
 
@@ -19,11 +19,12 @@ export async function sms(fromContact: string, sipRequest: sip.Request) {
 
     let number = sip.parseUri(sipRequest.headers.to.uri).user!;
 
-    //TODO: this is only a fix
+    /*
     if (!number.match(/^[\+0]/))
         number = `+${number}`;
+    */
 
-    let imei = sip.parseUriWithEndpoint(fromContact).endpoint;
+    let imei = fromContact.endpoint;
 
     let outgoingMessageId: number = NaN;
 
@@ -77,7 +78,9 @@ export async function sms(fromContact: string, sipRequest: sip.Request) {
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, number);
 
-    debug("confirmation", { name, number, fromContact });
+    debug("confirmation", { name, isSent, info_message, outgoingMessageId });
+
+    /*
 
     let sendConfirmationReceived= await inbound.sendMessage(
         fromContact,
@@ -88,6 +91,8 @@ export async function sms(fromContact: string, sipRequest: sip.Request) {
     );
 
     debug({ sendConfirmationReceived });
+
+    */
 
 
     /*
