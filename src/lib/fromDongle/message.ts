@@ -27,11 +27,13 @@ export async function sms(
 
     let targetContacts= (await pjsip.queryContacts()).filter(({endpoint})=> endpoint === imei);
 
-    debug("TODO: I have to send the message to all those contacts: ", targetContacts);
 
     for( let contact of targetContacts){
 
-        await inbound.sendMessage(contact, number, {}, text, name);
+        let received= await inbound.sendMessage(contact, number, {}, text, name);
+
+        debug("sending message to: ", { contact }, {received });
+
 
     }
 

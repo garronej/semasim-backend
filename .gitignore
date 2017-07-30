@@ -41,3 +41,4 @@ dist/test
 
 res/asterisk/manager.conf
 res/asterisk/dongle.conf
+.sync

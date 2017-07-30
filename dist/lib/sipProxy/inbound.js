@@ -89,8 +89,10 @@ function sendMessage(contact, number, headers, content, contactName) {
             debug("outgoingMessageCaught");
             //TODO: inform that the name come from the SD card
             if (contactName)
-                sipRequest.headers.from.name = contactName;
+                sipRequest.headers.from.name = "" + contactName;
             //sipRequest.headers.to.params["messagetype"]="SMS";
+            sipRequest.uri = contact.uri;
+            sipRequest.headers.to = { "name": undefined, "uri": contact.uri, "params": {} };
             delete sipRequest.headers.contact;
             sipRequest.content = content;
             sipRequest.headers = __assign({}, sipRequest.headers, headers);
@@ -209,7 +211,7 @@ function start() {
                 if (matchTextMessage(sipRequest)) {
                     var evtReceived_1 = new ts_events_extended_1.VoidSyncEvent();
                     evtOutgoingMessage.post({ sipRequest: sipRequest, evtReceived: evtReceived_1 });
-                    proxySocket.evtResponse.attachOnce(function (_a) {
+                    proxySocket.evtResponse.attachOncePrepend(function (_a) {
                         var headers = _a.headers;
                         return headers.via[0].params["branch"] === branch;
                     }, function () { return evtReceived_1.post(); });

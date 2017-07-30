@@ -111,7 +111,10 @@ function getEvtNewContact() {
 }
 exports.getEvtNewContact = getEvtNewContact;
 function readAsteriskSocketLocalPortFromPath(path) {
-    return sip.parseUri(path.match(/^<(.*)>,/)[1]).port;
+    console.log({ path: path });
+    if (!path)
+        return NaN;
+    return sip.parseUri(path.match(/^<([^>]+)>/)[1]).port;
 }
 exports.readAsteriskSocketLocalPortFromPath = readAsteriskSocketLocalPortFromPath;
 /*

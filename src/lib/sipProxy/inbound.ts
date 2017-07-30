@@ -45,7 +45,6 @@ export function sendMessage(
 
         debug("sendMessage", { contact, number, headers, content, contactName });
 
-
         let actionId = Ami.generateUniqueActionId();
 
         let uri= contact.path.split(",")[0].match(/^<(.*)>$/)![1].replace(/;lr/,"");
@@ -68,9 +67,12 @@ export function sendMessage(
 
                 //TODO: inform that the name come from the SD card
 
-                if (contactName) sipRequest.headers.from.name = contactName;
+                if (contactName) sipRequest.headers.from.name = `${contactName}`;
 
                 //sipRequest.headers.to.params["messagetype"]="SMS";
+
+                sipRequest.uri= contact.uri;
+                sipRequest.headers.to= { "name": undefined, "uri": contact.uri, "params": {} };
 
                 delete sipRequest.headers.contact;
 
@@ -381,7 +383,7 @@ export async function start() {
             if (matchTextMessage(sipRequest)) {
                 let evtReceived = new VoidSyncEvent();
                 evtOutgoingMessage.post({ sipRequest, evtReceived });
-                proxySocket.evtResponse.attachOnce(
+                proxySocket.evtResponse.attachOncePrepend(
                     ({ headers }) => headers.via[0].params["branch"] === branch,
                     () => evtReceived.post()
                 )

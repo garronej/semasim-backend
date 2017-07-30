@@ -73,7 +73,11 @@ export function getEvtNewContact(): SyncEvent<Contact> {
 
 export function readAsteriskSocketLocalPortFromPath(path: string): number{
 
-    return sip.parseUri(path.match(/^<(.*)>,/)![1]).port;
+    console.log({ path });
+
+    if( !path ) return NaN;
+
+    return sip.parseUri(path.match(/^<([^>]+)>/)![1]).port;
 
 }
 

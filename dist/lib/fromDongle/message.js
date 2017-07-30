@@ -53,7 +53,7 @@ var debug = _debug("_fromDongle/message");
 function sms(imei, _a) {
     var number = _a.number, date = _a.date, text = _a.text;
     return __awaiter(this, void 0, void 0, function () {
-        var imsi, name, targetContacts, targetContacts_1, targetContacts_1_1, contact, e_1_1, e_1, _a;
+        var imsi, name, targetContacts, targetContacts_1, targetContacts_1_1, contact, received, e_1_1, e_1, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -71,7 +71,6 @@ function sms(imei, _a) {
                         var endpoint = _a.endpoint;
                         return endpoint === imei;
                     });
-                    debug("TODO: I have to send the message to all those contacts: ", targetContacts);
                     _b.label = 4;
                 case 4:
                     _b.trys.push([4, 9, 10, 11]);
@@ -82,7 +81,8 @@ function sms(imei, _a) {
                     contact = targetContacts_1_1.value;
                     return [4 /*yield*/, inbound.sendMessage(contact, number, {}, text, name)];
                 case 6:
-                    _b.sent();
+                    received = _b.sent();
+                    debug("sending message to: ", { contact: contact }, { received: received });
                     _b.label = 7;
                 case 7:
                     targetContacts_1_1 = targetContacts_1.next();
