@@ -139,7 +139,6 @@ function initDialplan(scripts) {
                                                     return [4 /*yield*/, pushExt_1("Set", "EXTENSION_PATTERN=" + extensionPattern)];
                                                 case 2:
                                                     _a.sent();
-                                                    pushExt_1("DumpChan");
                                                     return [4 /*yield*/, pushExt_1("AGI", "agi:async")];
                                                 case 3:
                                                     _a.sent();
@@ -225,58 +224,3 @@ function initDialplan(scripts) {
         });
     });
 }
-/*
-
-export enum DongleStatus {
-    DISCONNECTED = 1,
-    CONNECTED_AND_FREE = 2,
-    CONNECTED_AND_BUSY = 3
-}
-
-
-export async function fromDongle_(channel: AGIChannel): Promise<void> {
-
-    let _ = channel.relax;
-
-    console.log("FROM DONGLE");
-
-    console.log("callerId:", channel.request.callerid);
-
-
-    let activeDongle = {
-        "id": await _.getVariable("DONGLENAME"),
-        "provider": await _.getVariable("DONGLEPROVIDER"),
-        "imei": await _.getVariable("DONGLEIMEI"),
-        "imsi": await _.getVariable("DONGLEIMSI"),
-        "number": await _.getVariable("DONGLENUMBER")
-    };
-
-    console.log("activeDongle: ", activeDongle);
-
-    let callerId = {
-        "name": await _.getVariable("CALLERID(name)"),
-        "num": await _.getVariable("CALLERID(num)"),
-        "all": await _.getVariable("CALLERID(all)"),
-        "ani": await _.getVariable("CALLERID(ani)"),
-        "dnid": await _.getVariable("CALLERID(dnid)"),
-        "rdnis": await _.getVariable("CALLERID(rdnis)"),
-        "pres": await _.getVariable("CALLERID(pres)"),
-        "ton": await _.getVariable("CALLERID(ton)")
-    };
-
-    console.log("CALLERID: ", callerId);
-
-    let { extension } = channel.request;
-
-
-        await _.exec("DongleStatus", [activeDongle.id!, "DONGLE_STATUS"]);
-
-        let dongleStatus = parseInt((await _.getVariable("DONGLE_STATUS"))!) as DongleStatus;
-
-        console.log("Dongle status: ", DongleStatus[dongleStatus]);
-
-
-}
-
-
-*/

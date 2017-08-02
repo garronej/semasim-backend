@@ -20,6 +20,7 @@
     "chan-dongle-extended-client": "github:garronej/chan-dongle-extended-client",
     "colors": "^1.1.2",
     "debug": "^2.6.8",
+    "firebase-admin": "^5.1.0",
     "js-base64": "^2.1.9",
     "md5": "^2.2.1",
     "mysql": "^2.13.0",

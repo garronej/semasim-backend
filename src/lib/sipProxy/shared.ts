@@ -87,28 +87,6 @@ export namespace Message {
 
     }
 
-    export interface NotifyBrokenFlow extends Message {
-        messageId: typeof NotifyBrokenFlow["messageId"];
-        flowToken: string;
-    }
-
-    export namespace NotifyBrokenFlow {
-        export const messageId = "NotifyClientSocketClosed";
-
-        export function buildSipRequest(flowToken: string): sip.Request {
-
-            let notifyClientSocketClosed: NotifyBrokenFlow = { messageId, flowToken };
-
-            return Message.buildSipRequest(notifyClientSocketClosed);
-
-        }
-
-        export function match(message: Message): message is NotifyBrokenFlow {
-            return message.messageId === messageId;
-        }
-
-
-    }
 
 
 }

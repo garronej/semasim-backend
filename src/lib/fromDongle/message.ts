@@ -4,7 +4,7 @@ import {
     Message
 } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
-import * as pjsip from "../pjsip";
+import * as admin from "../admin";
 import * as inbound from "../sipProxy/inbound";
 
 import * as _debug from "debug";
@@ -19,21 +19,20 @@ export async function sms(
     debug("FROM DONGLE MESSAGE");
 
     //TODO: See edge case when dongle send a message and immediately disconnect, maybe send imsi in dongle-extended
-    let { imsi } = (await DongleExtendedClient.localhost().getActiveDongle(imei))!;
+    //let { imsi } = (await DongleExtendedClient.localhost().getActiveDongle(imei))!;
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, number);
 
-    debug({ imsi, number, date, text, name });
+    debug({ number, date, text, name });
 
-    let targetContacts= (await pjsip.queryContacts()).filter(({endpoint})=> endpoint === imei);
+    let targetContacts= (await admin.queryContacts()).filter(({endpoint})=> endpoint === imei);
 
 
     for( let contact of targetContacts){
 
-        let received= await inbound.sendMessage(contact, number, {}, text, name);
+        let received= await admin.sendMessage(contact, number, {}, text, name);
 
         debug("sending message to: ", { contact }, {received });
-
 
     }
 

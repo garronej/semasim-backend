@@ -67,60 +67,60 @@ function overwriteGlobalAndAudioAddrInSdpCandidates(sdp) {
         console.log("No srflx candidate was present in the offer");
         return;
     }
+    //TODO: I think linphone is expecting a second c line witch this implementation of SDP parser does not support...
     sdp.c.address = srflxAddr;
+    //TODO: we this should be removable
     sdp.o.address = srflxAddr;
-    //TODO: see if need to update port in m as well.
+    //TODO: see if need to update port in m as well because it may fail on NAT that change port mapping
+    /*
+
+    Asterisk sends:
+
+    v=0
+    o=- 947913108 947913108 IN IP4 192.168.0.20
+    s=Asterisk
+    c=IN IP4 192.168.0.20
+    t=0 0
+    m=audio 27802 RTP/AVP 8 0 101
+    a=ice-ufrag:733aedd91cdc7ff0001e4b0b6a9b0fcc
+    a=ice-pwd:4df63e726aeaeb030fdf2945787aba76
+    a=candidate:Hc0a80014 1 UDP 2130706431 192.168.0.20 27802 typ host
+    a=candidate:S5140886d 1 UDP 1694498815 81.64.136.109 27802 typ srflx raddr 192.168.0.20 rport 27802
+    a=candidate:Hc0a80014 2 UDP 2130706430 192.168.0.20 27803 typ host
+    a=candidate:S5140886d 2 UDP 1694498814 81.64.136.109 27803 typ srflx raddr 192.168.0.20 rport 27803
+    a=rtpmap:8 PCMA/8000
+    a=rtpmap:0 PCMU/8000
+    a=rtpmap:101 telephone-event/8000
+    a=fmtp:101 0-16
+    a=ptime:20
+    a=maxptime:150
+    a=sendrecv
+
+    Linphone sends:
+
+    v=0
+    o=358880032664586 1891 2518 IN IP4 192.168.0.16
+    s=Talk
+    c=IN IP4 192.168.0.16
+    b=AS:380
+    t=0 0
+    a=ice-pwd:9b07eb9ded44692c868621e7
+    a=ice-ufrag:27435913
+    m=audio 7076 RTP/AVP 8 0 101
+    c=IN IP4 81.64.136.109
+    a=rtpmap:101 telephone-event/8000
+    a=candidate:1 1 UDP 2130706431 192.168.0.16 7076 typ host
+    a=candidate:1 2 UDP 2130706430 192.168.0.16 7077 typ host
+    a=candidate:2 1 UDP 1694498815 81.64.136.109 7076 typ srflx raddr 192.168.0.16 rport 7076
+    a=candidate:2 2 UDP 1694498814 81.64.136.109 7077 typ srflx raddr 192.168.0.16 rport 7077
+    */
 }
 exports.overwriteGlobalAndAudioAddrInSdpCandidates = overwriteGlobalAndAudioAddrInSdpCandidates;
-function purgeCandidates(sdp, toPurge) {
-    try {
-        for (var _a = __values(sdp.m), _b = _a.next(); !_b.done; _b = _a.next()) {
-            var m_i = _b.value;
-            var new_a = [];
-            try {
-                for (var _c = __values(m_i.a), _d = _c.next(); !_d.done; _d = _c.next()) {
-                    var a_i = _d.value;
-                    if (a_i.match(/^candidate.*host$/)) {
-                        if (toPurge.host) {
-                            console.log("==========================================> purged", a_i);
-                            continue;
-                        }
-                    }
-                    else if (a_i.match(/^candidate.*srflx/)) {
-                        if (toPurge.srflx) {
-                            console.log("==========================================> purged", a_i);
-                            continue;
-                        }
-                    }
-                    else if (a_i.match(/^candidate/)) {
-                        if (toPurge.relay) {
-                            console.log("==========================================> purged", a_i);
-                            continue;
-                        }
-                    }
-                    new_a.push(a_i);
-                }
-            }
-            catch (e_3_1) { e_3 = { error: e_3_1 }; }
-            finally {
-                try {
-                    if (_d && !_d.done && (_e = _c.return)) _e.call(_c);
-                }
-                finally { if (e_3) throw e_3.error; }
-            }
-            m_i.a = new_a;
-        }
-    }
-    catch (e_4_1) { e_4 = { error: e_4_1 }; }
-    finally {
-        try {
-            if (_b && !_b.done && (_f = _a.return)) _f.call(_a);
-        }
-        finally { if (e_4) throw e_4.error; }
-    }
-    var e_4, _f, e_3, _e;
+function isPlainMessageRequest(sipRequest) {
+    return (sipRequest.method === "MESSAGE" &&
+        sipRequest.headers["content-type"].match(/^text\/plain/));
 }
-exports.purgeCandidates = purgeCandidates;
+exports.isPlainMessageRequest = isPlainMessageRequest;
 exports.makeStreamParser = sip.makeStreamParser;
 //TODO: make a function to test if message are well formed: have from, to via ect.
 var Socket = (function () {
@@ -278,6 +278,7 @@ var Socket = (function () {
             var via = sipRequest.headers.via;
             if (!via.length)
                 return exports.generateBranch();
+            sipRequest.headers["max-forwards"] = "" + (parseInt(sipRequest.headers["max-forwards"]) - 1);
             var previousBranch = via[0].params["branch"];
             return "z9hG4bK-" + md5(previousBranch);
         })();
@@ -289,18 +290,17 @@ var Socket = (function () {
             "port": this.localPort,
             params: params
         });
-        sipRequest.headers["max-forwards"] = "" + (parseInt(sipRequest.headers["max-forwards"]) - 1);
         return branch;
     };
-    Socket.prototype.addPathHeader = function (sipRequest, host) {
+    Socket.prototype.addPathHeader = function (sipRegisterRequest, host) {
         var parsedUri = createParsedUri();
         parsedUri.host = host || this.localAddress;
         parsedUri.port = this.localPort;
         parsedUri.params["transport"] = this.protocol;
         parsedUri.params["lr"] = null;
-        if (!sipRequest.headers.path)
-            sipRequest.headers.path = [];
-        sipRequest.headers.path.unshift({
+        if (!sipRegisterRequest.headers.path)
+            sipRegisterRequest.headers.path = [];
+        sipRegisterRequest.headers.path.unshift({
             "uri": parsedUri,
             "params": {}
         });
@@ -355,6 +355,13 @@ var Store = (function () {
     Store.prototype.get = function (key) {
         return this.record[key];
     };
+    Object.defineProperty(Store.prototype, "keys", {
+        get: function () {
+            return Object.keys(this.record);
+        },
+        enumerable: true,
+        configurable: true
+    });
     Store.prototype.getAll = function () {
         var out = [];
         try {
@@ -363,15 +370,15 @@ var Store = (function () {
                 out.push(this.record[key]);
             }
         }
-        catch (e_5_1) { e_5 = { error: e_5_1 }; }
+        catch (e_3_1) { e_3 = { error: e_3_1 }; }
         finally {
             try {
                 if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
             }
-            finally { if (e_5) throw e_5.error; }
+            finally { if (e_3) throw e_3.error; }
         }
         return out;
-        var e_5, _c;
+        var e_3, _c;
     };
     Store.prototype.getTimestamp = function (key) {
         return this.timestampRecord[key] || -1;
@@ -383,14 +390,14 @@ var Store = (function () {
                 this.record[key].destroy();
             }
         }
-        catch (e_6_1) { e_6 = { error: e_6_1 }; }
+        catch (e_4_1) { e_4 = { error: e_4_1 }; }
         finally {
             try {
                 if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
             }
-            finally { if (e_6) throw e_6.error; }
+            finally { if (e_4) throw e_4.error; }
         }
-        var e_6, _c;
+        var e_4, _c;
     };
     return Store;
 }());
@@ -400,23 +407,6 @@ exports.parseUri = sip.parseUri;
 exports.generateBranch = sip.generateBranch;
 exports.stringifyUri = sip.stringifyUri;
 exports.parse = sip.parse;
-/*
-export const copyMessage: <T extends Packet>(sipPacket: T, deep?: boolean) => T = sip.copyMessage;
-REGISTER sip:semasim.com SIP/2.0
-Via: SIP/2.0/TCP 172.31.31.1:8883;flowtoken=582faf054f660bbdd9e14c32bdb71e89;branch=z9hG4bK578943;rport
-Via: SIP/2.0/TCP 100.122.234.122:60006;branch=z9hG4bK-524287-1---6093e050d634776b;rport;alias
-Max-Forwards: 69
-Contact:  <sip:358880032664586@100.122.234.122:60006;rinstance=c2b1e3c576ad2cf8;transport=tcp>;+sip.instance="<urn:uuid:26388600-1cde-40aa-8eba-5802edfa3322>";reg-id=1
-To:  <sip:358880032664586@semasim.com>
-From:  <sip:358880032664586@semasim.com>;tag=8ee6bf48
-Call-ID: ZGZmMzllZjNhODIzZDQxMDlmOTA4YTY5ZWE3NGRlN2M
-CSeq: 1 REGISTER
-Expires: 900
-Allow: INVITE, ACK, CANCEL, BYE, REFER, INFO, NOTIFY, OPTIONS, UPDATE, PRACK, MESSAGE, SUBSCRIBE
-Supported: outbound, path
-User-Agent: Bria iOS release 3.9.5 stamp 38501.38502
-Content-Length: 0
-*/
 function copyMessage(sipPacket, deep) {
     return exports.parse(exports.stringify(sipPacket));
 }
@@ -441,12 +431,12 @@ function updateUri(wrap, updatedField) {
                 parsedUri[key] = updatedField[key];
         }
     }
-    catch (e_7_1) { e_7 = { error: e_7_1 }; }
+    catch (e_5_1) { e_5 = { error: e_5_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_7) throw e_7.error; }
+        finally { if (e_5) throw e_5.error; }
     }
     if (updatedField.params)
         parsedUri.params = __assign({}, parsedUri.params, updatedField.params);
@@ -457,15 +447,15 @@ function updateUri(wrap, updatedField) {
                 delete parsedUri.params[key];
         }
     }
-    catch (e_8_1) { e_8 = { error: e_8_1 }; }
+    catch (e_6_1) { e_6 = { error: e_6_1 }; }
     finally {
         try {
             if (_e && !_e.done && (_f = _d.return)) _f.call(_d);
         }
-        finally { if (e_8) throw e_8.error; }
+        finally { if (e_6) throw e_6.error; }
     }
     wrap.uri = exports.stringifyUri(parsedUri);
-    var e_7, _c, e_8, _f;
+    var e_5, _c, e_6, _f;
 }
 exports.updateUri = updateUri;
 function parseOptionTags(headerFieldValue) {
@@ -492,3 +482,80 @@ function matchRequest(sipPacket) {
     return "method" in sipPacket;
 }
 exports.matchRequest = matchRequest;
+/*
+export function purgeCandidates(sdp: any, toPurge: { host: boolean; srflx: boolean; relay: boolean }) {
+
+    for (let m_i of sdp.m) {
+
+        let new_a: string[] = [];
+
+        for (let a_i of m_i.a) {
+
+            if (a_i.match(/^candidate.*host$/)) {
+
+                if (toPurge.host) {
+                    console.log("==========================================> purged", a_i);
+                    continue;
+
+                }
+
+            } else if (a_i.match(/^candidate.*srflx/)) {
+
+                if (toPurge.srflx) {
+                    console.log("==========================================> purged", a_i);
+                    continue;
+
+                }
+
+            } else if (a_i.match(/^candidate/)) {
+
+                if (toPurge.relay) {
+                    console.log("==========================================> purged", a_i);
+                    continue;
+
+                }
+
+            }
+
+            new_a.push(a_i);
+
+        }
+
+        m_i.a = new_a;
+
+    }
+
+
+
+}
+*/
+/*
+let contact = {
+    id: '358880032664586^3B@05c340b1646469df927550ffe3879b6a',
+    uri: 'sip:358880032664586@172.31.27.145:5060;CtRt084ec2ed68c1d923=tcp:semasim.com',
+    path: '<sip:192.168.0.20:50106;transport=TCP;lr>,  <sip:semasim-outbound-proxy.invalid:8883;transport=TLS;lr>,  <sip:172.31.27.145:5060;fs-proxy-id=084ec2ed68c1d923;lr>',
+    endpoint: '358880032664586',
+    user_agent: 'user-agent=LinphoneAndroid/3.2.7 (belle-sip/1.6.1)_endpoint=358880032664586_+sip.instance="<urn:uuid:3d181f29-48a8-4076-945b-459f7b0cf191>"'
+};
+
+
+let fromTag = "794ee9eb-9752-4ac4-bf42-097277bcb5fe";
+let callId = "138ce538-6a26-4975-847c-e7bbd7e69a44";
+let cSeqSequenceNumber = 45985;
+
+let sipRequest = sip.parse([
+    `OPTIONS ${contact.uri} SIP/2.0`,
+    `From: <sip:${contact.endpoint}@semasim.com>;tag=${fromTag}`,
+    `To: <${contact.uri}>`,
+    //"Contact: <sip:358880032664586@192.168.0.20:5060;transport=TCP>",
+    `Call-ID: ${callId}`,
+    `CSeq: ${cSeqSequenceNumber} OPTIONS`,
+    "Supported: path",
+    "Max-Forwards: 70",
+    "User-Agent: Asterisk PBX 14.5.0",
+    "Content-Length:  0",
+    "\r\n"
+].join("\r\n")) as Request;
+
+console.log(JSON.stringify(sipRequest, null, 2));
+*/ 

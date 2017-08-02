@@ -91,17 +91,4 @@ var Message;
         }
         NotifyKnownDongle.match = match;
     })(NotifyKnownDongle = Message.NotifyKnownDongle || (Message.NotifyKnownDongle = {}));
-    var NotifyBrokenFlow;
-    (function (NotifyBrokenFlow) {
-        NotifyBrokenFlow.messageId = "NotifyClientSocketClosed";
-        function buildSipRequest(flowToken) {
-            var notifyClientSocketClosed = { messageId: NotifyBrokenFlow.messageId, flowToken: flowToken };
-            return Message.buildSipRequest(notifyClientSocketClosed);
-        }
-        NotifyBrokenFlow.buildSipRequest = buildSipRequest;
-        function match(message) {
-            return message.messageId === NotifyBrokenFlow.messageId;
-        }
-        NotifyBrokenFlow.match = match;
-    })(NotifyBrokenFlow = Message.NotifyBrokenFlow || (Message.NotifyBrokenFlow = {}));
 })(Message = exports.Message || (exports.Message = {}));

@@ -79,7 +79,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var fromSip = require("./fromSip");
 var fromDongle = require("./fromDongle");
-var pjsip = require("./pjsip");
+var admin = require("./admin");
 var agi = require("./agi");
 var inbound = require("./sipProxy/inbound");
 var _debug = require("debug");
@@ -88,8 +88,8 @@ debug("Started !!");
 //TODO: every call to dongleExtendedClient may throw error.
 var scripts = {};
 var phoneNumberAsteriskExtensionPattern = "_[+0-9].";
-scripts[pjsip.callContext] = {};
-scripts[pjsip.callContext][phoneNumberAsteriskExtensionPattern] = fromSip.call;
+scripts[admin.callContext] = {};
+scripts[admin.callContext][phoneNumberAsteriskExtensionPattern] = fromSip.call;
 scripts[fromDongle.context] = {};
 scripts[fromDongle.context][phoneNumberAsteriskExtensionPattern] = fromDongle.call;
 agi.startServer(scripts);
@@ -104,7 +104,7 @@ var dongleEvtHandlers = {
             switch (_a.label) {
                 case 0:
                     debug("onDongleDisconnect", { imei: imei });
-                    return [4 /*yield*/, pjsip.setDevicePresence(imei, "ONHOLD")];
+                    return [4 /*yield*/, admin.setDevicePresence(imei, "ONHOLD")];
                 case 1:
                     _a.sent();
                     return [2 /*return*/];
@@ -116,7 +116,7 @@ var dongleEvtHandlers = {
             switch (_a.label) {
                 case 0:
                     debug("onNewActiveDongle");
-                    return [4 /*yield*/, pjsip.setDevicePresence(imei, "NOT_INUSE")];
+                    return [4 /*yield*/, admin.setDevicePresence(imei, "NOT_INUSE")];
                 case 1:
                     _a.sent();
                     return [4 /*yield*/, initEndpoint(imei, true)];
@@ -131,7 +131,7 @@ var dongleEvtHandlers = {
             switch (_a.label) {
                 case 0:
                     debug("onRequestUnlockCode");
-                    return [4 /*yield*/, pjsip.setDevicePresence(imei, "UNAVAILABLE")];
+                    return [4 /*yield*/, admin.setDevicePresence(imei, "UNAVAILABLE")];
                 case 1:
                     _a.sent();
                     return [4 /*yield*/, initEndpoint(imei, true)];
@@ -146,10 +146,10 @@ function initEndpoint(endpoint, isDongleConnected) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, pjsip.enableDevicePresenceNotification(endpoint)];
+                case 0: return [4 /*yield*/, admin.enableDevicePresenceNotification(endpoint)];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, pjsip.addOrUpdateEndpoint(endpoint, isDongleConnected)];
+                    return [4 /*yield*/, admin.addOrUpdateEndpoint(endpoint, isDongleConnected)];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];
@@ -174,7 +174,7 @@ function initEndpoint(endpoint, isDongleConnected) {
                         var imei = _a.imei;
                         return imei;
                     });
-                    return [4 /*yield*/, pjsip.queryEndpoints()];
+                    return [4 /*yield*/, admin.queryEndpoints()];
                 case 3:
                     knownDisconnectedDongles = (_d.sent())
                         .map(function (_a) {
@@ -241,10 +241,13 @@ dongleClient.evtRequestUnlockCode.attach(function (_a) {
     var imei = _a.imei;
     return dongleEvtHandlers.onRequestUnlockCode(imei);
 });
-pjsip.getEvtNewContact().attach(function (contact) {
-    //TODO Send initialization information.
-    debug("New contact", contact);
-});
+admin.getEvtNewContact().attach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        //TODO Send initialization information.
+        debug("New contact", contact);
+        return [2 /*return*/];
+    });
+}); });
 (function initVoidDialplanForMessage() {
     return __awaiter(this, void 0, void 0, function () {
         var ami, matchAllExt;
@@ -253,10 +256,10 @@ pjsip.getEvtNewContact().attach(function (contact) {
                 case 0:
                     ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
                     matchAllExt = "_.";
-                    return [4 /*yield*/, ami.dialplanExtensionRemove(matchAllExt, pjsip.messageContext)];
+                    return [4 /*yield*/, ami.dialplanExtensionRemove(matchAllExt, admin.messageContext)];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, ami.dialplanExtensionAdd(pjsip.messageContext, matchAllExt, 1, "Hangup")];
+                    return [4 /*yield*/, ami.dialplanExtensionAdd(admin.messageContext, matchAllExt, 1, "Hangup")];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];
@@ -264,7 +267,7 @@ pjsip.getEvtNewContact().attach(function (contact) {
         });
     });
 })();
-pjsip.truncateContacts().then(function () { return inbound.start(); });
+admin.truncateContacts().then(function () { return inbound.start(); });
 //pjsip.truncateContacts();
 inbound.evtIncomingMessage.attach(function (_a) {
     var contact = _a.contact, message = _a.message;

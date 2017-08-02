@@ -1,16 +1,16 @@
 import { AGIChannel } from "ts-async-agi";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
-import * as pjsip from "../pjsip";
+import * as admin from "../admin";
 import * as agi from "../agi";
+import * as inbound from "../sipProxy/inbound";
+//import * as firebase from "../sipProxy/firebase";
+//import * as sip from "../sipProxy/sip";
 
 import * as _debug from "debug";
 let debug = _debug("_fromDongle/call");
 
-
-
 export const gain = `${4000}`;
-
 
 export const jitterBuffer = {
     //type: "fixed",
@@ -34,33 +34,31 @@ export async function call(channel: AGIChannel) {
 
     let imei = (await _.getVariable("DONGLEIMEI"))!;
 
-    let name: string | undefined = undefined;
+    debug({ imei });
 
-    try {
+    let name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
 
-        name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
-
-    } catch (error) {
-
-        console.log("The strange bug", { imei })
-
-    }
-
-    if (name) {
-        //await _.setVariable("CALLERID(name-charset)", "utf8");
-        await _.setVariable("CALLERID(name)", name);
-    } else {
-        await _.setVariable("CALLERID(name)", "");
-    }
-
-    /*
-    let contactsToDial = (await pjsip.getAvailableContactsOfEndpoint(imei))
-        .map(contact => `PJSIP/${contact}`)
-        .join("&");
-    */
+    debug({ name });
 
 
-    let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
+    //await _.setVariable("CALLERID(name-charset)", "utf8");
+    await _.setVariable("CALLERID(name)", name || "");
+
+    debug("Before database query");
+
+    let contactsOfEndpoint = (await admin.queryContacts()).filter(({ endpoint }) => endpoint === imei);
+
+
+    //TODO: Get the actual contacts to dial.
+    let contactsReachable: admin.Contact[] = contactsOfEndpoint;
+
+
+    //PJSIP/358880032664586/sip:358880032664586@172.31.27.145:5060;CtRt084ec2ed68c1d923=tcp:semasim.com
+    let contactsToDial = contactsReachable.map(({ uri }) => `PJSIP/${imei}/${uri}`).join("&");
+
+    //let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
+
+    debug({ contactsToDial });
 
     if (!contactsToDial) {
 
@@ -69,9 +67,6 @@ export async function call(channel: AGIChannel) {
         return;
 
     }
-
-    debug({ contactsToDial });
-
 
     debug("Dialing...");
 

@@ -36,7 +36,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
+var admin = require("../admin");
 var agi = require("../agi");
+//import * as firebase from "../sipProxy/firebase";
+//import * as sip from "../sipProxy/sip";
 var _debug = require("debug");
 var debug = _debug("_fromDongle/call");
 exports.gain = "" + 4000;
@@ -51,7 +54,7 @@ exports.jitterBuffer = {
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var _, imei, name, error_1, contactsToDial;
+        var _, imei, name, contactsOfEndpoint, contactsReachable, contactsToDial;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -60,38 +63,34 @@ function call(channel) {
                     return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
                 case 1:
                     imei = (_a.sent());
-                    name = undefined;
-                    _a.label = 2;
-                case 2:
-                    _a.trys.push([2, 4, , 5]);
+                    debug({ imei: imei });
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
-                case 3:
+                case 2:
                     name = _a.sent();
-                    return [3 /*break*/, 5];
+                    debug({ name: name });
+                    //await _.setVariable("CALLERID(name-charset)", "utf8");
+                    return [4 /*yield*/, _.setVariable("CALLERID(name)", name || "")];
+                case 3:
+                    //await _.setVariable("CALLERID(name-charset)", "utf8");
+                    _a.sent();
+                    debug("Before database query");
+                    return [4 /*yield*/, admin.queryContacts()];
                 case 4:
-                    error_1 = _a.sent();
-                    console.log("The strange bug", { imei: imei });
-                    return [3 /*break*/, 5];
-                case 5:
-                    if (!name) return [3 /*break*/, 7];
-                    //await _.setVariable("CALLERID(name-charset)", "utf8");
-                    return [4 /*yield*/, _.setVariable("CALLERID(name)", name)];
-                case 6:
-                    //await _.setVariable("CALLERID(name-charset)", "utf8");
-                    _a.sent();
-                    return [3 /*break*/, 9];
-                case 7: return [4 /*yield*/, _.setVariable("CALLERID(name)", "")];
-                case 8:
-                    _a.sent();
-                    _a.label = 9;
-                case 9: return [4 /*yield*/, _.getVariable("PJSIP_DIAL_CONTACTS(" + imei + ")")];
-                case 10:
-                    contactsToDial = _a.sent();
+                    contactsOfEndpoint = (_a.sent()).filter(function (_a) {
+                        var endpoint = _a.endpoint;
+                        return endpoint === imei;
+                    });
+                    contactsReachable = contactsOfEndpoint;
+                    contactsToDial = contactsReachable.map(function (_a) {
+                        var uri = _a.uri;
+                        return "PJSIP/" + imei + "/" + uri;
+                    }).join("&");
+                    //let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
+                    debug({ contactsToDial: contactsToDial });
                     if (!contactsToDial) {
                         debug("No contact to dial!");
                         return [2 /*return*/];
                     }
-                    debug({ contactsToDial: contactsToDial });
                     debug("Dialing...");
                     return [4 /*yield*/, agi.dialAndGetOutboundChannel(channel, 
                         //`PJSIP/${imei}`,
@@ -114,7 +113,7 @@ function call(channel) {
                                 }
                             });
                         }); })];
-                case 11:
+                case 5:
                     _a.sent();
                     debug("Call ended");
                     return [2 /*return*/];

@@ -52,6 +52,58 @@ var dbInterface = require("./dbInterface");
 var inbound_1 = require("../sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_pjsip/endpointsContacts");
+function readInboundLocalPort(contact) {
+    if (!contact.path)
+        return NaN;
+    return sip.parseUri(contact.path.match(/^<([^>]+)>/)[1]).port;
+}
+exports.readInboundLocalPort = readInboundLocalPort;
+function getContactFromInboundLocalPort(asteriskSocketLocalPort) {
+    var _this = this;
+    var returned = false;
+    return new Promise(function (resolve) { return __awaiter(_this, void 0, void 0, function () {
+        var contacts, contacts_1, contacts_1_1, contact, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    getEvtNewContact().waitFor(function (contact) { return readInboundLocalPort(contact) === asteriskSocketLocalPort; }, 1200).then(function (contact) {
+                        if (returned)
+                            return;
+                        returned = true;
+                        resolve(contact);
+                    }).catch(function () {
+                        if (returned)
+                            return;
+                        returned = true;
+                        resolve(undefined);
+                    });
+                    return [4 /*yield*/, dbInterface.queryContacts()];
+                case 1:
+                    contacts = _b.sent();
+                    if (returned)
+                        return [2 /*return*/];
+                    try {
+                        for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
+                            contact = contacts_1_1.value;
+                            if (readInboundLocalPort(contact) !== asteriskSocketLocalPort)
+                                continue;
+                            returned = true;
+                            resolve(contact);
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+}
+exports.getContactFromInboundLocalPort = getContactFromInboundLocalPort;
 var evtNewContact = undefined;
 function getEvtNewContact() {
     var _this = this;
@@ -63,44 +115,59 @@ function getEvtNewContact() {
         managerEvt.uri); }, function (_a) {
         var endpointname = _a.endpointname, uri = _a.uri;
         return __awaiter(_this, void 0, void 0, function () {
-            var contacts, newContact, contactsToDelete, contactsToDelete_1, contactsToDelete_1_1, contactToDelete, asteriskSocketLocalPort, _a, _b, asteriskSocket, e_1, _c, e_2, _d;
-            return __generator(this, function (_e) {
-                switch (_e.label) {
+            var contacts, newContact, contactsToDelete, _loop_1, contactsToDelete_1, contactsToDelete_1_1, contactToDelete, e_2_1, e_2, _a;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0: return [4 /*yield*/, dbInterface.queryContacts()];
                     case 1:
-                        contacts = _e.sent();
+                        contacts = _b.sent();
                         newContact = contacts.filter(function (contact) { return contact.endpoint === endpointname && contact.uri === uri; })[0];
                         contactsToDelete = contacts.filter(function (contact) { return contact !== newContact && contact.user_agent === newContact.user_agent; });
+                        _loop_1 = function (contactToDelete) {
+                            var inboundLocalPort;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0:
+                                        debug("we have other socket for the same endpoint+client", { contactToDelete: contactToDelete });
+                                        return [4 /*yield*/, dbInterface.deleteContact(contactToDelete.id)];
+                                    case 1:
+                                        _a.sent();
+                                        inboundLocalPort = readInboundLocalPort(contactToDelete);
+                                        inbound_1.asteriskSockets.getAll().filter(function (_a) {
+                                            var localPort = _a.localPort;
+                                            return localPort === inboundLocalPort;
+                                        }).map(function (asteriskSocket) { return asteriskSocket.destroy(); });
+                                        return [2 /*return*/];
+                                }
+                            });
+                        };
+                        _b.label = 2;
+                    case 2:
+                        _b.trys.push([2, 7, 8, 9]);
+                        contactsToDelete_1 = __values(contactsToDelete), contactsToDelete_1_1 = contactsToDelete_1.next();
+                        _b.label = 3;
+                    case 3:
+                        if (!!contactsToDelete_1_1.done) return [3 /*break*/, 6];
+                        contactToDelete = contactsToDelete_1_1.value;
+                        return [5 /*yield**/, _loop_1(contactToDelete)];
+                    case 4:
+                        _b.sent();
+                        _b.label = 5;
+                    case 5:
+                        contactsToDelete_1_1 = contactsToDelete_1.next();
+                        return [3 /*break*/, 3];
+                    case 6: return [3 /*break*/, 9];
+                    case 7:
+                        e_2_1 = _b.sent();
+                        e_2 = { error: e_2_1 };
+                        return [3 /*break*/, 9];
+                    case 8:
                         try {
-                            for (contactsToDelete_1 = __values(contactsToDelete), contactsToDelete_1_1 = contactsToDelete_1.next(); !contactsToDelete_1_1.done; contactsToDelete_1_1 = contactsToDelete_1.next()) {
-                                contactToDelete = contactsToDelete_1_1.value;
-                                debug({ contactToDelete: contactToDelete });
-                                asteriskSocketLocalPort = readAsteriskSocketLocalPortFromPath(contactToDelete.path);
-                                try {
-                                    for (_a = __values(inbound_1.asteriskSockets.getAll()), _b = _a.next(); !_b.done; _b = _a.next()) {
-                                        asteriskSocket = _b.value;
-                                        if (asteriskSocket.localPort !== asteriskSocketLocalPort)
-                                            continue;
-                                        debug("Deleting socket: " + asteriskSocket.localPort + ":" + asteriskSocket.localAddress + "->" + asteriskSocket.remoteAddress + ":" + asteriskSocket.remotePort);
-                                        asteriskSocket.destroy();
-                                    }
-                                }
-                                catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                                finally {
-                                    try {
-                                        if (_b && !_b.done && (_d = _a.return)) _d.call(_a);
-                                    }
-                                    finally { if (e_2) throw e_2.error; }
-                                }
-                            }
+                            if (contactsToDelete_1_1 && !contactsToDelete_1_1.done && (_a = contactsToDelete_1.return)) _a.call(contactsToDelete_1);
                         }
-                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                        finally {
-                            try {
-                                if (contactsToDelete_1_1 && !contactsToDelete_1_1.done && (_c = contactsToDelete_1.return)) _c.call(contactsToDelete_1);
-                            }
-                            finally { if (e_1) throw e_1.error; }
-                        }
+                        finally { if (e_2) throw e_2.error; }
+                        return [7 /*endfinally*/];
+                    case 9:
                         evtNewContact.post(newContact);
                         return [2 /*return*/];
                 }
@@ -110,202 +177,3 @@ function getEvtNewContact() {
     return evtNewContact;
 }
 exports.getEvtNewContact = getEvtNewContact;
-function readAsteriskSocketLocalPortFromPath(path) {
-    console.log({ path: path });
-    if (!path)
-        return NaN;
-    return sip.parseUri(path.match(/^<([^>]+)>/)[1]).port;
-}
-exports.readAsteriskSocketLocalPortFromPath = readAsteriskSocketLocalPortFromPath;
-/*
-
-avec endpoint et uri on recupère le contact.
-
-avec le contact on recupère tous les autre contact qui on la mème user_agent
-
-tous ses contact on retrouve leurs socket et on les ferme.
-
-pb: le socket doit être capable de retrouver son contact.
-il peux le faire grâce a route parsque il y a le src port!
-
-
-
-
-
-*/
-/*
-
-
-export class Contact {
-
-    public readonly endpoint: string;
-    public readonly sessionId: string;
-    public readonly offlineSince: Date;
-    public readonly isGenericClient: boolean;
-    public readonly port: number;
-
-    constructor(
-        public readonly pjsipUri: string
-        ){
-            let parsedUri= sip.parseUri(pjsipUri.match(/^[0-9]{15}\/(.*)$/)![1]);
-
-            this.endpoint= parsedUri.user!;
-
-            this.sessionId= parsedUri.params[sessionIdKey];
-
-            let offlineSinceTimestamp= parseInt(parsedUri.params[offlineSinceKey]);
-
-            this.isGenericClient= isNaN(offlineSinceTimestamp);
-
-            //TODO: set the real offline timestamp if isNan
-
-            this.offlineSince= new Date(offlineSinceTimestamp);
-
-            this.port= parsedUri.port;
-
-    }
-}
-
-type ContactStatus = "Avail" | "Unavail" | "Unknown" | "Created";
-
-function getContacts(): Promise<Contact[]> {
-
-    return new Promise<Contact[]>(async resolve => {
-
-        let ami = DongleExtendedClient.localhost().ami;
-
-        let proxyEvt = ami.evt.createProxy();
-
-        ami.postAction( "PJSIPShowEndpoints", {}).catch( error => {
-
-            proxyEvt.stopWaiting();
-
-            resolve([]);
-
-        });
-
-        let actionId = ami.lastActionId;
-
-        let contacts: Contact[] = [];
-
-        while (true) {
-
-            let evt = await proxyEvt.waitFor(evt => evt.actionid === actionId);
-
-            console.log({ evt });
-
-            if (evt.event === "EndpointListComplete") break;
-
-            let concatPjsipContactUri = evt["contacts"];
-
-            let pjsipContactUris = concatPjsipContactUri.split(",");
-
-            pjsipContactUris.pop();
-
-            contacts= pjsipContactUris.map( pjsipContactUri => new Contact(pjsipContactUri));
-
-        }
-
-        resolve(contacts);
-
-    });
-
-}
-
-async function getContactStatus(contact: string): Promise<ContactStatus | undefined> {
-
-    let output= await DongleExtendedClient.localhost().ami.runCliCommand(`pjsip show contact ${contact}`);
-
-    try {
-
-        return output
-        .split("\n")
-        .filter( line => line.match(/^[ \t]*Contact:/) )
-        .pop()!
-        .match( /^[ \t]*Contact:[ \t]*[^ \t]+[ \t]*[0-9a-fA-F]+[ \t]*([^ \t]+).*$/)![1] as any;
-
-    } catch (error) {
-
-        return undefined;
-
-    }
-
-}
-
-//TODO: no need to check status
-
-export async function getAvailableContactsOfEndpoint(endpoint: string): Promise<Contact[]> {
-
-    let contacts = (await getContacts()).filter( contact => contact.endpoint === endpoint);
-
-    let availableContacts: Contact[]= [];
-
-    for( let contact of contacts ){
-
-        if( (await getContactStatus(contact.pjsipUri)) !== "Avail" ) continue;
-
-        availableContacts.push(contact);
-
-    }
-
-    return availableContacts;
-
-}
-
-let evtNewContact: SyncEvent<Contact> | undefined = undefined;
-
-export function getEvtNewContact(): SyncEvent<Contact> {
-
-    if (evtNewContact) return evtNewContact;
-
-    let out = new SyncEvent<Contact>();
-
-    let pendingRegistrations= new Set<string>();
-
-    DongleExtendedClient.localhost().ami.evt.attach(
-        managerEvt => (
-            managerEvt.event === "ContactStatus" &&
-            managerEvt.contactstatus === "Created" &&
-            managerEvt.uri
-        ),
-        async function callee(contactStatusEvt) {
-
-            let { endpointname, uri } = contactStatusEvt;
-
-            let contact= new Contact(`${endpointname}/${uri}`);
-
-            let registrationId = `${contact.port}_${contact.sessionId}`;
-
-            if (pendingRegistrations.has(registrationId)) return;
-
-            pendingRegistrations.add(registrationId);
-
-            await new Promise<void>(resolve => setTimeout(resolve, 5000));
-
-            let status = await getContactStatus(contact.pjsipUri);
-
-            switch (status) {
-                case undefined:
-                    break;
-                case "Avail":
-                    pendingRegistrations.delete(registrationId);
-                    out.post(contact);
-                    break;
-                default:
-                    console.log(`Unexpected contact status ${status}`);
-                    callee(contactStatusEvt);
-                    break;
-            }
-        }
-    );
-
-    evtNewContact = out;
-
-    return getEvtNewContact();
-
-}
-
-
-
-
-*/

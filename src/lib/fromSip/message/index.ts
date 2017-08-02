@@ -1,10 +1,10 @@
-import * as pjsip from "../../pjsip";
+import { Contact } from "../../admin";
 import * as sip from "../../sipProxy/sip";
 
 import { sms } from "./sms";
 
 
-export async function message(fromContact: pjsip.Contact, sipRequest: sip.Request) {
+export async function message(fromContact: Contact, sipRequest: sip.Request) {
 
     console.log(" FROM SIP MESSAGE...");
 

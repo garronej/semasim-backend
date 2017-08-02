@@ -20,13 +20,4 @@ export declare namespace Message {
         function buildSipRequest(imei: string, lastConnection: number): sip.Request;
         function match(message: Message): message is NotifyKnownDongle;
     }
-    interface NotifyBrokenFlow extends Message {
-        messageId: typeof NotifyBrokenFlow["messageId"];
-        flowToken: string;
-    }
-    namespace NotifyBrokenFlow {
-        const messageId = "NotifyClientSocketClosed";
-        function buildSipRequest(flowToken: string): sip.Request;
-        function match(message: Message): message is NotifyBrokenFlow;
-    }
 }

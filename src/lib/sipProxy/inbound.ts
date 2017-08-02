@@ -1,12 +1,12 @@
 import * as net from "net";
 import * as sip from "./sip";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import { DongleExtendedClient, Ami } from "chan-dongle-extended-client";
+import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as shared from "./shared";
 import * as os from "os";
 
-import * as pjsip from "../pjsip";
-import { Contact } from "../pjsip";
+import * as admin from "../admin";
+import { Contact } from "../admin";
 
 import * as tls from "tls";
 
@@ -17,146 +17,19 @@ let debug = _debug("_sipProxy/inbound");
 
 const localIp= os.networkInterfaces()["eth0"].filter( ({family})=> family === "IPv4" )[0]["address"];
 
-console.log({localIp});
-
-
 export const evtIncomingMessage = new SyncEvent<{
-    contact: pjsip.Contact;
+    contact: admin.Contact;
     message: sip.Request;
 }>();
 
-const evtOutgoingMessage = new SyncEvent<{ 
+export const evtOutgoingMessage = new SyncEvent<{ 
     sipRequest: sip.Request;
     evtReceived: VoidSyncEvent;
 }>();
 
 
-export function sendMessage(
-    contact: Contact,
-    number: string,
-    headers: Record<string, string>,
-    content: string,
-    contactName?: string
-): Promise<boolean> {
-
-    return new Promise<boolean>(resolve => {
-
-        //console.log("sending message", { contact, fromUriUser, headers, content, fromName });
-
-        debug("sendMessage", { contact, number, headers, content, contactName });
-
-        let actionId = Ami.generateUniqueActionId();
-
-        let uri= contact.path.split(",")[0].match(/^<(.*)>$/)![1].replace(/;lr/,"");
-
-        DongleExtendedClient.localhost().ami.messageSend(
-            `pjsip:${contact.endpoint}/${uri}`, number, actionId
-        ).catch( error=> {
-
-            debug("message send failed", error.message);            
-
-            resolve(false);
-
-        });
-
-        evtOutgoingMessage.attachOnce(
-            ({ sipRequest }) => sipRequest.content === actionId,
-            ({ sipRequest, evtReceived }) => {
-
-                debug("outgoingMessageCaught");
-
-                //TODO: inform that the name come from the SD card
-
-                if (contactName) sipRequest.headers.from.name = `${contactName}`;
-
-                //sipRequest.headers.to.params["messagetype"]="SMS";
-
-                sipRequest.uri= contact.uri;
-                sipRequest.headers.to= { "name": undefined, "uri": contact.uri, "params": {} };
-
-                delete sipRequest.headers.contact;
-
-                sipRequest.content = content;
-
-                sipRequest.headers = {
-                    ...sipRequest.headers,
-                    ...headers
-                };
-
-                evtReceived.waitFor(3000).then(() => resolve(true)).catch(() => resolve(false));
-
-            }
-        );
-
-
-    });
-
-
-}
-
-
-
-function getContactOfFlow(asteriskSocketLocalPort: number): Promise<pjsip.Contact | undefined> {
-
-    let returned = false;
-
-    return new Promise<pjsip.Contact | undefined>(async resolve => {
-
-        pjsip.getEvtNewContact().waitFor(
-            ({ path }) => pjsip.readAsteriskSocketLocalPortFromPath(path) === asteriskSocketLocalPort,
-            1200
-        ).then(contact => {
-            if (returned) return;
-            returned = true;
-
-            debug("contact resolved from event");
-
-            resolve(contact);
-
-        }).catch(() => {
-            if (returned) return;
-            returned = true;
-
-            debug("contact not found timeout");
-
-            resolve(undefined);
-        });
-
-        let contacts = await pjsip.queryContacts();
-
-        if (returned) return;
-
-        for (let contact of contacts) {
-
-            if (pjsip.readAsteriskSocketLocalPortFromPath(contact.path) !== asteriskSocketLocalPort)
-                continue;
-
-            returned = true;
-
-            debug("contact found from db");
-
-            resolve(contact);
-
-        }
-
-    });
-
-
-}
-
-
-
-
-function matchTextMessage(sipRequest: sip.Request): boolean {
-
-    return (
-        sipRequest.method === "MESSAGE" &&
-        sipRequest.headers["content-type"].match(/^text\/plain/)
-    );
-
-}
-
 export let asteriskSockets: sip.Store;
+let proxySocket: sip.Socket;
 
 export async function start() {
 
@@ -164,7 +37,7 @@ export async function start() {
 
     asteriskSockets = new sip.Store();
 
-    let proxySocket = new sip.Socket(
+    proxySocket = new sip.Socket(
         tls.connect({ "host": "ns.semasim.com", "port": shared.relayPort }) as any
     );
 
@@ -192,7 +65,6 @@ export async function start() {
         if (!asteriskSocket.evtConnect.postCount)
             await asteriskSocket.evtConnect.waitFor();
 
-        let branch = asteriskSocket.addViaHeader(sipRequest);
 
         if (sipRequest.method === "REGISTER") {
 
@@ -208,14 +80,11 @@ export async function start() {
             asteriskSocket.shiftRouteAndAddRecordRoute(sipRequest);
 
 
+        let branch = asteriskSocket.addViaHeader(sipRequest);
 
-        //FOR MESSAGES
-
-        //TODO see if dump is nessesary.
-        let sipRequestDump = sip.copyMessage(sipRequest, true);
 
         //TODO match with authentication
-        if (matchTextMessage(sipRequestDump)) {
+        if (sip.isPlainMessageRequest(sipRequest)) {
 
             asteriskSocket.evtResponse.attachOncePrepend(
                 ({ headers }) => headers.via[0].params["branch"] === branch,
@@ -223,17 +92,18 @@ export async function start() {
 
                     if (sipResponse.status !== 202) return;
 
-                    let contact= await getContactOfFlow(asteriskSocket!.localPort);
+                    let contact = await admin.getContactFromInboundLocalPort(asteriskSocket!.localPort);
 
-                    if( !contact ){
+                    if (!contact) {
 
-                        debug(`Contact not found for incoming message!!! TODO change result code`);
+                        //TODO? Change result code, is it possible ?
+                        debug(`Contact not found for incoming message!!!`);
 
                         return;
 
                     }
 
-                    evtIncomingMessage.post({ contact, "message": sipRequestDump });
+                    evtIncomingMessage.post({ contact, "message": sipRequest });
 
                 }
             );
@@ -262,34 +132,6 @@ export async function start() {
     });
 
 
-    proxySocket.evtRequest.attachExtract(
-        sipRequest => shared.Message.matchSipRequest(sipRequest),
-        sipRequest => {
-
-            let message = shared.Message.parseSipRequest(sipRequest);
-
-            if (shared.Message.NotifyBrokenFlow.match(message)) {
-
-                debug(`${message.flowToken} Outbound notify flow ended, destroying asterisk socket`);
-
-                let asteriskSocket = asteriskSockets.get(message.flowToken);
-
-                if (!asteriskSocket) {
-
-                    debug(`${message.flowToken} asterisk socket was close already`);
-
-                    return;
-
-                };
-
-                asteriskSocket.destroy();
-
-            }
-
-
-        }
-    );
-
     proxySocket.evtClose.attachOnce(() => {
 
         //TODO see what is the state of contacts
@@ -298,7 +140,7 @@ export async function start() {
 
         asteriskSockets.destroyAll();
 
-        setTimeout(() => start(), 10000);
+        setTimeout(() => start(), 3000);
 
     });
 
@@ -307,7 +149,7 @@ export async function start() {
 
         debug("connection established with proxy");
 
-        for (let { endpoint, lastUpdated } of await pjsip.queryEndpoints())
+        for (let { endpoint, lastUpdated } of await admin.queryEndpoints())
             notifyHandledDongle(endpoint, lastUpdated);
 
     });
@@ -356,8 +198,6 @@ export async function start() {
 
                 let sdp = sip.parseSdp(sipPacket.content);
 
-                //sip.purgeCandidates(sdp, { "host": false, "srflx": false, "relay": false });
-
                 sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
 
                 sipPacket.content = sip.stringifySdp(sdp);
@@ -380,7 +220,7 @@ export async function start() {
 
             proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
 
-            if (matchTextMessage(sipRequest)) {
+            if (sip.isPlainMessageRequest(sipRequest)) {
                 let evtReceived = new VoidSyncEvent();
                 evtOutgoingMessage.post({ sipRequest, evtReceived });
                 proxySocket.evtResponse.attachOncePrepend(
@@ -388,6 +228,7 @@ export async function start() {
                     () => evtReceived.post()
                 )
             }
+
 
             proxySocket.write(sipRequest);
 
@@ -403,39 +244,7 @@ export async function start() {
 
             proxySocket.write(sipResponse);
 
-
         });
-
-        asteriskSocket.evtClose.attachOnce(async () => {
-
-            debug(`${flowToken} asteriskSocket closed!`);
-
-            if (!proxySocket.evtClose.postCount) {
-
-                debug(`${flowToken} We notify proxy that flow has been closed`);
-
-                proxySocket.write(
-                    shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken)
-                );
-
-            }
-
-
-            let contact = await getContactOfFlow(asteriskSocket.localPort);
-
-            if (contact) {
-
-                debug(`${flowToken} We have to delete this contact:  `, contact);
-
-                let isDeleted = await pjsip.deleteContact(contact.id);
-
-                debug(`${flowToken} is contact deleted from db: ${isDeleted}`);
-
-            }
-
-
-        });
-
 
         return asteriskSocket;
     }

@@ -6,5 +6,6 @@ export interface Contact {
     endpoint: string;
     user_agent: string;
 }
+export declare function readInboundLocalPort(contact: Contact): number;
+export declare function getContactFromInboundLocalPort(asteriskSocketLocalPort: number): Promise<Contact | undefined>;
 export declare function getEvtNewContact(): SyncEvent<Contact>;
-export declare function readAsteriskSocketLocalPortFromPath(path: string): number;

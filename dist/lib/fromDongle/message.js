@@ -46,59 +46,55 @@ var __values = (this && this.__values) || function (o) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var pjsip = require("../pjsip");
-var inbound = require("../sipProxy/inbound");
+var admin = require("../admin");
 var _debug = require("debug");
 var debug = _debug("_fromDongle/message");
 function sms(imei, _a) {
     var number = _a.number, date = _a.date, text = _a.text;
     return __awaiter(this, void 0, void 0, function () {
-        var imsi, name, targetContacts, targetContacts_1, targetContacts_1_1, contact, received, e_1_1, e_1, _a;
+        var name, targetContacts, targetContacts_1, targetContacts_1_1, contact, received, e_1_1, e_1, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     debug("FROM DONGLE MESSAGE");
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongle(imei)];
-                case 1:
-                    imsi = (_b.sent()).imsi;
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, number)];
-                case 2:
+                case 1:
                     name = _b.sent();
-                    debug({ imsi: imsi, number: number, date: date, text: text, name: name });
-                    return [4 /*yield*/, pjsip.queryContacts()];
-                case 3:
+                    debug({ number: number, date: date, text: text, name: name });
+                    return [4 /*yield*/, admin.queryContacts()];
+                case 2:
                     targetContacts = (_b.sent()).filter(function (_a) {
                         var endpoint = _a.endpoint;
                         return endpoint === imei;
                     });
+                    _b.label = 3;
+                case 3:
+                    _b.trys.push([3, 8, 9, 10]);
+                    targetContacts_1 = __values(targetContacts), targetContacts_1_1 = targetContacts_1.next();
                     _b.label = 4;
                 case 4:
-                    _b.trys.push([4, 9, 10, 11]);
-                    targetContacts_1 = __values(targetContacts), targetContacts_1_1 = targetContacts_1.next();
-                    _b.label = 5;
-                case 5:
-                    if (!!targetContacts_1_1.done) return [3 /*break*/, 8];
+                    if (!!targetContacts_1_1.done) return [3 /*break*/, 7];
                     contact = targetContacts_1_1.value;
-                    return [4 /*yield*/, inbound.sendMessage(contact, number, {}, text, name)];
-                case 6:
+                    return [4 /*yield*/, admin.sendMessage(contact, number, {}, text, name)];
+                case 5:
                     received = _b.sent();
                     debug("sending message to: ", { contact: contact }, { received: received });
-                    _b.label = 7;
-                case 7:
+                    _b.label = 6;
+                case 6:
                     targetContacts_1_1 = targetContacts_1.next();
-                    return [3 /*break*/, 5];
-                case 8: return [3 /*break*/, 11];
-                case 9:
+                    return [3 /*break*/, 4];
+                case 7: return [3 /*break*/, 10];
+                case 8:
                     e_1_1 = _b.sent();
                     e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 11];
-                case 10:
+                    return [3 /*break*/, 10];
+                case 9:
                     try {
                         if (targetContacts_1_1 && !targetContacts_1_1.done && (_a = targetContacts_1.return)) _a.call(targetContacts_1);
                     }
                     finally { if (e_1) throw e_1.error; }
                     return [7 /*endfinally*/];
-                case 11: return [2 /*return*/];
+                case 10: return [2 /*return*/];
             }
         });
     });

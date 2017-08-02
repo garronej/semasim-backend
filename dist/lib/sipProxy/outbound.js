@@ -85,14 +85,9 @@ var clientSockets;
     });
 })();
 function onClientConnection(clientSocketRaw) {
-    //let clientSocket = new sip.Socket(clientSocketRaw, 31000);
     var clientSocket = new sip.Socket(clientSocketRaw);
     clientSocket.disablePong = true;
     clientSocket.evtPing.attach(function () { return console.log("Client ping!"); });
-    clientSocket.evtTimeout.attachOnce(function () {
-        console.log("Client timeout!");
-        clientSocket.destroy();
-    });
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
     console.log((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);
@@ -159,8 +154,6 @@ function onClientConnection(clientSocketRaw) {
     clientSocket.evtClose.attachOnce(function () {
         if (!boundDeviceSocket)
             return;
-        console.log((flowToken + " Client socket closed AND boundDeviceSocket is not, notify device").yellow);
-        boundDeviceSocket.write(shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken));
         boundDeviceSocket.evtClose.detach({ "boundTo": clientSocket });
     });
 }
@@ -184,16 +177,6 @@ function onDeviceConnection(deviceSocketRaw) {
                 console.log(("Device socket handle dongle imei: " + message.imei).grey);
                 deviceSockets.add(message.imei, deviceSocket, message.lastConnection);
             }
-        }
-        else if (shared.Message.NotifyBrokenFlow.match(message)) {
-            console.log(message.flowToken + " Device notify connection closed, destroying client socket");
-            var clientSocket = clientSockets.get(message.flowToken);
-            if (!clientSocket) {
-                console.log(message.flowToken + " Client connection was closed already");
-                return;
-            }
-            ;
-            clientSocket.destroy();
         }
     });
     deviceSocket.evtRequest.attach(function (sipRequest) {

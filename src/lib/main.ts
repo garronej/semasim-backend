@@ -3,7 +3,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as fromSip from "./fromSip";
 import * as fromDongle from "./fromDongle";
-import * as pjsip from "./pjsip";
+import * as admin from "./admin";
 import * as agi from "./agi";
 import * as inbound from "./sipProxy/inbound";
 
@@ -20,8 +20,8 @@ let scripts: agi.Scripts= {};
 
 let phoneNumberAsteriskExtensionPattern= "_[+0-9].";
 
-scripts[pjsip.callContext]= {};
-scripts[pjsip.callContext][phoneNumberAsteriskExtensionPattern]= fromSip.call;
+scripts[admin.callContext]= {};
+scripts[admin.callContext][phoneNumberAsteriskExtensionPattern]= fromSip.call;
 
 scripts[fromDongle.context]= {};
 scripts[fromDongle.context][phoneNumberAsteriskExtensionPattern]= fromDongle.call;
@@ -42,14 +42,14 @@ let dongleEvtHandlers = {
 
         debug("onDongleDisconnect", { imei });
 
-        await pjsip.setDevicePresence(imei, "ONHOLD");
+        await admin.setDevicePresence(imei, "ONHOLD");
 
     },
     "onNewActiveDongle": async (imei: string) => {
 
         debug("onNewActiveDongle");
 
-        await pjsip.setDevicePresence(imei, "NOT_INUSE");
+        await admin.setDevicePresence(imei, "NOT_INUSE");
 
         await initEndpoint(imei, true);
 
@@ -59,7 +59,7 @@ let dongleEvtHandlers = {
 
         debug("onRequestUnlockCode");
 
-        await pjsip.setDevicePresence(imei, "UNAVAILABLE");
+        await admin.setDevicePresence(imei, "UNAVAILABLE");
 
         await initEndpoint(imei, true);
 
@@ -68,8 +68,8 @@ let dongleEvtHandlers = {
 
 async function initEndpoint(endpoint: string, isDongleConnected: boolean) {
 
-    await pjsip.enableDevicePresenceNotification(endpoint);
-    await pjsip.addOrUpdateEndpoint(endpoint, isDongleConnected);
+    await admin.enableDevicePresenceNotification(endpoint);
+    await admin.addOrUpdateEndpoint(endpoint, isDongleConnected);
 
 }
 
@@ -81,7 +81,7 @@ async function initEndpoint(endpoint: string, isDongleConnected: boolean) {
 
     let lockedDongles = (await dongleClient.getLockedDongles()).map(({ imei }) => imei);
 
-    let knownDisconnectedDongles = (await pjsip.queryEndpoints())
+    let knownDisconnectedDongles = (await admin.queryEndpoints())
     .map(({endpoint})=> endpoint)
     .filter(imei =>
         [...activeDongles, ...lockedDongles].indexOf(imei) < 0
@@ -103,11 +103,20 @@ dongleClient.evtActiveDongleDisconnect.attach(({ imei }) => dongleEvtHandlers.on
 dongleClient.evtNewActiveDongle.attach(({ imei }) => dongleEvtHandlers.onNewActiveDongle(imei));
 dongleClient.evtRequestUnlockCode.attach(({ imei }) => dongleEvtHandlers.onRequestUnlockCode(imei));
 
-pjsip.getEvtNewContact().attach( contact => {
+admin.getEvtNewContact().attach( async contact => {
 
     //TODO Send initialization information.
 
     debug("New contact", contact );
+
+    /*
+    await new Promise<void>(resolve => setTimeout( resolve, 10000));
+
+    console.log("Qualify...");
+
+    inbound.qualifyContact(contact).then( reachable => console.log({ reachable }));
+    */
+    
 
 });
 
@@ -118,14 +127,14 @@ pjsip.getEvtNewContact().attach( contact => {
 
     let matchAllExt = "_.";
 
-    await ami.dialplanExtensionRemove(matchAllExt, pjsip.messageContext);
+    await ami.dialplanExtensionRemove(matchAllExt, admin.messageContext);
 
-    await ami.dialplanExtensionAdd(pjsip.messageContext, matchAllExt, 1, "Hangup");
+    await ami.dialplanExtensionAdd(admin.messageContext, matchAllExt, 1, "Hangup");
 
 
 })();
 
-pjsip.truncateContacts().then( ()=> inbound.start() );
+admin.truncateContacts().then( ()=> inbound.start() );
 //pjsip.truncateContacts();
 
 

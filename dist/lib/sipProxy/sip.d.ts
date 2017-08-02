@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import * as sip from "sip";
 import * as net from "net";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 export declare const regIdKey = "reg-id";
@@ -6,11 +7,7 @@ export declare const instanceIdKey = "+sip.instance";
 export declare const parseSdp: (rawSdp: string) => any;
 export declare const stringifySdp: (sdp: any) => string;
 export declare function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any): void;
-export declare function purgeCandidates(sdp: any, toPurge: {
-    host: boolean;
-    srflx: boolean;
-    relay: boolean;
-}): void;
+export declare function isPlainMessageRequest(sipRequest: sip.Request): boolean;
 export declare const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((chunk: Buffer | string) => void);
 export declare class Socket {
     private readonly connection;
@@ -41,7 +38,7 @@ export declare class Socket {
     readonly encrypted: boolean;
     readonly protocol: "TCP" | "TLS";
     addViaHeader(sipRequest: Request, extraParams?: Record<string, string>): string;
-    addPathHeader(sipRequest: Request, host?: string): void;
+    addPathHeader(sipRegisterRequest: Request, host?: string): void;
     private buildRecordRoute(host);
     shiftRouteAndAddRecordRoute(sipRequest: Request, host?: string): void;
     rewriteRecordRoute(sipResponse: Response, host?: string): void;
@@ -52,6 +49,7 @@ export declare class Store {
     constructor();
     add(key: string, socket: Socket, timestamp?: number): void;
     get(key: string): Socket | undefined;
+    readonly keys: string[];
     getAll(): Socket[];
     getTimestamp(key: string): number;
     destroyAll(): void;

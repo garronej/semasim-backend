@@ -1,6 +1,6 @@
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
-import * as pjsip from "../../pjsip";
+import * as admin from "../../admin";
 import * as fromDongle from "../../fromDongle";
 import * as sip from "../../sipProxy/sip";
 import * as inbound from "../../sipProxy/inbound";
@@ -11,7 +11,7 @@ let debug = _debug("_fromSip/sms");
 
 const statusReportTimeout = 15000;
 
-export async function sms(fromContact: pjsip.Contact, sipRequest: sip.Request) {
+export async function sms(fromContact: admin.Contact, sipRequest: sip.Request) {
 
     debug("...SMS!");
 

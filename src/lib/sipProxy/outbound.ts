@@ -16,7 +16,6 @@ import "colors";
 
 console.log("Outbound sipProxy started!");
 
-
 let publicIp: string;
 let deviceSockets: sip.Store;
 let clientSockets: sip.Store;
@@ -62,21 +61,11 @@ let clientSockets: sip.Store;
 
 function onClientConnection(clientSocketRaw: net.Socket) {
 
-    //let clientSocket = new sip.Socket(clientSocketRaw, 31000);
     let clientSocket = new sip.Socket(clientSocketRaw);
 
     clientSocket.disablePong= true;
 
     clientSocket.evtPing.attach(() => console.log("Client ping!"));
-
-    clientSocket.evtTimeout.attachOnce(()=> {
-
-        console.log("Client timeout!");
-
-        clientSocket.destroy(); 
-
-    });
-
 
 
     let flowToken = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
@@ -193,12 +182,6 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
         if (!boundDeviceSocket) return;
 
-        console.log(`${flowToken} Client socket closed AND boundDeviceSocket is not, notify device`.yellow);
-
-        boundDeviceSocket.write(
-            shared.Message.NotifyBrokenFlow.buildSipRequest(flowToken)
-        );
-
         boundDeviceSocket.evtClose.detach({ "boundTo": clientSocket });
 
     });
@@ -240,24 +223,7 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
                     deviceSockets.add(message.imei, deviceSocket, message.lastConnection);
                 }
 
-            } else if (shared.Message.NotifyBrokenFlow.match(message)) {
-
-                console.log(`${message.flowToken} Device notify connection closed, destroying client socket`);
-
-                let clientSocket = clientSockets.get(message.flowToken);
-
-                if (!clientSocket) {
-
-                    console.log(`${message.flowToken} Client connection was closed already`);
-
-                    return;
-
-                };
-
-                clientSocket.destroy();
-
             }
-
 
         }
     );
