@@ -1,8 +1,4 @@
 import * as sip from "./sip";
-export declare const relayPort = 8883;
-export declare const flowTokenKey = "flowtoken";
-export declare const outboundProxyDomainName = "ns.semasim.com";
-export declare function getOutboundProxyPublicIp(): Promise<string>;
 export interface Message {
     messageId: string;
 }

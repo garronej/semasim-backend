@@ -38,8 +38,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var admin = require("../admin");
 var agi = require("../agi");
-//import * as firebase from "../sipProxy/firebase";
-//import * as sip from "../sipProxy/sip";
 var _debug = require("debug");
 var debug = _debug("_fromDongle/call");
 exports.gain = "" + 4000;
@@ -54,7 +52,7 @@ exports.jitterBuffer = {
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var _, imei, name, contactsOfEndpoint, contactsReachable, contactsToDial;
+        var _, imei, all, name, dialString;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -63,38 +61,30 @@ function call(channel) {
                     return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
                 case 1:
                     imei = (_a.sent());
-                    debug({ imei: imei });
+                    all = admin.wakeUpAllContacts(imei, 10000).all;
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
                 case 2:
                     name = _a.sent();
-                    debug({ name: name });
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
                     return [4 /*yield*/, _.setVariable("CALLERID(name)", name || "")];
                 case 3:
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
                     _a.sent();
-                    debug("Before database query");
-                    return [4 /*yield*/, admin.queryContacts()];
+                    return [4 /*yield*/, all];
                 case 4:
-                    contactsOfEndpoint = (_a.sent()).filter(function (_a) {
-                        var endpoint = _a.endpoint;
-                        return endpoint === imei;
-                    });
-                    contactsReachable = contactsOfEndpoint;
-                    contactsToDial = contactsReachable.map(function (_a) {
+                    dialString = (_a.sent()).reachableContacts.map(function (_a) {
                         var uri = _a.uri;
                         return "PJSIP/" + imei + "/" + uri;
                     }).join("&");
-                    //let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
-                    debug({ contactsToDial: contactsToDial });
-                    if (!contactsToDial) {
+                    debug({ dialString: dialString });
+                    if (!dialString) {
                         debug("No contact to dial!");
                         return [2 /*return*/];
                     }
                     debug("Dialing...");
                     return [4 /*yield*/, agi.dialAndGetOutboundChannel(channel, 
                         //`PJSIP/${imei}`,
-                        contactsToDial, function (outboundChannel) { return __awaiter(_this, void 0, void 0, function () {
+                        dialString, function (outboundChannel) { return __awaiter(_this, void 0, void 0, function () {
                             var _;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {

@@ -80,7 +80,7 @@ exports.callContext = "from-sip-call";
 exports.messageContext = "from-sip-message";
 exports.subscribeContext = function (imei) { return "from-sip-subscribe-" + imei; };
 var _debug = require("debug");
-var debug = _debug("_pjsip/dbInterface");
+var debug = _debug("_admin/dbInterface");
 var dbParams = {
     "host": "127.0.0.1",
     "user": "root",
@@ -103,7 +103,7 @@ exports.queryEndpoints = ts_exec_queue_1.execQueue(cluster, group, function (cal
                 res = _a.sent();
                 endpoints = res.map(function (_a) {
                     var id = _a.id, set_var = _a.set_var;
-                    return ({ "endpoint": id, "lastUpdated": parseInt(set_var.split("=")[1]) });
+                    return ({ "endpoint": id, "lastUpdated": new Date(parseInt(set_var.split("=")[1])) });
                 });
                 callback(endpoints);
                 return [2 /*return*/, endpoints];

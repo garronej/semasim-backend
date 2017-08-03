@@ -36,54 +36,132 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 require("rejection-tracker").main(__dirname, "..", "..", "..");
+var fs = require("fs");
+var path = require("path");
 var net = require("net");
 var shared = require("./shared");
 var md5 = require("md5");
+var dns = require("dns");
 var sip = require("./sip");
-var path = require("path");
-var fs = require("fs");
 var tls = require("tls");
 require("colors");
-//TODO device is not trustable.
-//TODO: decrement max forward
-console.log("Outbound sipProxy started!");
-var publicIp;
-var deviceSockets;
-var clientSockets;
-(function startServer() {
+exports.listeningPortForDevices = 50610;
+exports.flowTokenKey = "flowtoken";
+exports.hostname = "semasim.com";
+var publicIp = "";
+function getPublicIp() {
     return __awaiter(this, void 0, void 0, function () {
-        var options;
+        return __generator(this, function (_a) {
+            if (publicIp)
+                return [2 /*return*/, publicIp];
+            return [2 /*return*/, new Promise(function (resolve) {
+                    return dns.resolve4(exports.hostname, function (error, addresses) {
+                        if (error)
+                            throw error;
+                        resolve(addresses[0]);
+                    });
+                })];
+        });
+    });
+}
+exports.getPublicIp = getPublicIp;
+function getTlsOptions() {
+    var pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
+    var key = fs.readFileSync(path.join(pathToCerts, "privkey2.pem"), "utf8");
+    var cert = fs.readFileSync(path.join(pathToCerts, "fullchain2.pem"), "utf8");
+    var ca = fs.readFileSync(path.join(pathToCerts, "chain2.pem"), "utf8");
+    return { key: key, cert: cert, ca: ca };
+}
+exports.getTlsOptions = getTlsOptions;
+function extraParamFlowToken(flowToken) {
+    var extraParams = {};
+    extraParams[exports.flowTokenKey] = flowToken;
+    return extraParams;
+}
+exports.extraParamFlowToken = extraParamFlowToken;
+function qualifyContact(contact, timeout) {
+    return __awaiter(this, void 0, void 0, function () {
+        var fromTag, callId, cSeqSequenceNumber, flowToken, sipRequest, clientSocket, branch, sipResponse, error_1;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, shared.getOutboundProxyPublicIp()];
+                case 0:
+                    fromTag = "794ee9eb-" + Date.now();
+                    callId = "138ce538-" + Date.now();
+                    cSeqSequenceNumber = Math.floor(Math.random() * 2000);
+                    flowToken = sip.parsePath(contact.path).pop().uri.params[exports.flowTokenKey];
+                    sipRequest = sip.parse([
+                        "OPTIONS " + contact.uri + " SIP/2.0",
+                        "From: <sip:" + contact.endpoint + "@semasim.com>;tag=" + fromTag,
+                        "To: <" + contact.uri + ">",
+                        "Call-ID: " + callId,
+                        "CSeq: " + cSeqSequenceNumber + " OPTIONS",
+                        "Supported: path",
+                        "Max-Forwards: 70",
+                        "User-Agent: Semasim-sip-proxy",
+                        "Content-Length:  0",
+                        "\r\n"
+                    ].join("\r\n"));
+                    //TODO: should be set to [] already :(
+                    sipRequest.headers.via = [];
+                    clientSocket = clientSockets.get(flowToken);
+                    if (!clientSocket)
+                        return [2 /*return*/, false];
+                    branch = clientSocket.addViaHeader(sipRequest);
+                    console.log("Sending qualify: \n", sip.stringify(sipRequest));
+                    clientSocket.write(sipRequest);
+                    _a.label = 1;
                 case 1:
-                    publicIp = _a.sent();
+                    _a.trys.push([1, 3, , 4]);
+                    return [4 /*yield*/, clientSocket.evtResponse.waitForExtract(function (_a) {
+                            var headers = _a.headers;
+                            return headers.via[0].params["branch"] === branch;
+                        }, timeout || 5000)];
+                case 2:
+                    sipResponse = _a.sent();
+                    return [2 /*return*/, true];
+                case 3:
+                    error_1 = _a.sent();
+                    return [2 /*return*/, false];
+                case 4: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.qualifyContact = qualifyContact;
+var deviceSockets;
+var clientSockets;
+function startServer() {
+    return __awaiter(this, void 0, void 0, function () {
+        var options, s1, s2, s3;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, getPublicIp()];
+                case 1:
+                    _a.sent();
                     deviceSockets = new sip.Store();
                     clientSockets = new sip.Store();
-                    options = (function () {
-                        var pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
-                        var key = fs.readFileSync(path.join(pathToCerts, "privkey2.pem"), "utf8");
-                        var cert = fs.readFileSync(path.join(pathToCerts, "fullchain2.pem"), "utf8");
-                        var ca = fs.readFileSync(path.join(pathToCerts, "chain2.pem"), "utf8");
-                        return { key: key, cert: cert, ca: ca };
-                    })();
-                    net.createServer()
+                    options = getTlsOptions();
+                    s1 = net.createServer()
                         .on("error", function (error) { throw error; })
                         .listen(5060, "0.0.0.0")
                         .on("connection", onClientConnection);
-                    tls.createServer(options)
+                    s2 = tls.createServer(options)
                         .on("error", function (error) { throw error; })
                         .listen(5061, "0.0.0.0")
                         .on("secureConnection", onClientConnection);
-                    tls.createServer(options)
+                    s3 = tls.createServer(options)
                         .on("error", function (error) { throw error; })
-                        .listen(shared.relayPort, "0.0.0.0")
+                        .listen(exports.listeningPortForDevices, "0.0.0.0")
                         .on("secureConnection", onDeviceConnection);
+                    return [4 /*yield*/, Promise.all([s1, s2, s3].map(function (s) { return new Promise(function (resolve) { return s1.on("listening", function () { return resolve(); }); }); }))];
+                case 2:
+                    _a.sent();
                     return [2 /*return*/];
             }
         });
     });
-})();
+}
+exports.startServer = startServer;
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new sip.Socket(clientSocketRaw);
     clientSocket.disablePong = true;
@@ -126,28 +204,21 @@ function onClientConnection(clientSocketRaw) {
     clientSocket.evtRequest.attach(function (sipRequest) {
         if (!boundDeviceSocket)
             return;
-        if (sipRequest.method === "REGISTER") {
-            console.log("new register on flow token: " + flowToken);
-        }
-        boundDeviceSocket.addViaHeader(sipRequest, (function () {
-            var extraParams = {};
-            extraParams[shared.flowTokenKey] = flowToken;
-            return extraParams;
-        })());
-        var displayedAddr = "semasim-outbound-proxy.invalid";
+        //sipRequest.headers.via[0].port= clientSocket.remotePort;
+        boundDeviceSocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
+        var displayedHostname = "outbound-proxy.socket";
         if (sipRequest.method === "REGISTER") {
             sip.addOptionTag(sipRequest.headers, "supported", "path");
-            boundDeviceSocket.addPathHeader(sipRequest, displayedAddr);
+            boundDeviceSocket.addPathHeader(sipRequest, displayedHostname, extraParamFlowToken(flowToken));
         }
-        else {
-            boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedAddr);
-        }
+        else
+            boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedHostname);
         boundDeviceSocket.write(sipRequest);
     });
     clientSocket.evtResponse.attach(function (sipResponse) {
         if (!boundDeviceSocket)
             return;
-        boundDeviceSocket.rewriteRecordRoute(sipResponse, "semasim-outbound-proxy.invalid");
+        boundDeviceSocket.rewriteRecordRoute(sipResponse, "outbound-proxy.socket");
         sipResponse.headers.via.shift();
         boundDeviceSocket.write(sipResponse);
     });
@@ -172,7 +243,6 @@ function onDeviceConnection(deviceSocketRaw) {
     deviceSocket.evtRequest.attachExtract(function (sipRequest) { return shared.Message.matchSipRequest(sipRequest); }, function (sipRequest) {
         var message = shared.Message.parseSipRequest(sipRequest);
         if (shared.Message.NotifyKnownDongle.match(message)) {
-            //TODO: this can be hacked
             if (deviceSockets.getTimestamp(message.imei) < message.lastConnection) {
                 console.log(("Device socket handle dongle imei: " + message.imei).grey);
                 deviceSockets.add(message.imei, deviceSocket, message.lastConnection);
@@ -180,7 +250,7 @@ function onDeviceConnection(deviceSocketRaw) {
         }
     });
     deviceSocket.evtRequest.attach(function (sipRequest) {
-        var flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey];
+        var flowToken = sipRequest.headers.via[0].params[exports.flowTokenKey];
         var clientSocket = clientSockets.get(flowToken);
         if (!clientSocket)
             return;
@@ -189,7 +259,7 @@ function onDeviceConnection(deviceSocketRaw) {
         clientSocket.write(sipRequest);
     });
     deviceSocket.evtResponse.attach(function (sipResponse) {
-        var flowToken = sipResponse.headers.via[0].params[shared.flowTokenKey];
+        var flowToken = sipResponse.headers.via[0].params[exports.flowTokenKey];
         var clientSocket = clientSockets.get(flowToken);
         if (!clientSocket)
             return;

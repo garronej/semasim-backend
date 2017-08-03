@@ -38,7 +38,7 @@ export declare class Socket {
     readonly encrypted: boolean;
     readonly protocol: "TCP" | "TLS";
     addViaHeader(sipRequest: Request, extraParams?: Record<string, string>): string;
-    addPathHeader(sipRegisterRequest: Request, host?: string): void;
+    addPathHeader(sipRegisterRequest: Request, host?: string, extraParams?: Record<string, string>): void;
     private buildRecordRoute(host);
     shiftRouteAndAddRecordRoute(sipRequest: Request, host?: string): void;
     rewriteRecordRoute(sipResponse: Response, host?: string): void;
@@ -61,12 +61,7 @@ export declare const stringifyUri: (parsedUri: ParsedUri) => string;
 export declare const parse: (rawSipPacket: string) => Packet;
 export declare function copyMessage<T extends Packet>(sipPacket: T, deep?: boolean): T;
 export declare function createParsedUri(): ParsedUri;
-export declare function parseUriWithEndpoint(uri: string): ParsedUri & {
-    endpoint: string;
-};
-export declare function updateUri(wrap: {
-    uri: string | undefined;
-} | undefined, updatedField: Partial<ParsedUri>): void;
+export declare function parsePath(path: string): UriWrap2[];
 export declare function parseOptionTags(headerFieldValue: string | undefined): string[];
 export declare function hasOptionTag(headers: Headers, headerField: string, optionTag: string): boolean;
 export declare function addOptionTag(headers: Headers, headerField: string, optionTag: string): void;

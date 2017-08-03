@@ -3,9 +3,6 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { Base64 } from "js-base64";
 import * as admin from "../admin";
 import * as agi from "../agi";
-import * as inbound from "../sipProxy/inbound";
-//import * as firebase from "../sipProxy/firebase";
-//import * as sip from "../sipProxy/sip";
 
 import * as _debug from "debug";
 let debug = _debug("_fromDongle/call");
@@ -34,33 +31,18 @@ export async function call(channel: AGIChannel) {
 
     let imei = (await _.getVariable("DONGLEIMEI"))!;
 
-    debug({ imei });
+    let { all }= admin.wakeUpAllContacts(imei, 10000);
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
-
-    debug({ name });
-
 
     //await _.setVariable("CALLERID(name-charset)", "utf8");
     await _.setVariable("CALLERID(name)", name || "");
 
-    debug("Before database query");
+    let dialString = (await all).reachableContacts.map(({ uri }) => `PJSIP/${imei}/${uri}`).join("&");
 
-    let contactsOfEndpoint = (await admin.queryContacts()).filter(({ endpoint }) => endpoint === imei);
+    debug({ dialString });
 
-
-    //TODO: Get the actual contacts to dial.
-    let contactsReachable: admin.Contact[] = contactsOfEndpoint;
-
-
-    //PJSIP/358880032664586/sip:358880032664586@172.31.27.145:5060;CtRt084ec2ed68c1d923=tcp:semasim.com
-    let contactsToDial = contactsReachable.map(({ uri }) => `PJSIP/${imei}/${uri}`).join("&");
-
-    //let contactsToDial = await _.getVariable(`PJSIP_DIAL_CONTACTS(${imei})`);
-
-    debug({ contactsToDial });
-
-    if (!contactsToDial) {
+    if (!dialString) {
 
         debug("No contact to dial!");
 
@@ -73,7 +55,7 @@ export async function call(channel: AGIChannel) {
     await agi.dialAndGetOutboundChannel(
         channel,
         //`PJSIP/${imei}`,
-        contactsToDial,
+        dialString,
         async (outboundChannel) => {
 
             let _ = outboundChannel.relax;

@@ -243,7 +243,7 @@ dongleClient.evtRequestUnlockCode.attach(function (_a) {
 });
 admin.getEvtNewContact().attach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        //TODO Send initialization information.
+        //TODO Send message in stack and request pin if dongle is locked
         debug("New contact", contact);
         return [2 /*return*/];
     });
@@ -269,7 +269,7 @@ admin.getEvtNewContact().attach(function (contact) { return __awaiter(_this, voi
 })();
 admin.truncateContacts().then(function () { return inbound.start(); });
 //pjsip.truncateContacts();
-inbound.evtIncomingMessage.attach(function (_a) {
+admin.evtMessage.attach(function (_a) {
     var contact = _a.contact, message = _a.message;
     return fromSip.message(contact, message);
 });

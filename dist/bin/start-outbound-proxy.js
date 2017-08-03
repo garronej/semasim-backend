@@ -34,38 +34,25 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
-var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var dbInterface_1 = require("./dbInterface");
-var _debug = require("debug");
-var debug = _debug("_pjsip/presence");
-function setDevicePresence(imei, deviceState) {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    debug("Set dongle presence " + imei + ": " + deviceState);
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.setVar("DEVICE_STATE(Custom:" + imei + ")", deviceState)];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
+var sipProxy = require("../lib/sipProxy/outbound");
+var webApi = require("../lib/sipProxy/outbound.webApi");
+(function () { return __awaiter(_this, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log("Starting web api server...");
+                return [4 /*yield*/, webApi.startServer()];
+            case 1:
+                _a.sent();
+                console.log("Web api server started");
+                console.log("Starting sip proxy server...");
+                return [4 /*yield*/, sipProxy.startServer()];
+            case 2:
+                _a.sent();
+                console.log("Sip proxy server started!");
+                return [2 /*return*/];
+        }
     });
-}
-exports.setDevicePresence = setDevicePresence;
-function enableDevicePresenceNotification(imei) {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    debug("Enable presence notification for dongle " + imei);
-                    return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.dialplanExtensionAdd(dbInterface_1.subscribeContext(imei), "_.", "hint", "Custom:" + imei)];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-exports.enableDevicePresenceNotification = enableDevicePresenceNotification;
+}); })();

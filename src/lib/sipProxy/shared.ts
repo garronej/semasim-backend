@@ -1,29 +1,6 @@
 import * as sip from "./sip";
-import * as dns from "dns";
-
-export const relayPort = 8883;
-export const flowTokenKey = "flowtoken";
-
-export const outboundProxyDomainName= "ns.semasim.com";
-
-let outboundProxyPublicIp: string | undefined = undefined;
-
-export async function getOutboundProxyPublicIp(): Promise<string> {
-
-    if (outboundProxyPublicIp) return outboundProxyPublicIp;
-
-    return new Promise<string>(resolve => 
-        dns.resolve4(outboundProxyDomainName, (error, addresses) => {
-
-            if (error) throw error;
-
-            resolve(addresses[0]);
 
 
-        })
-    );
-
-}
 
 
 //TODO: implement ping/pong

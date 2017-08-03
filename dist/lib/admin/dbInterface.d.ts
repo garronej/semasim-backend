@@ -5,7 +5,7 @@ export declare const messageContext = "from-sip-message";
 export declare const subscribeContext: (imei: string) => string;
 export declare const queryEndpoints: ((callback?: any) => Promise<{
     endpoint: string;
-    lastUpdated: number;
+    lastUpdated: Date;
 }[]>) & ExecQueue;
 export declare const truncateContacts: ((callback?: any) => Promise<void>) & ExecQueue;
 export declare const queryContacts: ((callback?: any) => Promise<Contact[]>) & ExecQueue;

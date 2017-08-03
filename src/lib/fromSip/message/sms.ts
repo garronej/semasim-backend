@@ -4,7 +4,7 @@ import * as admin from "../../admin";
 import * as fromDongle from "../../fromDongle";
 import * as sip from "../../sipProxy/sip";
 import * as inbound from "../../sipProxy/inbound";
-import { flowTokenKey } from "../../sipProxy/shared";
+import { flowTokenKey } from "../../sipProxy/outbound";
 
 import * as _debug from "debug";
 let debug = _debug("_fromSip/sms");

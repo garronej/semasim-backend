@@ -292,12 +292,11 @@ var Socket = (function () {
         });
         return branch;
     };
-    Socket.prototype.addPathHeader = function (sipRegisterRequest, host) {
+    Socket.prototype.addPathHeader = function (sipRegisterRequest, host, extraParams) {
         var parsedUri = createParsedUri();
         parsedUri.host = host || this.localAddress;
         parsedUri.port = this.localPort;
-        parsedUri.params["transport"] = this.protocol;
-        parsedUri.params["lr"] = null;
+        parsedUri.params = __assign({}, (extraParams || {}), { "transport": this.protocol, "lr": null });
         if (!sipRegisterRequest.headers.path)
             sipRegisterRequest.headers.path = [];
         sipRegisterRequest.headers.path.unshift({
@@ -415,49 +414,42 @@ function createParsedUri() {
     return exports.parseUri("sip:127.0.0.1");
 }
 exports.createParsedUri = createParsedUri;
-function parseUriWithEndpoint(uri) {
-    var match = uri.match(/^([^\/]+)\/(.*)$/);
-    return __assign({}, exports.parseUri(match[2]), { "endpoint": match[1] });
+function parsePath(path) {
+    var message = sip.parse([
+        "DUMMY _ SIP/2.0",
+        "Path: " + path,
+        "\r\n"
+    ].join("\r\n"));
+    return message.headers.path;
 }
-exports.parseUriWithEndpoint = parseUriWithEndpoint;
-function updateUri(wrap, updatedField) {
-    if (!wrap || !wrap.uri)
-        return;
-    var parsedUri = exports.parseUri(wrap.uri);
-    try {
-        for (var _a = __values(["schema", "user", "password", "host", "port"]), _b = _a.next(); !_b.done; _b = _a.next()) {
-            var key = _b.value;
-            if (key in updatedField)
-                parsedUri[key] = updatedField[key];
-        }
-    }
-    catch (e_5_1) { e_5 = { error: e_5_1 }; }
-    finally {
-        try {
-            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-        }
-        finally { if (e_5) throw e_5.error; }
-    }
+exports.parsePath = parsePath;
+//console.log(parsePath("<sip:192.168.0.20:37818;transport=TCP;lr>,  <sip:outbound-proxy.socket:50610;transport=TLS;lr>"));
+/*
+export function updateUri(
+    wrap: { uri: string | undefined } | undefined,
+    updatedField: Partial<ParsedUri>
+) {
+
+    if (!wrap || !wrap.uri) return;
+
+
+    let parsedUri = parseUri(wrap.uri);
+
+    for (let key of ["schema", "user", "password", "host", "port"])
+        if (key in updatedField)
+            parsedUri[key] = updatedField[key];
+
     if (updatedField.params)
-        parsedUri.params = __assign({}, parsedUri.params, updatedField.params);
-    try {
-        for (var _d = __values(Object.keys(parsedUri.params)), _e = _d.next(); !_e.done; _e = _d.next()) {
-            var key = _e.value;
-            if (parsedUri.params[key] === "")
-                delete parsedUri.params[key];
-        }
-    }
-    catch (e_6_1) { e_6 = { error: e_6_1 }; }
-    finally {
-        try {
-            if (_e && !_e.done && (_f = _d.return)) _f.call(_d);
-        }
-        finally { if (e_6) throw e_6.error; }
-    }
-    wrap.uri = exports.stringifyUri(parsedUri);
-    var e_5, _c, e_6, _f;
+        parsedUri.params = { ...parsedUri.params, ...updatedField.params };
+
+    for (let key of Object.keys(parsedUri.params))
+        if (parsedUri.params[key] === "")
+            delete parsedUri.params[key];
+
+    wrap.uri = stringifyUri(parsedUri);
+
 }
-exports.updateUri = updateUri;
+*/
 function parseOptionTags(headerFieldValue) {
     if (!headerFieldValue)
         return [];

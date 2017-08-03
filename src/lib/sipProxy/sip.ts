@@ -328,7 +328,11 @@ export class Socket {
     }
 
 
-    public addPathHeader(sipRegisterRequest: Request, host?: string) {
+    public addPathHeader(
+        sipRegisterRequest: Request, 
+        host?: string,
+        extraParams?: Record<string,string>
+    ) {
 
         let parsedUri = createParsedUri();
 
@@ -336,9 +340,7 @@ export class Socket {
 
         parsedUri.port = this.localPort;
 
-        parsedUri.params["transport"] = this.protocol;
-
-        parsedUri.params["lr"] = null;
+        parsedUri.params = { ...(extraParams || {}), "transport": this.protocol, "lr": null };
 
         if (!sipRegisterRequest.headers.path)
             sipRegisterRequest.headers.path = [];
@@ -484,20 +486,25 @@ export function createParsedUri(): ParsedUri {
     return parseUri(`sip:127.0.0.1`);
 }
 
+export function parsePath(path: string): UriWrap2[]{
 
+    const message = sip.parse([
+        `DUMMY _ SIP/2.0`,
+        `Path: ${path}`,
+        "\r\n"
+    ].join("\r\n")) as Request;
 
-export function parseUriWithEndpoint(uri: string): ParsedUri & { endpoint: string } {
-
-    let match = uri.match(/^([^\/]+)\/(.*)$/)!;
-
-    return {
-        ...parseUri(match[2]),
-        "endpoint": match[1]
-    };
+    return message.headers.path!;
 
 }
 
+//console.log(parsePath("<sip:192.168.0.20:37818;transport=TCP;lr>,  <sip:outbound-proxy.socket:50610;transport=TLS;lr>"));
 
+
+
+
+
+/*
 export function updateUri(
     wrap: { uri: string | undefined } | undefined,
     updatedField: Partial<ParsedUri>
@@ -522,6 +529,7 @@ export function updateUri(
     wrap.uri = stringifyUri(parsedUri);
 
 }
+*/
 
 export function parseOptionTags(headerFieldValue: string | undefined): string[] {
 
@@ -530,7 +538,6 @@ export function parseOptionTags(headerFieldValue: string | undefined): string[] 
     return headerFieldValue.split(",").map(optionTag => optionTag.replace(/\s/g, ""));
 
 }
-
 
 export function hasOptionTag(
     headers: Headers,
@@ -562,6 +569,8 @@ export function addOptionTag(
     headers[headerField] = optionTags.join(", ");
 
 }
+
+
 
 
 

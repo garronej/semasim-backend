@@ -4,6 +4,7 @@ import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as shared from "./shared";
 import * as os from "os";
+import * as outbound from "./outbound";
 
 import * as admin from "../admin";
 import { Contact } from "../admin";
@@ -15,6 +16,7 @@ import "colors";
 import * as _debug from "debug";
 let debug = _debug("_sipProxy/inbound");
 
+//TODO change that otherwith only work on rasperry pi
 const localIp= os.networkInterfaces()["eth0"].filter( ({family})=> family === "IPv4" )[0]["address"];
 
 export const evtIncomingMessage = new SyncEvent<{
@@ -38,7 +40,10 @@ export async function start() {
     asteriskSockets = new sip.Store();
 
     proxySocket = new sip.Socket(
-        tls.connect({ "host": "ns.semasim.com", "port": shared.relayPort }) as any
+        tls.connect({ 
+            "host": outbound.hostname, 
+            "port": outbound.listeningPortForDevices 
+        }) as any
     );
 
     proxySocket.setKeepAlive(true);
@@ -55,7 +60,7 @@ export async function start() {
     proxySocket.evtRequest.attach(async sipRequest => {
 
 
-        let flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey]!;
+        let flowToken = sipRequest.headers.via[0].params[outbound.flowTokenKey]!;
 
         let asteriskSocket = asteriskSockets.get(flowToken);
 
@@ -82,7 +87,6 @@ export async function start() {
 
         let branch = asteriskSocket.addViaHeader(sipRequest);
 
-
         //TODO match with authentication
         if (sip.isPlainMessageRequest(sipRequest)) {
 
@@ -92,7 +96,7 @@ export async function start() {
 
                     if (sipResponse.status !== 202) return;
 
-                    let contact = await admin.getContactFromInboundLocalPort(asteriskSocket!.localPort);
+                    let contact = await admin.getContactFromAstSocketSrcPort(asteriskSocket!.localPort);
 
                     if (!contact) {
 
@@ -117,7 +121,7 @@ export async function start() {
 
     proxySocket.evtResponse.attach(sipResponse => {
 
-        let flowToken = sipResponse.headers.via[0].params[shared.flowTokenKey]!;
+        let flowToken = sipResponse.headers.via[0].params[outbound.flowTokenKey]!;
 
         let asteriskSocket = asteriskSockets.get(flowToken);
 
@@ -150,7 +154,7 @@ export async function start() {
         debug("connection established with proxy");
 
         for (let { endpoint, lastUpdated } of await admin.queryEndpoints())
-            notifyHandledDongle(endpoint, lastUpdated);
+            notifyHandledDongle(endpoint, lastUpdated.getTime());
 
     });
 
@@ -208,15 +212,7 @@ export async function start() {
 
         asteriskSocket.evtRequest.attach(sipRequest => {
 
-            let branch = proxySocket.addViaHeader(sipRequest, (() => {
-
-                let extraParams: Record<string, string> = {};
-
-                extraParams[shared.flowTokenKey] = flowToken;
-
-                return extraParams;
-
-            })());
+            let branch = proxySocket.addViaHeader(sipRequest, outbound.extraParamFlowToken(flowToken));
 
             proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
 

@@ -103,20 +103,13 @@ dongleClient.evtActiveDongleDisconnect.attach(({ imei }) => dongleEvtHandlers.on
 dongleClient.evtNewActiveDongle.attach(({ imei }) => dongleEvtHandlers.onNewActiveDongle(imei));
 dongleClient.evtRequestUnlockCode.attach(({ imei }) => dongleEvtHandlers.onRequestUnlockCode(imei));
 
+import * as webApi from "./sipProxy/outbound.webApi";
+
 admin.getEvtNewContact().attach( async contact => {
 
-    //TODO Send initialization information.
+    //TODO Send message in stack and request pin if dongle is locked
 
     debug("New contact", contact );
-
-    /*
-    await new Promise<void>(resolve => setTimeout( resolve, 10000));
-
-    console.log("Qualify...");
-
-    inbound.qualifyContact(contact).then( reachable => console.log({ reachable }));
-    */
-    
 
 });
 
@@ -138,4 +131,4 @@ admin.truncateContacts().then( ()=> inbound.start() );
 //pjsip.truncateContacts();
 
 
-inbound.evtIncomingMessage.attach(({ contact, message }) => fromSip.message(contact, message));
+admin.evtMessage.attach(({ contact, message }) => fromSip.message(contact, message));

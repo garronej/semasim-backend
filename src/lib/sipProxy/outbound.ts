@@ -1,33 +1,43 @@
 require("rejection-tracker").main(__dirname, "..", "..", "..");
 
+import * as fs from "fs";
+import * as path from "path";
 import * as net from "net";
 import { SyncEvent } from "ts-events-extended";
 import * as shared from "./shared";
 import * as md5 from "md5";
+import * as dns from "dns";
 import * as sip from "./sip";
-import * as path from "path";
-import * as fs from "fs";
 import * as tls from "tls";
+import * as webApi from "./outbound.webApi";
+import { Contact } from "../admin";
 
 import "colors";
 
-//TODO device is not trustable.
-//TODO: decrement max forward
+export const listeningPortForDevices = 50610;
+export const flowTokenKey = "flowtoken";
 
-console.log("Outbound sipProxy started!");
+export const hostname= "semasim.com";
 
-let publicIp: string;
-let deviceSockets: sip.Store;
-let clientSockets: sip.Store;
+let publicIp= "";
 
-(async function startServer() {
+export async function getPublicIp(): Promise<string> {
 
-    publicIp = await shared.getOutboundProxyPublicIp();
+    if (publicIp) return publicIp;
 
-    deviceSockets = new sip.Store();
-    clientSockets = new sip.Store();
+    return new Promise<string>(resolve => 
+        dns.resolve4(hostname, (error, addresses) => {
 
-    let options: tls.TlsOptions = (() => {
+            if (error) throw error;
+
+            resolve(addresses[0]);
+
+        })
+    );
+
+}
+
+export function getTlsOptions(): { key: string; cert: string; ca: string } {
 
         let pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
 
@@ -37,25 +47,106 @@ let clientSockets: sip.Store;
 
         return { key, cert, ca };
 
-    })();
+}
 
-    net.createServer()
+export function extraParamFlowToken(flowToken: string): Record<string, string> {
+    let extraParams: Record<string,string>={};
+    extraParams[flowTokenKey]= flowToken;
+    return extraParams;
+}
+
+export async function qualifyContact(
+    contact: Contact,
+    timeout?: number
+): Promise<boolean> {
+
+    let fromTag = `794ee9eb-${Date.now()}`;
+    let callId = `138ce538-${Date.now()}`;
+    let cSeqSequenceNumber = Math.floor(Math.random() * 2000);
+    let flowToken= sip.parsePath(contact.path).pop()!.uri.params[flowTokenKey]!;
+
+    let sipRequest = sip.parse([
+        `OPTIONS ${contact.uri} SIP/2.0`,
+        `From: <sip:${contact.endpoint}@semasim.com>;tag=${fromTag}`,
+        `To: <${contact.uri}>`,
+        `Call-ID: ${callId}`,
+        `CSeq: ${cSeqSequenceNumber} OPTIONS`,
+        "Supported: path",
+        "Max-Forwards: 70",
+        "User-Agent: Semasim-sip-proxy",
+        "Content-Length:  0",
+        "\r\n"
+    ].join("\r\n")) as sip.Request;
+
+    //TODO: should be set to [] already :(
+    sipRequest.headers.via= [];
+
+    let clientSocket= clientSockets.get(flowToken);
+
+    if( !clientSocket ) return false;
+
+    let branch= clientSocket.addViaHeader(sipRequest)
+
+    console.log("Sending qualify: \n", sip.stringify(sipRequest) );
+
+    clientSocket.write(sipRequest);
+
+    try {
+
+        let sipResponse = await clientSocket.evtResponse.waitForExtract(
+            ({ headers }) => headers.via[0].params["branch"] === branch,
+            timeout || 5000
+        );
+
+        return true;
+
+    } catch (error) {
+
+        return false;
+
+    }
+
+}
+
+
+let deviceSockets: sip.Store;
+let clientSockets: sip.Store;
+
+export async function startServer() {
+
+    await getPublicIp();
+
+    deviceSockets = new sip.Store();
+    clientSockets = new sip.Store();
+
+    let options: tls.TlsOptions = getTlsOptions();
+
+
+    let s1= net.createServer()
         .on("error", error => { throw error; })
         .listen(5060, "0.0.0.0")
         .on("connection", onClientConnection);
 
-    tls.createServer(options)
+    let s2= tls.createServer(options)
         .on("error", error => { throw error; })
         .listen(5061, "0.0.0.0")
         .on("secureConnection", onClientConnection);
 
-    tls.createServer(options)
+    let s3= tls.createServer(options)
         .on("error", error => { throw error; })
-        .listen(shared.relayPort, "0.0.0.0")
+        .listen(listeningPortForDevices, "0.0.0.0")
         .on("secureConnection", onDeviceConnection);
 
+    await Promise.all(
+        [s1, s2, s3].map(
+            s => new Promise<void>(
+                resolve => s1.on("listening", () => resolve())
+            )
+        )
+    );
 
-})();
+
+}
 
 
 
@@ -63,7 +154,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sip.Socket(clientSocketRaw);
 
-    clientSocket.disablePong= true;
+    clientSocket.disablePong = true;
 
     clientSocket.evtPing.attach(() => console.log("Client ping!"));
 
@@ -131,36 +222,20 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
         if (!boundDeviceSocket) return;
 
-        if (sipRequest.method === "REGISTER") {
+        //sipRequest.headers.via[0].port= clientSocket.remotePort;
 
-            console.log(`new register on flow token: ${flowToken}`);
+        boundDeviceSocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
 
-        }
-
-        boundDeviceSocket.addViaHeader(sipRequest, (() => {
-
-            let extraParams: Record<string, string> = {};
-
-            extraParams[shared.flowTokenKey] = flowToken;
-
-            return extraParams;
-
-        })());
-
-
-        let displayedAddr = "semasim-outbound-proxy.invalid";
+        let displayedHostname = "outbound-proxy.socket";
 
         if (sipRequest.method === "REGISTER") {
 
             sip.addOptionTag(sipRequest.headers, "supported", "path");
 
-            boundDeviceSocket.addPathHeader(sipRequest, displayedAddr);
+            boundDeviceSocket.addPathHeader(sipRequest, displayedHostname, extraParamFlowToken(flowToken));
 
-        } else {
+        } else boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedHostname);
 
-            boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedAddr);
-
-        }
 
         boundDeviceSocket.write(sipRequest);
 
@@ -170,7 +245,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
         if (!boundDeviceSocket) return;
 
-        boundDeviceSocket.rewriteRecordRoute(sipResponse, "semasim-outbound-proxy.invalid");
+        boundDeviceSocket.rewriteRecordRoute(sipResponse, "outbound-proxy.socket");
 
         sipResponse.headers.via.shift();
 
@@ -214,8 +289,6 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
 
             if (shared.Message.NotifyKnownDongle.match(message)) {
 
-                //TODO: this can be hacked
-
                 if (deviceSockets.getTimestamp(message.imei) < message.lastConnection) {
 
                     console.log(`Device socket handle dongle imei: ${message.imei}`.grey);
@@ -230,7 +303,7 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
 
     deviceSocket.evtRequest.attach(sipRequest => {
 
-        let flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey]!;
+        let flowToken = sipRequest.headers.via[0].params[flowTokenKey]!;
 
         let clientSocket = clientSockets.get(flowToken);
 
@@ -246,7 +319,7 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
 
     deviceSocket.evtResponse.attach(sipResponse => {
 
-        let flowToken = sipResponse.headers.via[0].params[shared.flowTokenKey]!;
+        let flowToken = sipResponse.headers.via[0].params[flowTokenKey]!;
 
         let clientSocket = clientSockets.get(flowToken);
 
@@ -259,6 +332,5 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
         clientSocket.write(sipResponse);
 
     });
-
 
 }

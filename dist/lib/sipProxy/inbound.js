@@ -51,11 +51,13 @@ var ts_events_extended_1 = require("ts-events-extended");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var shared = require("./shared");
 var os = require("os");
+var outbound = require("./outbound");
 var admin = require("../admin");
 var tls = require("tls");
 require("colors");
 var _debug = require("debug");
 var debug = _debug("_sipProxy/inbound");
+//TODO change that otherwith only work on rasperry pi
 var localIp = os.networkInterfaces()["eth0"].filter(function (_a) {
     var family = _a.family;
     return family === "IPv4";
@@ -107,11 +109,7 @@ function start() {
                 sipPacket.content = sip.stringifySdp(sdp);
             });
             asteriskSocket.evtRequest.attach(function (sipRequest) {
-                var branch = proxySocket.addViaHeader(sipRequest, (function () {
-                    var extraParams = {};
-                    extraParams[shared.flowTokenKey] = flowToken;
-                    return extraParams;
-                })());
+                var branch = proxySocket.addViaHeader(sipRequest, outbound.extraParamFlowToken(flowToken));
                 proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
                 if (sip.isPlainMessageRequest(sipRequest)) {
                     var evtReceived_1 = new ts_events_extended_1.VoidSyncEvent();
@@ -135,7 +133,10 @@ function start() {
         return __generator(this, function (_a) {
             debug("(re)Staring !");
             exports.asteriskSockets = new sip.Store();
-            proxySocket = new sip.Socket(tls.connect({ "host": "ns.semasim.com", "port": shared.relayPort }));
+            proxySocket = new sip.Socket(tls.connect({
+                "host": outbound.hostname,
+                "port": outbound.listeningPortForDevices
+            }));
             proxySocket.setKeepAlive(true);
             /*
             proxySocket.evtPacket.attach(sipPacket =>
@@ -151,7 +152,7 @@ function start() {
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            flowToken = sipRequest.headers.via[0].params[shared.flowTokenKey];
+                            flowToken = sipRequest.headers.via[0].params[outbound.flowTokenKey];
                             asteriskSocket = exports.asteriskSockets.get(flowToken);
                             if (!asteriskSocket)
                                 asteriskSocket = createAsteriskSocket(flowToken, proxySocket);
@@ -184,7 +185,7 @@ function start() {
                                             case 0:
                                                 if (sipResponse.status !== 202)
                                                     return [2 /*return*/];
-                                                return [4 /*yield*/, admin.getContactFromInboundLocalPort(asteriskSocket.localPort)];
+                                                return [4 /*yield*/, admin.getContactFromAstSocketSrcPort(asteriskSocket.localPort)];
                                             case 1:
                                                 contact = _a.sent();
                                                 if (!contact) {
@@ -204,7 +205,7 @@ function start() {
                 });
             }); });
             proxySocket.evtResponse.attach(function (sipResponse) {
-                var flowToken = sipResponse.headers.via[0].params[shared.flowTokenKey];
+                var flowToken = sipResponse.headers.via[0].params[outbound.flowTokenKey];
                 var asteriskSocket = exports.asteriskSockets.get(flowToken);
                 if (!asteriskSocket)
                     return;
@@ -234,7 +235,7 @@ function start() {
                         case 3:
                             if (!!_b.done) return [3 /*break*/, 5];
                             _c = _b.value, endpoint = _c.endpoint, lastUpdated = _c.lastUpdated;
-                            notifyHandledDongle(endpoint, lastUpdated);
+                            notifyHandledDongle(endpoint, lastUpdated.getTime());
                             _e.label = 4;
                         case 4:
                             _b = _a.next();
