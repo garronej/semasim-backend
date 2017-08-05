@@ -114,15 +114,18 @@ export function wakeUpAllContacts(
 
         };
 
-        let timer: NodeJS.Timer | undefined= undefined;
+        let timer: NodeJS.Timer |  undefined = undefined;
 
-        if( timeout ) timer = setTimeout(() => {
+        if (timeout) {
+            timer = setTimeout(() => {
 
-            if (!reachableContactMap.size) return;
+                if (!reachableContactMap.size) return;
 
-            resolver();
+                resolver();
 
-        }, timeout );
+            }, timeout);
+        }
+
 
         let taskArray: Promise<void>[] = [];
 
@@ -141,13 +144,13 @@ export function wakeUpAllContacts(
 
         await Promise.all(taskArray);
 
-        if( timer ) clearTimeout(timer);
+        if (timer) clearTimeout(timer);
 
         resolver();
 
         evtReachableContact.post("COMPLETED");
 
-    });
+        });
 
     return { all, evtReachableContact };
 

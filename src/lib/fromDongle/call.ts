@@ -31,12 +31,14 @@ export async function call(channel: AGIChannel) {
 
     let imei = (await _.getVariable("DONGLEIMEI"))!;
 
-    let { all }= admin.wakeUpAllContacts(imei, 10000);
+    let { all }= admin.wakeUpAllContacts(imei, 9000);
 
     let name = await DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid);
 
     //await _.setVariable("CALLERID(name-charset)", "utf8");
     await _.setVariable("CALLERID(name)", name || "");
+
+    debug("all: ", await all);
 
     let dialString = (await all).reachableContacts.map(({ uri }) => `PJSIP/${imei}/${uri}`).join("&");
 
@@ -52,7 +54,7 @@ export async function call(channel: AGIChannel) {
 
     debug("Dialing...");
 
-    await agi.dialAndGetOutboundChannel(
+    let failure= await agi.dialAndGetOutboundChannel(
         channel,
         //`PJSIP/${imei}`,
         dialString,
@@ -70,6 +72,12 @@ export async function call(channel: AGIChannel) {
 
         }
     );
+
+    if( failure ){
+
+        debug("TODO: send 'this contact tried to reach you without leaving a message");
+
+    }
 
 
     debug("Call ended");

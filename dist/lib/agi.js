@@ -92,7 +92,7 @@ function startServer(scripts) {
 exports.startServer = startServer;
 function dialAndGetOutboundChannel(channel, dialString, outboundHandler) {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, context, threadid, context_threadid;
+        var _a, context, threadid, context_threadid, failure, error_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -100,10 +100,17 @@ function dialAndGetOutboundChannel(channel, dialString, outboundHandler) {
                     context_threadid = context + "_" + threadid;
                     outboundHandlers[context_threadid] = outboundHandler;
                     setTimeout(function () { return delete outboundHandlers[context_threadid]; }, 2000);
-                    return [4 /*yield*/, channel.relax.exec("Dial", [dialString, "", "b(" + context + "^outbound^1)"])];
+                    _b.label = 1;
                 case 1:
-                    _b.sent();
-                    return [2 /*return*/];
+                    _b.trys.push([1, 3, , 4]);
+                    return [4 /*yield*/, channel.exec("Dial", [dialString, "", "b(" + context + "^outbound^1)"])];
+                case 2:
+                    failure = (_b.sent()).failure;
+                    return [2 /*return*/, failure];
+                case 3:
+                    error_1 = _b.sent();
+                    return [2 /*return*/, true];
+                case 4: return [2 /*return*/];
             }
         });
     });

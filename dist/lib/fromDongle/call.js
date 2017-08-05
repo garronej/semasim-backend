@@ -52,27 +52,32 @@ exports.jitterBuffer = {
 function call(channel) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var _, imei, all, name, dialString;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var _, imei, all, name, _a, _b, dialString, failure;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
                 case 0:
                     debug("Call from " + channel.request.callerid + " !");
                     _ = channel.relax;
                     return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
                 case 1:
-                    imei = (_a.sent());
-                    all = admin.wakeUpAllContacts(imei, 10000).all;
+                    imei = (_c.sent());
+                    all = admin.wakeUpAllContacts(imei, 9000).all;
                     return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
                 case 2:
-                    name = _a.sent();
+                    name = _c.sent();
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
                     return [4 /*yield*/, _.setVariable("CALLERID(name)", name || "")];
                 case 3:
                     //await _.setVariable("CALLERID(name-charset)", "utf8");
-                    _a.sent();
+                    _c.sent();
+                    _a = debug;
+                    _b = ["all: "];
                     return [4 /*yield*/, all];
                 case 4:
-                    dialString = (_a.sent()).reachableContacts.map(function (_a) {
+                    _a.apply(void 0, _b.concat([_c.sent()]));
+                    return [4 /*yield*/, all];
+                case 5:
+                    dialString = (_c.sent()).reachableContacts.map(function (_a) {
                         var uri = _a.uri;
                         return "PJSIP/" + imei + "/" + uri;
                     }).join("&");
@@ -103,8 +108,11 @@ function call(channel) {
                                 }
                             });
                         }); })];
-                case 5:
-                    _a.sent();
+                case 6:
+                    failure = _c.sent();
+                    if (failure) {
+                        debug("TODO: send 'this contact tried to reach you without leaving a message");
+                    }
                     debug("Call ended");
                     return [2 /*return*/];
             }

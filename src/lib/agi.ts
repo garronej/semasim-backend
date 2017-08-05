@@ -61,7 +61,17 @@ export async function dialAndGetOutboundChannel(
 
     setTimeout(()=> delete outboundHandlers[context_threadid], 2000);
 
-    await channel.relax.exec("Dial", [dialString, "", `b(${context}^outbound^1)`]);
+    try{
+
+        let { failure } = await channel.exec("Dial", [dialString, "", `b(${context}^outbound^1)`]);
+
+        return failure;
+
+    }catch(error){
+
+        return true;
+
+    }
 
 }
 

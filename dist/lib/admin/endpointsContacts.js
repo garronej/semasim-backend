@@ -141,12 +141,13 @@ function wakeUpAllContacts(endpoint, timeout) {
                         var e_3, _c;
                     };
                     timer = undefined;
-                    if (timeout)
+                    if (timeout) {
                         timer = setTimeout(function () {
                             if (!reachableContactMap.size)
                                 return;
                             resolver();
                         }, timeout);
+                    }
                     taskArray = [];
                     _loop_1 = function (contact) {
                         taskArray.push(new Promise(function (resolve) {

@@ -116,7 +116,8 @@ export namespace wakeUpDevice {
 
                     resolve(statusMessage);
 
-                });
+                }
+            );
 
 
 
