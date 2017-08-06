@@ -43,26 +43,6 @@ var __rest = (this && this.__rest) || function (s, e) {
             t[p[i]] = s[p[i]];
     return t;
 };
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
-var __spread = (this && this.__spread) || function () {
-    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
-    return ar;
-};
 var __values = (this && this.__values) || function (o) {
     var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
     if (m) return m.call(o);
@@ -84,7 +64,7 @@ var agi = require("./agi");
 var inbound = require("./sipProxy/inbound");
 var _debug = require("debug");
 var debug = _debug("_main");
-debug("Started !!");
+debug("Started :)");
 //TODO: every call to dongleExtendedClient may throw error.
 var scripts = {};
 var phoneNumberAsteriskExtensionPattern = "_[+0-9].";
@@ -98,43 +78,58 @@ dongleClient.evtNewMessage.attach(function (_a) {
     var imei = _a.imei, message = __rest(_a, ["imei"]);
     return fromDongle.sms(imei, message);
 });
+/*
+let dongleEvtHandlers = {
+    "onActiveDongleDisconnect": async (imei: string) => {
+
+        debug("onDongleDisconnect", { imei });
+
+        await admin.setDevicePresence(imei, "ONHOLD");
+
+    },
+    "onNewActiveDongle": async (imei: string) => {
+
+        debug("onNewActiveDongle");
+
+        await admin.setDevicePresence(imei, "NOT_INUSE");
+
+        await initEndpoint(imei, true);
+
+
+    },
+    "onRequestUnlockCode": async (imei: string) => {
+
+        debug("onRequestUnlockCode");
+
+        await admin.setDevicePresence(imei, "UNAVAILABLE");
+
+        await initEndpoint(imei, true);
+
+    }
+};
+*/
 var dongleEvtHandlers = {
-    "onActiveDongleDisconnect": function (imei) { return __awaiter(_this, void 0, void 0, function () {
+    "onActiveDongleDisconnect": function (dongle) { return __awaiter(_this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    debug("onDongleDisconnect", { imei: imei });
-                    return [4 /*yield*/, admin.setDevicePresence(imei, "ONHOLD")];
+                    debug("onDongleDisconnect", dongle);
+                    return [4 /*yield*/, admin.setDevicePresence(dongle.imei, "ONHOLD")];
                 case 1:
                     _a.sent();
                     return [2 /*return*/];
             }
         });
     }); },
-    "onNewActiveDongle": function (imei) { return __awaiter(_this, void 0, void 0, function () {
+    "onNewActiveDongle": function (dongle) { return __awaiter(_this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    debug("onNewActiveDongle");
-                    return [4 /*yield*/, admin.setDevicePresence(imei, "NOT_INUSE")];
+                    debug("onNewActiveDongle", dongle);
+                    return [4 /*yield*/, admin.setDevicePresence(dongle.imei, "NOT_INUSE")];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, initEndpoint(imei, true)];
-                case 2:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    }); },
-    "onRequestUnlockCode": function (imei) { return __awaiter(_this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    debug("onRequestUnlockCode");
-                    return [4 /*yield*/, admin.setDevicePresence(imei, "UNAVAILABLE")];
-                case 1:
-                    _a.sent();
-                    return [4 /*yield*/, initEndpoint(imei, true)];
+                    return [4 /*yield*/, initEndpoint(dongle.imei, true)];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];
@@ -149,105 +144,91 @@ function initEndpoint(endpoint, isDongleConnected) {
                 case 0: return [4 /*yield*/, admin.enableDevicePresenceNotification(endpoint)];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, admin.addOrUpdateEndpoint(endpoint, isDongleConnected)];
+                    return [4 /*yield*/, admin.dbAsterisk.addOrUpdateEndpoint(endpoint, isDongleConnected)];
                 case 2:
+                    _a.sent();
+                    return [4 /*yield*/, admin.dbSemasim.addDongleIfNew(endpoint)];
+                case 3:
                     _a.sent();
                     return [2 /*return*/];
             }
         });
     });
 }
-(function findConnectedDongles() {
+/*
+(async function findConnectedDongles() {
+
+
+    let activeDongles = (await dongleClient.getActiveDongles()).map(({ imei }) => imei);
+
+    let lockedDongles = (await dongleClient.getLockedDongles()).map(({ imei }) => imei);
+
+    let knownDisconnectedDongles = (await admin.dbAsterisk.queryEndpoints())
+    .map(({endpoint})=> endpoint)
+    .filter(imei =>
+        [...activeDongles, ...lockedDongles].indexOf(imei) < 0
+    );
+
+    debug({ activeDongles, lockedDongles, knownDisconnectedDongles });
+
+    debug({ activeDongles, lockedDongles });
+
+    for (let imei of activeDongles) dongleEvtHandlers.onNewActiveDongle(imei);
+
+    for (let imei of lockedDongles) dongleEvtHandlers.onRequestUnlockCode(imei);
+
+    for (let imei of knownDisconnectedDongles) initEndpoint(imei, false);
+
+
+
+})();
+*/
+(function findActiveDongle() {
     return __awaiter(this, void 0, void 0, function () {
-        var activeDongles, lockedDongles, knownDisconnectedDongles, activeDongles_1, activeDongles_1_1, imei, lockedDongles_1, lockedDongles_1_1, imei, knownDisconnectedDongles_1, knownDisconnectedDongles_1_1, imei, e_1, _a, e_2, _b, e_3, _c;
+        var _a, _b, activeDongle, e_1_1, e_1, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
-                case 0: return [4 /*yield*/, dongleClient.getActiveDongles()];
+                case 0:
+                    _d.trys.push([0, 5, 6, 7]);
+                    return [4 /*yield*/, dongleClient.getActiveDongles()];
                 case 1:
-                    activeDongles = (_d.sent()).map(function (_a) {
-                        var imei = _a.imei;
-                        return imei;
-                    });
-                    return [4 /*yield*/, dongleClient.getLockedDongles()];
+                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                    _d.label = 2;
                 case 2:
-                    lockedDongles = (_d.sent()).map(function (_a) {
-                        var imei = _a.imei;
-                        return imei;
-                    });
-                    return [4 /*yield*/, admin.queryEndpoints()];
+                    if (!!_b.done) return [3 /*break*/, 4];
+                    activeDongle = _b.value;
+                    dongleEvtHandlers.onNewActiveDongle(activeDongle);
+                    _d.label = 3;
                 case 3:
-                    knownDisconnectedDongles = (_d.sent())
-                        .map(function (_a) {
-                        var endpoint = _a.endpoint;
-                        return endpoint;
-                    })
-                        .filter(function (imei) {
-                        return __spread(activeDongles, lockedDongles).indexOf(imei) < 0;
-                    });
-                    debug({ activeDongles: activeDongles, lockedDongles: lockedDongles, knownDisconnectedDongles: knownDisconnectedDongles });
+                    _b = _a.next();
+                    return [3 /*break*/, 2];
+                case 4: return [3 /*break*/, 7];
+                case 5:
+                    e_1_1 = _d.sent();
+                    e_1 = { error: e_1_1 };
+                    return [3 /*break*/, 7];
+                case 6:
                     try {
-                        for (activeDongles_1 = __values(activeDongles), activeDongles_1_1 = activeDongles_1.next(); !activeDongles_1_1.done; activeDongles_1_1 = activeDongles_1.next()) {
-                            imei = activeDongles_1_1.value;
-                            dongleEvtHandlers.onNewActiveDongle(imei);
-                        }
+                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
-                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                    finally {
-                        try {
-                            if (activeDongles_1_1 && !activeDongles_1_1.done && (_a = activeDongles_1.return)) _a.call(activeDongles_1);
-                        }
-                        finally { if (e_1) throw e_1.error; }
-                    }
-                    try {
-                        for (lockedDongles_1 = __values(lockedDongles), lockedDongles_1_1 = lockedDongles_1.next(); !lockedDongles_1_1.done; lockedDongles_1_1 = lockedDongles_1.next()) {
-                            imei = lockedDongles_1_1.value;
-                            dongleEvtHandlers.onRequestUnlockCode(imei);
-                        }
-                    }
-                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                    finally {
-                        try {
-                            if (lockedDongles_1_1 && !lockedDongles_1_1.done && (_b = lockedDongles_1.return)) _b.call(lockedDongles_1);
-                        }
-                        finally { if (e_2) throw e_2.error; }
-                    }
-                    try {
-                        for (knownDisconnectedDongles_1 = __values(knownDisconnectedDongles), knownDisconnectedDongles_1_1 = knownDisconnectedDongles_1.next(); !knownDisconnectedDongles_1_1.done; knownDisconnectedDongles_1_1 = knownDisconnectedDongles_1.next()) {
-                            imei = knownDisconnectedDongles_1_1.value;
-                            initEndpoint(imei, false);
-                        }
-                    }
-                    catch (e_3_1) { e_3 = { error: e_3_1 }; }
-                    finally {
-                        try {
-                            if (knownDisconnectedDongles_1_1 && !knownDisconnectedDongles_1_1.done && (_c = knownDisconnectedDongles_1.return)) _c.call(knownDisconnectedDongles_1);
-                        }
-                        finally { if (e_3) throw e_3.error; }
-                    }
-                    return [2 /*return*/];
+                    finally { if (e_1) throw e_1.error; }
+                    return [7 /*endfinally*/];
+                case 7: return [2 /*return*/];
             }
         });
     });
 })();
-dongleClient.evtActiveDongleDisconnect.attach(function (_a) {
-    var imei = _a.imei;
-    return dongleEvtHandlers.onActiveDongleDisconnect(imei);
+/*
+dongleClient.evtActiveDongleDisconnect.attach(({ imei }) => dongleEvtHandlers.onActiveDongleDisconnect(imei));
+dongleClient.evtNewActiveDongle.attach(({ imei }) => dongleEvtHandlers.onNewActiveDongle(imei));
+dongleClient.evtRequestUnlockCode.attach(({ imei }) => dongleEvtHandlers.onRequestUnlockCode(imei));
+*/
+dongleClient.evtActiveDongleDisconnect.attach(dongleEvtHandlers.onActiveDongleDisconnect);
+dongleClient.evtNewActiveDongle.attach(dongleEvtHandlers.onNewActiveDongle);
+admin.getEvtNewContact().attach(function (contact) {
+    //TODO Send message in stack and request pin if dongle is locked
+    debug("New contact", contact);
 });
-dongleClient.evtNewActiveDongle.attach(function (_a) {
-    var imei = _a.imei;
-    return dongleEvtHandlers.onNewActiveDongle(imei);
-});
-dongleClient.evtRequestUnlockCode.attach(function (_a) {
-    var imei = _a.imei;
-    return dongleEvtHandlers.onRequestUnlockCode(imei);
-});
-admin.getEvtNewContact().attach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        //TODO Send message in stack and request pin if dongle is locked
-        debug("New contact", contact);
-        return [2 /*return*/];
-    });
-}); });
 (function initVoidDialplanForMessage() {
     return __awaiter(this, void 0, void 0, function () {
         var ami, matchAllExt;
@@ -267,7 +248,8 @@ admin.getEvtNewContact().attach(function (contact) { return __awaiter(_this, voi
         });
     });
 })();
-admin.truncateContacts().then(function () { return inbound.start(); });
+//TODO not necessary to truncate contact
+admin.dbAsterisk.truncateContacts().then(function () { return inbound.start(); });
 //pjsip.truncateContacts();
 admin.evtMessage.attach(function (_a) {
     var contact = _a.contact, message = _a.message;

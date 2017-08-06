@@ -44,6 +44,7 @@ var md5 = require("md5");
 var dns = require("dns");
 var sip = require("./sip");
 var tls = require("tls");
+var admin_1 = require("../admin");
 require("colors");
 exports.listeningPortForDevices = 50610;
 exports.flowTokenKey = "flowtoken";
@@ -88,7 +89,7 @@ function qualifyContact(contact, timeout) {
                     fromTag = "794ee9eb-" + Date.now();
                     callId = "138ce538-" + Date.now();
                     cSeqSequenceNumber = Math.floor(Math.random() * 2000);
-                    flowToken = sip.parsePath(contact.path).pop().uri.params[exports.flowTokenKey];
+                    flowToken = admin_1.Contact.readFlowToken(contact);
                     sipRequest = sip.parse([
                         "OPTIONS " + contact.uri + " SIP/2.0",
                         "From: <sip:" + contact.endpoint + "@semasim.com>;tag=" + fromTag,

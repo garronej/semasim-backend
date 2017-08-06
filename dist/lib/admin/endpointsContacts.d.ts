@@ -6,7 +6,12 @@ export interface Contact {
     endpoint: string;
     user_agent: string;
 }
-export declare function getAstSocketSrcPortFromContact(contact: Contact): number;
+export declare namespace Contact {
+    function buildValueOfUserAgentField(endpoint: string, instanceId: string, realUserAgent: string): string;
+    function readInstanceId(contact: Contact): string;
+    function readFlowToken(contact: Contact): string;
+    function readAstSocketSrcPort(contact: Contact): number;
+}
 export declare function getContactFromAstSocketSrcPort(astSocketSrcPort: number): Promise<Contact | undefined>;
 export declare function wakeUpAllContacts(endpoint: string, timeout?: number): {
     all: Promise<{

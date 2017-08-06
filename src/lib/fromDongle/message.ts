@@ -18,6 +18,12 @@ export async function sms(
 
     debug("FROM DONGLE MESSAGE");
 
+    await admin.dbSemasim.addNotificationAsUndelivered({
+        "endpoint": imei,
+        "date": Date.now(),
+        "payload": JSON.stringify({number, date, text})
+    });
+
     //TODO: See edge case when dongle send a message and immediately disconnect, maybe send imsi in dongle-extended
     //let { imsi } = (await DongleExtendedClient.localhost().getActiveDongle(imei))!;
 
@@ -25,7 +31,7 @@ export async function sms(
 
     debug({ number, date, text, name });
 
-    let targetContacts= (await admin.queryContacts()).filter(({endpoint})=> endpoint === imei);
+    let targetContacts= (await admin.dbAsterisk.queryContacts()).filter(({endpoint})=> endpoint === imei);
 
 
     for( let contact of targetContacts){

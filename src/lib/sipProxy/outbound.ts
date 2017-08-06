@@ -63,7 +63,7 @@ export async function qualifyContact(
     let fromTag = `794ee9eb-${Date.now()}`;
     let callId = `138ce538-${Date.now()}`;
     let cSeqSequenceNumber = Math.floor(Math.random() * 2000);
-    let flowToken= sip.parsePath(contact.path).pop()!.uri.params[flowTokenKey]!;
+    let flowToken= Contact.readFlowToken(contact);
 
     let sipRequest = sip.parse([
         `OPTIONS ${contact.uri} SIP/2.0`,

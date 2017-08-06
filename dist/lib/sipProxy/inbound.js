@@ -53,6 +53,7 @@ var shared = require("./shared");
 var os = require("os");
 var outbound = require("./outbound");
 var admin = require("../admin");
+var admin_1 = require("../admin");
 var tls = require("tls");
 require("colors");
 var _debug = require("debug");
@@ -96,10 +97,11 @@ function start() {
             asteriskSocket.evtPacket.attach(sipPacket =>
                 console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
             );
+    
+            asteriskSocket.evtData.attach(chunk =>
+                console.log("From Asterisk:\n", chunk.grey, "\n\n")
+            );
             */
-            asteriskSocket.evtData.attach(function (chunk) {
-                return console.log("From Asterisk:\n", chunk.grey, "\n\n");
-            });
             asteriskSocket.evtPacket.attachPrepend(function (_a) {
                 var headers = _a.headers;
                 return headers["content-type"] === "application/sdp";
@@ -142,10 +144,10 @@ function start() {
             proxySocket.evtPacket.attach(sipPacket =>
                 console.log("From proxy:\n", sip.stringify(sipPacket).yellow, "\n\n")
             );
+            proxySocket.evtData.attach(chunk =>
+                console.log("From proxy:\n", chunk.yellow, "\n\n")
+            );
             */
-            proxySocket.evtData.attach(function (chunk) {
-                return console.log("From proxy:\n", chunk.yellow, "\n\n");
-            });
             proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
                 var _this = this;
                 var flowToken, asteriskSocket, branch;
@@ -163,11 +165,7 @@ function start() {
                             _a.label = 2;
                         case 2:
                             if (sipRequest.method === "REGISTER") {
-                                sipRequest.headers["user-agent"] = [
-                                    "user-agent=" + sipRequest.headers["user-agent"],
-                                    "endpoint=" + sip.parseUri(sipRequest.headers.from.uri).user,
-                                    "+sip.instance=" + sipRequest.headers.contact[0].params["+sip.instance"]
-                                ].join("_");
+                                sipRequest.headers["user-agent"] = admin_1.Contact.buildValueOfUserAgentField(sip.parseUri(sipRequest.headers.from.uri).user, sipRequest.headers.contact[0].params["+sip.instance"], sipRequest.headers["user-agent"]);
                                 asteriskSocket.addPathHeader(sipRequest);
                             }
                             else
@@ -228,7 +226,7 @@ function start() {
                             _e.label = 1;
                         case 1:
                             _e.trys.push([1, 6, 7, 8]);
-                            return [4 /*yield*/, admin.queryEndpoints()];
+                            return [4 /*yield*/, admin.dbAsterisk.queryEndpoints()];
                         case 2:
                             _a = __values.apply(void 0, [_e.sent()]), _b = _a.next();
                             _e.label = 3;

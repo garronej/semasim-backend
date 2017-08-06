@@ -72,10 +72,10 @@ var __spread = (this && this.__spread) || function () {
     for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
     return ar;
 };
-var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_exec_queue_1 = require("ts-exec-queue");
 var mysql = require("mysql");
+var endpointsContacts_1 = require("./endpointsContacts");
 exports.callContext = "from-sip-call";
 exports.messageContext = "from-sip-message";
 exports.subscribeContext = function (imei) { return "from-sip-subscribe-" + imei; };
@@ -86,84 +86,16 @@ var dbParams = {
     "user": "root",
     "password": "abcde12345"
 };
-var connection = mysql.createConnection(__assign({}, dbParams, { "database": "asterisk", "multipleStatements": true }));
-function query(sql, values) {
+var cluster = {};
+function queryOnConnection(connection, sql, values) {
     return new Promise(function (resolve, reject) {
         var r = connection.query(sql, values || [], function (err, results) { return err ? reject(err) : resolve(results); });
     });
 }
-var cluster = {};
-var group = "DB_ACCESS";
-exports.queryEndpoints = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
-    var res, endpoints;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, query("SELECT `id`,`set_var` FROM `ps_endpoints`")];
-            case 1:
-                res = _a.sent();
-                endpoints = res.map(function (_a) {
-                    var id = _a.id, set_var = _a.set_var;
-                    return ({ "endpoint": id, "lastUpdated": new Date(parseInt(set_var.split("=")[1])) });
-                });
-                callback(endpoints);
-                return [2 /*return*/, endpoints];
-        }
-    });
-}); });
-exports.truncateContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, query("TRUNCATE ps_contacts")];
-            case 1:
-                _a.sent();
-                callback();
-                return [2 /*return*/];
-        }
-    });
-}); });
-exports.queryContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
-    var contacts, contacts_1, contacts_1_1, contact, e_1, _a;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
-            case 0: return [4 /*yield*/, query("SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM `ps_contacts`")];
-            case 1:
-                contacts = _b.sent();
-                try {
-                    for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
-                        contact = contacts_1_1.value;
-                        contact.uri = contact.uri.replace(/\^3B/g, ";");
-                        contact.path = contact.path.replace(/\^3B/g, ";");
-                    }
-                }
-                catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                finally {
-                    try {
-                        if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                }
-                callback(contacts);
-                return [2 /*return*/, contacts];
-        }
-    });
-}); });
-exports.deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (id, callback) { return __awaiter(_this, void 0, void 0, function () {
-    var affectedRows, isDeleted;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0: return [4 /*yield*/, query("DELETE FROM `ps_contacts` WHERE `id`=?", [id])];
-            case 1:
-                affectedRows = (_a.sent()).affectedRows;
-                isDeleted = affectedRows ? true : false;
-                callback(isDeleted);
-                return [2 /*return*/, isDeleted];
-        }
-    });
-}); });
-function generateQueryInsert(table, values) {
+function buildInsertQuery(table, values) {
     var keys = Object.keys(values);
     var backtickKeys = keys.map(function (key) { return "`" + key + "`"; });
-    var queryLines = [
+    var sqlLinesArray = [
         "INSERT INTO " + table + " ( " + backtickKeys.join(", ") + " )",
         "VALUES ( " + keys.map(function () { return "?"; }).join(", ") + " )",
         "ON DUPLICATE KEY UPDATE",
@@ -171,75 +103,323 @@ function generateQueryInsert(table, values) {
         ";"
     ];
     return [
-        queryLines.join("\n"),
+        sqlLinesArray.join("\n"),
         keys.map(function (key) { return values[key]; })
     ];
 }
-exports.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, isDongleConnected, callback) { return __awaiter(_this, void 0, void 0, function () {
-    var queryLine, values;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                debug("Add or update endpoint " + endpoint + " in real time configuration");
-                queryLine = "";
-                values = [];
-                (function () {
-                    var _a = __read(generateQueryInsert("ps_aors", {
-                        "id": endpoint,
-                        "max_contacts": 12,
-                        "qualify_frequency": 15000,
-                        "support_path": "yes"
-                    }), 2), _query = _a[0], _values = _a[1];
-                    queryLine += "\n" + _query;
-                    values = __spread(values, _values);
-                })();
-                (function () {
-                    var _a = __read(generateQueryInsert("ps_endpoints", {
-                        "id": endpoint,
-                        "disallow": "all",
-                        "allow": "alaw,ulaw",
-                        "context": exports.callContext,
-                        "message_context": exports.messageContext,
-                        "subscribe_context": exports.subscribeContext(endpoint),
-                        "aors": endpoint,
-                        "auth": endpoint,
-                        "force_rport": null,
-                        "from_domain": "semasim.com",
-                        "ice_support": "yes",
-                        "direct_media": null,
-                        "asymmetric_rtp_codec": null,
-                        "rtcp_mux": null,
-                        "direct_media_method": null,
-                        "connected_line_method": null,
-                        "transport": "transport-tcp",
-                        "callerid_tag": null
-                    }), 2), _query = _a[0], _values = _a[1];
-                    if (isDongleConnected) {
-                        _query += [
-                            "UPDATE `ps_endpoints` SET `set_var` = ? WHERE `id` = ?",
-                            ";"
-                        ].join("\n");
-                        _values = __spread(_values, ["LAST_UPDATED=" + Date.now(), endpoint]);
-                    }
-                    queryLine += "\n" + _query;
-                    values = __spread(values, _values);
-                })();
-                (function () {
-                    var _a = __read(generateQueryInsert("ps_auths", {
-                        "id": endpoint,
-                        "auth_type": "userpass",
-                        "username": endpoint,
-                        "password": "password",
-                        "realm": "semasim"
-                    }), 2), _query = _a[0], _values = _a[1];
-                    queryLine += "\n" + _query;
-                    values = __spread(values, _values);
-                })();
-                return [4 /*yield*/, query(queryLine, values)];
-            case 1:
-                _a.sent();
-                callback();
-                return [2 /*return*/];
+var dbAsterisk;
+(function (dbAsterisk) {
+    var _this = this;
+    var group = "ASTERISK";
+    var connection = undefined;
+    function query(sql, values) {
+        if (!connection) {
+            connection = mysql.createConnection(__assign({}, dbParams, { "database": "asterisk", "multipleStatements": true }));
         }
-    });
-}); });
+        return queryOnConnection(connection, sql, values);
+    }
+    dbAsterisk.queryEndpoints = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
+        var res, endpoints;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, query("SELECT `id`,`set_var` FROM `ps_endpoints`")];
+                case 1:
+                    res = _a.sent();
+                    endpoints = res.map(function (_a) {
+                        var id = _a.id, set_var = _a.set_var;
+                        return ({ "endpoint": id, "lastUpdated": new Date(parseInt(set_var.split("=")[1])) });
+                    });
+                    callback(endpoints);
+                    return [2 /*return*/, endpoints];
+            }
+        });
+    }); });
+    dbAsterisk.truncateContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, query("TRUNCATE ps_contacts")];
+                case 1:
+                    _a.sent();
+                    callback();
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+    dbAsterisk.queryContacts = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
+        var contacts, contacts_1, contacts_1_1, contact, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0: return [4 /*yield*/, query("SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM `ps_contacts`")];
+                case 1:
+                    contacts = _b.sent();
+                    try {
+                        for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
+                            contact = contacts_1_1.value;
+                            contact.uri = contact.uri.replace(/\^3B/g, ";");
+                            contact.path = contact.path.replace(/\^3B/g, ";");
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (contacts_1_1 && !contacts_1_1.done && (_a = contacts_1.return)) _a.call(contacts_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    callback(contacts);
+                    return [2 /*return*/, contacts];
+            }
+        });
+    }); });
+    dbAsterisk.deleteContact = ts_exec_queue_1.execQueue(cluster, group, function (id, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var affectedRows, isDeleted;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, query("DELETE FROM `ps_contacts` WHERE `id`=?", [id])];
+                case 1:
+                    affectedRows = (_a.sent()).affectedRows;
+                    isDeleted = affectedRows ? true : false;
+                    callback(isDeleted);
+                    return [2 /*return*/, isDeleted];
+            }
+        });
+    }); });
+    //TODO: isDongle connected is a stupid option
+    dbAsterisk.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, isDongleConnected, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var sql, values;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    debug("Add or update endpoint " + endpoint + " in real time configuration");
+                    sql = "";
+                    values = [];
+                    (function () {
+                        var _a = __read(buildInsertQuery("ps_aors", {
+                            "id": endpoint,
+                            "max_contacts": 12,
+                            "qualify_frequency": 0,
+                            "support_path": "yes"
+                        }), 2), _sql = _a[0], _values = _a[1];
+                        sql += "\n" + _sql;
+                        values = __spread(values, _values);
+                    })();
+                    (function () {
+                        /*
+                        let [_sql, _values] = buildInsertQuery("ps_endpoints", {
+                            "id": endpoint,
+                            "disallow": "all",
+                            "allow": "alaw,ulaw",
+                            "context": callContext,
+                            "message_context": messageContext,
+                            "subscribe_context": subscribeContext(endpoint),
+                            "aors": endpoint,
+                            "auth": endpoint,
+                            "force_rport": null,
+                            "from_domain": "semasim.com",
+                            "ice_support": "yes",
+                            "direct_media": null,
+                            "asymmetric_rtp_codec": null,
+                            "rtcp_mux": null,
+                            "direct_media_method": null,
+                            "connected_line_method": null,
+                            "transport": "transport-tcp",
+                            "callerid_tag": null
+                        });
+        
+                        if (isDongleConnected) {
+        
+                            _sql += [
+                                "UPDATE `ps_endpoints` SET `set_var` = ? WHERE `id` = ?",
+                                ";"
+                            ].join("\n");
+        
+                            _values = [..._values, `LAST_UPDATED=${Date.now()}`, endpoint];
+        
+                        }
+                        */
+                        var _a = __read(buildInsertQuery("ps_endpoints", {
+                            "id": endpoint,
+                            "disallow": "all",
+                            "allow": "alaw,ulaw",
+                            "context": exports.callContext,
+                            "message_context": exports.messageContext,
+                            "subscribe_context": exports.subscribeContext(endpoint),
+                            "aors": endpoint,
+                            "auth": endpoint,
+                            "force_rport": null,
+                            "from_domain": "semasim.com",
+                            "ice_support": "yes",
+                            "direct_media": null,
+                            "asymmetric_rtp_codec": null,
+                            "rtcp_mux": null,
+                            "direct_media_method": null,
+                            "connected_line_method": null,
+                            "transport": "transport-tcp",
+                            "callerid_tag": null
+                        }), 2), _sql = _a[0], _values = _a[1];
+                        sql += "\n" + _sql;
+                        values = __spread(values, _values);
+                    })();
+                    (function () {
+                        var _a = __read(buildInsertQuery("ps_auths", {
+                            "id": endpoint,
+                            "auth_type": "userpass",
+                            "username": endpoint,
+                            "password": "password",
+                            "realm": "semasim"
+                        }), 2), _sql = _a[0], _values = _a[1];
+                        sql += "\n" + _sql;
+                        values = __spread(values, _values);
+                    })();
+                    return [4 /*yield*/, query(sql, values)];
+                case 1:
+                    _a.sent();
+                    callback();
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+})(dbAsterisk = exports.dbAsterisk || (exports.dbAsterisk = {}));
+var dbSemasim;
+(function (dbSemasim) {
+    var _this = this;
+    var group = "SEMASIM";
+    var connection = undefined;
+    function query(sql, values) {
+        if (!connection) {
+            connection = mysql.createConnection(__assign({}, dbParams, { "database": "semasim", "multipleStatements": true }));
+        }
+        return queryOnConnection(connection, sql, values);
+    }
+    dbSemasim.addDongleIfNew = ts_exec_queue_1.execQueue(cluster, group, function (imei, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var _a, sql, values;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    debug("enter add dongle if new");
+                    _a = __read(buildInsertQuery("dongles", { imei: imei }), 2), sql = _a[0], values = _a[1];
+                    return [4 /*yield*/, query(sql, values)];
+                case 1:
+                    _b.sent();
+                    callback();
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+    dbSemasim.addContactIfNew = ts_exec_queue_1.execQueue(cluster, group, function (contact, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var instanceid, dongles_imei, _a, sql, values;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    debug("enter add contact if new");
+                    instanceid = endpointsContacts_1.Contact.readInstanceId(contact);
+                    dongles_imei = contact.endpoint;
+                    _a = __read(buildInsertQuery("contacts", { instanceid: instanceid, dongles_imei: dongles_imei }), 2), sql = _a[0], values = _a[1];
+                    return [4 /*yield*/, query(sql, values)];
+                case 1:
+                    _b.sent();
+                    callback();
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+    function addNotificationAndGetId(notification) {
+        return __awaiter(this, void 0, void 0, function () {
+            var dongles_imei, date, payload, _a, sql, values, _b, id;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        debug("addNotificationAndGetId", { notification: notification });
+                        dongles_imei = notification.endpoint;
+                        date = notification.date;
+                        payload = notification.payload;
+                        _a = __read(buildInsertQuery("notifications", { dongles_imei: dongles_imei, date: date, payload: payload }), 2), sql = _a[0], values = _a[1];
+                        debug("1");
+                        return [4 /*yield*/, query(sql, values)];
+                    case 1:
+                        _c.sent();
+                        debug("2");
+                        return [4 /*yield*/, query("SELECT `id` FROM `notifications` WHERE `dongles_imei`=? AND `date`=?", [dongles_imei, date])];
+                    case 2:
+                        _b = __read.apply(void 0, [_c.sent(), 1]), id = _b[0].id;
+                        debug("3");
+                        return [2 /*return*/, id];
+                }
+            });
+        });
+    }
+    function addNotificationAsUndelivered() {
+        var inputs = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            inputs[_i] = arguments[_i];
+        }
+        return _addNotificationAsUndelivered_(inputs[0], inputs[1]);
+    }
+    dbSemasim.addNotificationAsUndelivered = addNotificationAsUndelivered;
+    var _addNotificationAsUndelivered_ = ts_exec_queue_1.execQueue(cluster, group, function (notification, contact, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var notifications_id, contacts, sql, values, contacts_2, contacts_2_1, id, _a, _sql, _values, e_2, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0: return [4 /*yield*/, addNotificationAndGetId(notification)];
+                case 1:
+                    notifications_id = _c.sent();
+                    if (!contact) return [3 /*break*/, 3];
+                    return [4 /*yield*/, query("SELECT `id`, `instanceid` FROM contacts WHERE `dongles_imei`=? AND `instanceid`= ?", [notification.endpoint, endpointsContacts_1.Contact.readInstanceId(contact)])];
+                case 2:
+                    contacts = _c.sent();
+                    return [3 /*break*/, 5];
+                case 3: return [4 /*yield*/, query("SELECT `id`, `instanceid` FROM contacts WHERE `dongles_imei`=?", [notification.endpoint])];
+                case 4:
+                    contacts = _c.sent();
+                    _c.label = 5;
+                case 5:
+                    sql = "";
+                    values = [];
+                    try {
+                        for (contacts_2 = __values(contacts), contacts_2_1 = contacts_2.next(); !contacts_2_1.done; contacts_2_1 = contacts_2.next()) {
+                            id = contacts_2_1.value.id;
+                            _a = __read(buildInsertQuery("contacts_notifications", {
+                                "contacts_id": id, notifications_id: notifications_id, "delivered": 0
+                            }), 2), _sql = _a[0], _values = _a[1];
+                            sql += "\n" + _sql;
+                            values = __spread(values, _values);
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (contacts_2_1 && !contacts_2_1.done && (_b = contacts_2.return)) _b.call(contacts_2);
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    return [4 /*yield*/, query(sql, values)];
+                case 6:
+                    _c.sent();
+                    callback();
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+    dbSemasim.getUndeliveredNotificationsOfContact = ts_exec_queue_1.execQueue(cluster, group, function (contact, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var instanceid, notifications;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    debug("enter get undelivered");
+                    instanceid = endpointsContacts_1.Contact.readInstanceId(contact);
+                    return [4 /*yield*/, query([
+                            "SELECT notifications.`dongles_imei` AS `endpoints`, notifications.`date`, notifications.`payload`",
+                            "FROM notifications",
+                            "INNER JOIN contacts_notifications ON contacts_notifications.`notifications_id` = notifications.`id`",
+                            "INNER JOIN contacts ON contacts.`id` = contacts_notifications.`contacts_id`",
+                            "WHERE notifications.`dongles_imei` = ? AND contacts_notifications.`delivered`=0 AND contacts.`instanceid`=?",
+                            "ORDER BY notifications.`date`"
+                        ].join("\n"), [contact.endpoint, endpointsContacts_1.Contact.readInstanceId(contact)])];
+                case 1:
+                    notifications = _a.sent();
+                    callback(notifications);
+                    return [2 /*return*/, null];
+            }
+        });
+    }); });
+})(dbSemasim = exports.dbSemasim || (exports.dbSemasim = {}));

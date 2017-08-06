@@ -5,6 +5,7 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as shared from "./shared";
 import * as os from "os";
 import * as outbound from "./outbound";
+import { UserAgentFakeWrapper } from "../admin";
 
 import * as admin from "../admin";
 import { Contact } from "../admin";
@@ -52,10 +53,10 @@ export async function start() {
     proxySocket.evtPacket.attach(sipPacket =>
         console.log("From proxy:\n", sip.stringify(sipPacket).yellow, "\n\n")
     );
-    */
     proxySocket.evtData.attach(chunk =>
         console.log("From proxy:\n", chunk.yellow, "\n\n")
     );
+    */
 
     proxySocket.evtRequest.attach(async sipRequest => {
 
@@ -73,11 +74,11 @@ export async function start() {
 
         if (sipRequest.method === "REGISTER") {
 
-            sipRequest.headers["user-agent"] = [
-                `user-agent=${sipRequest.headers["user-agent"]}`,
-                `endpoint=${sip.parseUri(sipRequest.headers.from.uri).user}`,
-                `+sip.instance=${sipRequest.headers.contact![0].params["+sip.instance"]}`
-            ].join("_");
+            sipRequest.headers["user-agent"] = Contact.buildValueOfUserAgentField(
+                sip.parseUri(sipRequest.headers.from.uri).user!,
+                sipRequest.headers.contact![0].params["+sip.instance"]!,
+                sipRequest.headers["user-agent"]!
+            );
 
             asteriskSocket.addPathHeader(sipRequest);
 
@@ -153,7 +154,7 @@ export async function start() {
 
         debug("connection established with proxy");
 
-        for (let { endpoint, lastUpdated } of await admin.queryEndpoints())
+        for (let { endpoint, lastUpdated } of await admin.dbAsterisk.queryEndpoints())
             notifyHandledDongle(endpoint, lastUpdated.getTime());
 
     });
@@ -190,11 +191,11 @@ export async function start() {
         asteriskSocket.evtPacket.attach(sipPacket =>
             console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
         );
-        */
 
         asteriskSocket.evtData.attach(chunk =>
             console.log("From Asterisk:\n", chunk.grey, "\n\n")
         );
+        */
 
         asteriskSocket.evtPacket.attachPrepend(
             ({ headers }) => headers["content-type"] === "application/sdp",

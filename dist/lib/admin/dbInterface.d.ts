@@ -3,11 +3,25 @@ import { Contact } from "./endpointsContacts";
 export declare const callContext = "from-sip-call";
 export declare const messageContext = "from-sip-message";
 export declare const subscribeContext: (imei: string) => string;
-export declare const queryEndpoints: ((callback?: any) => Promise<{
-    endpoint: string;
-    lastUpdated: Date;
-}[]>) & ExecQueue;
-export declare const truncateContacts: ((callback?: any) => Promise<void>) & ExecQueue;
-export declare const queryContacts: ((callback?: any) => Promise<Contact[]>) & ExecQueue;
-export declare const deleteContact: ((id: string, callback?: any) => Promise<boolean>) & ExecQueue;
-export declare const addOrUpdateEndpoint: ((endpoint: string, isDongleConnected: boolean, callback?: any) => Promise<void>) & ExecQueue;
+export declare namespace dbAsterisk {
+    const queryEndpoints: ((callback?: any) => Promise<{
+        endpoint: string;
+        lastUpdated: Date;
+    }[]>) & ExecQueue;
+    const truncateContacts: ((callback?: any) => Promise<void>) & ExecQueue;
+    const queryContacts: ((callback?: any) => Promise<Contact[]>) & ExecQueue;
+    const deleteContact: ((id: string, callback?: any) => Promise<boolean>) & ExecQueue;
+    const addOrUpdateEndpoint: ((endpoint: string, isDongleConnected: boolean, callback?: any) => Promise<void>) & ExecQueue;
+}
+export declare namespace dbSemasim {
+    const addDongleIfNew: ((imei: string, callback?: any) => Promise<void>) & ExecQueue;
+    const addContactIfNew: ((contact: Contact, callback?: any) => Promise<void>) & ExecQueue;
+    interface Notification {
+        endpoint: string;
+        date: number;
+        payload: string;
+    }
+    function addNotificationAsUndelivered(notification: Notification): Promise<void>;
+    function addNotificationAsUndelivered(notification: Notification, contact: Contact): Promise<void>;
+    const getUndeliveredNotificationsOfContact: ((contact: Contact, callback?: any) => Promise<Notification[]>) & ExecQueue;
+}

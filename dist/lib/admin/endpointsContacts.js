@@ -48,18 +48,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var ts_events_extended_1 = require("ts-events-extended");
 var sip = require("../sipProxy/sip");
+var outbound_1 = require("../sipProxy/outbound");
 var dbInterface = require("./dbInterface");
 var inbound_1 = require("../sipProxy/inbound");
 var webApi = require("../sipProxy/outbound.webApi");
 var _debug = require("debug");
 var debug = _debug("_admin/endpointsContacts");
-function getAstSocketSrcPortFromContact(contact) {
-    if (!contact.path)
-        return NaN;
-    //return sip.parseUri(contact.path.match(/^<([^>]+)>/)![1]).port;
-    return sip.parsePath(contact.path)[0].uri.port;
-}
-exports.getAstSocketSrcPortFromContact = getAstSocketSrcPortFromContact;
+var Contact;
+(function (Contact) {
+    function buildValueOfUserAgentField(endpoint, instanceId, realUserAgent) {
+        var wrap = { endpoint: endpoint, instanceId: instanceId, realUserAgent: realUserAgent };
+        return (new Buffer(JSON.stringify(wrap), "utf8")).toString("base64");
+    }
+    Contact.buildValueOfUserAgentField = buildValueOfUserAgentField;
+    function readInstanceId(contact) {
+        return JSON.parse((new Buffer(contact.user_agent, "base64")).toString("utf8")).instanceId;
+    }
+    Contact.readInstanceId = readInstanceId;
+    function readFlowToken(contact) {
+        return sip.parsePath(contact.path).pop().uri.params[outbound_1.flowTokenKey];
+    }
+    Contact.readFlowToken = readFlowToken;
+    function readAstSocketSrcPort(contact) {
+        if (!contact.path)
+            return NaN;
+        return sip.parsePath(contact.path)[0].uri.port;
+    }
+    Contact.readAstSocketSrcPort = readAstSocketSrcPort;
+})(Contact = exports.Contact || (exports.Contact = {}));
 function getContactFromAstSocketSrcPort(astSocketSrcPort) {
     var _this = this;
     var returned = false;
@@ -68,7 +84,7 @@ function getContactFromAstSocketSrcPort(astSocketSrcPort) {
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    getEvtNewContact().waitFor(function (contact) { return getAstSocketSrcPortFromContact(contact) === astSocketSrcPort; }, 1200).then(function (contact) {
+                    getEvtNewContact().waitFor(function (contact) { return Contact.readAstSocketSrcPort(contact) === astSocketSrcPort; }, 1200).then(function (contact) {
                         if (returned)
                             return;
                         returned = true;
@@ -79,7 +95,7 @@ function getContactFromAstSocketSrcPort(astSocketSrcPort) {
                         returned = true;
                         resolve(undefined);
                     });
-                    return [4 /*yield*/, dbInterface.queryContacts()];
+                    return [4 /*yield*/, dbInterface.dbAsterisk.queryContacts()];
                 case 1:
                     contacts = _b.sent();
                     if (returned)
@@ -87,7 +103,7 @@ function getContactFromAstSocketSrcPort(astSocketSrcPort) {
                     try {
                         for (contacts_1 = __values(contacts), contacts_1_1 = contacts_1.next(); !contacts_1_1.done; contacts_1_1 = contacts_1.next()) {
                             contact = contacts_1_1.value;
-                            if (getAstSocketSrcPortFromContact(contact) !== astSocketSrcPort)
+                            if (Contact.readAstSocketSrcPort(contact) !== astSocketSrcPort)
                                 continue;
                             returned = true;
                             resolve(contact);
@@ -113,7 +129,7 @@ function wakeUpAllContacts(endpoint, timeout) {
         var contactsOfEndpoint, reachableContactMap, resolver, timer, taskArray, _loop_1, contactsOfEndpoint_1, contactsOfEndpoint_1_1, contact, e_2, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0: return [4 /*yield*/, dbInterface.queryContacts()];
+                case 0: return [4 /*yield*/, dbInterface.dbAsterisk.queryContacts()];
                 case 1:
                     contactsOfEndpoint = (_b.sent()).filter(function (contact) { return contact.endpoint === endpoint; });
                     reachableContactMap = new Map();
@@ -239,7 +255,7 @@ function getEvtNewContact() {
             var contacts, newContact, contactsToDelete, _loop_2, contactsToDelete_1, contactsToDelete_1_1, contactToDelete, e_4_1, e_4, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
-                    case 0: return [4 /*yield*/, dbInterface.queryContacts()];
+                    case 0: return [4 /*yield*/, dbInterface.dbAsterisk.queryContacts()];
                     case 1:
                         contacts = _b.sent();
                         newContact = contacts.filter(function (contact) { return contact.endpoint === endpointname && contact.uri === uri; })[0];
@@ -250,10 +266,10 @@ function getEvtNewContact() {
                                 switch (_a.label) {
                                     case 0:
                                         debug("we have other socket for the same endpoint+client", { contactToDelete: contactToDelete });
-                                        return [4 /*yield*/, dbInterface.deleteContact(contactToDelete.id)];
+                                        return [4 /*yield*/, dbInterface.dbAsterisk.deleteContact(contactToDelete.id)];
                                     case 1:
                                         _a.sent();
-                                        astSocketSrcPort = getAstSocketSrcPortFromContact(contactToDelete);
+                                        astSocketSrcPort = Contact.readAstSocketSrcPort(contactToDelete);
                                         inbound_1.asteriskSockets.getAll().filter(function (_a) {
                                             var localPort = _a.localPort;
                                             return localPort === astSocketSrcPort;
@@ -288,7 +304,9 @@ function getEvtNewContact() {
                         }
                         finally { if (e_4) throw e_4.error; }
                         return [7 /*endfinally*/];
-                    case 9:
+                    case 9: return [4 /*yield*/, dbInterface.dbSemasim.addContactIfNew(newContact)];
+                    case 10:
+                        _b.sent();
                         evtNewContact.post(newContact);
                         return [2 /*return*/];
                 }

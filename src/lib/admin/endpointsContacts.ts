@@ -19,15 +19,44 @@ export interface Contact {
     user_agent: string;
 }
 
-export function getAstSocketSrcPortFromContact(contact: Contact): number{
+export namespace Contact {
 
-    if( !contact.path ) return NaN;
+    export function buildValueOfUserAgentField(
+        endpoint: string,
+        instanceId: string,
+        realUserAgent: string
+    ): string {
 
-    //return sip.parseUri(contact.path.match(/^<([^>]+)>/)![1]).port;
+        let wrap = { endpoint, instanceId, realUserAgent };
 
-    return sip.parsePath(contact.path)[0].uri.port;
+        return (new Buffer(JSON.stringify(wrap), "utf8")).toString("base64")
+
+    }
+
+    export function readInstanceId(contact: Contact): string {
+
+        return JSON.parse((new Buffer(contact.user_agent, "base64")).toString("utf8")).instanceId;
+
+    }
+
+    export function readFlowToken(contact: Contact): string {
+
+        return sip.parsePath(contact.path).pop()!.uri.params[flowTokenKey]!;
+
+    }
+
+    export function readAstSocketSrcPort(contact: Contact): number {
+
+        if (!contact.path) return NaN;
+
+        return sip.parsePath(contact.path)[0].uri.port;
+
+    }
+
 
 }
+
+
 
 export function getContactFromAstSocketSrcPort(
     astSocketSrcPort: number
@@ -38,7 +67,7 @@ export function getContactFromAstSocketSrcPort(
     return new Promise<Contact | undefined>(async resolve => {
 
         getEvtNewContact().waitFor(
-            contact => getAstSocketSrcPortFromContact(contact) === astSocketSrcPort,
+            contact => Contact.readAstSocketSrcPort(contact) === astSocketSrcPort,
             1200
         ).then(contact => {
             if (returned) return;
@@ -53,13 +82,13 @@ export function getContactFromAstSocketSrcPort(
             resolve(undefined);
         });
 
-        let contacts = await dbInterface.queryContacts();
+        let contacts = await dbInterface.dbAsterisk.queryContacts();
 
         if (returned) return;
 
         for (let contact of contacts) {
 
-            if (getAstSocketSrcPortFromContact(contact) !== astSocketSrcPort)
+            if (Contact.readAstSocketSrcPort(contact) !== astSocketSrcPort)
                 continue;
 
             returned = true;
@@ -72,6 +101,7 @@ export function getContactFromAstSocketSrcPort(
 
 
 }
+
 
 
 export function wakeUpAllContacts(
@@ -92,7 +122,7 @@ export function wakeUpAllContacts(
         unreachableContacts: Contact[];
     }>(async resolve => {
 
-        let contactsOfEndpoint = (await dbInterface.queryContacts()).filter(contact => contact.endpoint === endpoint);
+        let contactsOfEndpoint = (await dbInterface.dbAsterisk.queryContacts()).filter(contact => contact.endpoint === endpoint);
 
         let reachableContactMap: Map<Contact, Contact> = new Map();
 
@@ -114,7 +144,7 @@ export function wakeUpAllContacts(
 
         };
 
-        let timer: NodeJS.Timer |  undefined = undefined;
+        let timer: NodeJS.Timer | undefined = undefined;
 
         if (timeout) {
             timer = setTimeout(() => {
@@ -150,7 +180,7 @@ export function wakeUpAllContacts(
 
         evtReachableContact.post("COMPLETED");
 
-        });
+    });
 
     return { all, evtReachableContact };
 
@@ -211,7 +241,7 @@ export function getEvtNewContact(): SyncEvent<Contact> {
         ),
         async ({ endpointname, uri }) => {
 
-            let contacts = await dbInterface.queryContacts();
+            let contacts = await dbInterface.dbAsterisk.queryContacts();
 
             let newContact = contacts.filter(
                 contact => contact.endpoint === endpointname && contact.uri === uri
@@ -225,9 +255,9 @@ export function getEvtNewContact(): SyncEvent<Contact> {
 
                 debug("we have other socket for the same endpoint+client", { contactToDelete });
 
-                await dbInterface.deleteContact(contactToDelete.id);
+                await dbInterface.dbAsterisk.deleteContact(contactToDelete.id);
 
-                let astSocketSrcPort = getAstSocketSrcPortFromContact(contactToDelete);
+                let astSocketSrcPort = Contact.readAstSocketSrcPort(contactToDelete);
 
                 asteriskSockets.getAll().filter(
                     ({ localPort }) => localPort === astSocketSrcPort
@@ -235,6 +265,8 @@ export function getEvtNewContact(): SyncEvent<Contact> {
 
 
             }
+
+            await dbInterface.dbSemasim.addContactIfNew(newContact);
 
             evtNewContact!.post(newContact);
 

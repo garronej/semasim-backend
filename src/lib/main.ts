@@ -1,6 +1,6 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
-import { DongleExtendedClient } from "chan-dongle-extended-client";
+import { DongleExtendedClient, DongleActive } from "chan-dongle-extended-client";
 import * as fromSip from "./fromSip";
 import * as fromDongle from "./fromDongle";
 import * as admin from "./admin";
@@ -11,7 +11,7 @@ import * as _debug from "debug";
 let debug = _debug("_main");
 
 
-debug("Started !!");
+debug("Started :)");
 
 //TODO: every call to dongleExtendedClient may throw error.
 
@@ -37,6 +37,7 @@ dongleClient.evtNewMessage.attach(
 );
 
 
+/*
 let dongleEvtHandlers = {
     "onActiveDongleDisconnect": async (imei: string) => {
 
@@ -65,15 +66,37 @@ let dongleEvtHandlers = {
 
     }
 };
+*/
+
+let dongleEvtHandlers = {
+    "onActiveDongleDisconnect": async (dongle: DongleActive) => {
+
+        debug("onDongleDisconnect", dongle);
+
+        await admin.setDevicePresence(dongle.imei, "ONHOLD");
+
+    },
+    "onNewActiveDongle": async (dongle: DongleActive) => {
+
+        debug("onNewActiveDongle", dongle);
+
+        await admin.setDevicePresence(dongle.imei, "NOT_INUSE");
+
+        await initEndpoint(dongle.imei, true);
+
+    }
+};
 
 async function initEndpoint(endpoint: string, isDongleConnected: boolean) {
 
     await admin.enableDevicePresenceNotification(endpoint);
-    await admin.addOrUpdateEndpoint(endpoint, isDongleConnected);
+    await admin.dbAsterisk.addOrUpdateEndpoint(endpoint, isDongleConnected);
+    await admin.dbSemasim.addDongleIfNew(endpoint);
 
 }
 
 
+/*
 (async function findConnectedDongles() {
 
 
@@ -81,13 +104,15 @@ async function initEndpoint(endpoint: string, isDongleConnected: boolean) {
 
     let lockedDongles = (await dongleClient.getLockedDongles()).map(({ imei }) => imei);
 
-    let knownDisconnectedDongles = (await admin.queryEndpoints())
+    let knownDisconnectedDongles = (await admin.dbAsterisk.queryEndpoints())
     .map(({endpoint})=> endpoint)
     .filter(imei =>
         [...activeDongles, ...lockedDongles].indexOf(imei) < 0
     );
 
     debug({ activeDongles, lockedDongles, knownDisconnectedDongles });
+
+    debug({ activeDongles, lockedDongles });
 
     for (let imei of activeDongles) dongleEvtHandlers.onNewActiveDongle(imei);
 
@@ -98,14 +123,26 @@ async function initEndpoint(endpoint: string, isDongleConnected: boolean) {
 
 
 })();
+*/
 
+(async function findActiveDongle() {
+
+    for( let activeDongle of await dongleClient.getActiveDongles() )
+        dongleEvtHandlers.onNewActiveDongle(activeDongle);
+
+})();
+
+/*
 dongleClient.evtActiveDongleDisconnect.attach(({ imei }) => dongleEvtHandlers.onActiveDongleDisconnect(imei));
 dongleClient.evtNewActiveDongle.attach(({ imei }) => dongleEvtHandlers.onNewActiveDongle(imei));
 dongleClient.evtRequestUnlockCode.attach(({ imei }) => dongleEvtHandlers.onRequestUnlockCode(imei));
+*/
 
-import * as webApi from "./sipProxy/outbound.webApi";
+dongleClient.evtActiveDongleDisconnect.attach( dongleEvtHandlers.onActiveDongleDisconnect );
+dongleClient.evtNewActiveDongle.attach( dongleEvtHandlers.onNewActiveDongle );
 
-admin.getEvtNewContact().attach( async contact => {
+
+admin.getEvtNewContact().attach(contact => {
 
     //TODO Send message in stack and request pin if dongle is locked
 
@@ -127,7 +164,8 @@ admin.getEvtNewContact().attach( async contact => {
 
 })();
 
-admin.truncateContacts().then( ()=> inbound.start() );
+//TODO not necessary to truncate contact
+admin.dbAsterisk.truncateContacts().then( ()=> inbound.start() );
 //pjsip.truncateContacts();
 
 
