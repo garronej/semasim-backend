@@ -5,6 +5,7 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as os from "os";
 import * as outbound from "./outbound";
 import * as outboundApi from "./outbound.api";
+import { startListening as apiStartListening } from "./inbound.api";
 
 import * as admin from "../admin";
 import { Contact } from "../admin";
@@ -152,6 +153,8 @@ export async function start() {
     proxySocket.evtConnect.attachOnce(async () => {
 
         debug("connection established with proxy");
+
+        apiStartListening();
 
         for (let { imei } of await DongleExtendedClient.localhost().getActiveDongles())
             notifyHandledDongle( imei );

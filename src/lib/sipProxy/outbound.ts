@@ -156,14 +156,14 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     clientSocket.evtPing.attach(() => console.log("Client ping!"));
 
-
     let flowToken = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
 
     console.log(`${flowToken} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
 
     clientSockets.add(flowToken, clientSocket);
 
-    let boundDeviceSocket: sip.Socket | undefined = undefined;
+    let boundDeviceSocket: sip.Socket = null as any;
+    let imei= "";
 
     /*
     clientSocket.evtPacket.attach(sipPacket =>
@@ -181,19 +181,21 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             let parsedFromUri = sip.parseUri(firstRequest.headers.from.uri);
 
-            let imei = parsedFromUri.user;
+            if (!parsedFromUri.user) throw new Error("no imei");
 
-            if (!imei) throw new Error("no imei");
+            imei= parsedFromUri.user;
 
             console.log(`${flowToken} Client socket, target dongle imei: ${imei}`.yellow);
 
-            boundDeviceSocket = deviceSockets.get(imei);
+            if (! deviceSockets.get(imei) ) throw new Error("device socket not found");
 
-            if (!boundDeviceSocket) throw new Error("device socket not found");
+            boundDeviceSocket = deviceSockets.get(imei)!;
+
+            console.log(`${flowToken} Found path to device ip: ${boundDeviceSocket.remoteAddress}`.yellow);
 
         } catch (error) {
 
-            console.log("Can't route to proxy: ".yellow, error.message);
+            console.log("Can't route to proxy: ".red, error.message);
 
             //Should send 480 temporary unavailable
 
@@ -207,7 +209,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             console.log(`${flowToken} Device Socket bound closed, destroying client socket`.yellow);
 
-            boundDeviceSocket = undefined;
+            boundDeviceSocket = null as any;
 
             clientSocket.destroy();
 
@@ -218,9 +220,10 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     clientSocket.evtRequest.attach(sipRequest => {
 
-        if (!boundDeviceSocket) return;
-
-        //sipRequest.headers.via[0].port= clientSocket.remotePort;
+        if ( boundDeviceSocket !== deviceSockets.get(imei) ){
+            clientSocket.destroy();
+            return;
+        }
 
         boundDeviceSocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
 
@@ -241,7 +244,10 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     clientSocket.evtResponse.attach(sipResponse => {
 
-        if (!boundDeviceSocket) return;
+        if ( boundDeviceSocket !== deviceSockets.get(imei) ){
+            clientSocket.destroy();
+            return;
+        }
 
         boundDeviceSocket.rewriteRecordRoute(sipResponse, "outbound-proxy.socket");
 

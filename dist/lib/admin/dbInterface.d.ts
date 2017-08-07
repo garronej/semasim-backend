@@ -7,6 +7,7 @@ export declare namespace dbAsterisk {
     const queryEndpoints: ((callback?: any) => Promise<string[]>) & ExecQueue;
     const truncateContacts: ((callback?: any) => Promise<void>) & ExecQueue;
     const queryContacts: ((callback?: any) => Promise<Contact[]>) & ExecQueue;
+    const queryLastConnectionTimestampOfDonglesEndpoint: ((endpoint: string, callback?: any) => Promise<number>) & ExecQueue;
     const deleteContact: ((id: string, callback?: any) => Promise<boolean>) & ExecQueue;
     const addOrUpdateEndpoint: ((endpoint: string, password: string, callback?: any) => Promise<void>) & ExecQueue;
 }

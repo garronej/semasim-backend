@@ -7,6 +7,7 @@ import * as agi from "../agi";
 import * as _debug from "debug";
 let debug = _debug("_fromDongle/call");
 
+//TODO the volume should be increased on the SIP side
 export const gain = `${4000}`;
 
 export const jitterBuffer = {
@@ -70,6 +71,8 @@ export async function call(channel: AGIChannel) {
             debug("set automatic gain control rx", { gain });
             await _.setVariable("AGC(rx)", gain);
 
+            //TODO: Increase volume on TX
+
         }
     );
 
@@ -81,6 +84,5 @@ export async function call(channel: AGIChannel) {
 
 
     debug("Call ended");
-
 
 }

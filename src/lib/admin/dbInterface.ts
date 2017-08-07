@@ -111,7 +111,7 @@ export namespace dbAsterisk {
         async (callback?): Promise<Contact[]> => {
 
             let contacts: Contact[] = await query(
-                "SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM `ps_contacts`"
+                "SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM ps_contacts"
             );
 
             for (let contact of contacts) {
@@ -124,6 +124,32 @@ export namespace dbAsterisk {
 
         }
     );
+
+    //TODO: to test
+    export const queryLastConnectionTimestampOfDonglesEndpoint = execQueue(cluster, group,
+        async (endpoint: string, callback?): Promise<number> => {
+
+            let timestamp: number;
+
+            try {
+
+                let [{ set_var }] = await query(
+                    "SELECT `set_var` FROM ps_endpoints WHERE `id`=?", [endpoint]
+                );
+
+                timestamp= parseInt(set_var.split("=")[1]);
+
+            } catch (error) {
+
+                timestamp= 0;
+
+            }
+
+            callback(timestamp);
+            return null as any;
+
+        }
+    )
 
     export const deleteContact = execQueue(cluster, group,
         async (id: string, callback?): Promise<boolean> => {
@@ -187,7 +213,8 @@ export namespace dbAsterisk {
                     "direct_media_method": null,
                     "connected_line_method": null,
                     "transport": "transport-tcp",
-                    "callerid_tag": null
+                    "callerid_tag": null,
+                    "set_var": `LAST_CONNECTION_TIMESTAMP=${Date.now()}`
                 });
 
                 sql += "\n" + _sql;
@@ -268,7 +295,7 @@ export namespace dbSemasim {
 
             debug("enter add contact if new");
 
-            let instanceid= Contact.readInstanceId(contact);
+            let instanceid = Contact.readInstanceId(contact);
 
             let dongles_imei = contact.endpoint;
 
@@ -307,9 +334,9 @@ export namespace dbSemasim {
 
         debug("2");
 
-        let [{id}] = await query(
+        let [{ id }] = await query(
             "SELECT `id` FROM `notifications` WHERE `dongles_imei`=? AND `date`=?",
-            [dongles_imei, date ]
+            [dongles_imei, date]
         );
 
         debug("3");
@@ -318,9 +345,9 @@ export namespace dbSemasim {
 
     }
 
-    export function addNotificationAsUndelivered( notification: Notification): Promise<void>;
-    export function addNotificationAsUndelivered( notification: Notification, contact: Contact): Promise<void>;
-    export function addNotificationAsUndelivered( ...inputs: any[]): Promise<void>{
+    export function addNotificationAsUndelivered(notification: Notification): Promise<void>;
+    export function addNotificationAsUndelivered(notification: Notification, contact: Contact): Promise<void>;
+    export function addNotificationAsUndelivered(...inputs: any[]): Promise<void> {
         return _addNotificationAsUndelivered_(inputs[0], inputs[1]);
     }
 

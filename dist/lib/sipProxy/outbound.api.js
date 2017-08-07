@@ -40,6 +40,7 @@ var sip = require("./sip");
 var firebase = require("../admin/firebase");
 var outbound_1 = require("./outbound");
 var inbound_1 = require("./inbound");
+var inboundApi = require("./inbound.api");
 var _debug = require("debug");
 var debug = _debug("_sipProxy/outbound.api");
 function startListening(deviceSocket) {
@@ -56,17 +57,18 @@ function startListening(deviceSocket) {
                         _a = method;
                         switch (_a) {
                             case claimDongle.methodName: return [3 /*break*/, 1];
-                            case wakeUpUserAgent.methodName: return [3 /*break*/, 2];
+                            case wakeUpUserAgent.methodName: return [3 /*break*/, 3];
                         }
-                        return [3 /*break*/, 4];
-                    case 1:
-                        claimDongle.handle(payload, deviceSocket);
-                        return [3 /*break*/, 4];
-                    case 2: return [4 /*yield*/, wakeUpUserAgent.handle(payload)];
-                    case 3:
-                        response = _b.sent();
-                        return [3 /*break*/, 4];
+                        return [3 /*break*/, 5];
+                    case 1: return [4 /*yield*/, claimDongle.handle(payload, deviceSocket)];
+                    case 2:
+                        _b.sent();
+                        return [3 /*break*/, 5];
+                    case 3: return [4 /*yield*/, wakeUpUserAgent.handle(payload)];
                     case 4:
+                        response = _b.sent();
+                        return [3 /*break*/, 5];
+                    case 5:
                         sendResponse(response);
                         return [2 /*return*/];
                 }
@@ -78,10 +80,40 @@ exports.startListening = startListening;
 var claimDongle;
 (function (claimDongle) {
     claimDongle.methodName = "claimDongle";
-    function handle(_a, deviceSocket) {
+    function handle(_a, newDeviceSocket) {
         var imei = _a.imei;
-        debug("Device ip: " + deviceSocket.remoteAddress + " claimed dongle " + imei);
-        outbound_1.deviceSockets.add(imei, deviceSocket);
+        return __awaiter(this, void 0, void 0, function () {
+            var oldDeviceSocket, oldResp, newResp;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        oldDeviceSocket = outbound_1.deviceSockets.get(imei);
+                        if (!oldDeviceSocket) {
+                            outbound_1.deviceSockets.add(imei, newDeviceSocket);
+                            return [2 /*return*/];
+                        }
+                        return [4 /*yield*/, inboundApi.isDongleConnected.run(oldDeviceSocket, imei)];
+                    case 1:
+                        oldResp = _a.sent();
+                        if (oldResp.isConnected) {
+                            debug("Attack attempt, we refuse to associate socket to this dongle");
+                            return [2 /*return*/];
+                        }
+                        return [4 /*yield*/, inboundApi.isDongleConnected.run(newDeviceSocket, imei)];
+                    case 2:
+                        newResp = _a.sent();
+                        if (newResp.isConnected) {
+                            outbound_1.deviceSockets.add(imei, newDeviceSocket);
+                            return [2 /*return*/];
+                        }
+                        if (newResp.lastConnectionTimestamp > oldResp.lastConnectionTimestamp) {
+                            outbound_1.deviceSockets.add(imei, newDeviceSocket);
+                            return [2 /*return*/];
+                        }
+                        return [2 /*return*/];
+                }
+            });
+        });
     }
     claimDongle.handle = handle;
     function run(imei) {

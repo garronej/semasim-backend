@@ -4,6 +4,7 @@ import { Contact } from "../admin";
 import * as firebase from "../admin/firebase";
 import { deviceSockets, qualifyContact } from "./outbound";
 import { proxySocket } from "./inbound";
+import * as inboundApi from "./inbound.api";
 
 import * as _debug from "debug";
 let debug = _debug("_sipProxy/outbound.api");
@@ -19,7 +20,7 @@ export function startListening(deviceSocket: sip.Socket) {
 
             switch (method) {
                 case claimDongle.methodName:
-                    claimDongle.handle(payload as claimDongle.Request, deviceSocket)
+                    await claimDongle.handle(payload as claimDongle.Request, deviceSocket)
                     break;
                 case wakeUpUserAgent.methodName:
                     response= await wakeUpUserAgent.handle(payload as wakeUpUserAgent.Request);
@@ -37,19 +38,50 @@ export namespace claimDongle {
 
     export const methodName = "claimDongle";
 
-    export interface Request extends Record<string, any> {
+    export interface Request {
         imei: string;
     }
 
-    export function handle(
+    export async function handle(
         { imei }: Request,
-        deviceSocket: sip.Socket
+        newDeviceSocket: sip.Socket
     ) {
-        debug(`Device ip: ${deviceSocket.remoteAddress} claimed dongle ${imei}`);
-        deviceSockets.add(imei, deviceSocket);
+
+
+        let oldDeviceSocket = deviceSockets.get(imei);
+
+        if (!oldDeviceSocket) {
+            deviceSockets.add(imei, newDeviceSocket);
+            return;
+        }
+
+        let oldResp= await inboundApi.isDongleConnected.run(oldDeviceSocket, imei );
+
+        if( oldResp.isConnected ){
+            debug("Attack attempt, we refuse to associate socket to this dongle");
+            return;
+        }
+
+
+        let newResp= await inboundApi.isDongleConnected.run(newDeviceSocket, imei);
+
+        if( newResp.isConnected ){
+            deviceSockets.add(imei, newDeviceSocket);
+            return;
+        }
+
+
+        if( newResp.lastConnectionTimestamp > oldResp.lastConnectionTimestamp ){
+            deviceSockets.add(imei, newDeviceSocket);
+            return;
+        }
+
+
     }
 
-    export async function run(imei: string) {
+    export async function run(
+        imei: string,
+    ) {
 
         let payload: Request = { imei };
 
@@ -65,11 +97,11 @@ export namespace wakeUpUserAgent {
 
     export const methodName = "wakeUpUserAgent";
 
-    export interface Request extends Record<string, any> {
-        contact: Contact
+    export interface Request {
+        contact: Contact;
     }
 
-    export interface Response extends Record<string, any> {
+    export interface Response {
         status: "REACHABLE" | "PUSH_NOTIFICATION_SENT" | "FAIL";
     }
 
@@ -81,7 +113,7 @@ export namespace wakeUpUserAgent {
 
         let reached = await qualifyContact(contact);
 
-        if (reached){
+        if (reached) {
             debug("Directly reachable");
             return { "status": "REACHABLE" };
         }

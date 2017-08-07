@@ -148,7 +148,7 @@ var dbAsterisk;
         var contacts, contacts_1, contacts_1_1, contact, e_1, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0: return [4 /*yield*/, query("SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM `ps_contacts`")];
+                case 0: return [4 /*yield*/, query("SELECT `id`,`uri`,`path`,`endpoint`,`user_agent` FROM ps_contacts")];
                 case 1:
                     contacts = _b.sent();
                     try {
@@ -167,6 +167,28 @@ var dbAsterisk;
                     }
                     callback(contacts);
                     return [2 /*return*/, contacts];
+            }
+        });
+    }); });
+    //TODO: to test
+    dbAsterisk.queryLastConnectionTimestampOfDonglesEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, callback) { return __awaiter(_this, void 0, void 0, function () {
+        var timestamp, _a, set_var, error_1;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    _b.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, query("SELECT `set_var` FROM ps_endpoints WHERE `id`=?", [endpoint])];
+                case 1:
+                    _a = __read.apply(void 0, [_b.sent(), 1]), set_var = _a[0].set_var;
+                    timestamp = parseInt(set_var.split("=")[1]);
+                    return [3 /*break*/, 3];
+                case 2:
+                    error_1 = _b.sent();
+                    timestamp = 0;
+                    return [3 /*break*/, 3];
+                case 3:
+                    callback(timestamp);
+                    return [2 /*return*/, null];
             }
         });
     }); });
@@ -221,7 +243,8 @@ var dbAsterisk;
                             "direct_media_method": null,
                             "connected_line_method": null,
                             "transport": "transport-tcp",
-                            "callerid_tag": null
+                            "callerid_tag": null,
+                            "set_var": "LAST_CONNECTION_TIMESTAMP=" + Date.now()
                         }), 2), _sql = _a[0], _values = _a[1];
                         sql += "\n" + _sql;
                         values = __spread(values, _values);

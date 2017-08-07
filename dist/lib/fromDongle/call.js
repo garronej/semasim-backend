@@ -40,6 +40,7 @@ var admin = require("../admin");
 var agi = require("../agi");
 var _debug = require("debug");
 var debug = _debug("_fromDongle/call");
+//TODO the volume should be increased on the SIP side
 exports.gain = "" + 4000;
 exports.jitterBuffer = {
     //type: "fixed",

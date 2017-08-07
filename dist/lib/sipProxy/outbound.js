@@ -169,7 +169,8 @@ function onClientConnection(clientSocketRaw) {
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
     console.log((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);
-    var boundDeviceSocket = undefined;
+    var boundDeviceSocket = null;
+    var imei = "";
     /*
     clientSocket.evtPacket.attach(sipPacket =>
         console.log("From Client:\n", sip.stringify(sipPacket).yellow, "\n\n")
@@ -181,30 +182,32 @@ function onClientConnection(clientSocketRaw) {
     clientSocket.evtRequest.attachOnce(function (firstRequest) {
         try {
             var parsedFromUri = sip.parseUri(firstRequest.headers.from.uri);
-            var imei = parsedFromUri.user;
-            if (!imei)
+            if (!parsedFromUri.user)
                 throw new Error("no imei");
+            imei = parsedFromUri.user;
             console.log((flowToken + " Client socket, target dongle imei: " + imei).yellow);
-            boundDeviceSocket = exports.deviceSockets.get(imei);
-            if (!boundDeviceSocket)
+            if (!exports.deviceSockets.get(imei))
                 throw new Error("device socket not found");
+            boundDeviceSocket = exports.deviceSockets.get(imei);
+            console.log((flowToken + " Found path to device ip: " + boundDeviceSocket.remoteAddress).yellow);
         }
         catch (error) {
-            console.log("Can't route to proxy: ".yellow, error.message);
+            console.log("Can't route to proxy: ".red, error.message);
             //Should send 480 temporary unavailable
             clientSocket.destroy();
             return;
         }
         boundDeviceSocket.evtClose.attachOnce(clientSocket, function () {
             console.log((flowToken + " Device Socket bound closed, destroying client socket").yellow);
-            boundDeviceSocket = undefined;
+            boundDeviceSocket = null;
             clientSocket.destroy();
         });
     });
     clientSocket.evtRequest.attach(function (sipRequest) {
-        if (!boundDeviceSocket)
+        if (boundDeviceSocket !== exports.deviceSockets.get(imei)) {
+            clientSocket.destroy();
             return;
-        //sipRequest.headers.via[0].port= clientSocket.remotePort;
+        }
         boundDeviceSocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
         var displayedHostname = "outbound-proxy.socket";
         if (sipRequest.method === "REGISTER") {
@@ -216,8 +219,10 @@ function onClientConnection(clientSocketRaw) {
         boundDeviceSocket.write(sipRequest);
     });
     clientSocket.evtResponse.attach(function (sipResponse) {
-        if (!boundDeviceSocket)
+        if (boundDeviceSocket !== exports.deviceSockets.get(imei)) {
+            clientSocket.destroy();
             return;
+        }
         boundDeviceSocket.rewriteRecordRoute(sipResponse, "outbound-proxy.socket");
         sipResponse.headers.via.shift();
         boundDeviceSocket.write(sipResponse);

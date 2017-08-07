@@ -53,8 +53,10 @@ function call(channel) {
                     return [4 /*yield*/, _.setVariable("AGC(rx)", fromDongle_1.gain)];
                 case 2:
                     _a.sent();
+                    //TODO: Increase volume on TX
                     return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension])];
                 case 3:
+                    //TODO: Increase volume on TX
                     _a.sent();
                     debug("call terminated");
                     return [2 /*return*/];

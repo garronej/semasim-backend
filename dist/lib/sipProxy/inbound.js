@@ -52,6 +52,7 @@ var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var os = require("os");
 var outbound = require("./outbound");
 var outboundApi = require("./outbound.api");
+var inbound_api_1 = require("./inbound.api");
 var admin = require("../admin");
 var admin_1 = require("../admin");
 var tls = require("tls");
@@ -224,6 +225,7 @@ function start() {
                     switch (_d.label) {
                         case 0:
                             debug("connection established with proxy");
+                            inbound_api_1.startListening();
                             _d.label = 1;
                         case 1:
                             _d.trys.push([1, 6, 7, 8]);

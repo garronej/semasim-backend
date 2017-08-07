@@ -19,6 +19,8 @@ export async function call(channel: AGIChannel) {
 
     await _.setVariable("AGC(rx)", gain);
 
+    //TODO: Increase volume on TX
+
     await _.exec("Dial", [`Dongle/i:${imei}/${channel.request.extension}`]);
 
     debug("call terminated");
