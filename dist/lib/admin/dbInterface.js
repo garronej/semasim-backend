@@ -119,18 +119,17 @@ var dbAsterisk;
         return queryOnConnection(connection, sql, values);
     }
     dbAsterisk.queryEndpoints = ts_exec_queue_1.execQueue(cluster, group, function (callback) { return __awaiter(_this, void 0, void 0, function () {
-        var res, endpoints;
+        var endpoints;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, query("SELECT `id`,`set_var` FROM `ps_endpoints`")];
                 case 1:
-                    res = _a.sent();
-                    endpoints = res.map(function (_a) {
-                        var id = _a.id, set_var = _a.set_var;
-                        return ({ "endpoint": id, "lastUpdated": new Date(parseInt(set_var.split("=")[1])) });
+                    endpoints = (_a.sent()).map(function (_a) {
+                        var id = _a.id;
+                        return id;
                     });
                     callback(endpoints);
-                    return [2 /*return*/, endpoints];
+                    return [2 /*return*/, null];
             }
         });
     }); });
@@ -185,7 +184,7 @@ var dbAsterisk;
         });
     }); });
     //TODO: isDongle connected is a stupid option
-    dbAsterisk.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, isDongleConnected, callback) { return __awaiter(_this, void 0, void 0, function () {
+    dbAsterisk.addOrUpdateEndpoint = ts_exec_queue_1.execQueue(cluster, group, function (endpoint, password, callback) { return __awaiter(_this, void 0, void 0, function () {
         var sql, values;
         return __generator(this, function (_a) {
             switch (_a.label) {
@@ -204,39 +203,6 @@ var dbAsterisk;
                         values = __spread(values, _values);
                     })();
                     (function () {
-                        /*
-                        let [_sql, _values] = buildInsertQuery("ps_endpoints", {
-                            "id": endpoint,
-                            "disallow": "all",
-                            "allow": "alaw,ulaw",
-                            "context": callContext,
-                            "message_context": messageContext,
-                            "subscribe_context": subscribeContext(endpoint),
-                            "aors": endpoint,
-                            "auth": endpoint,
-                            "force_rport": null,
-                            "from_domain": "semasim.com",
-                            "ice_support": "yes",
-                            "direct_media": null,
-                            "asymmetric_rtp_codec": null,
-                            "rtcp_mux": null,
-                            "direct_media_method": null,
-                            "connected_line_method": null,
-                            "transport": "transport-tcp",
-                            "callerid_tag": null
-                        });
-        
-                        if (isDongleConnected) {
-        
-                            _sql += [
-                                "UPDATE `ps_endpoints` SET `set_var` = ? WHERE `id` = ?",
-                                ";"
-                            ].join("\n");
-        
-                            _values = [..._values, `LAST_UPDATED=${Date.now()}`, endpoint];
-        
-                        }
-                        */
                         var _a = __read(buildInsertQuery("ps_endpoints", {
                             "id": endpoint,
                             "disallow": "all",
@@ -265,7 +231,7 @@ var dbAsterisk;
                             "id": endpoint,
                             "auth_type": "userpass",
                             "username": endpoint,
-                            "password": "password",
+                            "password": password,
                             "realm": "semasim"
                         }), 2), _sql = _a[0], _values = _a[1];
                         sql += "\n" + _sql;

@@ -139,7 +139,3 @@ function buildUrl(methodName) {
 function buildPostData(data) {
     return { data: data, "headers": { "Content-Type": "application/json" } };
 }
-/*
-
-
-                */

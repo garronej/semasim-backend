@@ -198,16 +198,9 @@ var Socket = (function () {
     Socket.prototype.write = function (sipPacket) {
         if (this.evtClose.postCount)
             return false;
-        //TODO: wait response of: https://support.counterpath.com/topic/what-is-the-use-of-the-first-options-request-send-before-registration
         if (matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0)
             return false;
-        try {
-            return this.connection.write(exports.stringify(sipPacket));
-        }
-        catch (error) {
-            console.log("error while stringifying: ", sipPacket);
-            throw error;
-        }
+        return this.connection.write(exports.stringify(sipPacket));
     };
     Socket.prototype.destroy = function () {
         /*
@@ -339,14 +332,10 @@ exports.Socket = Socket;
 var Store = (function () {
     function Store() {
         this.record = {};
-        this.timestampRecord = {};
     }
-    Store.prototype.add = function (key, socket, timestamp) {
+    Store.prototype.add = function (key, socket) {
         var _this = this;
-        if (timestamp === undefined)
-            timestamp = Date.now();
         this.record[key] = socket;
-        this.timestampRecord[key] = timestamp;
         socket.evtClose.attachOnce(function () {
             delete _this.record[key];
         });
@@ -378,9 +367,6 @@ var Store = (function () {
         }
         return out;
         var e_3, _c;
-    };
-    Store.prototype.getTimestamp = function (key) {
-        return this.timestampRecord[key] || -1;
     };
     Store.prototype.destroyAll = function () {
         try {

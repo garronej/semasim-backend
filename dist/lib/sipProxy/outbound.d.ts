@@ -1,3 +1,4 @@
+import * as sip from "./sip";
 import { Contact } from "../admin";
 import "colors";
 export declare const listeningPortForDevices = 50610;
@@ -11,4 +12,5 @@ export declare function getTlsOptions(): {
 };
 export declare function extraParamFlowToken(flowToken: string): Record<string, string>;
 export declare function qualifyContact(contact: Contact, timeout?: number): Promise<boolean>;
+export declare let deviceSockets: sip.Store;
 export declare function startServer(): Promise<void>;

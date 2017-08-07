@@ -39,11 +39,11 @@ require("rejection-tracker").main(__dirname, "..", "..", "..");
 var fs = require("fs");
 var path = require("path");
 var net = require("net");
-var shared = require("./shared");
 var md5 = require("md5");
 var dns = require("dns");
 var sip = require("./sip");
 var tls = require("tls");
+var outbound_api_1 = require("./outbound.api");
 var admin_1 = require("../admin");
 require("colors");
 exports.listeningPortForDevices = 50610;
@@ -129,7 +129,6 @@ function qualifyContact(contact, timeout) {
     });
 }
 exports.qualifyContact = qualifyContact;
-var deviceSockets;
 var clientSockets;
 function startServer() {
     return __awaiter(this, void 0, void 0, function () {
@@ -139,7 +138,7 @@ function startServer() {
                 case 0: return [4 /*yield*/, getPublicIp()];
                 case 1:
                     _a.sent();
-                    deviceSockets = new sip.Store();
+                    exports.deviceSockets = new sip.Store();
                     clientSockets = new sip.Store();
                     options = getTlsOptions();
                     s1 = net.createServer()
@@ -186,7 +185,7 @@ function onClientConnection(clientSocketRaw) {
             if (!imei)
                 throw new Error("no imei");
             console.log((flowToken + " Client socket, target dongle imei: " + imei).yellow);
-            boundDeviceSocket = deviceSockets.get(imei);
+            boundDeviceSocket = exports.deviceSockets.get(imei);
             if (!boundDeviceSocket)
                 throw new Error("device socket not found");
         }
@@ -241,15 +240,7 @@ function onDeviceConnection(deviceSocketRaw) {
         console.log("From device:\n", chunk.grey, "\n\n")
     );
     */
-    deviceSocket.evtRequest.attachExtract(function (sipRequest) { return shared.Message.matchSipRequest(sipRequest); }, function (sipRequest) {
-        var message = shared.Message.parseSipRequest(sipRequest);
-        if (shared.Message.NotifyKnownDongle.match(message)) {
-            if (deviceSockets.getTimestamp(message.imei) < message.lastConnection) {
-                console.log(("Device socket handle dongle imei: " + message.imei).grey);
-                deviceSockets.add(message.imei, deviceSocket, message.lastConnection);
-            }
-        }
-    });
+    outbound_api_1.startListening(deviceSocket);
     deviceSocket.evtRequest.attach(function (sipRequest) {
         var flowToken = sipRequest.headers.via[0].params[exports.flowTokenKey];
         var clientSocket = clientSockets.get(flowToken);

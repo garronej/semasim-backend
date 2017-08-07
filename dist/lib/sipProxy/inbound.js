@@ -49,38 +49,39 @@ var net = require("net");
 var sip = require("./sip");
 var ts_events_extended_1 = require("ts-events-extended");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var shared = require("./shared");
 var os = require("os");
 var outbound = require("./outbound");
+var outboundApi = require("./outbound.api");
 var admin = require("../admin");
 var admin_1 = require("../admin");
 var tls = require("tls");
 require("colors");
 var _debug = require("debug");
 var debug = _debug("_sipProxy/inbound");
-//TODO change that otherwith only work on rasperry pi
+//TODO change that otherwise only work on raspberry pi
 var localIp = os.networkInterfaces()["eth0"].filter(function (_a) {
     var family = _a.family;
     return family === "IPv4";
 })[0]["address"];
 exports.evtIncomingMessage = new ts_events_extended_1.SyncEvent();
 exports.evtOutgoingMessage = new ts_events_extended_1.SyncEvent();
-var proxySocket;
 function start() {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        function notifyHandledDongle(imei, lastConnection) {
+        function notifyHandledDongle(imei) {
             return __awaiter(this, void 0, void 0, function () {
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            if (!!proxySocket.evtConnect.postCount) return [3 /*break*/, 2];
-                            return [4 /*yield*/, proxySocket.evtConnect.waitFor()];
+                            if (!!exports.proxySocket.evtConnect.postCount) return [3 /*break*/, 2];
+                            return [4 /*yield*/, exports.proxySocket.evtConnect.waitFor()];
                         case 1:
                             _a.sent();
                             _a.label = 2;
-                        case 2:
-                            proxySocket.write(shared.Message.NotifyKnownDongle.buildSipRequest(imei, lastConnection));
+                        case 2: return [4 /*yield*/, outboundApi.claimDongle.run(imei)];
+                        case 3:
+                            _a.sent();
+                            debug("Dongle Successfully claimed");
                             return [2 /*return*/];
                     }
                 });
@@ -135,11 +136,11 @@ function start() {
         return __generator(this, function (_a) {
             debug("(re)Staring !");
             exports.asteriskSockets = new sip.Store();
-            proxySocket = new sip.Socket(tls.connect({
+            exports.proxySocket = new sip.Socket(tls.connect({
                 "host": outbound.hostname,
                 "port": outbound.listeningPortForDevices
             }));
-            proxySocket.setKeepAlive(true);
+            exports.proxySocket.setKeepAlive(true);
             /*
             proxySocket.evtPacket.attach(sipPacket =>
                 console.log("From proxy:\n", sip.stringify(sipPacket).yellow, "\n\n")
@@ -148,7 +149,7 @@ function start() {
                 console.log("From proxy:\n", chunk.yellow, "\n\n")
             );
             */
-            proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
+            exports.proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
                 var _this = this;
                 var flowToken, asteriskSocket, branch;
                 return __generator(this, function (_a) {
@@ -157,7 +158,7 @@ function start() {
                             flowToken = sipRequest.headers.via[0].params[outbound.flowTokenKey];
                             asteriskSocket = exports.asteriskSockets.get(flowToken);
                             if (!asteriskSocket)
-                                asteriskSocket = createAsteriskSocket(flowToken, proxySocket);
+                                asteriskSocket = createAsteriskSocket(flowToken, exports.proxySocket);
                             if (!!asteriskSocket.evtConnect.postCount) return [3 /*break*/, 2];
                             return [4 /*yield*/, asteriskSocket.evtConnect.waitFor()];
                         case 1:
@@ -202,7 +203,7 @@ function start() {
                     }
                 });
             }); });
-            proxySocket.evtResponse.attach(function (sipResponse) {
+            exports.proxySocket.evtResponse.attach(function (sipResponse) {
                 var flowToken = sipResponse.headers.via[0].params[outbound.flowTokenKey];
                 var asteriskSocket = exports.asteriskSockets.get(flowToken);
                 if (!asteriskSocket)
@@ -211,41 +212,41 @@ function start() {
                 sipResponse.headers.via.shift();
                 asteriskSocket.write(sipResponse);
             });
-            proxySocket.evtClose.attachOnce(function () {
+            exports.proxySocket.evtClose.attachOnce(function () {
                 //TODO see what is the state of contacts
                 debug("proxy socket closed, destroying all asterisk socket, waiting and restarting");
                 exports.asteriskSockets.destroyAll();
                 setTimeout(function () { return start(); }, 3000);
             });
-            proxySocket.evtConnect.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
-                var _a, _b, _c, endpoint, lastUpdated, e_1_1, e_1, _d;
-                return __generator(this, function (_e) {
-                    switch (_e.label) {
+            exports.proxySocket.evtConnect.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
+                var _a, _b, imei, e_1_1, e_1, _c;
+                return __generator(this, function (_d) {
+                    switch (_d.label) {
                         case 0:
                             debug("connection established with proxy");
-                            _e.label = 1;
+                            _d.label = 1;
                         case 1:
-                            _e.trys.push([1, 6, 7, 8]);
-                            return [4 /*yield*/, admin.dbAsterisk.queryEndpoints()];
+                            _d.trys.push([1, 6, 7, 8]);
+                            return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getActiveDongles()];
                         case 2:
-                            _a = __values.apply(void 0, [_e.sent()]), _b = _a.next();
-                            _e.label = 3;
+                            _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                            _d.label = 3;
                         case 3:
                             if (!!_b.done) return [3 /*break*/, 5];
-                            _c = _b.value, endpoint = _c.endpoint, lastUpdated = _c.lastUpdated;
-                            notifyHandledDongle(endpoint, lastUpdated.getTime());
-                            _e.label = 4;
+                            imei = _b.value.imei;
+                            notifyHandledDongle(imei);
+                            _d.label = 4;
                         case 4:
                             _b = _a.next();
                             return [3 /*break*/, 3];
                         case 5: return [3 /*break*/, 8];
                         case 6:
-                            e_1_1 = _e.sent();
+                            e_1_1 = _d.sent();
                             e_1 = { error: e_1_1 };
                             return [3 /*break*/, 8];
                         case 7:
                             try {
-                                if (_b && !_b.done && (_d = _a.return)) _d.call(_a);
+                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                             }
                             finally { if (e_1) throw e_1.error; }
                             return [7 /*endfinally*/];
@@ -253,7 +254,10 @@ function start() {
                     }
                 });
             }); });
-            chan_dongle_extended_client_1.DongleExtendedClient.localhost().evtDongleConnect.attach(function (imei) { return notifyHandledDongle(imei, Date.now()); });
+            chan_dongle_extended_client_1.DongleExtendedClient.localhost().evtNewActiveDongle.attach(function (_a) {
+                var imei = _a.imei;
+                return notifyHandledDongle(imei);
+            });
             return [2 /*return*/];
         });
     });

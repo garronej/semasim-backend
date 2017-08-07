@@ -4,7 +4,7 @@ import * as sip from "../sipProxy/sip";
 import { flowTokenKey } from "../sipProxy/outbound";
 import * as dbInterface from "./dbInterface";
 import { asteriskSockets } from "../sipProxy/inbound";
-import * as webApi from "../sipProxy/outbound.webApi";
+import * as outboundApi from "../sipProxy/outbound.api";
 
 import { messageContext } from "./dbInterface";
 
@@ -33,11 +33,22 @@ export namespace Contact {
 
     }
 
-    export function readInstanceId(contact: Contact): string {
-
-        return JSON.parse((new Buffer(contact.user_agent, "base64")).toString("utf8")).instanceId;
-
+    function decodeUserAgentFieldValue(contact: Contact): { 
+        endpoint: string,
+        instanceId: string,
+        realUserAgent: string
+    }{
+        return JSON.parse((new Buffer(contact.user_agent, "base64")).toString("utf8"));
     }
+
+    export function readInstanceId(contact: Contact): string {
+        return decodeUserAgentFieldValue(contact).instanceId;
+    }
+
+    export function readUserAgent(contact: Contact): string {
+        return decodeUserAgentFieldValue(contact).realUserAgent;
+    }
+
 
     export function readFlowToken(contact: Contact): string {
 
@@ -52,6 +63,26 @@ export namespace Contact {
         return sip.parsePath(contact.path)[0].uri.port;
 
     }
+
+    export function pretty(contact: Contact): Record<string, string>{
+
+        let parsedUri= sip.parseUri(contact.uri);
+
+        let pnTok= parsedUri.params["pn-tok"];
+
+        if( pnTok )
+            parsedUri.params["pn-tok"] = pnTok.substring(0,3) + "..." + pnTok.substring(pnTok.length - 3 );
+
+        return {
+            "uri": sip.stringifyUri(parsedUri),
+            "path": contact.path,
+            "instanceId": readInstanceId(contact),
+            "userAgent": readUserAgent(contact)
+        };
+
+    }
+
+
 
 
 }
@@ -191,7 +222,7 @@ export async function wakeUpContact(
     timeout?: number
 ): Promise<Contact> {
 
-    let statusMessage = await webApi.wakeUpDevice.run(contact);
+    let statusMessage = await outboundApi.wakeUpUserAgent.run(contact);
 
     switch (statusMessage) {
         case "REACHABLE":
@@ -220,7 +251,6 @@ export async function wakeUpContact(
             }
 
     }
-
 
 }
 
@@ -253,7 +283,7 @@ export function getEvtNewContact(): SyncEvent<Contact> {
 
             for (let contactToDelete of contactsToDelete) {
 
-                debug("we have other socket for the same endpoint+client", { contactToDelete });
+                debug("we had a contact for this UA, we delete it", Contact.pretty(contactToDelete));
 
                 await dbInterface.dbAsterisk.deleteContact(contactToDelete.id);
 
@@ -263,10 +293,7 @@ export function getEvtNewContact(): SyncEvent<Contact> {
                     ({ localPort }) => localPort === astSocketSrcPort
                 ).map(asteriskSocket => asteriskSocket.destroy());
 
-
             }
-
-            await dbInterface.dbSemasim.addContactIfNew(newContact);
 
             evtNewContact!.post(newContact);
 

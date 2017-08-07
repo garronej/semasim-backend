@@ -4,14 +4,11 @@ export declare const callContext = "from-sip-call";
 export declare const messageContext = "from-sip-message";
 export declare const subscribeContext: (imei: string) => string;
 export declare namespace dbAsterisk {
-    const queryEndpoints: ((callback?: any) => Promise<{
-        endpoint: string;
-        lastUpdated: Date;
-    }[]>) & ExecQueue;
+    const queryEndpoints: ((callback?: any) => Promise<string[]>) & ExecQueue;
     const truncateContacts: ((callback?: any) => Promise<void>) & ExecQueue;
     const queryContacts: ((callback?: any) => Promise<Contact[]>) & ExecQueue;
     const deleteContact: ((id: string, callback?: any) => Promise<boolean>) & ExecQueue;
-    const addOrUpdateEndpoint: ((endpoint: string, isDongleConnected: boolean, callback?: any) => Promise<void>) & ExecQueue;
+    const addOrUpdateEndpoint: ((endpoint: string, password: string, callback?: any) => Promise<void>) & ExecQueue;
 }
 export declare namespace dbSemasim {
     const addDongleIfNew: ((imei: string, callback?: any) => Promise<void>) & ExecQueue;

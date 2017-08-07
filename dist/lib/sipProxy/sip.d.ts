@@ -45,13 +45,11 @@ export declare class Socket {
 }
 export declare class Store {
     private readonly record;
-    private readonly timestampRecord;
     constructor();
-    add(key: string, socket: Socket, timestamp?: number): void;
+    add(key: string, socket: Socket): void;
     get(key: string): Socket | undefined;
     readonly keys: string[];
     getAll(): Socket[];
-    getTimestamp(key: string): number;
     destroyAll(): void;
 }
 export declare const stringify: (sipPacket: Packet) => string;

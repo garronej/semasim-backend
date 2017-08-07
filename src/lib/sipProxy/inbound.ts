@@ -2,10 +2,9 @@ import * as net from "net";
 import * as sip from "./sip";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
-import * as shared from "./shared";
 import * as os from "os";
 import * as outbound from "./outbound";
-import { UserAgentFakeWrapper } from "../admin";
+import * as outboundApi from "./outbound.api";
 
 import * as admin from "../admin";
 import { Contact } from "../admin";
@@ -17,7 +16,7 @@ import "colors";
 import * as _debug from "debug";
 let debug = _debug("_sipProxy/inbound");
 
-//TODO change that otherwith only work on rasperry pi
+//TODO change that otherwise only work on raspberry pi
 const localIp= os.networkInterfaces()["eth0"].filter( ({family})=> family === "IPv4" )[0]["address"];
 
 export const evtIncomingMessage = new SyncEvent<{
@@ -32,7 +31,7 @@ export const evtOutgoingMessage = new SyncEvent<{
 
 
 export let asteriskSockets: sip.Store;
-let proxySocket: sip.Socket;
+export let proxySocket: sip.Socket;
 
 export async function start() {
 
@@ -154,23 +153,21 @@ export async function start() {
 
         debug("connection established with proxy");
 
-        for (let { endpoint, lastUpdated } of await admin.dbAsterisk.queryEndpoints())
-            notifyHandledDongle(endpoint, lastUpdated.getTime());
+        for (let { imei } of await DongleExtendedClient.localhost().getActiveDongles())
+            notifyHandledDongle( imei );
 
     });
 
-    DongleExtendedClient.localhost().evtDongleConnect.attach(imei => notifyHandledDongle(imei, Date.now()));
+    DongleExtendedClient.localhost().evtNewActiveDongle.attach(({imei}) => notifyHandledDongle(imei));
 
-    async function notifyHandledDongle(imei: string, lastConnection: number) {
+    async function notifyHandledDongle(imei: string ) {
 
         if (!proxySocket.evtConnect.postCount)
             await proxySocket.evtConnect.waitFor();
 
-        proxySocket.write(
-            shared.Message.NotifyKnownDongle.buildSipRequest(
-                imei, lastConnection
-            )
-        );
+        await outboundApi.claimDongle.run(imei);
+
+        debug("Dongle Successfully claimed");
 
     }
 
@@ -225,7 +222,6 @@ export async function start() {
                     () => evtReceived.post()
                 )
             }
-
 
             proxySocket.write(sipRequest);
 

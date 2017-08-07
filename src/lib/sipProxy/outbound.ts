@@ -4,12 +4,11 @@ import * as fs from "fs";
 import * as path from "path";
 import * as net from "net";
 import { SyncEvent } from "ts-events-extended";
-import * as shared from "./shared";
 import * as md5 from "md5";
 import * as dns from "dns";
 import * as sip from "./sip";
 import * as tls from "tls";
-import * as webApi from "./outbound.webApi";
+import { startListening as apiStartListening } from "./outbound.api";
 import { Contact } from "../admin";
 
 import "colors";
@@ -109,7 +108,7 @@ export async function qualifyContact(
 }
 
 
-let deviceSockets: sip.Store;
+export let deviceSockets: sip.Store;
 let clientSockets: sip.Store;
 
 export async function startServer() {
@@ -120,7 +119,6 @@ export async function startServer() {
     clientSockets = new sip.Store();
 
     let options: tls.TlsOptions = getTlsOptions();
-
 
     let s1= net.createServer()
         .on("error", error => { throw error; })
@@ -281,25 +279,7 @@ function onDeviceConnection(deviceSocketRaw: net.Socket) {
     );
     */
 
-    deviceSocket.evtRequest.attachExtract(
-        sipRequest => shared.Message.matchSipRequest(sipRequest),
-        sipRequest => {
-
-            let message = shared.Message.parseSipRequest(sipRequest);
-
-            if (shared.Message.NotifyKnownDongle.match(message)) {
-
-                if (deviceSockets.getTimestamp(message.imei) < message.lastConnection) {
-
-                    console.log(`Device socket handle dongle imei: ${message.imei}`.grey);
-
-                    deviceSockets.add(message.imei, deviceSocket, message.lastConnection);
-                }
-
-            }
-
-        }
-    );
+    apiStartListening(deviceSocket);
 
     deviceSocket.evtRequest.attach(sipRequest => {
 

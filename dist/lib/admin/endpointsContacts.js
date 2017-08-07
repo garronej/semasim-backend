@@ -51,7 +51,7 @@ var sip = require("../sipProxy/sip");
 var outbound_1 = require("../sipProxy/outbound");
 var dbInterface = require("./dbInterface");
 var inbound_1 = require("../sipProxy/inbound");
-var webApi = require("../sipProxy/outbound.webApi");
+var outboundApi = require("../sipProxy/outbound.api");
 var _debug = require("debug");
 var debug = _debug("_admin/endpointsContacts");
 var Contact;
@@ -61,10 +61,17 @@ var Contact;
         return (new Buffer(JSON.stringify(wrap), "utf8")).toString("base64");
     }
     Contact.buildValueOfUserAgentField = buildValueOfUserAgentField;
+    function decodeUserAgentFieldValue(contact) {
+        return JSON.parse((new Buffer(contact.user_agent, "base64")).toString("utf8"));
+    }
     function readInstanceId(contact) {
-        return JSON.parse((new Buffer(contact.user_agent, "base64")).toString("utf8")).instanceId;
+        return decodeUserAgentFieldValue(contact).instanceId;
     }
     Contact.readInstanceId = readInstanceId;
+    function readUserAgent(contact) {
+        return decodeUserAgentFieldValue(contact).realUserAgent;
+    }
+    Contact.readUserAgent = readUserAgent;
     function readFlowToken(contact) {
         return sip.parsePath(contact.path).pop().uri.params[outbound_1.flowTokenKey];
     }
@@ -75,6 +82,19 @@ var Contact;
         return sip.parsePath(contact.path)[0].uri.port;
     }
     Contact.readAstSocketSrcPort = readAstSocketSrcPort;
+    function pretty(contact) {
+        var parsedUri = sip.parseUri(contact.uri);
+        var pnTok = parsedUri.params["pn-tok"];
+        if (pnTok)
+            parsedUri.params["pn-tok"] = pnTok.substring(0, 3) + "..." + pnTok.substring(pnTok.length - 3);
+        return {
+            "uri": sip.stringifyUri(parsedUri),
+            "path": contact.path,
+            "instanceId": readInstanceId(contact),
+            "userAgent": readUserAgent(contact)
+        };
+    }
+    Contact.pretty = pretty;
 })(Contact = exports.Contact || (exports.Contact = {}));
 function getContactFromAstSocketSrcPort(astSocketSrcPort) {
     var _this = this;
@@ -206,7 +226,7 @@ function wakeUpContact(contact, timeout) {
         var statusMessage, _a, newlyRegisteredContact, error_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0: return [4 /*yield*/, webApi.wakeUpDevice.run(contact)];
+                case 0: return [4 /*yield*/, outboundApi.wakeUpUserAgent.run(contact)];
                 case 1:
                     statusMessage = _b.sent();
                     _a = statusMessage;
@@ -265,7 +285,7 @@ function getEvtNewContact() {
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
-                                        debug("we have other socket for the same endpoint+client", { contactToDelete: contactToDelete });
+                                        debug("we had a contact for this UA, we delete it", Contact.pretty(contactToDelete));
                                         return [4 /*yield*/, dbInterface.dbAsterisk.deleteContact(contactToDelete.id)];
                                     case 1:
                                         _a.sent();
@@ -304,9 +324,7 @@ function getEvtNewContact() {
                         }
                         finally { if (e_4) throw e_4.error; }
                         return [7 /*endfinally*/];
-                    case 9: return [4 /*yield*/, dbInterface.dbSemasim.addContactIfNew(newContact)];
-                    case 10:
-                        _b.sent();
+                    case 9:
                         evtNewContact.post(newContact);
                         return [2 /*return*/];
                 }

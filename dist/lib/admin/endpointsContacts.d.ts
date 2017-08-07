@@ -9,8 +9,10 @@ export interface Contact {
 export declare namespace Contact {
     function buildValueOfUserAgentField(endpoint: string, instanceId: string, realUserAgent: string): string;
     function readInstanceId(contact: Contact): string;
+    function readUserAgent(contact: Contact): string;
     function readFlowToken(contact: Contact): string;
     function readAstSocketSrcPort(contact: Contact): number;
+    function pretty(contact: Contact): Record<string, string>;
 }
 export declare function getContactFromAstSocketSrcPort(astSocketSrcPort: number): Promise<Contact | undefined>;
 export declare function wakeUpAllContacts(endpoint: string, timeout?: number): {

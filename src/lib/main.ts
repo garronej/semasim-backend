@@ -10,146 +10,64 @@ import * as inbound from "./sipProxy/inbound";
 import * as _debug from "debug";
 let debug = _debug("_main");
 
-
 debug("Started :)");
 
 //TODO: every call to dongleExtendedClient may throw error.
 
-
 let scripts: agi.Scripts= {};
 
-let phoneNumberAsteriskExtensionPattern= "_[+0-9].";
+let phoneNumberAsteriskExtensionPattern = "_[+0-9].";
 
-scripts[admin.callContext]= {};
-scripts[admin.callContext][phoneNumberAsteriskExtensionPattern]= fromSip.call;
+scripts[admin.callContext] = {};
+scripts[admin.callContext][phoneNumberAsteriskExtensionPattern] = fromSip.call;
 
-scripts[fromDongle.context]= {};
-scripts[fromDongle.context][phoneNumberAsteriskExtensionPattern]= fromDongle.call;
+scripts[fromDongle.context] = {};
+scripts[fromDongle.context][phoneNumberAsteriskExtensionPattern] = fromDongle.call;
 
 agi.startServer(scripts);
 
-
 const dongleClient = DongleExtendedClient.localhost();
 
+async function onNewActiveDongle(dongle: DongleActive) {
 
-dongleClient.evtNewMessage.attach(
-    ({ imei, ...message }) => fromDongle.sms(imei, message)
-);
+    debug("onNewActiveDongle", dongle);
 
+    await admin.setDevicePresence(dongle.imei, "NOT_INUSE");
 
-/*
-let dongleEvtHandlers = {
-    "onActiveDongleDisconnect": async (imei: string) => {
+    await admin.enableDevicePresenceNotification(dongle.imei);
 
-        debug("onDongleDisconnect", { imei });
+    let password= dongle.iccid.substring(dongle.iccid.length - 4);
 
-        await admin.setDevicePresence(imei, "ONHOLD");
-
-    },
-    "onNewActiveDongle": async (imei: string) => {
-
-        debug("onNewActiveDongle");
-
-        await admin.setDevicePresence(imei, "NOT_INUSE");
-
-        await initEndpoint(imei, true);
-
-
-    },
-    "onRequestUnlockCode": async (imei: string) => {
-
-        debug("onRequestUnlockCode");
-
-        await admin.setDevicePresence(imei, "UNAVAILABLE");
-
-        await initEndpoint(imei, true);
-
-    }
-};
-*/
-
-let dongleEvtHandlers = {
-    "onActiveDongleDisconnect": async (dongle: DongleActive) => {
-
-        debug("onDongleDisconnect", dongle);
-
-        await admin.setDevicePresence(dongle.imei, "ONHOLD");
-
-    },
-    "onNewActiveDongle": async (dongle: DongleActive) => {
-
-        debug("onNewActiveDongle", dongle);
-
-        await admin.setDevicePresence(dongle.imei, "NOT_INUSE");
-
-        await initEndpoint(dongle.imei, true);
-
-    }
-};
-
-async function initEndpoint(endpoint: string, isDongleConnected: boolean) {
-
-    await admin.enableDevicePresenceNotification(endpoint);
-    await admin.dbAsterisk.addOrUpdateEndpoint(endpoint, isDongleConnected);
-    await admin.dbSemasim.addDongleIfNew(endpoint);
+    await admin.dbAsterisk.addOrUpdateEndpoint(dongle.imei, password);
 
 }
 
 
-/*
-(async function findConnectedDongles() {
-
-
-    let activeDongles = (await dongleClient.getActiveDongles()).map(({ imei }) => imei);
-
-    let lockedDongles = (await dongleClient.getLockedDongles()).map(({ imei }) => imei);
-
-    let knownDisconnectedDongles = (await admin.dbAsterisk.queryEndpoints())
-    .map(({endpoint})=> endpoint)
-    .filter(imei =>
-        [...activeDongles, ...lockedDongles].indexOf(imei) < 0
-    );
-
-    debug({ activeDongles, lockedDongles, knownDisconnectedDongles });
-
-    debug({ activeDongles, lockedDongles });
-
-    for (let imei of activeDongles) dongleEvtHandlers.onNewActiveDongle(imei);
-
-    for (let imei of lockedDongles) dongleEvtHandlers.onRequestUnlockCode(imei);
-
-    for (let imei of knownDisconnectedDongles) initEndpoint(imei, false);
-
-
-
-})();
-*/
 
 (async function findActiveDongle() {
 
-    for( let activeDongle of await dongleClient.getActiveDongles() )
-        dongleEvtHandlers.onNewActiveDongle(activeDongle);
+    for (let activeDongle of await dongleClient.getActiveDongles())
+        onNewActiveDongle(activeDongle);
 
 })();
 
-/*
-dongleClient.evtActiveDongleDisconnect.attach(({ imei }) => dongleEvtHandlers.onActiveDongleDisconnect(imei));
-dongleClient.evtNewActiveDongle.attach(({ imei }) => dongleEvtHandlers.onNewActiveDongle(imei));
-dongleClient.evtRequestUnlockCode.attach(({ imei }) => dongleEvtHandlers.onRequestUnlockCode(imei));
-*/
+dongleClient.evtNewActiveDongle.attach(onNewActiveDongle);
 
-dongleClient.evtActiveDongleDisconnect.attach( dongleEvtHandlers.onActiveDongleDisconnect );
-dongleClient.evtNewActiveDongle.attach( dongleEvtHandlers.onNewActiveDongle );
+dongleClient.evtActiveDongleDisconnect.attach(async dongle => {
+
+    debug("onDongleDisconnect", dongle);
+
+    await admin.setDevicePresence(dongle.imei, "ONHOLD");
+
+});
+
 
 
 admin.getEvtNewContact().attach(contact => {
 
-    //TODO Send message in stack and request pin if dongle is locked
-
-    debug("New contact", contact );
+    debug("New contact", admin.Contact.pretty(contact));
 
 });
-
 
 (async function initVoidDialplanForMessage() {
 
@@ -164,9 +82,10 @@ admin.getEvtNewContact().attach(contact => {
 
 })();
 
-//TODO not necessary to truncate contact
-admin.dbAsterisk.truncateContacts().then( ()=> inbound.start() );
-//pjsip.truncateContacts();
-
+inbound.start();
 
 admin.evtMessage.attach(({ contact, message }) => fromSip.message(contact, message));
+
+dongleClient.evtNewMessage.attach(
+    ({ imei, ...message }) => fromDongle.sms(imei, message)
+);

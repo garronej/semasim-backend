@@ -2,7 +2,6 @@
 import { execQueue, ExecQueue } from "ts-exec-queue";
 import * as mysql from "mysql";
 import { SyncEvent } from "ts-events-extended";
-import * as sharedSipProxy from "../sipProxy/shared";
 import * as sip from "../sipProxy/sip";
 import { Contact } from "./endpointsContacts";
 
@@ -89,16 +88,12 @@ export namespace dbAsterisk {
     }
 
     export const queryEndpoints = execQueue(cluster, group,
-        async (callback?): Promise<{ endpoint: string; lastUpdated: Date }[]> => {
+        async (callback?): Promise<string[]> => {
 
-            let res = await query("SELECT `id`,`set_var` FROM `ps_endpoints`");
-
-            let endpoints = res.map(({ id, set_var }) =>
-                ({ "endpoint": id, "lastUpdated": new Date(parseInt(set_var.split("=")[1])) })
-            );
+            let endpoints = (await query("SELECT `id`,`set_var` FROM `ps_endpoints`")).map(({id})=> id);
 
             callback(endpoints);
-            return endpoints;
+            return null as any;
         }
     );
 
@@ -150,7 +145,7 @@ export namespace dbAsterisk {
 
     //TODO: isDongle connected is a stupid option
     export const addOrUpdateEndpoint = execQueue(cluster, group,
-        async (endpoint: string, isDongleConnected: boolean, callback?): Promise<void> => {
+        async (endpoint: string, password: string, callback?): Promise<void> => {
 
             debug(`Add or update endpoint ${endpoint} in real time configuration`);
 
@@ -173,40 +168,6 @@ export namespace dbAsterisk {
             })();
 
             (() => {
-
-                /*
-                let [_sql, _values] = buildInsertQuery("ps_endpoints", {
-                    "id": endpoint,
-                    "disallow": "all",
-                    "allow": "alaw,ulaw",
-                    "context": callContext,
-                    "message_context": messageContext,
-                    "subscribe_context": subscribeContext(endpoint),
-                    "aors": endpoint,
-                    "auth": endpoint,
-                    "force_rport": null,
-                    "from_domain": "semasim.com",
-                    "ice_support": "yes",
-                    "direct_media": null,
-                    "asymmetric_rtp_codec": null,
-                    "rtcp_mux": null,
-                    "direct_media_method": null,
-                    "connected_line_method": null,
-                    "transport": "transport-tcp",
-                    "callerid_tag": null
-                });
-
-                if (isDongleConnected) {
-
-                    _sql += [
-                        "UPDATE `ps_endpoints` SET `set_var` = ? WHERE `id` = ?",
-                        ";"
-                    ].join("\n");
-
-                    _values = [..._values, `LAST_UPDATED=${Date.now()}`, endpoint];
-
-                }
-                */
 
                 let [_sql, _values] = buildInsertQuery("ps_endpoints", {
                     "id": endpoint,
@@ -241,7 +202,7 @@ export namespace dbAsterisk {
                     "id": endpoint,
                     "auth_type": "userpass",
                     "username": endpoint,
-                    "password": "password",
+                    "password": password,
                     "realm": "semasim"
                 });
 

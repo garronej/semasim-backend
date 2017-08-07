@@ -217,21 +217,10 @@ export class Socket {
 
         if (this.evtClose.postCount) return false;
 
-        //TODO: wait response of: https://support.counterpath.com/topic/what-is-the-use-of-the-first-options-request-send-before-registration
         if (matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0)
             return false;
 
-        try {
-
-            return this.connection.write(stringify(sipPacket));
-
-        } catch (error) {
-
-            console.log("error while stringifying: ", sipPacket);
-
-            throw error;
-
-        }
+        return this.connection.write(stringify(sipPacket));
 
     }
 
@@ -416,16 +405,12 @@ export class Socket {
 export class Store {
 
     private readonly record: Record<string, Socket> = {};
-    private readonly timestampRecord: Record<string, number> = {};
 
     constructor() { }
 
-    public add(key: string, socket: Socket, timestamp?: number) {
-
-        if (timestamp === undefined) timestamp = Date.now();
+    public add(key: string, socket: Socket ) {
 
         this.record[key] = socket;
-        this.timestampRecord[key] = timestamp;
 
         socket.evtClose.attachOnce(() => {
             delete this.record[key];
@@ -452,10 +437,6 @@ export class Store {
 
         return out;
 
-    }
-
-    public getTimestamp(key: string): number {
-        return this.timestampRecord[key] || -1;
     }
 
     public destroyAll() {

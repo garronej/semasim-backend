@@ -1,19 +1,9 @@
 import * as sip from "./sip";
-export interface Message {
-    messageId: string;
-}
-export declare namespace Message {
-    function buildSipRequest(data: any): sip.Request;
-    function matchSipRequest(sipRequest: sip.Request): boolean;
-    function parseSipRequest(sipRequest: sip.Request): Message;
-    interface NotifyKnownDongle extends Message {
-        messageId: typeof NotifyKnownDongle["messageId"];
-        imei: string;
-        lastConnection: number;
-    }
-    namespace NotifyKnownDongle {
-        const messageId = "NotifyKnownDongle";
-        function buildSipRequest(imei: string, lastConnection: number): sip.Request;
-        function match(message: Message): message is NotifyKnownDongle;
-    }
-}
+import { SyncEvent } from "ts-events-extended";
+export declare type EvtType = {
+    method: string;
+    payload: Record<string, any>;
+    sendResponse: (response: Record<string, any>) => void;
+};
+export declare function startListening(sipSocket: sip.Socket): SyncEvent<EvtType>;
+export declare function sendRequest(sipSocket: sip.Socket, method: string, payload: Record<string, any>): Promise<Record<string, any>>;
