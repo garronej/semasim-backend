@@ -3,11 +3,11 @@
   "description": "Semasim daemon running on user devices",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
-    "start": "DEBUG=_* node ./dist/lib/main",
-    "outbound": "DEBUG=_* node ./dist/bin/start-outbound-proxy"
+    "start": "DEBUG=_* node ./dist/lib/main_device",
+    "outbound": "DEBUG=_* node ./dist/lib/main_server"
   },
   "repository": {
     "type": "git",
@@ -31,9 +31,9 @@
     "rejection-tracker": "github:garronej/rejection-tracker",
     "sip": "github:garronej/sip.js",
     "stun": "^1.0.1",
-    "ts-async-agi": "github:garronej/ts-async-agi",
-    "ts-events-extended": "github:garronej/ts-events-extended",
-    "ts-exec-queue": "github:garronej/ts-exec-queue"
+    "ts-async-agi": "garronej/ts-async-agi",
+    "ts-events-extended": "garronej/ts-events-extended",
+    "run-exclusive": "garronej/run-exclusive"
   },
   "devDependencies": {
     "@types/body-parser": "^1.16.4",

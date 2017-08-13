@@ -1,6 +1,6 @@
 import {
     AsyncAGIServer,
-    AGIChannel,
+    AGIChannel as _AGIChannel_,
     ChannelStatus,
 } from "ts-async-agi";
 
@@ -9,6 +9,7 @@ import { DongleExtendedClient } from "chan-dongle-extended-client";
 import * as _debug from "debug";
 let debug = _debug("_agi");
 
+export type AGIChannel= _AGIChannel_;
 
 export type Scripts = {
     [context: string]: {
@@ -109,6 +110,3 @@ async function initDialplan(scripts: Scripts) {
 
 
 }
-
-
-

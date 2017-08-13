@@ -1,4 +1,5 @@
-import { AGIChannel } from "ts-async-agi";
+import { AGIChannel as _AGIChannel_ } from "ts-async-agi";
+export declare type AGIChannel = _AGIChannel_;
 export declare type Scripts = {
     [context: string]: {
         [extensionPattern: string]: (channel: AGIChannel) => Promise<void>;
