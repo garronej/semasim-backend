@@ -18,7 +18,7 @@
   "keywords": [],
   "dependencies": {
     "body-parser": "^1.17.2",
-    "chan-dongle-extended-client": "github:garronej/chan-dongle-extended-client",
+    "chan-dongle-extended-client": "git+https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/chan-dongle-extended-client.git",
     "colors": "^1.1.2",
     "debug": "^2.6.8",
     "express": "^4.15.3",

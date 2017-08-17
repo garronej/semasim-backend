@@ -198,12 +198,16 @@ export function wakeUpAllContacts(
             taskArray.push(new Promise<void>(resolve =>
                 wakeUpContact(contact).then(reachableContact => {
 
-                    reachableContactMap.set(contact, reachableContact);
-                    if (evtTracer) evtTracer.post({ "type": "reachableContact", "contact": reachableContact });
+                    if (reachableContact) {
+
+                        reachableContactMap.set(contact, reachableContact);
+                        if (evtTracer) evtTracer.post({ "type": "reachableContact", "contact": reachableContact });
+
+                    }
 
                     resolve();
 
-                }).catch(() => resolve())
+                })
             ));
 
 
@@ -213,24 +217,26 @@ export function wakeUpAllContacts(
 
         resolver();
 
-        if( evtTracer ) evtTracer.post({"type": "completed"})
+        if (evtTracer) evtTracer.post({ "type": "completed" })
 
-    });
+        });
 
 
 }
 
-export type WakeUpContactTracer= SyncEvent<"REACHABLE" | "FAIL" | "PUSH_NOTIFICATION_SENT">;
+export type WakeUpContactTracer = SyncEvent<"REACHABLE" | "FAIL" | "PUSH_NOTIFICATION_SENT">;
 
 export async function wakeUpContact(
     contact: Contact,
     timeout?: number,
     evtTracer?: WakeUpContactTracer
-): Promise<Contact> {
+): Promise<Contact | null> {
+
+    if (timeout === undefined) timeout = 30000;
 
     let statusMessage = await outboundApi.wakeUpUserAgent.run(contact);
 
-    if( evtTracer ) evtTracer.post(statusMessage);
+    if (evtTracer) evtTracer.post(statusMessage);
 
     switch (statusMessage) {
         case "REACHABLE":
@@ -245,7 +251,7 @@ export async function wakeUpContact(
 
                 let newlyRegisteredContact = await getEvtNewContact().waitFor(
                     ({ user_agent }) => user_agent === contact.user_agent,
-                    timeout || 30000
+                    timeout
                 );
 
                 debug("Contact woke up after push notification");
@@ -254,7 +260,10 @@ export async function wakeUpContact(
 
             } catch (error) {
 
-                throw new Error("Timeout new register after push notification");
+                debug(`Timeout ${timeout} new register after push notification`);
+
+                return null;
+
 
             }
 

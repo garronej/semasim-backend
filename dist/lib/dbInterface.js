@@ -292,8 +292,13 @@ var semasim;
                 case 2:
                     _b = __read.apply(void 0, [_d.sent(), 1]), ua_instance_id = _b[0].ua_instance_id;
                     creation_timestamp = Date.now();
-                    _c = __read(buildInsertQuery("message_to_gsm", {
-                        sim_iccid: sim_iccid, creation_timestamp: creation_timestamp, ua_instance_id: ua_instance_id, to_number: to_number, text: text, "sent_message_id": null
+                    _c = __read(buildInsertQuery("message_toward_gsm", {
+                        sim_iccid: sim_iccid,
+                        creation_timestamp: creation_timestamp,
+                        ua_instance_id: ua_instance_id,
+                        to_number: to_number,
+                        "base64_text": (new Buffer(text, "utf8")).toString("base64"),
+                        "sent_message_id": null
                     }), 2), sql = _c[0], values = _c[1];
                     return [4 /*yield*/, query(sql, values)];
                 case 3:
@@ -310,7 +315,7 @@ var semasim;
                 switch (_b.label) {
                     case 0:
                         debug("=>setMessageToGsmSentId");
-                        _a = __read(buildInsertQuery("message_to_gsm", {
+                        _a = __read(buildInsertQuery("message_toward_gsm", {
                             sim_iccid: sim_iccid, creation_timestamp: creation_timestamp, sent_message_id: sent_message_id
                         }), 2), sql = _a[0], values = _a[1];
                         return [4 /*yield*/, query(sql, values)];
@@ -331,7 +336,7 @@ var semasim;
                             "message_toward_gsm.`sim_iccid`,",
                             "message_toward_gsm.`creation_timestamp`,",
                             "message_toward_gsm.`to_number`,",
-                            "message_toward_gsm.`text`,",
+                            "message_toward_gsm.`base64_text`,",
                             "ua_instance.`dongle_imei`,",
                             "ua_instance.`instance_id`",
                             "FROM message_toward_gsm",
@@ -342,8 +347,8 @@ var semasim;
                             "ORDER BY message_toward_gsm.`creation_timestamp`"
                         ].join("\n"), [imei])];
                 case 1: return [2 /*return*/, (_a.sent()).map(function (_a) {
-                        var sim_iccid = _a.sim_iccid, creation_timestamp = _a.creation_timestamp, dongle_imei = _a.dongle_imei, instance_id = _a.instance_id, rest = __rest(_a, ["sim_iccid", "creation_timestamp", "dongle_imei", "instance_id"]);
-                        return (__assign({ "pk": { sim_iccid: sim_iccid, creation_timestamp: creation_timestamp }, "sender": { dongle_imei: dongle_imei, instance_id: instance_id } }, rest));
+                        var sim_iccid = _a.sim_iccid, creation_timestamp = _a.creation_timestamp, dongle_imei = _a.dongle_imei, instance_id = _a.instance_id, base64_text = _a.base64_text, rest = __rest(_a, ["sim_iccid", "creation_timestamp", "dongle_imei", "instance_id", "base64_text"]);
+                        return (__assign({ "pk": { sim_iccid: sim_iccid, creation_timestamp: creation_timestamp }, "sender": { dongle_imei: dongle_imei, instance_id: instance_id }, "text": (new Buffer(base64_text, "base64")).toString("utf8") }, rest));
                     })];
             }
         });
@@ -357,7 +362,7 @@ var semasim;
                             "SELECT",
                             "ua_instance.`dongle_imei`,",
                             "ua_instance.`instance_id`,",
-                            "message_toward_gsm.`text`",
+                            "message_toward_gsm.`base64_text`",
                             "FROM message_toward_gsm",
                             "INNER JOIN sim ON sim.`iccid`= message_toward_gsm.`sim_iccid`",
                             "INNER JOIN dongle ON dongle.`sim_iccid`= sim.`iccid`",
@@ -366,8 +371,11 @@ var semasim;
                         ].join("\n"), [imei, sent_message_id])];
                 case 1: return [2 /*return*/, (_a.sent())
                         .map(function (_a) {
-                        var dongle_imei = _a.dongle_imei, instance_id = _a.instance_id, text = _a.text;
-                        return ({ "sender": { dongle_imei: dongle_imei, instance_id: instance_id }, text: text });
+                        var dongle_imei = _a.dongle_imei, instance_id = _a.instance_id, base64_text = _a.base64_text;
+                        return ({
+                            "sender": { dongle_imei: dongle_imei, instance_id: instance_id },
+                            "text": (new Buffer(base64_text, "base64")).toString("utf8")
+                        });
                     })
                         .pop()];
             }
@@ -436,12 +444,14 @@ var semasim;
                     if (!target.allUaInstanceOfEndpointOtherThan) return [3 /*break*/, 4];
                     _a = target.allUaInstanceOfEndpointOtherThan, dongle_imei = _a.dongle_imei, instance_id = _a.instance_id;
                     imei = dongle_imei;
-                    return [4 /*yield*/, query("SELECT `id` FROM ua_instance WHERE `dongle_imei`=? AND NOT(`instance_id` = ?)", [imei, instance_id])];
+                    return [4 /*yield*/, query("SELECT `id` FROM ua_instance WHERE `dongle_imei`=? AND `instance_id` <> ?", [imei, instance_id])];
                 case 3:
                     ua_instance_ids = (_h.sent()).map(function (_a) {
                         var id = _a.id;
                         return id;
                     });
+                    if (!ua_instance_ids.length)
+                        return [2 /*return*/];
                     return [3 /*break*/, 7];
                 case 4:
                     if (!target.uaInstance) return [3 /*break*/, 6];
@@ -461,7 +471,7 @@ var semasim;
                         sim_iccid: sim_iccid,
                         creation_timestamp: creation_timestamp,
                         from_number: from_number,
-                        text: text
+                        "base64_text": (new Buffer(text, "utf8")).toString("base64")
                     });
                     return [4 /*yield*/, query(sql_values[0], sql_values[1])];
                 case 9:
@@ -493,7 +503,7 @@ var semasim;
                     return [4 /*yield*/, query(sql, values)];
                 case 11:
                     _h.sent();
-                    return [2 /*return*/, creation_timestamp];
+                    return [2 /*return*/];
             }
         });
     }); });
@@ -508,20 +518,12 @@ var semasim;
                         return [4 /*yield*/, query("SELECT `id` AS `ua_instance_id` FROM ua_instance WHERE `dongle_imei` = ? AND `instance_id` = ?", [dongle_imei, instance_id])];
                     case 1:
                         _a = __read.apply(void 0, [_d.sent(), 1]), ua_instance_id = _a[0].ua_instance_id;
-                        console.log({ dongle_imei: dongle_imei });
-                        console.log([
-                            "SELECT message_toward_sip.`id` AS `message_toward_sip_id`",
-                            "FROM message_toward_sip",
-                            "INNER JOIN sim ON sim.`iccid` = message_toward_sip.`sim_iccid`",
-                            "INNER JOIN dongle ON dongle.`sim_iccid` = sim.`iccid`",
-                            "WERE message_toward_sip.creation_timestamp = " + message_toward_sip_creation_timestamp + " AND dongle.imei = '" + dongle_imei + "'"
-                        ].join("\n"));
                         return [4 /*yield*/, query([
                                 "SELECT message_toward_sip.`id` AS `message_toward_sip_id`",
                                 "FROM message_toward_sip",
                                 "INNER JOIN sim ON sim.`iccid` = message_toward_sip.`sim_iccid`",
                                 "INNER JOIN dongle ON dongle.`sim_iccid` = sim.`iccid`",
-                                "WERE message_toward_sip.`creation_timestamp` = ? AND dongle.`imei` = ?"
+                                "WHERE message_toward_sip.`creation_timestamp` = ? AND dongle.`imei` = ?"
                             ].join("\n"), [message_toward_sip_creation_timestamp, dongle_imei])];
                     case 2:
                         _b = __read.apply(void 0, [_d.sent(), 1]), message_toward_sip_id = _b[0].message_toward_sip_id;
@@ -542,21 +544,32 @@ var semasim;
     });
     semasim.getUndeliveredMessagesOfUaInstance = runExclusive.build(groupRef, function (_a) {
         var dongle_imei = _a.dongle_imei, instance_id = _a.instance_id;
-        debug("=>getUndeliveredMessageOfUaInstance");
-        return query([
-            "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`text`",
-            "FROM message_toward_sip",
-            "INNER JOIN sim",
-            "ON sim.`iccid` = message_toward_sip.`sim_iccid`",
-            "INNER JOIN dongle",
-            "ON dongle.`sim_iccid` = sim.`iccid`",
-            "INNER JOIN ua_instance",
-            "ON ua_instance.`dongle_imei` = dongle.`imei`",
-            "INNER JOIN ua_instance_message_toward_sip",
-            "ON  ua_instance_message_toward_sip.`ua_instance_id` = ua_instance.`id`",
-            "AND ua_instance_message_toward_sip.`message_toward_sip_id` = message_toward_sip.`id`",
-            "WHERE dongle.`imei` = ? AND ua_instance.`instance_id` = ? AND ua_instance_message_toward_sip.`delivered_timestamp` IS NULL",
-            "ORDER BY message_toward_sip.`creation_timestamp`"
-        ].join("\n"), [dongle_imei, instance_id]);
+        return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        debug("=>getUndeliveredMessageOfUaInstance");
+                        return [4 /*yield*/, query([
+                                "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`base64_text`",
+                                "FROM message_toward_sip",
+                                "INNER JOIN sim",
+                                "ON sim.`iccid` = message_toward_sip.`sim_iccid`",
+                                "INNER JOIN dongle",
+                                "ON dongle.`sim_iccid` = sim.`iccid`",
+                                "INNER JOIN ua_instance",
+                                "ON ua_instance.`dongle_imei` = dongle.`imei`",
+                                "INNER JOIN ua_instance_message_toward_sip",
+                                "ON  ua_instance_message_toward_sip.`ua_instance_id` = ua_instance.`id`",
+                                "AND ua_instance_message_toward_sip.`message_toward_sip_id` = message_toward_sip.`id`",
+                                "WHERE dongle.`imei` = ? AND ua_instance.`instance_id` = ? AND ua_instance_message_toward_sip.`delivered_timestamp` IS NULL",
+                                "ORDER BY message_toward_sip.`creation_timestamp`"
+                            ].join("\n"), [dongle_imei, instance_id])];
+                    case 1: return [2 /*return*/, (_a.sent()).map(function (_a) {
+                            var base64_text = _a.base64_text, rest = __rest(_a, ["base64_text"]);
+                            return (__assign({}, rest, { "text": (new Buffer(base64_text, "base64")).toString("utf8") }));
+                        })];
+                }
+            });
+        });
     });
 })(semasim = exports.semasim || (exports.semasim = {}));

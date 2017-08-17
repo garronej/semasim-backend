@@ -58,7 +58,7 @@ var sipMessages = require("./sipMessages");
 var c = require("./constants");
 var _debug = require("debug");
 var debug = _debug("_main");
-debug("Started !");
+debug("Started !!");
 var scripts = {};
 scripts[c.sipCallContext] = {};
 scripts[c.sipCallContext][c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {
@@ -286,7 +286,9 @@ var senPendingSipMessagesToReachableContact = runExclusive.build(function (conta
     var messages, messages_2, messages_2_1, message, name, received, error_2, e_3_1, e_3, _a;
     return __generator(this, function (_b) {
         switch (_b.label) {
-            case 0: return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
+            case 0:
+                debug("=>sendPendingSipMessagesToReachableContact");
+                return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
             case 1:
                 messages = _b.sent();
                 _b.label = 2;
@@ -297,6 +299,7 @@ var senPendingSipMessagesToReachableContact = runExclusive.build(function (conta
             case 3:
                 if (!!messages_2_1.done) return [3 /*break*/, 10];
                 message = messages_2_1.value;
+                debug({ message: message });
                 name = undefined;
                 received = void 0;
                 _b.label = 4;
@@ -342,7 +345,9 @@ function sendSipPendingMessages() {
         var _this = this;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, db.asterisk.queryContacts()];
+                case 0:
+                    debug("=>sendSipPendingMessages");
+                    return [4 /*yield*/, db.asterisk.queryContacts()];
                 case 1:
                     (_a.sent()).forEach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
                         var messages, evtTracer, status, error_3;
@@ -351,6 +356,7 @@ function sendSipPendingMessages() {
                                 case 0: return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
                                 case 1:
                                     messages = _a.sent();
+                                    debug({ messages: messages });
                                     if (!messages.length)
                                         return [2 /*return*/];
                                     _a.label = 2;
@@ -404,6 +410,7 @@ dongleClient.evtNewMessage.attach(function (_a) {
             switch (_a.label) {
                 case 0:
                     debug("FROM DONGLE MESSAGE");
+                    console.log({ text: text });
                     return [4 /*yield*/, db.semasim.addMessageTowardSip(number, text, date, { "allUaInstanceOfImei": imei })];
                 case 1:
                     _a.sent();
@@ -419,7 +426,9 @@ dongleClient.evtMessageStatusReport.attach(function (_a) {
         var resp, sender, text;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, db.semasim.getSenderAndTextOfSentMessageToGsm(imei, messageId)];
+                case 0:
+                    debug("FROM DONGLE STATUS REPORT", status);
+                    return [4 /*yield*/, db.semasim.getSenderAndTextOfSentMessageToGsm(imei, messageId)];
                 case 1:
                     resp = _a.sent();
                     if (!resp)
@@ -428,8 +437,10 @@ dongleClient.evtMessageStatusReport.attach(function (_a) {
                     return [4 /*yield*/, db.semasim.addMessageTowardSip(recipient, "---" + status + "---", dischargeTime, { "uaInstance": sender })];
                 case 2:
                     _a.sent();
+                    //TODO: does not do it's job, send to sender as well
                     return [4 /*yield*/, db.semasim.addMessageTowardSip(recipient, "YOU:\n" + text, dischargeTime, { "allUaInstanceOfEndpointOtherThan": sender })];
                 case 3:
+                    //TODO: does not do it's job, send to sender as well
                     _a.sent();
                     sendSipPendingMessages();
                     return [2 /*return*/];

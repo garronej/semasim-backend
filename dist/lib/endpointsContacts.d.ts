@@ -28,5 +28,5 @@ export declare function wakeUpAllContacts(endpoint: string, timeout?: number, ev
     unreachableContacts: Contact[];
 }>;
 export declare type WakeUpContactTracer = SyncEvent<"REACHABLE" | "FAIL" | "PUSH_NOTIFICATION_SENT">;
-export declare function wakeUpContact(contact: Contact, timeout?: number, evtTracer?: WakeUpContactTracer): Promise<Contact>;
+export declare function wakeUpContact(contact: Contact, timeout?: number, evtTracer?: WakeUpContactTracer): Promise<Contact | null>;
 export declare function getEvtNewContact(): SyncEvent<Contact>;

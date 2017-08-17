@@ -14,7 +14,7 @@ import * as c from "./constants";
 import * as _debug from "debug";
 let debug = _debug("_main");
 
-debug("Started !");
+debug("Started !!");
 
 let scripts: agi.Scripts= {};
 
@@ -189,11 +189,15 @@ const sendDonglePendingMessages = runExclusive.build(
 const senPendingSipMessagesToReachableContact = runExclusive.build(
     async (contact: Contact) => {
 
+        debug("=>sendPendingSipMessagesToReachableContact");
+
         let messages = await db.semasim.getUndeliveredMessagesOfUaInstance(
             Contact.buildUaInstancePk(contact)
         );
 
         for (let message of messages) {
+
+            debug({ message });
 
             //DODO: the dongle can be disconnected and create unnecessary delay
             //let name = await dongleClient.getContactName(contact.endpoint, message.from_number);
@@ -225,11 +229,15 @@ const senPendingSipMessagesToReachableContact = runExclusive.build(
 
 async function sendSipPendingMessages() {
 
+    debug("=>sendSipPendingMessages");
+
     (await db.asterisk.queryContacts()).forEach(async contact => {
 
         let messages = await db.semasim.getUndeliveredMessagesOfUaInstance(
             Contact.buildUaInstancePk(contact)
         );
+
+        debug({ messages });
 
         if (!messages.length) return;
 
@@ -268,23 +276,31 @@ dongleClient.evtNewMessage.attach(async ({ imei, number, text, date }) => {
 
     debug("FROM DONGLE MESSAGE");
 
+    console.log({ text });
+
     await db.semasim.addMessageTowardSip(number, text, date, { "allUaInstanceOfImei": imei });
 
     sendSipPendingMessages();
 
 });
 
-dongleClient.evtMessageStatusReport.attach(async ({ imei, messageId, isDelivered, dischargeTime, recipient, status }) => {
+dongleClient.evtMessageStatusReport.attach(
+    async ({ imei, messageId, isDelivered, dischargeTime, recipient, status }) => {
 
-    let resp = await db.semasim.getSenderAndTextOfSentMessageToGsm(imei, messageId);
+        debug("FROM DONGLE STATUS REPORT", status);
 
-    if (!resp) return;
+        let resp = await db.semasim.getSenderAndTextOfSentMessageToGsm(imei, messageId);
 
-    let { sender, text } = resp;
+        if (!resp) return;
 
-    await db.semasim.addMessageTowardSip(recipient, `---${status}---`, dischargeTime, { "uaInstance": sender });
-    await db.semasim.addMessageTowardSip(recipient, `YOU:\n${text}`, dischargeTime, { "allUaInstanceOfEndpointOtherThan": sender });
+        let { sender, text } = resp;
 
-    sendSipPendingMessages();
+        await db.semasim.addMessageTowardSip(recipient, `---${status}---`, dischargeTime, { "uaInstance": sender });
 
-});
+        //TODO: does not do it's job, send to sender as well
+        await db.semasim.addMessageTowardSip(recipient, `YOU:\n${text}`, dischargeTime, { "allUaInstanceOfEndpointOtherThan": sender });
+
+        sendSipPendingMessages();
+
+    }
+);

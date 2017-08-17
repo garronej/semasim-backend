@@ -195,11 +195,13 @@ function wakeUpAllContacts(endpoint, timeout, evtTracer) {
                     _loop_1 = function (contact) {
                         taskArray.push(new Promise(function (resolve) {
                             return wakeUpContact(contact).then(function (reachableContact) {
-                                reachableContactMap.set(contact, reachableContact);
-                                if (evtTracer)
-                                    evtTracer.post({ "type": "reachableContact", "contact": reachableContact });
+                                if (reachableContact) {
+                                    reachableContactMap.set(contact, reachableContact);
+                                    if (evtTracer)
+                                        evtTracer.post({ "type": "reachableContact", "contact": reachableContact });
+                                }
                                 resolve();
-                            }).catch(function () { return resolve(); });
+                            });
                         }));
                     };
                     try {
@@ -234,7 +236,10 @@ function wakeUpContact(contact, timeout, evtTracer) {
         var statusMessage, _a, newlyRegisteredContact, error_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0: return [4 /*yield*/, outboundApi.wakeUpUserAgent.run(contact)];
+                case 0:
+                    if (timeout === undefined)
+                        timeout = 30000;
+                    return [4 /*yield*/, outboundApi.wakeUpUserAgent.run(contact)];
                 case 1:
                     statusMessage = _b.sent();
                     if (evtTracer)
@@ -257,14 +262,15 @@ function wakeUpContact(contact, timeout, evtTracer) {
                     return [4 /*yield*/, getEvtNewContact().waitFor(function (_a) {
                             var user_agent = _a.user_agent;
                             return user_agent === contact.user_agent;
-                        }, timeout || 30000)];
+                        }, timeout)];
                 case 5:
                     newlyRegisteredContact = _b.sent();
                     debug("Contact woke up after push notification");
                     return [2 /*return*/, newlyRegisteredContact];
                 case 6:
                     error_1 = _b.sent();
-                    throw new Error("Timeout new register after push notification");
+                    debug("Timeout " + timeout + " new register after push notification");
+                    return [2 /*return*/, null];
                 case 7: return [2 /*return*/];
             }
         });

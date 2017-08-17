@@ -294,8 +294,13 @@ export namespace semasim {
 
             let creation_timestamp = Date.now();
 
-            let [sql, values] = buildInsertQuery("message_to_gsm", {
-                sim_iccid, creation_timestamp, ua_instance_id, to_number, text, "sent_message_id": null
+            let [sql, values] = buildInsertQuery("message_toward_gsm", {
+                sim_iccid, 
+                creation_timestamp, 
+                ua_instance_id, 
+                to_number, 
+                "base64_text": (new Buffer(text,"utf8")).toString("base64"), 
+                "sent_message_id": null
             });
 
             await query(sql, values);
@@ -310,7 +315,7 @@ export namespace semasim {
 
             debug("=>setMessageToGsmSentId");
 
-            let [sql, values] = buildInsertQuery("message_to_gsm", {
+            let [sql, values] = buildInsertQuery("message_toward_gsm", {
                 sim_iccid, creation_timestamp, sent_message_id
             });
 
@@ -329,7 +334,7 @@ export namespace semasim {
                     "message_toward_gsm.`sim_iccid`,",
                     "message_toward_gsm.`creation_timestamp`,",
                     "message_toward_gsm.`to_number`,",
-                    "message_toward_gsm.`text`,",
+                    "message_toward_gsm.`base64_text`,",
                     "ua_instance.`dongle_imei`,",
                     "ua_instance.`instance_id`",
                     "FROM message_toward_gsm",
@@ -346,8 +351,14 @@ export namespace semasim {
                     creation_timestamp,
                     dongle_imei,
                     instance_id,
+                    base64_text,
                     ...rest
-                }) => ({ "pk": { sim_iccid, creation_timestamp }, "sender": { dongle_imei, instance_id }, ...rest })
+                }) => ({ 
+                    "pk": { sim_iccid, creation_timestamp }, 
+                    "sender": { dongle_imei, instance_id }, 
+                    "text": (new Buffer(base64_text, "base64")).toString("utf8"), 
+                    ...rest 
+                })
                 );
 
 
@@ -366,7 +377,7 @@ export namespace semasim {
                     "SELECT",
                     "ua_instance.`dongle_imei`,",
                     "ua_instance.`instance_id`,",
-                    "message_toward_gsm.`text`",
+                    "message_toward_gsm.`base64_text`",
                     "FROM message_toward_gsm",
                     "INNER JOIN sim ON sim.`iccid`= message_toward_gsm.`sim_iccid`",
                     "INNER JOIN dongle ON dongle.`sim_iccid`= sim.`iccid`",
@@ -375,7 +386,12 @@ export namespace semasim {
                 ].join("\n"),
                 [imei, sent_message_id]
             ))
-                .map(({ dongle_imei, instance_id, text }) => ({ "sender": { dongle_imei, instance_id }, text }))
+                .map(
+                    ({ dongle_imei, instance_id, base64_text }) => ({ 
+                        "sender": { dongle_imei, instance_id }, 
+                        "text": (new Buffer(base64_text, "base64")).toString("utf8") 
+                    })
+                )
                 .pop();
 
 
@@ -434,7 +450,7 @@ export namespace semasim {
 
 
     export const addMessageTowardSip = runExclusive.build(groupRef,
-        async (from_number: string, text: string, date: Date, target: TargetUaInstances): Promise<number> => {
+        async (from_number: string, text: string, date: Date, target: TargetUaInstances) => {
 
             debug("=>addMessageTowardSip");
 
@@ -457,9 +473,11 @@ export namespace semasim {
                 imei = dongle_imei;
 
                 ua_instance_ids = (await query(
-                    "SELECT `id` FROM ua_instance WHERE `dongle_imei`=? AND NOT(`instance_id` = ?)",
+                    "SELECT `id` FROM ua_instance WHERE `dongle_imei`=? AND `instance_id` <> ?",
                     [imei, instance_id]
                 )).map(({ id }) => id);
+
+                if( !ua_instance_ids.length ) return;
 
             } else if (target.uaInstance) {
 
@@ -483,7 +501,7 @@ export namespace semasim {
                 sim_iccid,
                 creation_timestamp,
                 from_number,
-                text
+                "base64_text": (new Buffer(text, "utf8")).toString("base64")
             });
 
             await query(sql_values[0], sql_values[1]);
@@ -511,8 +529,6 @@ export namespace semasim {
 
             await query(sql, values);
 
-            return creation_timestamp;
-
         }
     );
 
@@ -526,29 +542,16 @@ export namespace semasim {
                 [dongle_imei, instance_id]
             );
 
-            console.log({ dongle_imei });
-
-            console.log(
-                [
-                    "SELECT message_toward_sip.`id` AS `message_toward_sip_id`",
-                    "FROM message_toward_sip",
-                    "INNER JOIN sim ON sim.`iccid` = message_toward_sip.`sim_iccid`",
-                    "INNER JOIN dongle ON dongle.`sim_iccid` = sim.`iccid`",
-                    `WERE message_toward_sip.creation_timestamp = ${message_toward_sip_creation_timestamp} AND dongle.imei = '${dongle_imei}'`
-                ].join("\n")
-            );
-
             let [{ message_toward_sip_id }] = await query(
                 [
                     "SELECT message_toward_sip.`id` AS `message_toward_sip_id`",
                     "FROM message_toward_sip",
                     "INNER JOIN sim ON sim.`iccid` = message_toward_sip.`sim_iccid`",
                     "INNER JOIN dongle ON dongle.`sim_iccid` = sim.`iccid`",
-                    "WERE message_toward_sip.`creation_timestamp` = ? AND dongle.`imei` = ?"
+                    "WHERE message_toward_sip.`creation_timestamp` = ? AND dongle.`imei` = ?"
                 ].join("\n"),
                 [message_toward_sip_creation_timestamp, dongle_imei]
             );
-
 
             let [sql, values] = await buildInsertQuery("ua_instance_message_toward_sip", {
                 ua_instance_id,
@@ -563,13 +566,13 @@ export namespace semasim {
 
 
     export const getUndeliveredMessagesOfUaInstance = runExclusive.build(groupRef,
-        ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number, from_number: string; text: string }[]> => {
+        async ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number, from_number: string; text: string }[]> => {
 
             debug("=>getUndeliveredMessageOfUaInstance");
 
-            return query(
+            return (await query(
                 [
-                    "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`text`",
+                    "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`base64_text`",
                     "FROM message_toward_sip",
                     "INNER JOIN sim",
                     "ON sim.`iccid` = message_toward_sip.`sim_iccid`",
@@ -584,6 +587,8 @@ export namespace semasim {
                     "ORDER BY message_toward_sip.`creation_timestamp`"
                 ].join("\n"),
                 [dongle_imei, instance_id]
+            )).map(
+                ({ base64_text, ...rest }) => ({ ...rest, "text": (new Buffer(base64_text, "base64")).toString("utf8") })
             );
 
         }
