@@ -47,6 +47,7 @@ var __values = (this && this.__values) || function (o) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var ts_events_extended_1 = require("ts-events-extended");
+var runExclusive = require("run-exclusive");
 var sip = require("./sipLibrary");
 var db = require("./dbInterface");
 var inboundSipProxy_1 = require("./inboundSipProxy");
@@ -56,6 +57,14 @@ var _debug = require("debug");
 var debug = _debug("_admin/endpointsContacts");
 var Contact;
 (function (Contact) {
+    function readPushInfos(contactOrContactUri) {
+        var contactUri = (typeof contactOrContactUri === "string") ? contactOrContactUri : contactOrContactUri.uri;
+        var params = sip.parseUri(contactUri).params;
+        var pushType = params["pn-type"] || undefined;
+        var pushToken = params["pn-tok"] || undefined;
+        return { pushType: pushType, pushToken: pushToken };
+    }
+    Contact.readPushInfos = readPushInfos;
     function buildUaInstancePk(contact) {
         return {
             "dongle_imei": contact.endpoint,
@@ -247,16 +256,12 @@ function wakeUpContact(contact, timeout, evtTracer) {
                     _a = statusMessage;
                     switch (_a) {
                         case "REACHABLE": return [3 /*break*/, 2];
-                        case "FAIL": return [3 /*break*/, 3];
+                        case "UNREACHABLE": return [3 /*break*/, 3];
                         case "PUSH_NOTIFICATION_SENT": return [3 /*break*/, 4];
                     }
                     return [3 /*break*/, 7];
-                case 2:
-                    debug("Directly reachable");
-                    return [2 /*return*/, contact];
-                case 3:
-                    debug("WebAPI fail");
-                    throw new Error("webApi FAIL");
+                case 2: return [2 /*return*/, contact];
+                case 3: return [2 /*return*/, null];
                 case 4:
                     _b.trys.push([4, 6, , 7]);
                     return [4 /*yield*/, getEvtNewContact().waitFor(function (_a) {
@@ -265,11 +270,9 @@ function wakeUpContact(contact, timeout, evtTracer) {
                         }, timeout)];
                 case 5:
                     newlyRegisteredContact = _b.sent();
-                    debug("Contact woke up after push notification");
                     return [2 /*return*/, newlyRegisteredContact];
                 case 6:
                     error_1 = _b.sent();
-                    debug("Timeout " + timeout + " new register after push notification");
                     return [2 /*return*/, null];
                 case 7: return [2 /*return*/];
             }
@@ -277,6 +280,37 @@ function wakeUpContact(contact, timeout, evtTracer) {
     });
 }
 exports.wakeUpContact = wakeUpContact;
+function destroyUselessAsteriskSockets() {
+    return __awaiter(this, void 0, void 0, function () {
+        var localPortsToKeep, destroyCount, _a, _b, socket, e_4, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0: return [4 /*yield*/, db.asterisk.queryContacts()];
+                case 1:
+                    localPortsToKeep = (_d.sent())
+                        .map(function (contact) { return Contact.readAstSocketSrcPort(contact); });
+                    destroyCount = 0;
+                    try {
+                        for (_a = __values(inboundSipProxy_1.asteriskSockets.getAll()), _b = _a.next(); !_b.done; _b = _a.next()) {
+                            socket = _b.value;
+                            if (localPortsToKeep.indexOf(socket.localPort) < 0) {
+                                destroyCount++;
+                                socket.destroy();
+                            }
+                        }
+                    }
+                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+                    finally {
+                        try {
+                            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                        }
+                        finally { if (e_4) throw e_4.error; }
+                    }
+                    return [2 /*return*/, destroyCount];
+            }
+        });
+    });
+}
 var evtNewContact = undefined;
 function getEvtNewContact() {
     var _this = this;
@@ -285,68 +319,78 @@ function getEvtNewContact() {
     evtNewContact = new ts_events_extended_1.SyncEvent();
     chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.evt.attach(function (managerEvt) { return (managerEvt.event === "ContactStatus" &&
         managerEvt.contactstatus === "Created" &&
-        managerEvt.uri); }, function (_a) {
+        managerEvt.uri); }, runExclusive.build(function (_a) {
         var endpointname = _a.endpointname, uri = _a.uri;
         return __awaiter(_this, void 0, void 0, function () {
-            var contacts, newContact, contactsToDelete, _loop_2, contactsToDelete_1, contactsToDelete_1_1, contactToDelete, e_4_1, e_4, _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var contacts, newContact, oldContact;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, db.asterisk.queryContacts()];
                     case 1:
-                        contacts = _b.sent();
-                        newContact = contacts.filter(function (contact) { return contact.endpoint === endpointname && contact.uri === uri; })[0];
-                        contactsToDelete = contacts.filter(function (contact) { return contact !== newContact && contact.user_agent === newContact.user_agent; });
-                        _loop_2 = function (contactToDelete) {
-                            var astSocketSrcPort;
-                            return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0:
-                                        debug("we had a contact for this UA, we delete it", Contact.pretty(contactToDelete));
-                                        return [4 /*yield*/, db.asterisk.deleteContact(contactToDelete.id)];
-                                    case 1:
-                                        _a.sent();
-                                        astSocketSrcPort = Contact.readAstSocketSrcPort(contactToDelete);
-                                        inboundSipProxy_1.asteriskSockets.getAll().filter(function (_a) {
-                                            var localPort = _a.localPort;
-                                            return localPort === astSocketSrcPort;
-                                        }).map(function (asteriskSocket) { return asteriskSocket.destroy(); });
-                                        return [2 /*return*/];
-                                }
-                            });
-                        };
-                        _b.label = 2;
-                    case 2:
-                        _b.trys.push([2, 7, 8, 9]);
-                        contactsToDelete_1 = __values(contactsToDelete), contactsToDelete_1_1 = contactsToDelete_1.next();
-                        _b.label = 3;
-                    case 3:
-                        if (!!contactsToDelete_1_1.done) return [3 /*break*/, 6];
-                        contactToDelete = contactsToDelete_1_1.value;
-                        return [5 /*yield**/, _loop_2(contactToDelete)];
-                    case 4:
-                        _b.sent();
-                        _b.label = 5;
-                    case 5:
-                        contactsToDelete_1_1 = contactsToDelete_1.next();
-                        return [3 /*break*/, 3];
-                    case 6: return [3 /*break*/, 9];
-                    case 7:
-                        e_4_1 = _b.sent();
-                        e_4 = { error: e_4_1 };
-                        return [3 /*break*/, 9];
-                    case 8:
-                        try {
-                            if (contactsToDelete_1_1 && !contactsToDelete_1_1.done && (_a = contactsToDelete_1.return)) _a.call(contactsToDelete_1);
+                        contacts = _a.sent();
+                        newContact = contacts.filter(function (contact) { return contact.endpoint === endpointname && contact.uri === uri; }).pop();
+                        if (!newContact) {
+                            debug("No new contact as described");
+                            return [2 /*return*/];
                         }
-                        finally { if (e_4) throw e_4.error; }
-                        return [7 /*endfinally*/];
-                    case 9:
+                        oldContact = contacts.filter(function (contact) {
+                            return (contact !== newContact &&
+                                Contact.readInstanceId(contact) === Contact.readInstanceId(newContact) &&
+                                contact.endpoint === newContact.endpoint);
+                        }).pop();
+                        if (!(oldContact !== undefined)) return [3 /*break*/, 4];
+                        debug("we had a contact for this UA, we delete it");
+                        return [4 /*yield*/, db.asterisk.deleteContact(oldContact)];
+                    case 2:
+                        _a.sent();
+                        return [4 /*yield*/, destroyUselessAsteriskSockets()];
+                    case 3:
+                        _a.sent();
+                        _a.label = 4;
+                    case 4:
                         evtNewContact.post(newContact);
                         return [2 /*return*/];
                 }
             });
         });
-    });
+    }));
     return evtNewContact;
 }
 exports.getEvtNewContact = getEvtNewContact;
+var evtExpiredContact = undefined;
+function getEvtExpiredContact() {
+    var _this = this;
+    if (evtExpiredContact)
+        return evtExpiredContact;
+    evtExpiredContact = new ts_events_extended_1.SyncEvent();
+    chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.evt.attach(function (managerEvt) { return (managerEvt.event === "ContactStatus" &&
+        managerEvt.contactstatus === "Unknown" &&
+        managerEvt.uri); }, function (_a) {
+        var endpointname = _a.endpointname, uri = _a.uri;
+        return __awaiter(_this, void 0, void 0, function () {
+            var destroyCount;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(function () { return resolve(); }, 1000); })];
+                    case 1:
+                        _a.sent();
+                        return [4 /*yield*/, db.asterisk.queryContacts()];
+                    case 2:
+                        if ((_a.sent())
+                            .filter(function (contact) { return contact.endpoint === endpointname && contact.uri === uri; })
+                            .length)
+                            return [2 /*return*/];
+                        return [4 /*yield*/, destroyUselessAsteriskSockets()];
+                    case 3:
+                        destroyCount = _a.sent();
+                        if (destroyCount === 0)
+                            return [2 /*return*/];
+                        evtExpiredContact.post(uri);
+                        return [2 /*return*/];
+                }
+            });
+        });
+    });
+    return evtExpiredContact;
+}
+exports.getEvtExpiredContact = getEvtExpiredContact;

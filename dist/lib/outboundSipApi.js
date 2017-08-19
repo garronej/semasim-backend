@@ -36,7 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var apiOverSip = require("./sipApiFramework");
-var sip = require("./sipLibrary");
+var endpointsContacts_1 = require("./endpointsContacts");
 var firebase = require("./firebaseFunctions");
 var outboundSipProxy_1 = require("./outboundSipProxy");
 var inboundSipProxy_1 = require("./inboundSipProxy");
@@ -92,6 +92,9 @@ var claimDongle;
                             outboundSipProxy_1.deviceSockets.add(imei, newDeviceSocket);
                             return [2 /*return*/, { "isGranted": true }];
                         }
+                        if (oldDeviceSocket === newDeviceSocket) {
+                            return [2 /*return*/, { "isGranted": true }];
+                        }
                         return [4 /*yield*/, inboundApi.isDongleConnected.run(oldDeviceSocket, imei)];
                     case 1:
                         oldResp = _a.sent();
@@ -137,51 +140,58 @@ var wakeUpUserAgent;
 (function (wakeUpUserAgent) {
     wakeUpUserAgent.methodName = "wakeUpUserAgent";
     function handle(_a) {
-        var contact = _a.contact;
+        var contactOrContactUri = _a.contactOrContactUri;
         return __awaiter(this, void 0, void 0, function () {
-            var reached, params, response, error_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var contact, reached, _a, pushType, pushToken, _b, response, error_1;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         debug("wakeUpUserAgent");
+                        if (!(typeof contactOrContactUri !== "string")) return [3 /*break*/, 2];
+                        contact = contactOrContactUri;
                         return [4 /*yield*/, outboundSipProxy_1.qualifyContact(contact)];
                     case 1:
-                        reached = _a.sent();
+                        reached = _c.sent();
                         if (reached) {
                             debug("Directly reachable");
                             return [2 /*return*/, { "status": "REACHABLE" }];
                         }
-                        params = sip.parseUri(contact.uri).params;
-                        if (params["pn-type"] !== "firebase" && params["pn-type"] !== "google") {
-                            debug("Only firebase supported");
-                            return [2 /*return*/, { "status": "FAIL" }];
-                        }
-                        _a.label = 2;
+                        _c.label = 2;
                     case 2:
-                        _a.trys.push([2, 4, , 5]);
-                        return [4 /*yield*/, firebase.wakeUpDevice(params["pn-tok"])];
+                        _a = endpointsContacts_1.Contact.readPushInfos(contactOrContactUri), pushType = _a.pushType, pushToken = _a.pushToken;
+                        _b = pushType;
+                        switch (_b) {
+                            case "google": return [3 /*break*/, 3];
+                            case "firebase": return [3 /*break*/, 3];
+                        }
+                        return [3 /*break*/, 6];
                     case 3:
-                        response = _a.sent();
+                        _c.trys.push([3, 5, , 6]);
+                        return [4 /*yield*/, firebase.wakeUpDevice(pushToken)];
+                    case 4:
+                        response = _c.sent();
                         debug({ response: response });
                         return [2 /*return*/, { "status": "PUSH_NOTIFICATION_SENT" }];
-                    case 4:
-                        error_1 = _a.sent();
+                    case 5:
+                        error_1 = _c.sent();
                         debug("Error firebase", error_1);
-                        return [2 /*return*/, { "status": "FAIL" }];
-                    case 5: return [2 /*return*/];
+                        return [2 /*return*/, { "status": "UNREACHABLE" }];
+                    case 6:
+                        debug("Can't send push notification for this contact");
+                        return [2 /*return*/, { "status": "UNREACHABLE" }];
                 }
             });
         });
     }
     wakeUpUserAgent.handle = handle;
-    function run(contact) {
+    function run(contactOrContactUri) {
         return __awaiter(this, void 0, void 0, function () {
             var payload, status;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         debug("Run wakeUpUserAgent");
-                        payload = { contact: contact };
+                        payload = { contactOrContactUri: contactOrContactUri };
                         return [4 /*yield*/, apiOverSip.sendRequest(inboundSipProxy_1.proxySocket, wakeUpUserAgent.methodName, payload)];
                     case 1:
                         status = (_a.sent()).status;

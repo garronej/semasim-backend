@@ -72,8 +72,7 @@ exports.start = start;
 ;
 function sendMessage(contact, from_number, headers, text, from_number_sim_name) {
     return new Promise(function (resolve, reject) {
-        //console.log("sending message", { contact, fromUriUser, headers, content, fromName });
-        debug("sendMessage", { contact: contact, from_number: from_number, headers: headers, text: text, from_number_sim_name: from_number_sim_name });
+        //debug("sendMessage", { contact, from_number, headers, text, from_number_sim_name });
         var actionId = chan_dongle_extended_client_1.Ami.generateUniqueActionId();
         var uri = contact.path.split(",")[0].match(/^<(.*)>$/)[1].replace(/;lr/, "");
         chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami.messageSend("pjsip:" + contact.endpoint + "/" + uri, from_number, actionId).catch(function (error) { return reject(error); });
@@ -84,13 +83,13 @@ function sendMessage(contact, from_number, headers, text, from_number_sim_name) 
             var sipRequest = _a.sipRequest, evtReceived = _a.evtReceived;
             //TODO: inform that the name come from the SD card
             if (from_number_sim_name)
-                sipRequest.headers.from.name = from_number_sim_name;
+                sipRequest.headers.from.name = "\"" + from_number_sim_name + " (sim)\"";
             sipRequest.uri = contact.uri;
             sipRequest.headers.to = { "name": undefined, "uri": contact.uri, "params": {} };
             delete sipRequest.headers.contact;
             sipRequest.content = text;
             sipRequest.headers = __assign({}, sipRequest.headers, headers);
-            evtReceived.waitFor(3000).then(function () { return resolve(true); }).catch(function () { return resolve(false); });
+            evtReceived.waitFor(3500).then(function () { return resolve(true); }).catch(function () { return resolve(false); });
         });
     });
 }

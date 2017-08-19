@@ -52,6 +52,7 @@ var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var agi = require("./agi");
 var endpointsContacts_1 = require("./endpointsContacts");
+var outboundApi = require("./outboundSipApi");
 var db = require("./dbInterface");
 var inboundSipProxy = require("./inboundSipProxy");
 var sipMessages = require("./sipMessages");
@@ -207,20 +208,36 @@ function onNewActiveDongle(dongle) {
 dongleClient.evtNewActiveDongle.attach(onNewActiveDongle);
 dongleClient.evtActiveDongleDisconnect.attach(function (dongle) { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        //TODO send message to clients to inform
         debug("onDongleDisconnect", dongle);
         return [2 /*return*/];
     });
 }); });
 endpointsContacts_1.getEvtNewContact().attach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
+    var isNew;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                debug("New contact", endpointsContacts_1.Contact.pretty(contact));
+                //debug("New contact", Contact.pretty(contact));
+                debug("New contact", endpointsContacts_1.Contact.readInstanceId(contact));
                 return [4 /*yield*/, db.semasim.addUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
             case 1:
-                _a.sent();
+                isNew = _a.sent();
+                if (isNew) {
+                    debug("TODO: it's a new UA, send initialization messages");
+                }
                 senPendingSipMessagesToReachableContact(contact);
+                return [2 /*return*/];
+        }
+    });
+}); });
+endpointsContacts_1.getEvtExpiredContact().attach(function (contactUri) { return __awaiter(_this, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                debug("Expired contact: ", contactUri);
+                return [4 /*yield*/, outboundApi.wakeUpUserAgent.run(contactUri)];
+            case 1:
+                _a.sent();
                 return [2 /*return*/];
         }
     });
@@ -259,10 +276,10 @@ var sendDonglePendingMessages = runExclusive.build(function (imei) { return __aw
             case 7: return [4 /*yield*/, db.semasim.setMessageToGsmSentId(pk, sentMessageId)];
             case 8:
                 _c.sent();
-                return [4 /*yield*/, db.semasim.addMessageTowardSip(to_number, "---Message Sent---", new Date(), { "uaInstance": sender })];
+                return [4 /*yield*/, db.semasim.addMessageTowardSip(to_number, "---Message send, sentMessageId: " + sentMessageId + "---", new Date(), { "uaInstance": sender })];
             case 9:
                 _c.sent();
-                sendSipPendingMessages();
+                notifyNewSipMessagesToSend();
                 _c.label = 10;
             case 10:
                 messages_1_1 = messages_1.next();
@@ -286,68 +303,66 @@ var senPendingSipMessagesToReachableContact = runExclusive.build(function (conta
     var messages, messages_2, messages_2_1, message, name, received, error_2, e_3_1, e_3, _a;
     return __generator(this, function (_b) {
         switch (_b.label) {
-            case 0:
-                debug("=>sendPendingSipMessagesToReachableContact");
-                return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
+            case 0: return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
             case 1:
                 messages = _b.sent();
                 _b.label = 2;
             case 2:
-                _b.trys.push([2, 11, 12, 13]);
+                _b.trys.push([2, 12, 13, 14]);
                 messages_2 = __values(messages), messages_2_1 = messages_2.next();
                 _b.label = 3;
             case 3:
-                if (!!messages_2_1.done) return [3 /*break*/, 10];
+                if (!!messages_2_1.done) return [3 /*break*/, 11];
                 message = messages_2_1.value;
-                debug({ message: message });
-                name = undefined;
-                received = void 0;
-                _b.label = 4;
+                debug("Sending: " + JSON.stringify(message.text));
+                return [4 /*yield*/, dongleClient.getContactName(contact.endpoint, message.from_number)];
             case 4:
-                _b.trys.push([4, 6, , 7]);
-                return [4 /*yield*/, sipMessages.sendMessage(contact, message.from_number, {}, message.text, name)];
+                name = _b.sent();
+                received = void 0;
+                _b.label = 5;
             case 5:
-                received = _b.sent();
-                return [3 /*break*/, 7];
+                _b.trys.push([5, 7, , 8]);
+                return [4 /*yield*/, sipMessages.sendMessage(contact, message.from_number, {}, message.text, name)];
             case 6:
+                received = _b.sent();
+                return [3 /*break*/, 8];
+            case 7:
                 error_2 = _b.sent();
                 debug("error:", error_2.message);
-                return [3 /*break*/, 10];
-            case 7:
+                return [3 /*break*/, 11];
+            case 8:
                 if (!received) {
                     debug("Not, received, break!");
-                    return [3 /*break*/, 10];
+                    return [3 /*break*/, 11];
                 }
                 return [4 /*yield*/, db.semasim.setMessageTowardSipDelivered(endpointsContacts_1.Contact.buildUaInstancePk(contact), message.creation_timestamp)];
-            case 8:
-                _b.sent();
-                _b.label = 9;
             case 9:
+                _b.sent();
+                _b.label = 10;
+            case 10:
                 messages_2_1 = messages_2.next();
                 return [3 /*break*/, 3];
-            case 10: return [3 /*break*/, 13];
-            case 11:
+            case 11: return [3 /*break*/, 14];
+            case 12:
                 e_3_1 = _b.sent();
                 e_3 = { error: e_3_1 };
-                return [3 /*break*/, 13];
-            case 12:
+                return [3 /*break*/, 14];
+            case 13:
                 try {
                     if (messages_2_1 && !messages_2_1.done && (_a = messages_2.return)) _a.call(messages_2);
                 }
                 finally { if (e_3) throw e_3.error; }
                 return [7 /*endfinally*/];
-            case 13: return [2 /*return*/];
+            case 14: return [2 /*return*/];
         }
     });
 }); });
-function sendSipPendingMessages() {
+function notifyNewSipMessagesToSend() {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    debug("=>sendSipPendingMessages");
-                    return [4 /*yield*/, db.asterisk.queryContacts()];
+                case 0: return [4 /*yield*/, db.asterisk.queryContacts()];
                 case 1:
                     (_a.sent()).forEach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
                         var messages, evtTracer, status, error_3;
@@ -356,7 +371,6 @@ function sendSipPendingMessages() {
                                 case 0: return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(endpointsContacts_1.Contact.buildUaInstancePk(contact))];
                                 case 1:
                                     messages = _a.sent();
-                                    debug({ messages: messages });
                                     if (!messages.length)
                                         return [2 /*return*/];
                                     _a.label = 2;
@@ -388,13 +402,11 @@ function sendSipPendingMessages() {
 sipMessages.evtMessage.attach(function (_a) {
     var fromContact = _a.fromContact, toNumber = _a.toNumber, text = _a.text;
     return __awaiter(_this, void 0, void 0, function () {
-        var uaInstancePk;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     debug("FROM SIP MESSAGE", { toNumber: toNumber, text: text });
-                    uaInstancePk = endpointsContacts_1.Contact.buildUaInstancePk(fromContact);
-                    return [4 /*yield*/, db.semasim.addMessageTowardGsm(toNumber, text, uaInstancePk)];
+                    return [4 /*yield*/, db.semasim.addMessageTowardGsm(toNumber, text, endpointsContacts_1.Contact.buildUaInstancePk(fromContact))];
                 case 1:
                     _a.sent();
                     sendDonglePendingMessages(fromContact.endpoint);
@@ -409,12 +421,11 @@ dongleClient.evtNewMessage.attach(function (_a) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    debug("FROM DONGLE MESSAGE");
-                    console.log({ text: text });
+                    debug("FROM DONGLE MESSAGE", { text: text });
                     return [4 /*yield*/, db.semasim.addMessageTowardSip(number, text, date, { "allUaInstanceOfImei": imei })];
                 case 1:
                     _a.sent();
-                    sendSipPendingMessages();
+                    notifyNewSipMessagesToSend();
                     return [2 /*return*/];
             }
         });
@@ -434,15 +445,13 @@ dongleClient.evtMessageStatusReport.attach(function (_a) {
                     if (!resp)
                         return [2 /*return*/];
                     sender = resp.sender, text = resp.text;
-                    return [4 /*yield*/, db.semasim.addMessageTowardSip(recipient, "---" + status + "---", dischargeTime, { "uaInstance": sender })];
+                    return [4 /*yield*/, db.semasim.addMessageTowardSip(recipient, "---STATUS REPORT FOR MESSAGE ID " + messageId + ": " + status + "---", dischargeTime, { "uaInstance": sender })];
                 case 2:
                     _a.sent();
-                    //TODO: does not do it's job, send to sender as well
-                    return [4 /*yield*/, db.semasim.addMessageTowardSip(recipient, "YOU:\n" + text, dischargeTime, { "allUaInstanceOfEndpointOtherThan": sender })];
+                    return [4 /*yield*/, db.semasim.addMessageTowardSip(recipient, "YOU:\n" + text, new Date(dischargeTime.getTime() + 1), { "allUaInstanceOfEndpointOtherThan": sender })];
                 case 3:
-                    //TODO: does not do it's job, send to sender as well
                     _a.sent();
-                    sendSipPendingMessages();
+                    notifyNewSipMessagesToSend();
                     return [2 /*return*/];
             }
         });

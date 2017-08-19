@@ -1,5 +1,6 @@
 import { SyncEvent } from "ts-events-extended";
 import * as db from "./dbInterface";
+import * as outboundApi from "./outboundSipApi";
 export interface Contact {
     id: string;
     uri: string;
@@ -8,6 +9,10 @@ export interface Contact {
     user_agent: string;
 }
 export declare namespace Contact {
+    function readPushInfos(contactOrContactUri: Contact | string): {
+        pushType: string | undefined;
+        pushToken: string | undefined;
+    };
     function buildUaInstancePk(contact: Contact): db.semasim.UaInstancePk;
     function buildValueOfUserAgentField(endpoint: string, instanceId: string, realUserAgent: string): string;
     function readInstanceId(contact: Contact): string;
@@ -27,6 +32,7 @@ export declare function wakeUpAllContacts(endpoint: string, timeout?: number, ev
     reachableContacts: Contact[];
     unreachableContacts: Contact[];
 }>;
-export declare type WakeUpContactTracer = SyncEvent<"REACHABLE" | "FAIL" | "PUSH_NOTIFICATION_SENT">;
+export declare type WakeUpContactTracer = SyncEvent<outboundApi.wakeUpUserAgent.Response["status"]>;
 export declare function wakeUpContact(contact: Contact, timeout?: number, evtTracer?: WakeUpContactTracer): Promise<Contact | null>;
 export declare function getEvtNewContact(): SyncEvent<Contact>;
+export declare function getEvtExpiredContact(): SyncEvent<string>;

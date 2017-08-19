@@ -150,7 +150,7 @@ export async function start() {
 
         await asteriskSockets.destroyAll();
 
-        await db.asterisk.truncateContacts();
+        //await db.asterisk.truncateContacts();
 
         await new Promise<void>(resolve => setTimeout(resolve, 3000));
 
@@ -182,24 +182,6 @@ export async function start() {
         if( !isGranted ) return;
 
         debug("Dongle successfully claimed on outbound sip proxy");
-
-        /*
-        TODO: 
-        Now if a message or a call arrive it will not be forwarded because we have no asterisk contact
-        Messages will be stored and sent once UA register tho.
-
-        We should force all ua of imei to re register but for that we need to store the firebase id in the database
-
-        An other way to do that would make more sense would be to ensure that there is an established connection ONLY
-        when the dongle is connected and ready, otherwise we close everything.
-        It would be nice as the user would be immediately be aware that it is not connected.
-        The UAs would be invited to re-register as soon as the dongle is back online.
-
-        But how do we do with UAs that does not support push ? 
-
-
-        */
-
 
     }
 

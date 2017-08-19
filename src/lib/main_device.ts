@@ -4,7 +4,15 @@ import { DongleExtendedClient, DongleActive } from "chan-dongle-extended-client"
 import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 import * as agi from "./agi";
-import { wakeUpContact, WakeUpContactTracer, wakeUpAllContacts, getEvtNewContact, Contact } from "./endpointsContacts";
+import { 
+    wakeUpContact, 
+    WakeUpContactTracer, 
+    wakeUpAllContacts, 
+    getEvtNewContact, 
+    getEvtExpiredContact,
+    Contact 
+} from "./endpointsContacts";
+import * as outboundApi from "./outboundSipApi";
 import * as db from "./dbInterface";
 import * as inboundSipProxy from "./inboundSipProxy";
 import * as sipMessages from "./sipMessages";
@@ -13,6 +21,7 @@ import * as c from "./constants";
 
 import * as _debug from "debug";
 let debug = _debug("_main");
+
 
 debug("Started !!");
 
@@ -130,7 +139,6 @@ dongleClient.evtNewActiveDongle.attach(onNewActiveDongle);
 
 dongleClient.evtActiveDongleDisconnect.attach(async dongle => {
 
-    //TODO send message to clients to inform
     debug("onDongleDisconnect", dongle);
 
 });
@@ -139,11 +147,27 @@ dongleClient.evtActiveDongleDisconnect.attach(async dongle => {
 
 getEvtNewContact().attach(async contact => {
 
-    debug("New contact", Contact.pretty(contact));
+    //debug("New contact", Contact.pretty(contact));
+    debug("New contact", Contact.readInstanceId(contact));
 
-    await db.semasim.addUaInstance(Contact.buildUaInstancePk(contact))
+    let isNew= await db.semasim.addUaInstance(Contact.buildUaInstancePk(contact))
+
+    if( isNew ){
+
+        debug("TODO: it's a new UA, send initialization messages");
+
+    }
 
     senPendingSipMessagesToReachableContact(contact);
+
+
+});
+
+getEvtExpiredContact().attach(async contactUri => {
+
+    debug("Expired contact: ", contactUri);
+
+    await outboundApi.wakeUpUserAgent.run(contactUri);
 
 });
 
@@ -177,9 +201,8 @@ const sendDonglePendingMessages = runExclusive.build(
 
             await db.semasim.setMessageToGsmSentId(pk, sentMessageId);
 
-            await db.semasim.addMessageTowardSip(to_number, "---Message Sent---", new Date(), { "uaInstance": sender });
-
-            sendSipPendingMessages();
+            await db.semasim.addMessageTowardSip(to_number, `---Message send, sentMessageId: ${sentMessageId}---`, new Date(), { "uaInstance": sender });
+            notifyNewSipMessagesToSend();
 
         }
 
@@ -189,19 +212,16 @@ const sendDonglePendingMessages = runExclusive.build(
 const senPendingSipMessagesToReachableContact = runExclusive.build(
     async (contact: Contact) => {
 
-        debug("=>sendPendingSipMessagesToReachableContact");
-
         let messages = await db.semasim.getUndeliveredMessagesOfUaInstance(
             Contact.buildUaInstancePk(contact)
         );
 
         for (let message of messages) {
 
-            debug({ message });
+            debug(`Sending: ${JSON.stringify(message.text)}`);
 
-            //DODO: the dongle can be disconnected and create unnecessary delay
-            //let name = await dongleClient.getContactName(contact.endpoint, message.from_number);
-            let name = undefined;
+            //DODO: Store name in DB
+            let name = await dongleClient.getContactName(contact.endpoint, message.from_number);
 
             let received: boolean;
 
@@ -227,17 +247,13 @@ const senPendingSipMessagesToReachableContact = runExclusive.build(
 );
 
 
-async function sendSipPendingMessages() {
-
-    debug("=>sendSipPendingMessages");
+async function notifyNewSipMessagesToSend() {
 
     (await db.asterisk.queryContacts()).forEach(async contact => {
 
         let messages = await db.semasim.getUndeliveredMessagesOfUaInstance(
             Contact.buildUaInstancePk(contact)
         );
-
-        debug({ messages });
 
         if (!messages.length) return;
 
@@ -249,7 +265,7 @@ async function sendSipPendingMessages() {
 
             let status= await evtTracer.waitFor();
 
-            if( status !== "REACHABLE" ) return;
+            if( status !== "REACHABLE" ) return; 
 
             await senPendingSipMessagesToReachableContact(contact);
 
@@ -260,29 +276,38 @@ async function sendSipPendingMessages() {
 }
 
 
-sipMessages.evtMessage.attach(async ({ fromContact, toNumber, text }) => {
+sipMessages.evtMessage.attach(
+    async ({ fromContact, toNumber, text }) => {
 
-    debug("FROM SIP MESSAGE", { toNumber, text });
+        debug("FROM SIP MESSAGE", { toNumber, text });
 
-    let uaInstancePk = Contact.buildUaInstancePk(fromContact);
+        await db.semasim.addMessageTowardGsm(
+            toNumber, 
+            text, 
+            Contact.buildUaInstancePk(fromContact)
+        );
 
-    await db.semasim.addMessageTowardGsm(toNumber, text, uaInstancePk);
+        sendDonglePendingMessages(fromContact.endpoint);
 
-    sendDonglePendingMessages(fromContact.endpoint);
+    }
+);
 
-});
+dongleClient.evtNewMessage.attach(
+    async ({ imei, number, text, date }) => {
 
-dongleClient.evtNewMessage.attach(async ({ imei, number, text, date }) => {
+        debug("FROM DONGLE MESSAGE", { text });
 
-    debug("FROM DONGLE MESSAGE");
+        await db.semasim.addMessageTowardSip(
+            number, 
+            text, 
+            date, 
+            { "allUaInstanceOfImei": imei }
+        );
 
-    console.log({ text });
+        notifyNewSipMessagesToSend();
 
-    await db.semasim.addMessageTowardSip(number, text, date, { "allUaInstanceOfImei": imei });
-
-    sendSipPendingMessages();
-
-});
+    }
+);
 
 dongleClient.evtMessageStatusReport.attach(
     async ({ imei, messageId, isDelivered, dischargeTime, recipient, status }) => {
@@ -295,12 +320,23 @@ dongleClient.evtMessageStatusReport.attach(
 
         let { sender, text } = resp;
 
-        await db.semasim.addMessageTowardSip(recipient, `---${status}---`, dischargeTime, { "uaInstance": sender });
+        await db.semasim.addMessageTowardSip(
+            recipient, 
+            `---STATUS REPORT FOR MESSAGE ID ${messageId}: ${status}---`, 
+            dischargeTime, 
+            { "uaInstance": sender }
+        );
 
-        //TODO: does not do it's job, send to sender as well
-        await db.semasim.addMessageTowardSip(recipient, `YOU:\n${text}`, dischargeTime, { "allUaInstanceOfEndpointOtherThan": sender });
+        await db.semasim.addMessageTowardSip(
+            recipient, 
+            `YOU:\n${text}`, 
+            new Date(dischargeTime.getTime() + 1), 
+            { "allUaInstanceOfEndpointOtherThan": sender }
+        );
 
-        sendSipPendingMessages();
+        notifyNewSipMessagesToSend();
 
     }
 );
+
+

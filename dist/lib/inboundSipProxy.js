@@ -229,11 +229,10 @@ function start() {
                             return [4 /*yield*/, exports.asteriskSockets.destroyAll()];
                         case 1:
                             _a.sent();
-                            return [4 /*yield*/, db.asterisk.truncateContacts()];
-                        case 2:
-                            _a.sent();
+                            //await db.asterisk.truncateContacts();
                             return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 3000); })];
-                        case 3:
+                        case 2:
+                            //await db.asterisk.truncateContacts();
                             _a.sent();
                             start();
                             return [2 /*return*/];

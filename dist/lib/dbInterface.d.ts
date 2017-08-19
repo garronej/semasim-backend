@@ -4,7 +4,7 @@ export declare namespace asterisk {
     const truncateContacts: () => Promise<void>;
     const queryContacts: () => Promise<Contact[]>;
     const queryLastConnectionTimestampOfDonglesEndpoint: (endpoint: string) => Promise<number>;
-    const deleteContact: (id: string, callback?: any) => Promise<boolean>;
+    const deleteContact: (contact: Contact) => Promise<boolean>;
     const addOrUpdateEndpoint: (endpoint: string, password: string) => Promise<void>;
 }
 export declare namespace semasim {
@@ -34,7 +34,7 @@ export declare namespace semasim {
         text: string;
     } | undefined>;
     const addDongleAndSim: (imei: string, iccid: string) => Promise<void>;
-    const addUaInstance: ({dongle_imei, instance_id}: UaInstancePk) => Promise<void>;
+    const addUaInstance: ({dongle_imei, instance_id}: UaInstancePk) => Promise<boolean>;
     const addMessageTowardSip: (from_number: string, text: string, date: Date, target: TargetUaInstances) => Promise<void>;
     const setMessageTowardSipDelivered: ({dongle_imei, instance_id}: UaInstancePk, message_toward_sip_creation_timestamp: number) => Promise<void>;
     const getUndeliveredMessagesOfUaInstance: ({dongle_imei, instance_id}: UaInstancePk) => Promise<{

@@ -1,10 +1,12 @@
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { SyncEvent } from "ts-events-extended";
+import * as runExclusive from "run-exclusive";
 import * as sip from "./sipLibrary";
 import * as db from "./dbInterface";
 import { asteriskSockets } from "./inboundSipProxy";
 import * as outboundApi from "./outboundSipApi";
 import * as c from "./constants";
+
 
 
 import * as _debug from "debug";
@@ -19,6 +21,22 @@ export interface Contact {
 }
 
 export namespace Contact {
+
+    export function readPushInfos( contactOrContactUri: Contact | string ): { 
+        pushType: string | undefined; 
+        pushToken: string | undefined; 
+    }{
+
+        let contactUri= (typeof contactOrContactUri === "string")?contactOrContactUri:contactOrContactUri.uri;
+
+        let { params } = sip.parseUri(contactUri);
+
+        let pushType= params["pn-type"] || undefined;
+        let pushToken = params["pn-tok"] || undefined;
+
+        return { pushType, pushToken };
+
+    }
 
     export function buildUaInstancePk( contact: Contact ): db.semasim.UaInstancePk {
         return {
@@ -224,7 +242,7 @@ export function wakeUpAllContacts(
 
 }
 
-export type WakeUpContactTracer = SyncEvent<"REACHABLE" | "FAIL" | "PUSH_NOTIFICATION_SENT">;
+export type WakeUpContactTracer = SyncEvent<outboundApi.wakeUpUserAgent.Response["status"]>;
 
 export async function wakeUpContact(
     contact: Contact,
@@ -240,11 +258,9 @@ export async function wakeUpContact(
 
     switch (statusMessage) {
         case "REACHABLE":
-            debug("Directly reachable");
             return contact;
-        case "FAIL":
-            debug("WebAPI fail");
-            throw new Error("webApi FAIL");
+        case "UNREACHABLE":
+            return null;
         case "PUSH_NOTIFICATION_SENT":
 
             try {
@@ -254,20 +270,31 @@ export async function wakeUpContact(
                     timeout
                 );
 
-                debug("Contact woke up after push notification");
-
                 return newlyRegisteredContact;
 
             } catch (error) {
-
-                debug(`Timeout ${timeout} new register after push notification`);
-
                 return null;
-
-
             }
 
     }
+
+}
+
+
+async function destroyUselessAsteriskSockets(): Promise<number> {
+
+    let localPortsToKeep = (await db.asterisk.queryContacts())
+        .map(contact => Contact.readAstSocketSrcPort(contact));
+
+    let destroyCount=0;
+
+    for (let socket of asteriskSockets.getAll())
+        if (localPortsToKeep.indexOf(socket.localPort) < 0){
+            destroyCount++;
+            socket.destroy();
+        }
+    
+    return destroyCount;
 
 }
 
@@ -286,37 +313,93 @@ export function getEvtNewContact(): SyncEvent<Contact> {
             managerEvt.contactstatus === "Created" &&
             managerEvt.uri
         ),
-        async ({ endpointname, uri }) => {
+        runExclusive.build(
+            async ({ endpointname, uri }) => {
 
-            let contacts = await db.asterisk.queryContacts();
+                let contacts = await db.asterisk.queryContacts();
 
-            let newContact = contacts.filter(
-                contact => contact.endpoint === endpointname && contact.uri === uri
-            )[0];
+                let newContact = contacts.filter(
+                    contact => contact.endpoint === endpointname && contact.uri === uri
+                ).pop();
 
-            let contactsToDelete = contacts.filter(
-                contact => contact !== newContact && contact.user_agent === newContact.user_agent
-            );
+                if (!newContact) {
+                    debug("No new contact as described");
+                    return;
+                }
 
-            for (let contactToDelete of contactsToDelete) {
+                let oldContact = contacts.filter(
+                    contact =>
+                        (
+                            contact !== newContact &&
+                            Contact.readInstanceId(contact) === Contact.readInstanceId(newContact!) &&
+                            contact.endpoint === newContact!.endpoint
+                        )
+                ).pop();
 
-                debug("we had a contact for this UA, we delete it", Contact.pretty(contactToDelete));
+                if (oldContact !== undefined) {
 
-                await db.asterisk.deleteContact(contactToDelete.id);
+                    debug("we had a contact for this UA, we delete it");
 
-                let astSocketSrcPort = Contact.readAstSocketSrcPort(contactToDelete);
+                    await db.asterisk.deleteContact(oldContact);
 
-                asteriskSockets.getAll().filter(
-                    ({ localPort }) => localPort === astSocketSrcPort
-                ).map(asteriskSocket => asteriskSocket.destroy());
+                    await destroyUselessAsteriskSockets();
+
+                }
+
+                evtNewContact!.post(newContact);
 
             }
-
-            evtNewContact!.post(newContact);
-
-        }
+        )
     );
 
     return evtNewContact;
 
 }
+
+
+
+let evtExpiredContact: SyncEvent<string> | undefined = undefined;
+
+export function getEvtExpiredContact(): SyncEvent<string> {
+
+    if (evtExpiredContact) return evtExpiredContact;
+
+    evtExpiredContact = new SyncEvent<string>();
+
+    DongleExtendedClient.localhost().ami.evt.attach(
+        managerEvt => (
+            managerEvt.event === "ContactStatus" &&
+            managerEvt.contactstatus === "Unknown" &&
+            managerEvt.uri
+        ),
+        async ({ endpointname, uri }) => {
+
+            await new Promise<void>(resolve=> setTimeout(()=> resolve(), 1000));
+
+            if (
+                (await db.asterisk.queryContacts())
+                    .filter(
+                    contact => contact.endpoint === endpointname && contact.uri === uri
+                    )
+                    .length
+            ) return;
+
+            let destroyCount = await destroyUselessAsteriskSockets();
+
+            if( destroyCount === 0 ) return;
+
+            evtExpiredContact!.post(uri);
+
+        }
+    );
+
+    return evtExpiredContact;
+
+}
+
+
+
+
+
+
+

@@ -15,11 +15,11 @@ export declare namespace claimDongle {
 export declare namespace wakeUpUserAgent {
     const methodName = "wakeUpUserAgent";
     interface Request {
-        contact: Contact;
+        contactOrContactUri: Contact | string;
     }
     interface Response {
-        status: "REACHABLE" | "PUSH_NOTIFICATION_SENT" | "FAIL";
+        status: "REACHABLE" | "PUSH_NOTIFICATION_SENT" | "UNREACHABLE";
     }
-    function handle({contact}: Request): Promise<Response>;
-    function run(contact: Contact): Promise<Response["status"]>;
+    function handle({contactOrContactUri}: Request): Promise<Response>;
+    function run(contactOrContactUri: Contact | string): Promise<Response["status"]>;
 }

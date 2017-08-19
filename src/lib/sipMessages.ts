@@ -34,9 +34,7 @@ export function sendMessage(
 
     return new Promise<boolean>((resolve, reject) => {
 
-        //console.log("sending message", { contact, fromUriUser, headers, content, fromName });
-
-        debug("sendMessage", { contact, from_number, headers, text, from_number_sim_name });
+        //debug("sendMessage", { contact, from_number, headers, text, from_number_sim_name });
 
         let actionId = Ami.generateUniqueActionId();
 
@@ -51,7 +49,7 @@ export function sendMessage(
             ({ sipRequest, evtReceived }) => {
 
                 //TODO: inform that the name come from the SD card
-                if (from_number_sim_name) sipRequest.headers.from.name = from_number_sim_name;
+                if (from_number_sim_name) sipRequest.headers.from.name = `"${from_number_sim_name} (sim)"`;
 
                 sipRequest.uri= contact.uri;
                 sipRequest.headers.to= { "name": undefined, "uri": contact.uri, "params": {} };
@@ -62,7 +60,7 @@ export function sendMessage(
 
                 sipRequest.headers = { ...sipRequest.headers, ...headers };
 
-                evtReceived.waitFor(3000).then(() => resolve(true)).catch(() => resolve(false));
+                evtReceived.waitFor(3500).then(() => resolve(true)).catch(() => resolve(false));
 
             }
         );

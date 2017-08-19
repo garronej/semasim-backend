@@ -58,6 +58,10 @@ export namespace claimDongle {
             return { "isGranted": true };
         }
 
+        if( oldDeviceSocket === newDeviceSocket ){
+            return { "isGranted": true };
+        }
+
         let oldResp= await inboundApi.isDongleConnected.run(oldDeviceSocket, imei );
 
         if( oldResp.isConnected ){
@@ -103,61 +107,69 @@ export namespace wakeUpUserAgent {
     export const methodName = "wakeUpUserAgent";
 
     export interface Request {
-        contact: Contact;
+        contactOrContactUri: Contact | string;
     }
 
     export interface Response {
-        status: "REACHABLE" | "PUSH_NOTIFICATION_SENT" | "FAIL";
+        status: "REACHABLE" | "PUSH_NOTIFICATION_SENT" | "UNREACHABLE";
     }
 
     export async function handle(
-        { contact }: Request,
+        { contactOrContactUri }: Request,
     ): Promise<Response> {
 
         debug("wakeUpUserAgent");
 
-        let reached = await qualifyContact(contact);
+        if (typeof contactOrContactUri !== "string") {
 
-        if (reached) {
-            debug("Directly reachable");
-            return { "status": "REACHABLE" };
-        }
+            let contact = contactOrContactUri;
 
-        let { params } = sip.parseUri(contact.uri);
+            let reached = await qualifyContact(contact);
 
-        if (params["pn-type"] !== "firebase" && params["pn-type"] !== "google" ) {
-
-            debug("Only firebase supported");
-
-            return { "status": "FAIL" };
+            if (reached) {
+                debug("Directly reachable");
+                return { "status": "REACHABLE" };
+            }
 
         }
 
-        try {
+        let { pushType, pushToken } = Contact.readPushInfos(contactOrContactUri);
 
-            let response = await firebase.wakeUpDevice(params["pn-tok"]!);
+        switch (pushType) {
+            case "google":
+            case "firebase":
 
-            debug({ response });
+                try {
 
-            return { "status": "PUSH_NOTIFICATION_SENT" };
+                    let response = await firebase.wakeUpDevice(pushToken!);
 
-        } catch (error) {
+                    debug({ response });
 
-            debug("Error firebase", error);
+                    return { "status": "PUSH_NOTIFICATION_SENT" };
 
-            return { "status": "FAIL" };
+                } catch (error) {
 
+                    debug("Error firebase", error);
+
+                    return { "status": "UNREACHABLE" };
+
+                }
+
+            default:
+                debug("Can't send push notification for this contact");
+                return { "status": "UNREACHABLE" };
         }
+
 
     }
 
     export async function run(
-        contact: Contact
+        contactOrContactUri: Contact | string
     ): Promise<Response["status"]> {
 
         debug("Run wakeUpUserAgent");
 
-        let payload: Request = { contact };
+        let payload: Request = { contactOrContactUri };
 
         let { status } = await apiOverSip.sendRequest(proxySocket, methodName, payload) as Response;
 

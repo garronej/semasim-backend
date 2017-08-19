@@ -3,7 +3,7 @@
   "description": "Semasim daemon running on user devices",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
     "start": "DEBUG=_* node ./dist/lib/main_device",

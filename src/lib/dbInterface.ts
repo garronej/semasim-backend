@@ -88,7 +88,6 @@ export namespace asterisk {
         }
     );
 
-    //See if need return promise void
     export const truncateContacts = runExclusive.build( groupRef,
         async () => {
 
@@ -140,10 +139,10 @@ export namespace asterisk {
     )
 
     export const deleteContact = runExclusive.build( groupRef,
-        async (id: string, callback?): Promise<boolean> => {
+        async (contact: Contact): Promise<boolean> => {
 
             let { affectedRows } = await query(
-                "DELETE FROM `ps_contacts` WHERE `id`=?", [id]
+                "DELETE FROM `ps_contacts` WHERE `id`=?", [contact.id]
             );
 
             let isDeleted = affectedRows ? true : false;
@@ -275,8 +274,6 @@ export namespace semasim {
     export const addMessageTowardGsm = runExclusive.build( groupRef, 
         async (to_number: string, text: string, sender: UaInstancePk ): Promise<MessageTowardGsmPk> => {
 
-            debug("=>addMessageTowardGsm");
-
             let [{ sim_iccid }] = await query(
                 [
                     "SELECT dongle.`sim_iccid`",
@@ -313,8 +310,6 @@ export namespace semasim {
     export const setMessageToGsmSentId = runExclusive.build( groupRef, 
         async ({ sim_iccid, creation_timestamp }: MessageTowardGsmPk, sent_message_id: number | null )=> {
 
-            debug("=>setMessageToGsmSentId");
-
             let [sql, values] = buildInsertQuery("message_toward_gsm", {
                 sim_iccid, creation_timestamp, sent_message_id
             });
@@ -325,8 +320,6 @@ export namespace semasim {
 
     export const getUnsentMessageOfDongleSim = runExclusive.build(groupRef,
         async (imei: string): Promise<{ pk: MessageTowardGsmPk; sender: UaInstancePk; to_number: string; text: string }[]> => {
-
-            debug("=>getUnsentMessageOfDongleSim");
 
             return (await query(
                 [
@@ -369,9 +362,6 @@ export namespace semasim {
     export const getSenderAndTextOfSentMessageToGsm = runExclusive.build(groupRef,
         async (imei: string, sent_message_id: number): Promise<{ sender: UaInstancePk; text: string } | undefined> => {
 
-
-            debug("=>getSenderAndTextOfSentMessageToGsm");
-
             return (await query(
                 [
                     "SELECT",
@@ -401,8 +391,6 @@ export namespace semasim {
 
     export const addDongleAndSim = runExclusive.build(groupRef,
         async (imei: string, iccid: string) => {
-
-            debug("=>addDongleAndSim");
 
             let sql = "";
             let values: (string | number | null)[] = [];
@@ -437,13 +425,16 @@ export namespace semasim {
 
 
     export const addUaInstance = runExclusive.build(groupRef,
-        async ({ dongle_imei, instance_id }: UaInstancePk) => {
-
-            debug("=>addUaInstance");
+        async ({ dongle_imei, instance_id }: UaInstancePk): Promise<boolean> => {
 
             let [sql, values] = buildInsertQuery("ua_instance", { dongle_imei, instance_id });
 
-            await query(sql, values);
+            let resp= await query(sql, values);
+
+            let isNew= resp.insertId !== 0;
+
+            return isNew;
+
 
         }
     );
@@ -451,8 +442,6 @@ export namespace semasim {
 
     export const addMessageTowardSip = runExclusive.build(groupRef,
         async (from_number: string, text: string, date: Date, target: TargetUaInstances) => {
-
-            debug("=>addMessageTowardSip");
 
             let ua_instance_ids: number[];
             let imei: string;
@@ -504,12 +493,9 @@ export namespace semasim {
                 "base64_text": (new Buffer(text, "utf8")).toString("base64")
             });
 
-            await query(sql_values[0], sql_values[1]);
+            let { insertId }= await query(sql_values[0], sql_values[1]);
 
-            let [{ message_toward_sip_id }] = await query(
-                "SELECT `id` AS `message_toward_sip_id` FROM message_toward_sip WHERE `sim_iccid`=? AND `creation_timestamp`=?",
-                [sim_iccid, creation_timestamp]
-            );
+            let message_toward_sip_id: number= insertId;
 
             let sql = "";
             let values: (string | number | null)[] = [];
@@ -534,8 +520,6 @@ export namespace semasim {
 
     export const setMessageTowardSipDelivered = runExclusive.build(groupRef,
         async ({ dongle_imei, instance_id }: UaInstancePk, message_toward_sip_creation_timestamp: number) => {
-
-            debug("=>setMessageTowardSipDelivered");
 
             let [{ ua_instance_id }] = await query(
                 "SELECT `id` AS `ua_instance_id` FROM ua_instance WHERE `dongle_imei` = ? AND `instance_id` = ?",
@@ -567,8 +551,6 @@ export namespace semasim {
 
     export const getUndeliveredMessagesOfUaInstance = runExclusive.build(groupRef,
         async ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number, from_number: string; text: string }[]> => {
-
-            debug("=>getUndeliveredMessageOfUaInstance");
 
             return (await query(
                 [
