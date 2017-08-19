@@ -35,11 +35,12 @@ export declare namespace semasim {
     } | undefined>;
     const addDongleAndSim: (imei: string, iccid: string) => Promise<void>;
     const addUaInstance: ({dongle_imei, instance_id}: UaInstancePk) => Promise<boolean>;
-    const addMessageTowardSip: (from_number: string, text: string, date: Date, target: TargetUaInstances) => Promise<void>;
+    const addMessageTowardSip: (from_number: string, contact_name: string | null, text: string, date: Date, target: TargetUaInstances) => Promise<void>;
     const setMessageTowardSipDelivered: ({dongle_imei, instance_id}: UaInstancePk, message_toward_sip_creation_timestamp: number) => Promise<void>;
     const getUndeliveredMessagesOfUaInstance: ({dongle_imei, instance_id}: UaInstancePk) => Promise<{
         creation_timestamp: number;
         from_number: string;
+        contact_name: string | null;
         text: string;
     }[]>;
 }

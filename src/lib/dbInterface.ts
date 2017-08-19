@@ -441,7 +441,7 @@ export namespace semasim {
 
 
     export const addMessageTowardSip = runExclusive.build(groupRef,
-        async (from_number: string, text: string, date: Date, target: TargetUaInstances) => {
+        async (from_number: string, contact_name: string | null, text: string, date: Date, target: TargetUaInstances) => {
 
             let ua_instance_ids: number[];
             let imei: string;
@@ -490,6 +490,7 @@ export namespace semasim {
                 sim_iccid,
                 creation_timestamp,
                 from_number,
+                contact_name,
                 "base64_text": (new Buffer(text, "utf8")).toString("base64")
             });
 
@@ -550,11 +551,11 @@ export namespace semasim {
 
 
     export const getUndeliveredMessagesOfUaInstance = runExclusive.build(groupRef,
-        async ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number, from_number: string; text: string }[]> => {
+        async ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number; from_number: string; contact_name: string | null; text: string }[]> => {
 
             return (await query(
                 [
-                    "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`base64_text`",
+                    "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`contact_name`, message_toward_sip.`base64_text`",
                     "FROM message_toward_sip",
                     "INNER JOIN sim",
                     "ON sim.`iccid` = message_toward_sip.`sim_iccid`",

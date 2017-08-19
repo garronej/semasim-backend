@@ -126,7 +126,21 @@ export async function start() {
 
     proxySocket.evtResponse.attach(sipResponse => {
 
-        let flowToken = sipResponse.headers.via[0].params[c.flowTokenKey]!;
+        let flowToken: string;
+
+        try{
+
+            flowToken = sipResponse.headers.via[0].params[c.flowTokenKey]!;
+
+        }catch(error){
+
+            console.log(error.message);
+
+            console.log(JSON.stringify(sipResponse, null, 2));
+
+            return;
+
+        }
 
         let asteriskSocket = asteriskSockets.get(flowToken);
 

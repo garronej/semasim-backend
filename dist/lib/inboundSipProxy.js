@@ -211,7 +211,15 @@ function start() {
                 });
             }); });
             exports.proxySocket.evtResponse.attach(function (sipResponse) {
-                var flowToken = sipResponse.headers.via[0].params[c.flowTokenKey];
+                var flowToken;
+                try {
+                    flowToken = sipResponse.headers.via[0].params[c.flowTokenKey];
+                }
+                catch (error) {
+                    console.log(error.message);
+                    console.log(JSON.stringify(sipResponse, null, 2));
+                    return;
+                }
                 var asteriskSocket = exports.asteriskSockets.get(flowToken);
                 if (!asteriskSocket)
                     return;
