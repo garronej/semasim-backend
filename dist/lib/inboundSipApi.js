@@ -53,13 +53,12 @@ var __read = (this && this.__read) || function (o, n) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var sipApiFramework = require("./sipApiFramework");
-var inboundSipProxy_1 = require("./inboundSipProxy");
 var dbInterface_1 = require("./dbInterface");
 var _debug = require("debug");
 var debug = _debug("_sipProxy/inbound.api");
-function startListening() {
+function startListening(proxySocket) {
     var _this = this;
-    var evt = sipApiFramework.startListening(inboundSipProxy_1.proxySocket);
+    var evt = sipApiFramework.startListening(proxySocket);
     evt.attach(function (_a) {
         var method = _a.method, payload = _a.payload, sendResponse = _a.sendResponse;
         return __awaiter(_this, void 0, void 0, function () {

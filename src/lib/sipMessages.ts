@@ -7,7 +7,7 @@ import * as c from "./constants";
 
 
 import * as _debug from "debug";
-let debug = _debug("_admin/message");
+let debug = _debug("_sipMessages");
 
 export const evtMessage= evtIncomingMessage;
 

@@ -3,13 +3,12 @@ import * as sipApiFramework from "./sipApiFramework";
 import * as sip from "./sipLibrary";
 import { Contact } from "./endpointsContacts";
 import { deviceSockets, qualifyContact } from "./outboundSipProxy";
-import { proxySocket } from "./inboundSipProxy";
 import { asterisk as dbAsterisk } from "./dbInterface";
 
 import * as _debug from "debug";
 let debug = _debug("_sipProxy/inbound.api");
 
-export function startListening() {
+export function startListening(proxySocket: sip.Socket) {
 
     let evt = sipApiFramework.startListening(proxySocket);
 

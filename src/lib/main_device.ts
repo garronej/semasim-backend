@@ -122,20 +122,28 @@ async function onNewActiveDongle(dongle: DongleActive) {
 
     await db.asterisk.addOrUpdateEndpoint(dongle.imei, password);
 
-    await sendDonglePendingMessages(dongle.imei);
+    sendDonglePendingMessages(dongle.imei);
 
 }
 
 
 
-(async function findActiveDongle() {
+(async function findActiveDongleAndStartSipProxy() {
 
     for (let activeDongle of await dongleClient.getActiveDongles())
-        onNewActiveDongle(activeDongle);
+        await onNewActiveDongle(activeDongle);
+
+    inboundSipProxy.start();
 
 })();
 
-dongleClient.evtNewActiveDongle.attach(onNewActiveDongle);
+dongleClient.evtNewActiveDongle.attach(async dongle=> {
+
+    await onNewActiveDongle(dongle);
+
+    outboundApi.claimDongle.run(dongle.imei);
+
+});
 
 dongleClient.evtActiveDongleDisconnect.attach(async dongle => {
 
@@ -172,7 +180,6 @@ getEvtExpiredContact().attach(async contactUri => {
 });
 
 
-inboundSipProxy.start();
 
 sipMessages.start();
 

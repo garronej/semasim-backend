@@ -3,7 +3,7 @@ import * as sip from "./sipLibrary";
 import { Contact } from "./endpointsContacts";
 import * as firebase from "./firebaseFunctions";
 import { deviceSockets, qualifyContact } from "./outboundSipProxy";
-import { proxySocket } from "./inboundSipProxy";
+import { getProxySocket } from "./inboundSipProxy";
 import * as inboundApi from "./inboundSipApi";
 
 import * as _debug from "debug";
@@ -92,7 +92,7 @@ export namespace claimDongle {
 
         let payload: Request = { imei };
 
-        let { isGranted }= await apiOverSip.sendRequest(proxySocket, methodName, payload) as Response;
+        let { isGranted }= await apiOverSip.sendRequest(await getProxySocket(), methodName, payload) as Response;
 
         return isGranted;
 
@@ -171,7 +171,7 @@ export namespace wakeUpUserAgent {
 
         let payload: Request = { contactOrContactUri };
 
-        let { status } = await apiOverSip.sendRequest(proxySocket, methodName, payload) as Response;
+        let { status } = await apiOverSip.sendRequest(await getProxySocket(), methodName, payload) as Response;
 
         debug(`Status: ${status}`);
 

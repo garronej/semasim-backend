@@ -162,50 +162,62 @@ function onNewActiveDongle(dongle) {
                     return [4 /*yield*/, db.asterisk.addOrUpdateEndpoint(dongle.imei, password)];
                 case 2:
                     _a.sent();
-                    return [4 /*yield*/, sendDonglePendingMessages(dongle.imei)];
-                case 3:
-                    _a.sent();
+                    sendDonglePendingMessages(dongle.imei);
                     return [2 /*return*/];
             }
         });
     });
 }
-(function findActiveDongle() {
+(function findActiveDongleAndStartSipProxy() {
     return __awaiter(this, void 0, void 0, function () {
         var _a, _b, activeDongle, e_1_1, e_1, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
-                    _d.trys.push([0, 5, 6, 7]);
+                    _d.trys.push([0, 6, 7, 8]);
                     return [4 /*yield*/, dongleClient.getActiveDongles()];
                 case 1:
                     _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
                     _d.label = 2;
                 case 2:
-                    if (!!_b.done) return [3 /*break*/, 4];
+                    if (!!_b.done) return [3 /*break*/, 5];
                     activeDongle = _b.value;
-                    onNewActiveDongle(activeDongle);
-                    _d.label = 3;
+                    return [4 /*yield*/, onNewActiveDongle(activeDongle)];
                 case 3:
+                    _d.sent();
+                    _d.label = 4;
+                case 4:
                     _b = _a.next();
                     return [3 /*break*/, 2];
-                case 4: return [3 /*break*/, 7];
-                case 5:
+                case 5: return [3 /*break*/, 8];
+                case 6:
                     e_1_1 = _d.sent();
                     e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 7];
-                case 6:
+                    return [3 /*break*/, 8];
+                case 7:
                     try {
                         if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
                     finally { if (e_1) throw e_1.error; }
                     return [7 /*endfinally*/];
-                case 7: return [2 /*return*/];
+                case 8:
+                    inboundSipProxy.start();
+                    return [2 /*return*/];
             }
         });
     });
 })();
-dongleClient.evtNewActiveDongle.attach(onNewActiveDongle);
+dongleClient.evtNewActiveDongle.attach(function (dongle) { return __awaiter(_this, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, onNewActiveDongle(dongle)];
+            case 1:
+                _a.sent();
+                outboundApi.claimDongle.run(dongle.imei);
+                return [2 /*return*/];
+        }
+    });
+}); });
 dongleClient.evtActiveDongleDisconnect.attach(function (dongle) { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
         debug("onDongleDisconnect", dongle);
@@ -242,7 +254,6 @@ endpointsContacts_1.getEvtExpiredContact().attach(function (contactUri) { return
         }
     });
 }); });
-inboundSipProxy.start();
 sipMessages.start();
 var sendDonglePendingMessages = runExclusive.build(function (imei) { return __awaiter(_this, void 0, void 0, function () {
     var messages, messages_1, messages_1_1, _a, pk, sender, to_number, text, sentMessageId, error_1, _b, _c, _d, e_2_1, e_2, _e;

@@ -3,7 +3,7 @@ import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 import * as sip from "./sipLibrary";
 import * as db from "./dbInterface";
-import { asteriskSockets } from "./inboundSipProxy";
+import { getAsteriskSockets } from "./inboundSipProxy";
 import * as outboundApi from "./outboundSipApi";
 import * as c from "./constants";
 
@@ -288,7 +288,7 @@ async function destroyUselessAsteriskSockets(): Promise<number> {
 
     let destroyCount=0;
 
-    for (let socket of asteriskSockets.getAll())
+    for (let socket of (await getAsteriskSockets()).getAll())
         if (localPortsToKeep.indexOf(socket.localPort) < 0){
             destroyCount++;
             socket.destroy();

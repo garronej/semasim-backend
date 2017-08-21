@@ -11,6 +11,6 @@ export declare const evtOutgoingMessage: SyncEvent<{
     sipRequest: sip.Request;
     evtReceived: VoidSyncEvent;
 }>;
-export declare let asteriskSockets: sip.Store;
-export declare let proxySocket: sip.Socket;
+export declare function getProxySocket(): Promise<sip.Socket>;
+export declare function getAsteriskSockets(): Promise<sip.Store>;
 export declare function start(): Promise<void>;

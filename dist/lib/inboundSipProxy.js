@@ -48,7 +48,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var tls = require("tls");
 var net = require("net");
 var ts_events_extended_1 = require("ts-events-extended");
-var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var sip = require("./sipLibrary");
 var os = require("os");
 var outboundApi = require("./outboundSipApi");
@@ -67,85 +66,52 @@ var localIp = os.networkInterfaces()["eth0"].filter(function (_a) {
 })[0]["address"];
 exports.evtIncomingMessage = new ts_events_extended_1.SyncEvent();
 exports.evtOutgoingMessage = new ts_events_extended_1.SyncEvent();
+var proxySocket;
+var asteriskSockets;
+var evtNewProxySocketConnect = new ts_events_extended_1.VoidSyncEvent();
+function getProxySocket() {
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    if (!(!proxySocket ||
+                        proxySocket.evtClose.postCount ||
+                        !proxySocket.evtConnect.postCount)) return [3 /*break*/, 2];
+                    return [4 /*yield*/, evtNewProxySocketConnect.waitFor()];
+                case 1:
+                    _a.sent();
+                    _a.label = 2;
+                case 2: return [2 /*return*/, proxySocket];
+            }
+        });
+    });
+}
+exports.getProxySocket = getProxySocket;
+function getAsteriskSockets() {
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, getProxySocket()];
+                case 1:
+                    _a.sent();
+                    return [2 /*return*/, asteriskSockets];
+            }
+        });
+    });
+}
+exports.getAsteriskSockets = getAsteriskSockets;
 function start() {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        function notifyHandledDongle(imei) {
-            return __awaiter(this, void 0, void 0, function () {
-                var isGranted;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
-                        case 0:
-                            if (!!exports.proxySocket.evtConnect.postCount) return [3 /*break*/, 2];
-                            return [4 /*yield*/, exports.proxySocket.evtConnect.waitFor()];
-                        case 1:
-                            _a.sent();
-                            _a.label = 2;
-                        case 2: return [4 /*yield*/, outboundApi.claimDongle.run(imei)];
-                        case 3:
-                            isGranted = _a.sent();
-                            if (!isGranted)
-                                return [2 /*return*/];
-                            debug("Dongle successfully claimed on outbound sip proxy");
-                            return [2 /*return*/];
-                    }
-                });
-            });
-        }
-        function createAsteriskSocket(flowToken, proxySocket) {
-            debug(flowToken + " Creating asterisk socket");
-            //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
-            var asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
-            asteriskSocket.disablePong = true;
-            asteriskSocket.evtPing.attach(function () { return console.log("Asterisk ping!"); });
-            exports.asteriskSockets.add(flowToken, asteriskSocket);
-            /*
-            asteriskSocket.evtPacket.attach(sipPacket =>
-                console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
-            );
-    
-            asteriskSocket.evtData.attach(chunk =>
-                console.log("From Asterisk:\n", chunk.grey, "\n\n")
-            );
-            */
-            asteriskSocket.evtPacket.attachPrepend(function (_a) {
-                var headers = _a.headers;
-                return headers["content-type"] === "application/sdp";
-            }, function (sipPacket) {
-                var sdp = sip.parseSdp(sipPacket.content);
-                sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
-                sipPacket.content = sip.stringifySdp(sdp);
-            });
-            asteriskSocket.evtRequest.attach(function (sipRequest) {
-                var branch = proxySocket.addViaHeader(sipRequest, outboundSipProxy_1.extraParamFlowToken(flowToken));
-                proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
-                if (sip.isPlainMessageRequest(sipRequest)) {
-                    var evtReceived_1 = new ts_events_extended_1.VoidSyncEvent();
-                    exports.evtOutgoingMessage.post({ sipRequest: sipRequest, evtReceived: evtReceived_1 });
-                    proxySocket.evtResponse.attachOncePrepend(function (_a) {
-                        var headers = _a.headers;
-                        return headers.via[0].params["branch"] === branch;
-                    }, function () { return evtReceived_1.post(); });
-                }
-                proxySocket.write(sipRequest);
-            });
-            asteriskSocket.evtResponse.attach(function (sipResponse) {
-                if (proxySocket.evtClose.postCount)
-                    return;
-                proxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
-                sipResponse.headers.via.shift();
-                proxySocket.write(sipResponse);
-            });
-            return asteriskSocket;
-        }
         return __generator(this, function (_a) {
             debug("(re)Staring !");
-            exports.asteriskSockets = new sip.Store();
-            exports.proxySocket = new sip.Socket(tls.connect({
+            asteriskSockets = new sip.Store();
+            proxySocket = new sip.Socket(tls.connect({
                 "host": c.outboundHostname,
                 "port": c.outboundSipProxyListeningPortForDevices
             }));
-            exports.proxySocket.setKeepAlive(true);
+            proxySocket.setKeepAlive(true);
+            inboundSipApi_1.startListening(proxySocket);
             /*
             proxySocket.evtPacket.attach(sipPacket =>
                 console.log("From proxy:\n", sip.stringify(sipPacket).yellow, "\n\n")
@@ -154,16 +120,53 @@ function start() {
                 console.log("From proxy:\n", chunk.yellow, "\n\n")
             );
             */
-            exports.proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
+            proxySocket.evtConnect.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
+                var _a, _b, endpoint, e_1_1, e_1, _c;
+                return __generator(this, function (_d) {
+                    switch (_d.label) {
+                        case 0:
+                            debug("connection established with proxy");
+                            evtNewProxySocketConnect.post();
+                            _d.label = 1;
+                        case 1:
+                            _d.trys.push([1, 6, 7, 8]);
+                            return [4 /*yield*/, db.asterisk.queryEndpoints()];
+                        case 2:
+                            _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                            _d.label = 3;
+                        case 3:
+                            if (!!_b.done) return [3 /*break*/, 5];
+                            endpoint = _b.value;
+                            outboundApi.claimDongle.run(endpoint);
+                            _d.label = 4;
+                        case 4:
+                            _b = _a.next();
+                            return [3 /*break*/, 3];
+                        case 5: return [3 /*break*/, 8];
+                        case 6:
+                            e_1_1 = _d.sent();
+                            e_1 = { error: e_1_1 };
+                            return [3 /*break*/, 8];
+                        case 7:
+                            try {
+                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                            }
+                            finally { if (e_1) throw e_1.error; }
+                            return [7 /*endfinally*/];
+                        case 8: return [2 /*return*/];
+                    }
+                });
+            }); });
+            proxySocket.evtRequest.attach(function (sipRequest) { return __awaiter(_this, void 0, void 0, function () {
                 var _this = this;
                 var flowToken, asteriskSocket, branch;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
                             flowToken = sipRequest.headers.via[0].params[c.flowTokenKey];
-                            asteriskSocket = exports.asteriskSockets.get(flowToken);
+                            asteriskSocket = asteriskSockets.get(flowToken);
                             if (!asteriskSocket)
-                                asteriskSocket = createAsteriskSocket(flowToken, exports.proxySocket);
+                                asteriskSocket = createAsteriskSocket(flowToken, proxySocket);
                             if (!!asteriskSocket.evtConnect.postCount) return [3 /*break*/, 2];
                             return [4 /*yield*/, asteriskSocket.evtConnect.waitFor()];
                         case 1:
@@ -210,7 +213,7 @@ function start() {
                     }
                 });
             }); });
-            exports.proxySocket.evtResponse.attach(function (sipResponse) {
+            proxySocket.evtResponse.attach(function (sipResponse) {
                 var flowToken;
                 try {
                     flowToken = sipResponse.headers.via[0].params[c.flowTokenKey];
@@ -220,76 +223,77 @@ function start() {
                     console.log(JSON.stringify(sipResponse, null, 2));
                     return;
                 }
-                var asteriskSocket = exports.asteriskSockets.get(flowToken);
+                var asteriskSocket = asteriskSockets.get(flowToken);
                 if (!asteriskSocket)
                     return;
                 asteriskSocket.rewriteRecordRoute(sipResponse);
                 sipResponse.headers.via.shift();
                 asteriskSocket.write(sipResponse);
             });
-            exports.proxySocket.evtClose.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
+            proxySocket.evtClose.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            //TODO see what is the state of contacts
-                            //debug("proxy socket closed, destroying all asterisk socket, waiting and restarting");
                             debug("proxy socket closed, waiting and restarting");
-                            return [4 /*yield*/, exports.asteriskSockets.destroyAll()];
+                            return [4 /*yield*/, asteriskSockets.destroyAll()];
                         case 1:
                             _a.sent();
-                            //await db.asterisk.truncateContacts();
                             return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 3000); })];
                         case 2:
-                            //await db.asterisk.truncateContacts();
                             _a.sent();
                             start();
                             return [2 /*return*/];
                     }
                 });
             }); });
-            exports.proxySocket.evtConnect.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
-                var _a, _b, endpoint, e_1_1, e_1, _c;
-                return __generator(this, function (_d) {
-                    switch (_d.label) {
-                        case 0:
-                            debug("connection established with proxy");
-                            inboundSipApi_1.startListening();
-                            _d.label = 1;
-                        case 1:
-                            _d.trys.push([1, 6, 7, 8]);
-                            return [4 /*yield*/, db.asterisk.queryEndpoints()];
-                        case 2:
-                            _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                            _d.label = 3;
-                        case 3:
-                            if (!!_b.done) return [3 /*break*/, 5];
-                            endpoint = _b.value;
-                            notifyHandledDongle(endpoint);
-                            _d.label = 4;
-                        case 4:
-                            _b = _a.next();
-                            return [3 /*break*/, 3];
-                        case 5: return [3 /*break*/, 8];
-                        case 6:
-                            e_1_1 = _d.sent();
-                            e_1 = { error: e_1_1 };
-                            return [3 /*break*/, 8];
-                        case 7:
-                            try {
-                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                            }
-                            finally { if (e_1) throw e_1.error; }
-                            return [7 /*endfinally*/];
-                        case 8: return [2 /*return*/];
-                    }
-                });
-            }); });
-            chan_dongle_extended_client_1.DongleExtendedClient.localhost().evtNewActiveDongle.attach(function (_a) {
-                var imei = _a.imei;
-                return notifyHandledDongle(imei);
-            });
             return [2 /*return*/];
         });
     });
 }
 exports.start = start;
+function createAsteriskSocket(flowToken, proxySocket) {
+    debug(flowToken + " Creating asterisk socket");
+    //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
+    var asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
+    asteriskSocket.disablePong = true;
+    asteriskSocket.evtPing.attach(function () { return console.log("Asterisk ping!"); });
+    asteriskSockets.add(flowToken, asteriskSocket);
+    /*
+    asteriskSocket.evtPacket.attach(sipPacket =>
+        console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
+    );
+
+    asteriskSocket.evtData.attach(chunk =>
+        console.log("From Asterisk:\n", chunk.grey, "\n\n")
+    );
+    */
+    asteriskSocket.evtPacket.attachPrepend(function (_a) {
+        var headers = _a.headers;
+        return headers["content-type"] === "application/sdp";
+    }, function (sipPacket) {
+        var sdp = sip.parseSdp(sipPacket.content);
+        sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
+        sipPacket.content = sip.stringifySdp(sdp);
+    });
+    asteriskSocket.evtRequest.attach(function (sipRequest) {
+        var branch = proxySocket.addViaHeader(sipRequest, outboundSipProxy_1.extraParamFlowToken(flowToken));
+        proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
+        if (sip.isPlainMessageRequest(sipRequest)) {
+            var evtReceived_1 = new ts_events_extended_1.VoidSyncEvent();
+            exports.evtOutgoingMessage.post({ sipRequest: sipRequest, evtReceived: evtReceived_1 });
+            proxySocket.evtResponse.attachOncePrepend(function (_a) {
+                var headers = _a.headers;
+                return headers.via[0].params["branch"] === branch;
+            }, function () { return evtReceived_1.post(); });
+        }
+        proxySocket.write(sipRequest);
+    });
+    asteriskSocket.evtResponse.attach(function (sipResponse) {
+        if (proxySocket.evtClose.postCount)
+            return;
+        proxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
+        sipResponse.headers.via.shift();
+        proxySocket.write(sipResponse);
+    });
+    return asteriskSocket;
+}

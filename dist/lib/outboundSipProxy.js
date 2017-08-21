@@ -48,15 +48,21 @@ var publicIp = "";
 function getPublicIp() {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            if (publicIp)
-                return [2 /*return*/, publicIp];
-            return [2 /*return*/, new Promise(function (resolve) {
-                    return dns.resolve4(c.outboundHostname, function (error, addresses) {
-                        if (error)
-                            throw error;
-                        resolve(addresses[0]);
-                    });
-                })];
+            switch (_a.label) {
+                case 0:
+                    if (publicIp)
+                        return [2 /*return*/, publicIp];
+                    return [4 /*yield*/, new Promise(function (resolve) {
+                            return dns.resolve4(c.outboundHostname, function (error, addresses) {
+                                if (error)
+                                    throw error;
+                                resolve(addresses[0]);
+                            });
+                        })];
+                case 1:
+                    publicIp = _a.sent();
+                    return [2 /*return*/, publicIp];
+            }
         });
     });
 }

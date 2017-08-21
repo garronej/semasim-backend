@@ -17,7 +17,7 @@ import * as _debug from "debug";
 let debug = _debug("_sipProxy/inbound");
 
 //TODO change that otherwise only work on raspberry pi
-const localIp= os.networkInterfaces()["eth0"].filter( ({family})=> family === "IPv4" )[0]["address"];
+const localIp = os.networkInterfaces()["eth0"].filter(({ family }) => family === "IPv4")[0]["address"];
 
 export const evtIncomingMessage = new SyncEvent<{
     fromContact: Contact;
@@ -25,14 +25,37 @@ export const evtIncomingMessage = new SyncEvent<{
     text: string;
 }>();
 
-export const evtOutgoingMessage = new SyncEvent<{ 
+export const evtOutgoingMessage = new SyncEvent<{
     sipRequest: sip.Request;
     evtReceived: VoidSyncEvent;
 }>();
 
 
-export let asteriskSockets: sip.Store;
-export let proxySocket: sip.Socket;
+let proxySocket: sip.Socket;
+let asteriskSockets: sip.Store;
+
+const evtNewProxySocketConnect = new VoidSyncEvent();
+
+export async function getProxySocket(): Promise<sip.Socket> {
+
+    if (
+        !proxySocket ||
+        proxySocket.evtClose.postCount ||
+        !proxySocket.evtConnect.postCount
+    ) await evtNewProxySocketConnect.waitFor();
+
+    return proxySocket;
+
+}
+
+export async function getAsteriskSockets(): Promise<sip.Store> {
+
+    await getProxySocket();
+
+    return asteriskSockets;
+
+}
+
 
 export async function start() {
 
@@ -41,13 +64,15 @@ export async function start() {
     asteriskSockets = new sip.Store();
 
     proxySocket = new sip.Socket(
-        tls.connect({ 
-            "host": c.outboundHostname, 
-            "port": c.outboundSipProxyListeningPortForDevices 
+        tls.connect({
+            "host": c.outboundHostname,
+            "port": c.outboundSipProxyListeningPortForDevices
         }) as any
     );
 
     proxySocket.setKeepAlive(true);
+
+    apiStartListening(proxySocket);
 
     /*
     proxySocket.evtPacket.attach(sipPacket =>
@@ -57,6 +82,17 @@ export async function start() {
         console.log("From proxy:\n", chunk.yellow, "\n\n")
     );
     */
+
+    proxySocket.evtConnect.attachOnce(async () => {
+
+        debug("connection established with proxy");
+
+        evtNewProxySocketConnect.post();
+
+        for (let endpoint of await db.asterisk.queryEndpoints()) 
+            outboundApi.claimDongle.run(endpoint);
+
+    });
 
     proxySocket.evtRequest.attach(async sipRequest => {
 
@@ -128,11 +164,11 @@ export async function start() {
 
         let flowToken: string;
 
-        try{
+        try {
 
             flowToken = sipResponse.headers.via[0].params[c.flowTokenKey]!;
 
-        }catch(error){
+        } catch (error) {
 
             console.log(error.message);
 
@@ -157,14 +193,9 @@ export async function start() {
 
     proxySocket.evtClose.attachOnce(async () => {
 
-        //TODO see what is the state of contacts
-
-        //debug("proxy socket closed, destroying all asterisk socket, waiting and restarting");
         debug("proxy socket closed, waiting and restarting");
 
         await asteriskSockets.destroyAll();
-
-        //await db.asterisk.truncateContacts();
 
         await new Promise<void>(resolve => setTimeout(resolve, 3000));
 
@@ -172,102 +203,76 @@ export async function start() {
 
     });
 
+}
 
-    proxySocket.evtConnect.attachOnce(async () => {
 
-        debug("connection established with proxy");
+function createAsteriskSocket(flowToken: string, proxySocket: sip.Socket): sip.Socket {
 
-        apiStartListening();
+    debug(`${flowToken} Creating asterisk socket`);
 
-        for( let endpoint of await db.asterisk.queryEndpoints())
-            notifyHandledDongle(endpoint)
+    //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
+    let asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
+
+    asteriskSocket.disablePong = true;
+
+    asteriskSocket.evtPing.attach(() => console.log("Asterisk ping!"));
+
+    asteriskSockets.add(flowToken, asteriskSocket);
+
+    /*
+    asteriskSocket.evtPacket.attach(sipPacket =>
+        console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
+    );
+
+    asteriskSocket.evtData.attach(chunk =>
+        console.log("From Asterisk:\n", chunk.grey, "\n\n")
+    );
+    */
+
+    asteriskSocket.evtPacket.attachPrepend(
+        ({ headers }) => headers["content-type"] === "application/sdp",
+        sipPacket => {
+
+            let sdp = sip.parseSdp(sipPacket.content);
+
+            sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
+
+            sipPacket.content = sip.stringifySdp(sdp);
+
+        }
+    );
+
+
+    asteriskSocket.evtRequest.attach(sipRequest => {
+
+        let branch = proxySocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
+
+        proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
+
+        if (sip.isPlainMessageRequest(sipRequest)) {
+            let evtReceived = new VoidSyncEvent();
+            evtOutgoingMessage.post({ sipRequest, evtReceived });
+            proxySocket.evtResponse.attachOncePrepend(
+                ({ headers }) => headers.via[0].params["branch"] === branch,
+                () => evtReceived.post()
+            )
+        }
+
+        proxySocket.write(sipRequest);
 
     });
 
-    DongleExtendedClient.localhost().evtNewActiveDongle.attach(({imei}) => notifyHandledDongle(imei));
+    asteriskSocket.evtResponse.attach(sipResponse => {
 
-    async function notifyHandledDongle(imei: string ) {
+        if (proxySocket.evtClose.postCount) return;
 
-        if (!proxySocket.evtConnect.postCount)
-            await proxySocket.evtConnect.waitFor();
+        proxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
 
-        let isGranted= await outboundApi.claimDongle.run(imei);
+        sipResponse.headers.via.shift();
 
-        if( !isGranted ) return;
+        proxySocket.write(sipResponse);
 
-        debug("Dongle successfully claimed on outbound sip proxy");
+    });
 
-    }
-
-    function createAsteriskSocket(flowToken: string, proxySocket: sip.Socket): sip.Socket {
-
-        debug(`${flowToken} Creating asterisk socket`);
-
-        //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
-        let asteriskSocket = new sip.Socket(net.createConnection(5060, localIp));
-
-        asteriskSocket.disablePong = true;
-
-        asteriskSocket.evtPing.attach(() => console.log("Asterisk ping!"));
-
-        asteriskSockets.add(flowToken, asteriskSocket);
-
-        /*
-        asteriskSocket.evtPacket.attach(sipPacket =>
-            console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
-        );
-
-        asteriskSocket.evtData.attach(chunk =>
-            console.log("From Asterisk:\n", chunk.grey, "\n\n")
-        );
-        */
-
-        asteriskSocket.evtPacket.attachPrepend(
-            ({ headers }) => headers["content-type"] === "application/sdp",
-            sipPacket => {
-
-                let sdp = sip.parseSdp(sipPacket.content);
-
-                sip.overwriteGlobalAndAudioAddrInSdpCandidates(sdp);
-
-                sipPacket.content = sip.stringifySdp(sdp);
-
-            }
-        );
-
-
-        asteriskSocket.evtRequest.attach(sipRequest => {
-
-            let branch = proxySocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
-
-            proxySocket.shiftRouteAndAddRecordRoute(sipRequest, "semasim-inbound-proxy.invalid");
-
-            if (sip.isPlainMessageRequest(sipRequest)) {
-                let evtReceived = new VoidSyncEvent();
-                evtOutgoingMessage.post({ sipRequest, evtReceived });
-                proxySocket.evtResponse.attachOncePrepend(
-                    ({ headers }) => headers.via[0].params["branch"] === branch,
-                    () => evtReceived.post()
-                )
-            }
-
-            proxySocket.write(sipRequest);
-
-        });
-
-        asteriskSocket.evtResponse.attach(sipResponse => {
-
-            if (proxySocket.evtClose.postCount) return;
-
-            proxySocket.rewriteRecordRoute(sipResponse, "semasim-inbound-proxy.invalid");
-
-            sipResponse.headers.via.shift();
-
-            proxySocket.write(sipResponse);
-
-        });
-
-        return asteriskSocket;
-    }
-
+    return asteriskSocket;
 }

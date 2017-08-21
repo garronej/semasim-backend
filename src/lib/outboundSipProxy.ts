@@ -19,7 +19,7 @@ export async function getPublicIp(): Promise<string> {
 
     if (publicIp) return publicIp;
 
-    return new Promise<string>(resolve => 
+    publicIp= await new Promise<string>(resolve => 
         dns.resolve4(c.outboundHostname, (error, addresses) => {
 
             if (error) throw error;
@@ -28,6 +28,8 @@ export async function getPublicIp(): Promise<string> {
 
         })
     );
+
+    return publicIp;
 
 }
 

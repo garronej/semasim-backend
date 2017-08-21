@@ -282,7 +282,7 @@ function wakeUpContact(contact, timeout, evtTracer) {
 exports.wakeUpContact = wakeUpContact;
 function destroyUselessAsteriskSockets() {
     return __awaiter(this, void 0, void 0, function () {
-        var localPortsToKeep, destroyCount, _a, _b, socket, e_4, _c;
+        var localPortsToKeep, destroyCount, _a, _b, socket, e_4_1, e_4, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0: return [4 /*yield*/, db.asterisk.queryContacts()];
@@ -290,23 +290,36 @@ function destroyUselessAsteriskSockets() {
                     localPortsToKeep = (_d.sent())
                         .map(function (contact) { return Contact.readAstSocketSrcPort(contact); });
                     destroyCount = 0;
+                    _d.label = 2;
+                case 2:
+                    _d.trys.push([2, 7, 8, 9]);
+                    return [4 /*yield*/, inboundSipProxy_1.getAsteriskSockets()];
+                case 3:
+                    _a = __values.apply(void 0, [(_d.sent()).getAll()]), _b = _a.next();
+                    _d.label = 4;
+                case 4:
+                    if (!!_b.done) return [3 /*break*/, 6];
+                    socket = _b.value;
+                    if (localPortsToKeep.indexOf(socket.localPort) < 0) {
+                        destroyCount++;
+                        socket.destroy();
+                    }
+                    _d.label = 5;
+                case 5:
+                    _b = _a.next();
+                    return [3 /*break*/, 4];
+                case 6: return [3 /*break*/, 9];
+                case 7:
+                    e_4_1 = _d.sent();
+                    e_4 = { error: e_4_1 };
+                    return [3 /*break*/, 9];
+                case 8:
                     try {
-                        for (_a = __values(inboundSipProxy_1.asteriskSockets.getAll()), _b = _a.next(); !_b.done; _b = _a.next()) {
-                            socket = _b.value;
-                            if (localPortsToKeep.indexOf(socket.localPort) < 0) {
-                                destroyCount++;
-                                socket.destroy();
-                            }
-                        }
+                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
-                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
-                    finally {
-                        try {
-                            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                        }
-                        finally { if (e_4) throw e_4.error; }
-                    }
-                    return [2 /*return*/, destroyCount];
+                    finally { if (e_4) throw e_4.error; }
+                    return [7 /*endfinally*/];
+                case 9: return [2 /*return*/, destroyCount];
             }
         });
     });

@@ -47,7 +47,7 @@ var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var inboundSipProxy_1 = require("./inboundSipProxy");
 var c = require("./constants");
 var _debug = require("debug");
-var debug = _debug("_admin/message");
+var debug = _debug("_sipMessages");
 exports.evtMessage = inboundSipProxy_1.evtIncomingMessage;
 function start() {
     return __awaiter(this, void 0, void 0, function () {

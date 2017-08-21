@@ -121,14 +121,16 @@ var claimDongle;
     claimDongle.handle = handle;
     function run(imei) {
         return __awaiter(this, void 0, void 0, function () {
-            var payload, isGranted;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var payload, isGranted, _a, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         payload = { imei: imei };
-                        return [4 /*yield*/, apiOverSip.sendRequest(inboundSipProxy_1.proxySocket, claimDongle.methodName, payload)];
-                    case 1:
-                        isGranted = (_a.sent()).isGranted;
+                        _b = (_a = apiOverSip).sendRequest;
+                        return [4 /*yield*/, inboundSipProxy_1.getProxySocket()];
+                    case 1: return [4 /*yield*/, _b.apply(_a, [_c.sent(), claimDongle.methodName, payload])];
+                    case 2:
+                        isGranted = (_c.sent()).isGranted;
                         return [2 /*return*/, isGranted];
                 }
             });
@@ -186,15 +188,17 @@ var wakeUpUserAgent;
     wakeUpUserAgent.handle = handle;
     function run(contactOrContactUri) {
         return __awaiter(this, void 0, void 0, function () {
-            var payload, status;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var payload, status, _a, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
                         debug("Run wakeUpUserAgent");
                         payload = { contactOrContactUri: contactOrContactUri };
-                        return [4 /*yield*/, apiOverSip.sendRequest(inboundSipProxy_1.proxySocket, wakeUpUserAgent.methodName, payload)];
-                    case 1:
-                        status = (_a.sent()).status;
+                        _b = (_a = apiOverSip).sendRequest;
+                        return [4 /*yield*/, inboundSipProxy_1.getProxySocket()];
+                    case 1: return [4 /*yield*/, _b.apply(_a, [_c.sent(), wakeUpUserAgent.methodName, payload])];
+                    case 2:
+                        status = (_c.sent()).status;
                         debug("Status: " + status);
                         return [2 /*return*/, status];
                 }
