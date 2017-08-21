@@ -37,7 +37,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 require("rejection-tracker").main(__dirname, "..", "..");
-var sipProxy = require("../lib/outboundSipProxy");
+var sipProxy = require("./outboundSipProxy");
+var webApi = require("./webApi");
 (function () { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -47,6 +48,10 @@ var sipProxy = require("../lib/outboundSipProxy");
             case 1:
                 _a.sent();
                 console.log("Sip proxy server started !");
+                return [4 /*yield*/, webApi.startServer()];
+            case 2:
+                _a.sent();
+                console.log("Web API started");
                 return [2 /*return*/];
         }
     });

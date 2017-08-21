@@ -22,3 +22,5 @@ export declare function getTlsOptions(): {
     cert: string;
     ca: string;
 };
+export declare const webApiPath = "api";
+export declare const webApiPort = 4430;

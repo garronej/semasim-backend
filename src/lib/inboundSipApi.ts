@@ -20,6 +20,7 @@ export function startListening(proxySocket: sip.Socket) {
             switch (method) {
                 case unlockDongle.methodName:
                     response= await unlockDongle.handle(payload as unlockDongle.Request);
+                    break;
                 case isDongleConnected.methodName:
                     response= await isDongleConnected.handle(payload as isDongleConnected.Request);
                     break;
@@ -82,9 +83,9 @@ export namespace unlockDongle {
 
     export interface Request {
         imei: string;
-        lastFourDigitsOfIccid: string;
-        pinFirstTry: string;
-        pinSecondTry?: string;
+        last_four_digits_of_iccid: string;
+        pin_first_try: string;
+        pin_second_try?: string;
     }
 
     export interface Response {
@@ -93,9 +94,13 @@ export namespace unlockDongle {
         tryLeft?: number;
     }
 
+    function isValidPass(iccid: string, last_four_digits_of_iccid: string){
+        return !iccid || iccid.substring(iccid.length - 4) === last_four_digits_of_iccid;
+    }
+
 
     export async function handle(
-        { imei, lastFourDigitsOfIccid, pinFirstTry, pinSecondTry }: Request,
+        { imei, last_four_digits_of_iccid, pin_first_try, pin_second_try }: Request,
     ): Promise<Response> {
 
         debug("unlockDongle");
@@ -104,28 +109,37 @@ export namespace unlockDongle {
 
         try {
 
-            if (await dongleClient.getActiveDongle(imei))
+            let activeDongle = await dongleClient.getActiveDongle(imei);
+
+            if (activeDongle) {
+
+                if (!isValidPass(activeDongle.iccid, last_four_digits_of_iccid))
+                    throw new Error("ICCID does not match");
+
                 return { "dongleFound": true, pinState: "READY" };
 
-            let [lockedDongle] = (await dongleClient.getLockedDongles()).filter(lockedDongle => {
+            }
 
-                if (lockedDongle.imei !== imei) return false;
+            let [lockedDongle] = (await dongleClient.getLockedDongles())
+            .filter(
+                lockedDongle => {
 
-                let iccid = lockedDongle.iccid;
+                    if (lockedDongle.imei !== imei) return false;
 
-                if (iccid && iccid.substring(iccid.length - 4) !== lastFourDigitsOfIccid)
-                    return false;
+                    if ( !isValidPass(lockedDongle.iccid, last_four_digits_of_iccid) )
+                        return false;
 
-                return true;
+                    return true;
 
-            });
+                }
+            );
 
             if (lockedDongle.pinState !== "SIM PIN" || lockedDongle.tryLeft !== 3)
                 return { "dongleFound": true, "pinState": "SIM PIN", "tryLeft": lockedDongle.tryLeft };
 
             let attemptUnlock = async (pin: string): Promise<LockedDongle | DongleActive> => {
 
-                await dongleClient.unlockDongle(imei, pinFirstTry);
+                await dongleClient.unlockDongle(imei, pin_first_try);
 
                 return await Promise.race([
                     dongleClient.evtNewActiveDongle.waitFor(newActiveDongle => newActiveDongle.imei === imei),
@@ -136,15 +150,15 @@ export namespace unlockDongle {
 
             let matchLocked = (dongle: LockedDongle | DongleActive): dongle is LockedDongle => dongle["pinState"];
 
-            let resultFirstTry= await attemptUnlock(pinFirstTry);
+            let resultFirstTry = await attemptUnlock(pin_first_try);
 
             if (!matchLocked(resultFirstTry))
                 return { "dongleFound": true, "pinState": "READY" };
 
-            if (!pinSecondTry)
+            if (!pin_second_try)
                 return { "dongleFound": true, "pinState": resultFirstTry.pinState, "tryLeft": resultFirstTry.tryLeft };
 
-            let resultSecondTry= await attemptUnlock(pinSecondTry);
+            let resultSecondTry = await attemptUnlock(pin_second_try);
 
             if (!matchLocked(resultSecondTry))
                 return { "dongleFound": true, "pinState": "READY" };
@@ -152,6 +166,8 @@ export namespace unlockDongle {
             return { "dongleFound": true, "pinState": resultSecondTry.pinState, "tryLeft": resultSecondTry.tryLeft };
 
         } catch (error) {
+
+            debug(error.message);
 
             return { "dongleFound": false };
 

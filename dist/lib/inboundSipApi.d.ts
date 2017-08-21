@@ -17,15 +17,15 @@ export declare namespace unlockDongle {
     const methodName = "unlockDongle";
     interface Request {
         imei: string;
-        lastFourDigitsOfIccid: string;
-        pinFirstTry: string;
-        pinSecondTry?: string;
+        last_four_digits_of_iccid: string;
+        pin_first_try: string;
+        pin_second_try?: string;
     }
     interface Response {
         dongleFound: boolean;
         pinState?: LockedDongle["pinState"] | "READY";
         tryLeft?: number;
     }
-    function handle({imei, lastFourDigitsOfIccid, pinFirstTry, pinSecondTry}: Request): Promise<Response>;
+    function handle({imei, last_four_digits_of_iccid, pin_first_try, pin_second_try}: Request): Promise<Response>;
     function run(deviceSocket: sip.Socket, request: Request): Promise<Response>;
 }

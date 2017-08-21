@@ -1,6 +1,7 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
-import * as sipProxy from "../lib/outboundSipProxy";
+import * as sipProxy from "./outboundSipProxy";
+import * as webApi from "./webApi";
 
 (async ()=>{
 
@@ -9,5 +10,9 @@ import * as sipProxy from "../lib/outboundSipProxy";
     await sipProxy.startServer();
 
     console.log("Sip proxy server started !");
+
+    await webApi.startServer();
+
+    console.log("Web API started");
 
 })();

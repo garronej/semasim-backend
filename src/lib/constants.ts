@@ -47,3 +47,7 @@ export function getTlsOptions(): { key: string; cert: string; ca: string } {
         return { key, cert, ca };
 
 }
+
+
+export const webApiPath = "api";
+export const webApiPort = 4430;

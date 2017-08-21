@@ -48,6 +48,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var tls = require("tls");
 var net = require("net");
 var ts_events_extended_1 = require("ts-events-extended");
+var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var sip = require("./sipLibrary");
 var os = require("os");
 var outboundApi = require("./outboundSipApi");
@@ -121,39 +122,79 @@ function start() {
             );
             */
             proxySocket.evtConnect.attachOnce(function () { return __awaiter(_this, void 0, void 0, function () {
-                var _a, _b, endpoint, e_1_1, e_1, _c;
-                return __generator(this, function (_d) {
-                    switch (_d.label) {
+                var set, _a, _b, imei, e_1_1, _c, _d, imei, e_2_1, set_1, set_1_1, imei, e_1, _e, e_2, _f, e_3, _g;
+                return __generator(this, function (_h) {
+                    switch (_h.label) {
                         case 0:
                             debug("connection established with proxy");
                             evtNewProxySocketConnect.post();
-                            _d.label = 1;
+                            set = new Set();
+                            _h.label = 1;
                         case 1:
-                            _d.trys.push([1, 6, 7, 8]);
+                            _h.trys.push([1, 6, 7, 8]);
                             return [4 /*yield*/, db.asterisk.queryEndpoints()];
                         case 2:
-                            _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                            _d.label = 3;
+                            _a = __values.apply(void 0, [_h.sent()]), _b = _a.next();
+                            _h.label = 3;
                         case 3:
                             if (!!_b.done) return [3 /*break*/, 5];
-                            endpoint = _b.value;
-                            outboundApi.claimDongle.run(endpoint);
-                            _d.label = 4;
+                            imei = _b.value;
+                            set.add(imei);
+                            _h.label = 4;
                         case 4:
                             _b = _a.next();
                             return [3 /*break*/, 3];
                         case 5: return [3 /*break*/, 8];
                         case 6:
-                            e_1_1 = _d.sent();
+                            e_1_1 = _h.sent();
                             e_1 = { error: e_1_1 };
                             return [3 /*break*/, 8];
                         case 7:
                             try {
-                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                                if (_b && !_b.done && (_e = _a.return)) _e.call(_a);
                             }
                             finally { if (e_1) throw e_1.error; }
                             return [7 /*endfinally*/];
-                        case 8: return [2 /*return*/];
+                        case 8:
+                            _h.trys.push([8, 13, 14, 15]);
+                            return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getConnectedDongles()];
+                        case 9:
+                            _c = __values.apply(void 0, [_h.sent()]), _d = _c.next();
+                            _h.label = 10;
+                        case 10:
+                            if (!!_d.done) return [3 /*break*/, 12];
+                            imei = _d.value;
+                            set.add(imei);
+                            _h.label = 11;
+                        case 11:
+                            _d = _c.next();
+                            return [3 /*break*/, 10];
+                        case 12: return [3 /*break*/, 15];
+                        case 13:
+                            e_2_1 = _h.sent();
+                            e_2 = { error: e_2_1 };
+                            return [3 /*break*/, 15];
+                        case 14:
+                            try {
+                                if (_d && !_d.done && (_f = _c.return)) _f.call(_c);
+                            }
+                            finally { if (e_2) throw e_2.error; }
+                            return [7 /*endfinally*/];
+                        case 15:
+                            try {
+                                for (set_1 = __values(set), set_1_1 = set_1.next(); !set_1_1.done; set_1_1 = set_1.next()) {
+                                    imei = set_1_1.value;
+                                    outboundApi.claimDongle.run(imei);
+                                }
+                            }
+                            catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                            finally {
+                                try {
+                                    if (set_1_1 && !set_1_1.done && (_g = set_1.return)) _g.call(set_1);
+                                }
+                                finally { if (e_3) throw e_3.error; }
+                            }
+                            return [2 /*return*/];
                     }
                 });
             }); });
@@ -262,7 +303,6 @@ function createAsteriskSocket(flowToken, proxySocket) {
     asteriskSocket.evtPacket.attach(sipPacket =>
         console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
     );
-
     asteriskSocket.evtData.attach(chunk =>
         console.log("From Asterisk:\n", chunk.grey, "\n\n")
     );

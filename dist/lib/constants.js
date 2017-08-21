@@ -33,3 +33,5 @@ function getTlsOptions() {
     return { key: key, cert: cert, ca: ca };
 }
 exports.getTlsOptions = getTlsOptions;
+exports.webApiPath = "api";
+exports.webApiPort = 4430;

@@ -76,7 +76,7 @@ function startListening(proxySocket) {
                     case 1: return [4 /*yield*/, unlockDongle.handle(payload)];
                     case 2:
                         response = _b.sent();
-                        _b.label = 3;
+                        return [3 /*break*/, 5];
                     case 3: return [4 /*yield*/, isDongleConnected.handle(payload)];
                     case 4:
                         response = _b.sent();
@@ -132,11 +132,14 @@ var isDongleConnected;
 var unlockDongle;
 (function (unlockDongle) {
     unlockDongle.methodName = "unlockDongle";
+    function isValidPass(iccid, last_four_digits_of_iccid) {
+        return !iccid || iccid.substring(iccid.length - 4) === last_four_digits_of_iccid;
+    }
     function handle(_a) {
-        var imei = _a.imei, lastFourDigitsOfIccid = _a.lastFourDigitsOfIccid, pinFirstTry = _a.pinFirstTry, pinSecondTry = _a.pinSecondTry;
+        var imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid, pin_first_try = _a.pin_first_try, pin_second_try = _a.pin_second_try;
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var dongleClient, _a, lockedDongle, attemptUnlock, matchLocked, resultFirstTry, resultSecondTry, error_1;
+            var dongleClient, activeDongle, _a, lockedDongle, attemptUnlock, matchLocked, resultFirstTry, resultSecondTry, error_1;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -147,15 +150,19 @@ var unlockDongle;
                         _b.trys.push([1, 6, , 7]);
                         return [4 /*yield*/, dongleClient.getActiveDongle(imei)];
                     case 2:
-                        if (_b.sent())
+                        activeDongle = _b.sent();
+                        if (activeDongle) {
+                            if (!isValidPass(activeDongle.iccid, last_four_digits_of_iccid))
+                                throw new Error("ICCID does not match");
                             return [2 /*return*/, { "dongleFound": true, pinState: "READY" }];
+                        }
                         return [4 /*yield*/, dongleClient.getLockedDongles()];
                     case 3:
-                        _a = __read.apply(void 0, [(_b.sent()).filter(function (lockedDongle) {
+                        _a = __read.apply(void 0, [(_b.sent())
+                                .filter(function (lockedDongle) {
                                 if (lockedDongle.imei !== imei)
                                     return false;
-                                var iccid = lockedDongle.iccid;
-                                if (iccid && iccid.substring(iccid.length - 4) !== lastFourDigitsOfIccid)
+                                if (!isValidPass(lockedDongle.iccid, last_four_digits_of_iccid))
                                     return false;
                                 return true;
                             }), 1]), lockedDongle = _a[0];
@@ -164,7 +171,7 @@ var unlockDongle;
                         attemptUnlock = function (pin) { return __awaiter(_this, void 0, void 0, function () {
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
-                                    case 0: return [4 /*yield*/, dongleClient.unlockDongle(imei, pinFirstTry)];
+                                    case 0: return [4 /*yield*/, dongleClient.unlockDongle(imei, pin_first_try)];
                                     case 1:
                                         _a.sent();
                                         return [4 /*yield*/, Promise.race([
@@ -176,14 +183,14 @@ var unlockDongle;
                             });
                         }); };
                         matchLocked = function (dongle) { return dongle["pinState"]; };
-                        return [4 /*yield*/, attemptUnlock(pinFirstTry)];
+                        return [4 /*yield*/, attemptUnlock(pin_first_try)];
                     case 4:
                         resultFirstTry = _b.sent();
                         if (!matchLocked(resultFirstTry))
                             return [2 /*return*/, { "dongleFound": true, "pinState": "READY" }];
-                        if (!pinSecondTry)
+                        if (!pin_second_try)
                             return [2 /*return*/, { "dongleFound": true, "pinState": resultFirstTry.pinState, "tryLeft": resultFirstTry.tryLeft }];
-                        return [4 /*yield*/, attemptUnlock(pinSecondTry)];
+                        return [4 /*yield*/, attemptUnlock(pin_second_try)];
                     case 5:
                         resultSecondTry = _b.sent();
                         if (!matchLocked(resultSecondTry))
@@ -191,6 +198,7 @@ var unlockDongle;
                         return [2 /*return*/, { "dongleFound": true, "pinState": resultSecondTry.pinState, "tryLeft": resultSecondTry.tryLeft }];
                     case 6:
                         error_1 = _b.sent();
+                        debug(error_1.message);
                         return [2 /*return*/, { "dongleFound": false }];
                     case 7: return [2 /*return*/];
                 }

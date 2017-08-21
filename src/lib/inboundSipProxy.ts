@@ -89,13 +89,20 @@ export async function start() {
 
         evtNewProxySocketConnect.post();
 
-        for (let endpoint of await db.asterisk.queryEndpoints()) 
-            outboundApi.claimDongle.run(endpoint);
+        let set= new Set<string>();
+
+        for( let imei of await db.asterisk.queryEndpoints())
+            set.add(imei);
+
+        for( let imei of await DongleExtendedClient.localhost().getConnectedDongles() )
+            set.add(imei);
+
+        for (let imei of set )
+            outboundApi.claimDongle.run(imei);
 
     });
 
     proxySocket.evtRequest.attach(async sipRequest => {
-
 
         let flowToken = sipRequest.headers.via[0].params[c.flowTokenKey]!;
 
@@ -206,7 +213,10 @@ export async function start() {
 }
 
 
-function createAsteriskSocket(flowToken: string, proxySocket: sip.Socket): sip.Socket {
+function createAsteriskSocket(
+    flowToken: string, 
+    proxySocket: sip.Socket
+): sip.Socket {
 
     debug(`${flowToken} Creating asterisk socket`);
 
@@ -223,7 +233,6 @@ function createAsteriskSocket(flowToken: string, proxySocket: sip.Socket): sip.S
     asteriskSocket.evtPacket.attach(sipPacket =>
         console.log("From Asterisk:\n", sip.stringify(sipPacket).grey, "\n\n")
     );
-
     asteriskSocket.evtData.attach(chunk =>
         console.log("From Asterisk:\n", chunk.grey, "\n\n")
     );
