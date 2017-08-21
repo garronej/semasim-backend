@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">
+  <section name="sip">
+    <entry name="sip_port">-1</entry>
+    <entry name="sip_tcp_port">5060</entry>
+    <entry name="sip_tls_port">5061</entry>
+    <entry name="default_proxy">0</entry>
+    <entry name="ping_with_options">0</entry>
+  </section>
+  <section name="net">
+    <entry name="dns_srv_enabled">0</entry>
+    <entry name="firewall_policy">ice</entry>
+    <entry name="stun_server">DOMAIN</entry>
+  </section>
+  <section name="proxy_0">
+    <entry name="reg_proxy">sip:DOMAIN;transport=tls</entry>
+    <entry name="reg_route">sip:DOMAIN;transport=tls;lr</entry>
+    <entry name="reg_expires">REG_EXPIRES</entry>
+    <entry name="reg_identity">"DISPLAY_NAME" &lt;sip:IMEI@DOMAIN;transport=tls&gt;</entry>
+    <entry name="reg_sendregister">1</entry>
+    <entry name="publish">0</entry>
+  </section>
+  <section name="auth_info_0">
+    <entry name="username">IMEI</entry>
+    <entry name="userid">IMEI</entry>
+    <entry name="passwd">LAST_FOUR_DIGITS_OF_ICCID</entry>
+    <entry name="realm">semasim</entry>
+  </section>
+</config>

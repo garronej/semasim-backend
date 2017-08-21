@@ -4,6 +4,8 @@ import * as logger from "morgan";
 import * as inboundApi from "./inboundSipApi";
 import * as outboundProxy from "./outboundSipProxy";
 import * as nodeRestClient from "node-rest-client";
+import * as fs from "fs";
+import * as path from "path";
 
 import * as c from "./constants";
 
@@ -38,6 +40,32 @@ export function startServer(): Promise<void> {
 }
 
 export namespace getConfigAndUnlock {
+
+    let xml: string | undefined= undefined;
+
+    function generateXml(
+        imei: string,
+        last_four_digits_of_iccid: string
+    ) {
+
+        if( !xml ){
+            xml= fs.readFileSync(path.join(__dirname, "..", "..", "res", "remote_provisioning.xml"), "utf8");
+            xml = xml.replace(/DOMAIN/g, c.outboundHostname);
+            xml = xml.replace(/REG_EXPIRES/g, `${c.reg_expires}`);
+        }
+
+        let newXml= xml;
+
+        newXml = newXml.replace(/IMEI/g, imei);
+        newXml = newXml.replace(/LAST_FOUR_DIGITS_OF_ICCID/g, last_four_digits_of_iccid);
+        newXml = newXml.replace(/DISPLAY_NAME/g, "XXXXXXX");
+
+        return newXml;
+
+
+    }
+
+
 
     export const methodName = "get-config-and-unlock";
 
@@ -87,11 +115,18 @@ export namespace getConfigAndUnlock {
 
             let resp = await inboundApi.unlockDongle.run(deviceSocket, query);
 
-            res.setHeader("Content-Type", "application/json");
+            if( resp.pinState !== "READY" ) 
+                throw new Error("UNLOCK_FAILED");
 
             debug({ resp });
 
-            res.status(200).send(JSON.stringify(resp, null, 2));
+            res.setHeader("Content-Type", "application/xml; charset=utf-8");
+
+            let xml= generateXml(query.imei, query.last_four_digits_of_iccid);
+
+            debug(xml);
+
+            res.status(200).send(new Buffer(xml, "utf8"));
 
         } catch (error) {
 
@@ -107,7 +142,7 @@ export namespace getConfigAndUnlock {
 
     export function run(
         params: inboundApi.unlockDongle.Request
-    ): Promise<inboundApi.unlockDongle.Response> {
+    ): Promise<string> {
 
         return new Promise((resolve, reject) => {
 
@@ -131,7 +166,7 @@ export namespace getConfigAndUnlock {
                     if (statusCode !== 200)
                         return reject(new Error(`webAPI ${methodName} error ${statusCode}, ${statusMessage}`));
 
-                    resolve(data as inboundApi.unlockDongle.Response);
+                    resolve(data);
 
                 }
             );

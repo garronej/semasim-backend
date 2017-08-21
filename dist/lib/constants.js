@@ -35,3 +35,4 @@ function getTlsOptions() {
 exports.getTlsOptions = getTlsOptions;
 exports.webApiPath = "api";
 exports.webApiPort = 4430;
+exports.reg_expires = 21600;

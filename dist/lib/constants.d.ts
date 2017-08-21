@@ -24,3 +24,4 @@ export declare function getTlsOptions(): {
 };
 export declare const webApiPath = "api";
 export declare const webApiPort = 4430;
+export declare const reg_expires = 21600;

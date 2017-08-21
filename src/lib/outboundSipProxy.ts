@@ -218,6 +218,8 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             sip.addOptionTag(sipRequest.headers, "supported", "path");
 
+            //TODO: shift route
+
             boundDeviceSocket.addPathHeader(sipRequest, displayedHostname, extraParamFlowToken(flowToken));
 
         } else boundDeviceSocket.shiftRouteAndAddRecordRoute(sipRequest, displayedHostname);

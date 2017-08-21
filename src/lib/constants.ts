@@ -51,3 +51,5 @@ export function getTlsOptions(): { key: string; cert: string; ca: string } {
 
 export const webApiPath = "api";
 export const webApiPort = 4430;
+
+export const reg_expires= 21600;

@@ -205,6 +205,7 @@ function onClientConnection(clientSocketRaw) {
         var displayedHostname = "outbound-proxy.socket";
         if (sipRequest.method === "REGISTER") {
             sip.addOptionTag(sipRequest.headers, "supported", "path");
+            //TODO: shift route
             boundDeviceSocket.addPathHeader(sipRequest, displayedHostname, extraParamFlowToken(flowToken));
         }
         else

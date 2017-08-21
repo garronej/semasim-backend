@@ -5,5 +5,5 @@ export declare function startServer(): Promise<void>;
 export declare namespace getConfigAndUnlock {
     const methodName = "get-config-and-unlock";
     function handler(req: express.Request, res: express.Response): Promise<void>;
-    function run(params: inboundApi.unlockDongle.Request): Promise<inboundApi.unlockDongle.Response>;
+    function run(params: inboundApi.unlockDongle.Request): Promise<string>;
 }

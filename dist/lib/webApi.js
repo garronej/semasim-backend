@@ -51,6 +51,8 @@ var logger = require("morgan");
 var inboundApi = require("./inboundSipApi");
 var outboundProxy = require("./outboundSipProxy");
 var nodeRestClient = require("node-rest-client");
+var fs = require("fs");
+var path = require("path");
 var c = require("./constants");
 var _debug = require("debug");
 var debug = _debug("_webApi");
@@ -75,6 +77,19 @@ function startServer() {
 exports.startServer = startServer;
 var getConfigAndUnlock;
 (function (getConfigAndUnlock) {
+    var xml = undefined;
+    function generateXml(imei, last_four_digits_of_iccid) {
+        if (!xml) {
+            xml = fs.readFileSync(path.join(__dirname, "..", "..", "res", "remote_provisioning.xml"), "utf8");
+            xml = xml.replace(/DOMAIN/g, c.outboundHostname);
+            xml = xml.replace(/REG_EXPIRES/g, "" + c.reg_expires);
+        }
+        var newXml = xml;
+        newXml = newXml.replace(/IMEI/g, imei);
+        newXml = newXml.replace(/LAST_FOUR_DIGITS_OF_ICCID/g, last_four_digits_of_iccid);
+        newXml = newXml.replace(/DISPLAY_NAME/g, "XXXXXXX");
+        return newXml;
+    }
     getConfigAndUnlock.methodName = "get-config-and-unlock";
     function validateQueryString(query) {
         try {
@@ -90,7 +105,7 @@ var getConfigAndUnlock;
     }
     function handler(req, res) {
         return __awaiter(this, void 0, void 0, function () {
-            var query, deviceSocket, resp, error_1;
+            var query, deviceSocket, resp, xml_1, error_1;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -106,9 +121,13 @@ var getConfigAndUnlock;
                         return [4 /*yield*/, inboundApi.unlockDongle.run(deviceSocket, query)];
                     case 1:
                         resp = _a.sent();
-                        res.setHeader("Content-Type", "application/json");
+                        if (resp.pinState !== "READY")
+                            throw new Error("UNLOCK_FAILED");
                         debug({ resp: resp });
-                        res.status(200).send(JSON.stringify(resp, null, 2));
+                        res.setHeader("Content-Type", "application/xml; charset=utf-8");
+                        xml_1 = generateXml(query.imei, query.last_four_digits_of_iccid);
+                        debug(xml_1);
+                        res.status(200).send(new Buffer(xml_1, "utf8"));
                         return [3 /*break*/, 3];
                     case 2:
                         error_1 = _a.sent();
