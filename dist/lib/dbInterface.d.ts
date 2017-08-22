@@ -1,4 +1,4 @@
-import { Contact } from "./endpointsContacts";
+import { Contact } from "./sipContacts";
 export declare namespace asterisk {
     const queryEndpoints: () => Promise<string[]>;
     const truncateContacts: () => Promise<void>;

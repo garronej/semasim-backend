@@ -84,10 +84,9 @@ var __spread = (this && this.__spread) || function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var runExclusive = require("run-exclusive");
 var mysql = require("mysql");
-var c = require("./constants");
+var c = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_dbInterface");
-var cluster = {};
 function queryOnConnection(connection, sql, values) {
     return new Promise(function (resolve, reject) {
         var r = connection.query(sql, values || [], function (err, results) { return err ? reject(err) : resolve(results); });

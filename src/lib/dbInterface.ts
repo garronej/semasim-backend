@@ -1,15 +1,11 @@
 import * as runExclusive from "run-exclusive";
 import { SyncEvent } from "ts-events-extended";
 import * as mysql from "mysql";
-
-import * as sip from "./sipLibrary";
-import { Contact } from "./endpointsContacts";
-import * as c from "./constants"
+import { Contact } from "./sipContacts";
+import * as c from "./_constants"
 
 import * as _debug from "debug";
 let debug = _debug("_dbInterface");
-
-const cluster = {};
 
 function queryOnConnection(
     connection: mysql.IConnection,
