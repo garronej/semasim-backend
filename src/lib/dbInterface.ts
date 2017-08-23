@@ -2,6 +2,7 @@ import * as runExclusive from "run-exclusive";
 import { SyncEvent } from "ts-events-extended";
 import * as mysql from "mysql";
 import { Contact } from "./sipContacts";
+import * as md5 from "md5";
 import * as c from "./_constants"
 
 import * as _debug from "debug";
@@ -25,9 +26,25 @@ function queryOnConnection(
 
 }
 
-function buildInsertQuery(
-    table: string,
+
+function buildInsertOrUpdateQuery(
+    table: string, 
     values: Record<string, string | number | null>
+): [string, (string | number | null)[]]{
+    return __buildInsertQuery__(table, values, true);
+}
+
+function buildInsertQuery(
+    table: string, 
+    values: Record<string, string | number | null>
+): [string, (string | number | null)[]]{
+    return __buildInsertQuery__(table, values, false);
+}
+
+function __buildInsertQuery__(
+    table: string,
+    values: Record<string, string | number | null>,
+    update: boolean
 ): [string, (string | number | null)[]] {
 
     let keys = Object.keys(values);
@@ -36,11 +53,17 @@ function buildInsertQuery(
 
     let sqlLinesArray = [
         `INSERT INTO ${table} ( ${backtickKeys.join(", ")} )`,
-        `VALUES ( ${keys.map(() => "?").join(", ")} )`,
-        "ON DUPLICATE KEY UPDATE",
-        backtickKeys.map(backtickKey => `${backtickKey} = VALUES(${backtickKey})`).join(", "),
-        ";\n"
+        `VALUES ( ${keys.map(() => "?").join(", ")} )`
     ];
+
+    if (update) 
+        sqlLinesArray = [
+            ...sqlLinesArray,
+            "ON DUPLICATE KEY UPDATE",
+            backtickKeys.map(backtickKey => `${backtickKey} = VALUES(${backtickKey})`).join(", ")
+        ];
+
+    sqlLinesArray[sqlLinesArray.length] = ";\n";
 
     return [
         sqlLinesArray.join("\n"),
@@ -51,7 +74,7 @@ function buildInsertQuery(
 
 export namespace asterisk {
 
-    const groupRef= runExclusive.createGroupRef();
+    const groupRef = runExclusive.createGroupRef();
 
     let connection: mysql.IConnection | undefined = undefined;
 
@@ -77,14 +100,14 @@ export namespace asterisk {
     export const queryEndpoints = runExclusive.build(groupRef,
         async (): Promise<string[]> => {
 
-            let endpoints = (await query("SELECT `id`,`set_var` FROM `ps_endpoints`")).map(({id})=> id);
+            let endpoints = (await query("SELECT `id`,`set_var` FROM `ps_endpoints`")).map(({ id }) => id);
 
             return endpoints;
 
         }
     );
 
-    export const truncateContacts = runExclusive.build( groupRef,
+    export const truncateContacts = runExclusive.build(groupRef,
         async () => {
 
             await query("TRUNCATE ps_contacts");
@@ -92,7 +115,7 @@ export namespace asterisk {
         }
     );
 
-    export const queryContacts = runExclusive.build( groupRef,
+    export const queryContacts = runExclusive.build(groupRef,
         async (): Promise<Contact[]> => {
 
             let contacts: Contact[] = await query(
@@ -111,7 +134,7 @@ export namespace asterisk {
 
     //TODO: to test
     export const queryLastConnectionTimestampOfDonglesEndpoint = runExclusive.build(
-        async (endpoint: string ): Promise<number> => {
+        async (endpoint: string): Promise<number> => {
 
             let timestamp: number;
 
@@ -121,11 +144,11 @@ export namespace asterisk {
                     "SELECT `set_var` FROM ps_endpoints WHERE `id`=?", [endpoint]
                 );
 
-                timestamp= parseInt(set_var.split("=")[1]);
+                timestamp = parseInt(set_var.split("=")[1]);
 
             } catch (error) {
 
-                timestamp= 0;
+                timestamp = 0;
 
             }
 
@@ -134,7 +157,7 @@ export namespace asterisk {
         }
     )
 
-    export const deleteContact = runExclusive.build( groupRef,
+    export const deleteContact = runExclusive.build(groupRef,
         async (contact: Contact): Promise<boolean> => {
 
             let { affectedRows } = await query(
@@ -148,8 +171,8 @@ export namespace asterisk {
         }
     );
 
-    export const addOrUpdateEndpoint = runExclusive.build( groupRef,
-        async (endpoint: string, password: string ) => {
+    export const addOrUpdateEndpoint = runExclusive.build(groupRef,
+        async (endpoint: string, password: string) => {
 
             debug(`Add or update endpoint ${endpoint} in real time configuration`);
 
@@ -158,7 +181,7 @@ export namespace asterisk {
 
             (() => {
 
-                let [_sql, _values] = buildInsertQuery("ps_aors", {
+                let [_sql, _values] = buildInsertOrUpdateQuery("ps_aors", {
                     "id": endpoint,
                     "max_contacts": 12,
                     "qualify_frequency": 0, //15000
@@ -173,7 +196,7 @@ export namespace asterisk {
 
             (() => {
 
-                let [_sql, _values] = buildInsertQuery("ps_endpoints", {
+                let [_sql, _values] = buildInsertOrUpdateQuery("ps_endpoints", {
                     "id": endpoint,
                     "disallow": "all",
                     "allow": "alaw,ulaw",
@@ -203,7 +226,7 @@ export namespace asterisk {
 
             (() => {
 
-                let [_sql, _values] = buildInsertQuery("ps_auths", {
+                let [_sql, _values] = buildInsertOrUpdateQuery("ps_auths", {
                     "id": endpoint,
                     "auth_type": "userpass",
                     "username": endpoint,
@@ -250,7 +273,7 @@ export namespace semasim {
 
     }
 
-    export type UaInstancePk= {
+    export type UaInstancePk = {
         dongle_imei: string;
         instance_id: string;
     }
@@ -267,8 +290,8 @@ export namespace semasim {
     };
 
 
-    export const addMessageTowardGsm = runExclusive.build( groupRef, 
-        async (to_number: string, text: string, sender: UaInstancePk ): Promise<MessageTowardGsmPk> => {
+    export const addMessageTowardGsm = runExclusive.build(groupRef,
+        async (to_number: string, text: string, sender: UaInstancePk): Promise<MessageTowardGsmPk> => {
 
             let [{ sim_iccid }] = await query(
                 [
@@ -277,22 +300,22 @@ export namespace semasim {
                     "INNER JOIN sim ON sim.`iccid`= dongle.`sim_iccid`",
                     "WHERE dongle.`imei`=?"
                 ].join("\n"),
-                [ sender.dongle_imei]
+                [sender.dongle_imei]
             );
 
             let [{ ua_instance_id }] = await query(
                 "SELECT `id` AS `ua_instance_id` FROM ua_instance WHERE `dongle_imei`=? AND `instance_id`=?",
-                [ sender.dongle_imei, sender.instance_id ]
+                [sender.dongle_imei, sender.instance_id]
             );
 
             let creation_timestamp = Date.now();
 
-            let [sql, values] = buildInsertQuery("message_toward_gsm", {
-                sim_iccid, 
-                creation_timestamp, 
-                ua_instance_id, 
-                to_number, 
-                "base64_text": (new Buffer(text,"utf8")).toString("base64"), 
+            let [sql, values] = buildInsertOrUpdateQuery("message_toward_gsm", {
+                sim_iccid,
+                creation_timestamp,
+                ua_instance_id,
+                to_number,
+                "base64_text": (new Buffer(text, "utf8")).toString("base64"),
                 "sent_message_id": null
             });
 
@@ -303,10 +326,10 @@ export namespace semasim {
         }
     );
 
-    export const setMessageToGsmSentId = runExclusive.build( groupRef, 
-        async ({ sim_iccid, creation_timestamp }: MessageTowardGsmPk, sent_message_id: number | null )=> {
+    export const setMessageToGsmSentId = runExclusive.build(groupRef,
+        async ({ sim_iccid, creation_timestamp }: MessageTowardGsmPk, sent_message_id: number | null) => {
 
-            let [sql, values] = buildInsertQuery("message_toward_gsm", {
+            let [sql, values] = buildInsertOrUpdateQuery("message_toward_gsm", {
                 sim_iccid, creation_timestamp, sent_message_id
             });
 
@@ -342,12 +365,12 @@ export namespace semasim {
                     instance_id,
                     base64_text,
                     ...rest
-                }) => ({ 
-                    "pk": { sim_iccid, creation_timestamp }, 
-                    "sender": { dongle_imei, instance_id }, 
-                    "text": (new Buffer(base64_text, "base64")).toString("utf8"), 
-                    ...rest 
-                })
+                }) => ({
+                        "pk": { sim_iccid, creation_timestamp },
+                        "sender": { dongle_imei, instance_id },
+                        "text": (new Buffer(base64_text, "base64")).toString("utf8"),
+                        ...rest
+                    })
                 );
 
 
@@ -373,10 +396,10 @@ export namespace semasim {
                 [imei, sent_message_id]
             ))
                 .map(
-                    ({ dongle_imei, instance_id, base64_text }) => ({ 
-                        "sender": { dongle_imei, instance_id }, 
-                        "text": (new Buffer(base64_text, "base64")).toString("utf8") 
-                    })
+                ({ dongle_imei, instance_id, base64_text }) => ({
+                    "sender": { dongle_imei, instance_id },
+                    "text": (new Buffer(base64_text, "base64")).toString("utf8")
+                })
                 )
                 .pop();
 
@@ -393,7 +416,7 @@ export namespace semasim {
 
             (() => {
 
-                let [_sql, _values] = buildInsertQuery("sim", { iccid });
+                let [_sql, _values] = buildInsertOrUpdateQuery("sim", { iccid });
 
                 sql += _sql;
 
@@ -403,7 +426,7 @@ export namespace semasim {
 
             (() => {
 
-                let [_sql, _values] = buildInsertQuery("dongle", {
+                let [_sql, _values] = buildInsertOrUpdateQuery("dongle", {
                     imei, "sim_iccid": iccid
                 });
 
@@ -423,11 +446,11 @@ export namespace semasim {
     export const addUaInstance = runExclusive.build(groupRef,
         async ({ dongle_imei, instance_id }: UaInstancePk): Promise<boolean> => {
 
-            let [sql, values] = buildInsertQuery("ua_instance", { dongle_imei, instance_id });
+            let [sql, values] = buildInsertOrUpdateQuery("ua_instance", { dongle_imei, instance_id });
 
-            let resp= await query(sql, values);
+            let resp = await query(sql, values);
 
-            let isNew= resp.insertId !== 0;
+            let isNew = resp.insertId !== 0;
 
             return isNew;
 
@@ -462,7 +485,7 @@ export namespace semasim {
                     [imei, instance_id]
                 )).map(({ id }) => id);
 
-                if( !ua_instance_ids.length ) return;
+                if (!ua_instance_ids.length) return;
 
             } else if (target.uaInstance) {
 
@@ -482,7 +505,7 @@ export namespace semasim {
 
             let creation_timestamp = date.getTime();
 
-            let sql_values = buildInsertQuery("message_toward_sip", {
+            let sql_values = buildInsertOrUpdateQuery("message_toward_sip", {
                 sim_iccid,
                 creation_timestamp,
                 from_number,
@@ -490,16 +513,16 @@ export namespace semasim {
                 "base64_text": (new Buffer(text, "utf8")).toString("base64")
             });
 
-            let { insertId }= await query(sql_values[0], sql_values[1]);
+            let { insertId } = await query(sql_values[0], sql_values[1]);
 
-            let message_toward_sip_id: number= insertId;
+            let message_toward_sip_id: number = insertId;
 
             let sql = "";
             let values: (string | number | null)[] = [];
 
             for (let ua_instance_id of ua_instance_ids) {
 
-                let [_sql, _values] = buildInsertQuery("ua_instance_message_toward_sip", {
+                let [_sql, _values] = buildInsertOrUpdateQuery("ua_instance_message_toward_sip", {
                     ua_instance_id,
                     message_toward_sip_id,
                     "delivered_timestamp": null
@@ -534,7 +557,7 @@ export namespace semasim {
                 [message_toward_sip_creation_timestamp, dongle_imei]
             );
 
-            let [sql, values] = await buildInsertQuery("ua_instance_message_toward_sip", {
+            let [sql, values] = buildInsertOrUpdateQuery("ua_instance_message_toward_sip", {
                 ua_instance_id,
                 message_toward_sip_id,
                 "delivered_timestamp": Date.now()
@@ -568,9 +591,167 @@ export namespace semasim {
                 [dongle_imei, instance_id]
             )).map(
                 ({ base64_text, ...rest }) => ({ ...rest, "text": (new Buffer(base64_text, "base64")).toString("utf8") })
-            );
+                );
 
         }
     );
+
+}
+
+
+export namespace semasim_backend {
+
+    const groupRef = runExclusive.createGroupRef();
+
+    let connection: mysql.IConnection | undefined = undefined;
+
+    function query(
+        sql: string,
+        values?: (string | number | null)[]
+    ): Promise<any> {
+
+        if (!connection) {
+
+            connection = mysql.createConnection({
+                ...c.dbParamsBackend,
+                "multipleStatements": true
+            });
+
+        }
+
+        return queryOnConnection(connection, sql, values);
+
+    }
+
+    export interface Config {
+        dongle_imei: string;
+        sim_iccid: string;
+        sim_service_provider: string | null;
+        sim_number: string | null;
+    }
+
+    export async function addUser(email: string, password: string): Promise<boolean> {
+
+        console.log("=>addUser");
+
+        let [sql, values] = buildInsertQuery("user", {
+            email,
+            "password_md5": md5(password)
+        });
+
+        try {
+
+            await query(sql, values);
+
+            console.log("user added");
+
+            return true;
+
+        } catch (error) {
+
+            console.log("user exist");
+
+            return false;
+
+        }
+
+    }
+
+    export async function deleteUser(email: string): Promise<boolean> {
+
+        console.log("=>deleteUser");
+
+        let { affectedRows }= await query("DELETE FROM user WHERE `email` = ?", [email]);
+
+        let isDeleted= affectedRows !== 0;
+
+        console.log({ isDeleted });
+
+        return isDeleted;
+
+    }
+
+    export async function checkUserPassword(email: string, password: string): Promise<boolean> {
+
+        console.log("=>checkUserPassword");
+
+        try {
+
+            let [{ password_md5 }] = await query("SELECT `password_md5` from `user` WHERE `email`= ?", [email]);
+
+            let match= password_md5 === md5(password);
+
+            console.log({ match });
+
+            return match;
+
+        } catch (error) {
+
+            console.log("user not found");
+
+            return false;
+
+        }
+
+
+    }
+
+
+    export async function addConfig(
+        user_email: string,
+        { dongle_imei, sim_iccid, sim_service_provider, sim_number }: Config
+    ): Promise<boolean> {
+
+        console.log("=>addConfig");
+
+        try {
+
+            let [{ user_id }] = await query("SELECT `id` as  `user_id` FROM user WHERE email = ?", [user_email]);
+
+            let [sql, values] = buildInsertOrUpdateQuery("config", {
+                user_id,
+                dongle_imei,
+                sim_iccid,
+                sim_service_provider,
+                sim_number
+            });
+
+            await query(sql, values);
+
+            console.log("successfully inserted");
+
+            return true;
+
+        } catch (error) {
+
+            console.log("user does not exist");
+
+            return false;
+
+        }
+
+
+
+    }
+
+    export function getUserConfigs(
+        user_email: string,
+    ): Promise<Config[]> {
+
+        console.log("=>getUserConfigs");
+
+        return query([
+            "SELECT",
+            "config.`dongle_imei`,",
+            "config.`sim_iccid`,",
+            "config.`sim_service_provider`,",
+            "config.`sim_number`",
+            "FROM config",
+            "INNER JOIN user ON user.`id`= config.`user_id`",
+            "WHERE user.`email`= ?"
+        ].join("\n"),[ user_email ]);
+
+    }
+
 
 }

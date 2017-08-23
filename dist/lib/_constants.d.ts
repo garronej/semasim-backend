@@ -4,6 +4,12 @@ export declare const dbParams: {
     "user": string;
     "password": string;
 };
+export declare const dbParamsBackend: {
+    "password": string;
+    "database": string;
+    "host": string;
+    "user": string;
+};
 export declare const gain: string;
 export declare const jitterBuffer: {
     type: string;

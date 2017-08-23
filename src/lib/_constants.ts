@@ -8,6 +8,12 @@ export const dbParams = {
     "password": "abcde12345"
 };
 
+export const dbParamsBackend= {
+    ...dbParams,
+    "password": fs.readFileSync(path.join("/", "home", "admin", "mysql_root_user_password.txt"), "utf8").replace(/\s/g,""),
+    "database": "semasim_backend"
+};
+
 export const gain = `${4000}`;
 
 export const jitterBuffer = {

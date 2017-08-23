@@ -44,3 +44,16 @@ export declare namespace semasim {
         text: string;
     }[]>;
 }
+export declare namespace semasim_backend {
+    interface Config {
+        dongle_imei: string;
+        sim_iccid: string;
+        sim_service_provider: string | null;
+        sim_number: string | null;
+    }
+    function addUser(email: string, password: string): Promise<boolean>;
+    function deleteUser(email: string): Promise<boolean>;
+    function checkUserPassword(email: string, password: string): Promise<boolean>;
+    function addConfig(user_email: string, {dongle_imei, sim_iccid, sim_service_provider, sim_number}: Config): Promise<boolean>;
+    function getUserConfigs(user_email: string): Promise<Config[]>;
+}

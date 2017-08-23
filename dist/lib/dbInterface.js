@@ -51,16 +51,6 @@ var __rest = (this && this.__rest) || function (s, e) {
             t[p[i]] = s[p[i]];
     return t;
 };
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
 var __read = (this && this.__read) || function (o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
@@ -81,9 +71,20 @@ var __spread = (this && this.__spread) || function () {
     for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
     return ar;
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var runExclusive = require("run-exclusive");
 var mysql = require("mysql");
+var md5 = require("md5");
 var c = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_dbInterface");
@@ -92,16 +93,25 @@ function queryOnConnection(connection, sql, values) {
         var r = connection.query(sql, values || [], function (err, results) { return err ? reject(err) : resolve(results); });
     });
 }
+function buildInsertOrUpdateQuery(table, values) {
+    return __buildInsertQuery__(table, values, true);
+}
 function buildInsertQuery(table, values) {
+    return __buildInsertQuery__(table, values, false);
+}
+function __buildInsertQuery__(table, values, update) {
     var keys = Object.keys(values);
     var backtickKeys = keys.map(function (key) { return "`" + key + "`"; });
     var sqlLinesArray = [
         "INSERT INTO " + table + " ( " + backtickKeys.join(", ") + " )",
-        "VALUES ( " + keys.map(function () { return "?"; }).join(", ") + " )",
-        "ON DUPLICATE KEY UPDATE",
-        backtickKeys.map(function (backtickKey) { return backtickKey + " = VALUES(" + backtickKey + ")"; }).join(", "),
-        ";\n"
+        "VALUES ( " + keys.map(function () { return "?"; }).join(", ") + " )"
     ];
+    if (update)
+        sqlLinesArray = __spread(sqlLinesArray, [
+            "ON DUPLICATE KEY UPDATE",
+            backtickKeys.map(function (backtickKey) { return backtickKey + " = VALUES(" + backtickKey + ")"; }).join(", ")
+        ]);
+    sqlLinesArray[sqlLinesArray.length] = ";\n";
     return [
         sqlLinesArray.join("\n"),
         keys.map(function (key) { return values[key]; })
@@ -208,7 +218,7 @@ var asterisk;
                     sql = "";
                     values = [];
                     (function () {
-                        var _a = __read(buildInsertQuery("ps_aors", {
+                        var _a = __read(buildInsertOrUpdateQuery("ps_aors", {
                             "id": endpoint,
                             "max_contacts": 12,
                             "qualify_frequency": 0,
@@ -218,7 +228,7 @@ var asterisk;
                         values = __spread(values, _values);
                     })();
                     (function () {
-                        var _a = __read(buildInsertQuery("ps_endpoints", {
+                        var _a = __read(buildInsertOrUpdateQuery("ps_endpoints", {
                             "id": endpoint,
                             "disallow": "all",
                             "allow": "alaw,ulaw",
@@ -243,7 +253,7 @@ var asterisk;
                         values = __spread(values, _values);
                     })();
                     (function () {
-                        var _a = __read(buildInsertQuery("ps_auths", {
+                        var _a = __read(buildInsertOrUpdateQuery("ps_auths", {
                             "id": endpoint,
                             "auth_type": "userpass",
                             "username": endpoint,
@@ -288,7 +298,7 @@ var semasim;
                 case 2:
                     _b = __read.apply(void 0, [_d.sent(), 1]), ua_instance_id = _b[0].ua_instance_id;
                     creation_timestamp = Date.now();
-                    _c = __read(buildInsertQuery("message_toward_gsm", {
+                    _c = __read(buildInsertOrUpdateQuery("message_toward_gsm", {
                         sim_iccid: sim_iccid,
                         creation_timestamp: creation_timestamp,
                         ua_instance_id: ua_instance_id,
@@ -310,7 +320,7 @@ var semasim;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = __read(buildInsertQuery("message_toward_gsm", {
+                        _a = __read(buildInsertOrUpdateQuery("message_toward_gsm", {
                             sim_iccid: sim_iccid, creation_timestamp: creation_timestamp, sent_message_id: sent_message_id
                         }), 2), sql = _a[0], values = _a[1];
                         return [4 /*yield*/, query(sql, values)];
@@ -380,12 +390,12 @@ var semasim;
                     sql = "";
                     values = [];
                     (function () {
-                        var _a = __read(buildInsertQuery("sim", { iccid: iccid }), 2), _sql = _a[0], _values = _a[1];
+                        var _a = __read(buildInsertOrUpdateQuery("sim", { iccid: iccid }), 2), _sql = _a[0], _values = _a[1];
                         sql += _sql;
                         values = __spread(values, _values);
                     })();
                     (function () {
-                        var _a = __read(buildInsertQuery("dongle", {
+                        var _a = __read(buildInsertOrUpdateQuery("dongle", {
                             imei: imei, "sim_iccid": iccid
                         }), 2), _sql = _a[0], _values = _a[1];
                         sql += _sql;
@@ -405,7 +415,7 @@ var semasim;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = __read(buildInsertQuery("ua_instance", { dongle_imei: dongle_imei, instance_id: instance_id }), 2), sql = _a[0], values = _a[1];
+                        _a = __read(buildInsertOrUpdateQuery("ua_instance", { dongle_imei: dongle_imei, instance_id: instance_id }), 2), sql = _a[0], values = _a[1];
                         return [4 /*yield*/, query(sql, values)];
                     case 1:
                         resp = _b.sent();
@@ -456,7 +466,7 @@ var semasim;
                 case 8:
                     _d = __read.apply(void 0, [_g.sent(), 1]), sim_iccid = _d[0].sim_iccid;
                     creation_timestamp = date.getTime();
-                    sql_values = buildInsertQuery("message_toward_sip", {
+                    sql_values = buildInsertOrUpdateQuery("message_toward_sip", {
                         sim_iccid: sim_iccid,
                         creation_timestamp: creation_timestamp,
                         from_number: from_number,
@@ -472,7 +482,7 @@ var semasim;
                     try {
                         for (ua_instance_ids_1 = __values(ua_instance_ids), ua_instance_ids_1_1 = ua_instance_ids_1.next(); !ua_instance_ids_1_1.done; ua_instance_ids_1_1 = ua_instance_ids_1.next()) {
                             ua_instance_id = ua_instance_ids_1_1.value;
-                            _e = __read(buildInsertQuery("ua_instance_message_toward_sip", {
+                            _e = __read(buildInsertOrUpdateQuery("ua_instance_message_toward_sip", {
                                 ua_instance_id: ua_instance_id,
                                 message_toward_sip_id: message_toward_sip_id,
                                 "delivered_timestamp": null
@@ -513,15 +523,13 @@ var semasim;
                             ].join("\n"), [message_toward_sip_creation_timestamp, dongle_imei])];
                     case 2:
                         _b = __read.apply(void 0, [_d.sent(), 1]), message_toward_sip_id = _b[0].message_toward_sip_id;
-                        return [4 /*yield*/, buildInsertQuery("ua_instance_message_toward_sip", {
-                                ua_instance_id: ua_instance_id,
-                                message_toward_sip_id: message_toward_sip_id,
-                                "delivered_timestamp": Date.now()
-                            })];
-                    case 3:
-                        _c = __read.apply(void 0, [_d.sent(), 2]), sql = _c[0], values = _c[1];
+                        _c = __read(buildInsertOrUpdateQuery("ua_instance_message_toward_sip", {
+                            ua_instance_id: ua_instance_id,
+                            message_toward_sip_id: message_toward_sip_id,
+                            "delivered_timestamp": Date.now()
+                        }), 2), sql = _c[0], values = _c[1];
                         return [4 /*yield*/, query(sql, values)];
-                    case 4:
+                    case 3:
                         _d.sent();
                         return [2 /*return*/];
                 }
@@ -557,3 +565,137 @@ var semasim;
         });
     });
 })(semasim = exports.semasim || (exports.semasim = {}));
+var semasim_backend;
+(function (semasim_backend) {
+    var groupRef = runExclusive.createGroupRef();
+    var connection = undefined;
+    function query(sql, values) {
+        if (!connection) {
+            connection = mysql.createConnection(__assign({}, c.dbParamsBackend, { "multipleStatements": true }));
+        }
+        return queryOnConnection(connection, sql, values);
+    }
+    function addUser(email, password) {
+        return __awaiter(this, void 0, void 0, function () {
+            var _a, sql, values, error_2;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        console.log("=>addUser");
+                        _a = __read(buildInsertQuery("user", {
+                            email: email,
+                            "password_md5": md5(password)
+                        }), 2), sql = _a[0], values = _a[1];
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, query(sql, values)];
+                    case 2:
+                        _b.sent();
+                        console.log("user added");
+                        return [2 /*return*/, true];
+                    case 3:
+                        error_2 = _b.sent();
+                        console.log("user exist");
+                        return [2 /*return*/, false];
+                    case 4: return [2 /*return*/];
+                }
+            });
+        });
+    }
+    semasim_backend.addUser = addUser;
+    function deleteUser(email) {
+        return __awaiter(this, void 0, void 0, function () {
+            var affectedRows, isDeleted;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        console.log("=>deleteUser");
+                        return [4 /*yield*/, query("DELETE FROM user WHERE `email` = ?", [email])];
+                    case 1:
+                        affectedRows = (_a.sent()).affectedRows;
+                        isDeleted = affectedRows !== 0;
+                        console.log({ isDeleted: isDeleted });
+                        return [2 /*return*/, isDeleted];
+                }
+            });
+        });
+    }
+    semasim_backend.deleteUser = deleteUser;
+    function checkUserPassword(email, password) {
+        return __awaiter(this, void 0, void 0, function () {
+            var _a, password_md5, match, error_3;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        console.log("=>checkUserPassword");
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, query("SELECT `password_md5` from `user` WHERE `email`= ?", [email])];
+                    case 2:
+                        _a = __read.apply(void 0, [_b.sent(), 1]), password_md5 = _a[0].password_md5;
+                        match = password_md5 === md5(password);
+                        console.log({ match: match });
+                        return [2 /*return*/, match];
+                    case 3:
+                        error_3 = _b.sent();
+                        console.log("user not found");
+                        return [2 /*return*/, false];
+                    case 4: return [2 /*return*/];
+                }
+            });
+        });
+    }
+    semasim_backend.checkUserPassword = checkUserPassword;
+    function addConfig(user_email, _a) {
+        var dongle_imei = _a.dongle_imei, sim_iccid = _a.sim_iccid, sim_service_provider = _a.sim_service_provider, sim_number = _a.sim_number;
+        return __awaiter(this, void 0, void 0, function () {
+            var _a, user_id, _b, sql, values, error_4;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        console.log("=>addConfig");
+                        _c.label = 1;
+                    case 1:
+                        _c.trys.push([1, 4, , 5]);
+                        return [4 /*yield*/, query("SELECT `id` as  `user_id` FROM user WHERE email = ?", [user_email])];
+                    case 2:
+                        _a = __read.apply(void 0, [_c.sent(), 1]), user_id = _a[0].user_id;
+                        _b = __read(buildInsertOrUpdateQuery("config", {
+                            user_id: user_id,
+                            dongle_imei: dongle_imei,
+                            sim_iccid: sim_iccid,
+                            sim_service_provider: sim_service_provider,
+                            sim_number: sim_number
+                        }), 2), sql = _b[0], values = _b[1];
+                        return [4 /*yield*/, query(sql, values)];
+                    case 3:
+                        _c.sent();
+                        console.log("successfully inserted");
+                        return [2 /*return*/, true];
+                    case 4:
+                        error_4 = _c.sent();
+                        console.log("user does not exist");
+                        return [2 /*return*/, false];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    }
+    semasim_backend.addConfig = addConfig;
+    function getUserConfigs(user_email) {
+        console.log("=>getUserConfigs");
+        return query([
+            "SELECT",
+            "config.`dongle_imei`,",
+            "config.`sim_iccid`,",
+            "config.`sim_service_provider`,",
+            "config.`sim_number`",
+            "FROM config",
+            "INNER JOIN user ON user.`id`= config.`user_id`",
+            "WHERE user.`email`= ?"
+        ].join("\n"), [user_email]);
+    }
+    semasim_backend.getUserConfigs = getUserConfigs;
+})(semasim_backend = exports.semasim_backend || (exports.semasim_backend = {}));

@@ -7,7 +7,9 @@
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
     "gateway": "DEBUG=_* node ./dist/lib/gatewayMain",
-    "backend": "DEBUG=_* node ./dist/lib/backendMain"
+    "backend": "DEBUG=_* node ./dist/lib/backendMain",
+    "gw": "npm run gateway",
+    "be": "npm run backend"
   },
   "repository": {
     "type": "git",

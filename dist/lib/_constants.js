@@ -1,4 +1,12 @@
 "use strict";
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
+    }
+    return t;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var path = require("path");
@@ -7,6 +15,7 @@ exports.dbParams = {
     "user": "root",
     "password": "abcde12345"
 };
+exports.dbParamsBackend = __assign({}, exports.dbParams, { "password": fs.readFileSync(path.join("/", "home", "admin", "mysql_root_user_password.txt"), "utf8").replace(/\s/g, ""), "database": "semasim_backend" });
 exports.gain = "" + 4000;
 exports.jitterBuffer = {
     //type: "fixed",
