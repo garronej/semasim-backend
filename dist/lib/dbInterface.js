@@ -85,7 +85,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var runExclusive = require("run-exclusive");
 var mysql = require("mysql");
 var md5 = require("md5");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_dbInterface");
 function queryOnConnection(connection, sql, values) {
@@ -124,7 +124,7 @@ var asterisk;
     var connection = undefined;
     function query(sql, values) {
         if (!connection) {
-            connection = mysql.createConnection(__assign({}, c.dbParams, { "database": "asterisk", "multipleStatements": true }));
+            connection = mysql.createConnection(__assign({}, _constants_1.c.dbParamsGateway, { "database": "asterisk", "multipleStatements": true }));
         }
         return queryOnConnection(connection, sql, values);
     }
@@ -232,8 +232,8 @@ var asterisk;
                             "id": endpoint,
                             "disallow": "all",
                             "allow": "alaw,ulaw",
-                            "context": c.sipCallContext,
-                            "message_context": c.sipMessageContext,
+                            "context": _constants_1.c.sipCallContext,
+                            "message_context": _constants_1.c.sipMessageContext,
                             "subscribe_context": null,
                             "aors": endpoint,
                             "auth": endpoint,
@@ -278,7 +278,7 @@ var semasim;
     var connection = undefined;
     function query(sql, values) {
         if (!connection) {
-            connection = mysql.createConnection(__assign({}, c.dbParams, { "database": "semasim", "multipleStatements": true }));
+            connection = mysql.createConnection(__assign({}, _constants_1.c.dbParamsGateway, { "multipleStatements": true }));
         }
         return queryOnConnection(connection, sql, values);
     }
@@ -571,7 +571,7 @@ var semasim_backend;
     var connection = undefined;
     function query(sql, values) {
         if (!connection) {
-            connection = mysql.createConnection(__assign({}, c.dbParamsBackend, { "multipleStatements": true }));
+            connection = mysql.createConnection(__assign({}, _constants_1.c.dbParamsBackend, { "multipleStatements": true }));
         }
         return queryOnConnection(connection, sql, values);
     }
@@ -655,6 +655,7 @@ var semasim_backend;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
+                        //TODO: makes test if 
                         console.log("=>addConfig");
                         _c.label = 1;
                     case 1:

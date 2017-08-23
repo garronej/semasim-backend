@@ -5,7 +5,7 @@ import * as firebaseFunctions from "./tools/firebaseFunctions";
 import { gatewaySockets, qualifyContact } from "./backendSipProxy";
 import { getBackendSocket } from "./gatewaySipProxy";
 import * as gatewaySipApi from "./gatewaySipApi";
-import * as c from "./_constants";
+import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_backendSipApi");

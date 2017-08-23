@@ -5,7 +5,7 @@ import * as sipLibrary from "./tools/sipLibrary";
 import * as db from "./dbInterface";
 import { getAsteriskSockets } from "./gatewaySipProxy";
 import * as backendSipApi from "./backendSipApi";
-import * as c from "./_constants";
+import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_sipContacts");

@@ -3,7 +3,7 @@ import { SyncEvent } from "ts-events-extended";
 import * as mysql from "mysql";
 import { Contact } from "./sipContacts";
 import * as md5 from "md5";
-import * as c from "./_constants"
+import { c } from "./_constants"
 
 import * as _debug from "debug";
 let debug = _debug("_dbInterface");
@@ -86,7 +86,7 @@ export namespace asterisk {
         if (!connection) {
 
             connection = mysql.createConnection({
-                ...c.dbParams,
+                ...c.dbParamsGateway,
                 "database": "asterisk",
                 "multipleStatements": true
             });
@@ -262,8 +262,7 @@ export namespace semasim {
         if (!connection) {
 
             connection = mysql.createConnection({
-                ...c.dbParams,
-                "database": "semasim",
+                ...c.dbParamsGateway,
                 "multipleStatements": true
             });
 
@@ -702,6 +701,7 @@ export namespace semasim_backend {
         { dongle_imei, sim_iccid, sim_service_provider, sim_number }: Config
     ): Promise<boolean> {
 
+        //TODO: makes test if 
         console.log("=>addConfig");
 
         try {

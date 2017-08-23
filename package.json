@@ -31,11 +31,11 @@
     "mysql": "^2.13.0",
     "node-rest-client": "^3.1.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
+    "run-exclusive": "garronej/run-exclusive",
     "sip": "github:garronej/sip.js",
     "stun": "^1.0.1",
     "ts-async-agi": "garronej/ts-async-agi",
-    "ts-events-extended": "garronej/ts-events-extended",
-    "run-exclusive": "garronej/run-exclusive"
+    "ts-events-extended": "garronej/ts-events-extended"
   },
   "devDependencies": {
     "@types/body-parser": "^1.16.4",

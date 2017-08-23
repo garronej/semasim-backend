@@ -41,12 +41,12 @@ var firebaseFunctions = require("./tools/firebaseFunctions");
 var backendSipProxy_1 = require("./backendSipProxy");
 var gatewaySipProxy_1 = require("./gatewaySipProxy");
 var gatewaySipApi = require("./gatewaySipApi");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_backendSipApi");
 function startListening(gatewaySocket) {
     var _this = this;
-    firebaseFunctions.init(c.serviceAccount);
+    firebaseFunctions.init(_constants_1.c.serviceAccount);
     var evt = sipApiFramework.startListening(gatewaySocket);
     evt.attach(function (_a) {
         var method = _a.method, payload = _a.payload, sendResponse = _a.sendResponse;

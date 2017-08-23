@@ -10,7 +10,7 @@ import { startListening as apiStartListening } from "./gatewaySipApi";
 import { Contact, getContactFromAstSocketSrcPort } from "./sipContacts";
 import * as db from "./dbInterface";
 
-import * as c from "./_constants";
+import { c } from "./_constants";
 
 import "colors";
 

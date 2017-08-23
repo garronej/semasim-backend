@@ -4,11 +4,11 @@ import * as md5 from "md5";
 import * as sip from "sip";
 import * as _sdp_ from "sip/sdp";
 
-export const regIdKey = "reg-id";
-export const instanceIdKey = "+sip.instance";
-
 import * as _debug from "debug";
 let debug = _debug("_tools/sipLibrary");
+
+export const regIdKey = "reg-id";
+export const instanceIdKey = "+sip.instance";
 
 export const parseSdp: (rawSdp: string) => any = _sdp_.parse;
 export const stringifySdp: (sdp: any) => string = _sdp_.stringify;

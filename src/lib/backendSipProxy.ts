@@ -6,7 +6,7 @@ import { SyncEvent } from "ts-events-extended";
 import * as sip from "./tools/sipLibrary";
 import { startListening as apiStartListening } from "./backendSipApi";
 import { Contact } from "./sipContacts";
-import * as c from "./_constants";
+import { c } from "./_constants";
 
 import "colors";
 
@@ -105,7 +105,7 @@ export async function startServer() {
     gatewaySockets = new sip.Store();
     clientSockets = new sip.Store();
 
-    let options: tls.TlsOptions = c.getTlsOptions();
+    let options: tls.TlsOptions = c.tlsOptions;
 
     let s1= net.createServer()
         .on("error", error => { throw error; })

@@ -45,7 +45,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var gatewaySipProxy_1 = require("./gatewaySipProxy");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_sipInstantMessaging");
 exports.evtMessage = gatewaySipProxy_1.evtIncomingMessage;
@@ -57,10 +57,10 @@ function start() {
                 case 0:
                     ami = chan_dongle_extended_client_1.DongleExtendedClient.localhost().ami;
                     matchAllExt = "_.";
-                    return [4 /*yield*/, ami.dialplanExtensionRemove(matchAllExt, c.sipMessageContext)];
+                    return [4 /*yield*/, ami.dialplanExtensionRemove(matchAllExt, _constants_1.c.sipMessageContext)];
                 case 1:
                     _a.sent();
-                    return [4 /*yield*/, ami.dialplanExtensionAdd(c.sipMessageContext, matchAllExt, 1, "Hangup")];
+                    return [4 /*yield*/, ami.dialplanExtensionAdd(_constants_1.c.sipMessageContext, matchAllExt, 1, "Hangup")];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];

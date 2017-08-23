@@ -56,13 +56,13 @@ var backendSipApi = require("./backendSipApi");
 var db = require("./dbInterface");
 var gatewaySipProxy = require("./gatewaySipProxy");
 var sipInstantMessaging = require("./sipInstantMessaging");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_gatewayMain");
 debug("Starting semasim gateway");
 var scripts = {};
-scripts[c.sipCallContext] = {};
-scripts[c.sipCallContext][c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {
+scripts[_constants_1.c.sipCallContext] = {};
+scripts[_constants_1.c.sipCallContext][_constants_1.c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {
     var _, imei;
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -70,10 +70,10 @@ scripts[c.sipCallContext][c.phoneNumber] = function (channel) { return __awaiter
                 _ = channel.relax;
                 debug("FROM SIP CALL!");
                 imei = channel.request.callerid;
-                return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + c.jitterBuffer.type + ")", c.jitterBuffer.params)];
+                return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + _constants_1.c.jitterBuffer.type + ")", _constants_1.c.jitterBuffer.params)];
             case 1:
                 _a.sent();
-                return [4 /*yield*/, _.setVariable("AGC(rx)", c.gain)];
+                return [4 /*yield*/, _.setVariable("AGC(rx)", _constants_1.c.gain)];
             case 2:
                 _a.sent();
                 return [4 /*yield*/, _.exec("Dial", ["Dongle/i:" + imei + "/" + channel.request.extension])];
@@ -85,8 +85,8 @@ scripts[c.sipCallContext][c.phoneNumber] = function (channel) { return __awaiter
         }
     });
 }); };
-scripts[c.dongleCallContext] = {};
-scripts[c.dongleCallContext][c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {
+scripts[_constants_1.c.dongleCallContext] = {};
+scripts[_constants_1.c.dongleCallContext][_constants_1.c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {
     var _this = this;
     var _, imei, wakeUpAllContactsPromise, name, dialString, failure;
     return __generator(this, function (_a) {
@@ -126,10 +126,10 @@ scripts[c.dongleCallContext][c.phoneNumber] = function (channel) { return __awai
                             switch (_a.label) {
                                 case 0:
                                     _ = outboundChannel.relax;
-                                    return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + c.jitterBuffer.type + ")", c.jitterBuffer.params)];
+                                    return [4 /*yield*/, _.setVariable("JITTERBUFFER(" + _constants_1.c.jitterBuffer.type + ")", _constants_1.c.jitterBuffer.params)];
                                 case 1:
                                     _a.sent();
-                                    return [4 /*yield*/, _.setVariable("AGC(rx)", c.gain)];
+                                    return [4 /*yield*/, _.setVariable("AGC(rx)", _constants_1.c.gain)];
                                 case 2:
                                     _a.sent();
                                     return [2 /*return*/];

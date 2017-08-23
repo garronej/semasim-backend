@@ -42,7 +42,7 @@ var net = require("net");
 var sip = require("./tools/sipLibrary");
 var backendSipApi_1 = require("./backendSipApi");
 var sipContacts_1 = require("./sipContacts");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 require("colors");
 var _debug = require("debug");
 var debug = _debug("_backendSipProxy");
@@ -56,7 +56,7 @@ function getPublicIp() {
                     if (publicIp)
                         return [2 /*return*/, publicIp];
                     return [4 /*yield*/, new Promise(function (resolve) {
-                            return dns.resolve4(c.backendHostname, function (error, addresses) {
+                            return dns.resolve4(_constants_1.c.backendHostname, function (error, addresses) {
                                 if (error)
                                     throw error;
                                 resolve(addresses[0]);
@@ -72,7 +72,7 @@ function getPublicIp() {
 exports.getPublicIp = getPublicIp;
 function extraParamFlowToken(flowToken) {
     var extraParams = {};
-    extraParams[c.flowTokenKey] = flowToken;
+    extraParams[_constants_1.c.flowTokenKey] = flowToken;
     return extraParams;
 }
 exports.extraParamFlowToken = extraParamFlowToken;
@@ -136,7 +136,7 @@ function startServer() {
                     _a.sent();
                     exports.gatewaySockets = new sip.Store();
                     clientSockets = new sip.Store();
-                    options = c.getTlsOptions();
+                    options = _constants_1.c.tlsOptions;
                     s1 = net.createServer()
                         .on("error", function (error) { throw error; })
                         .listen(5060, "0.0.0.0")
@@ -147,7 +147,7 @@ function startServer() {
                         .on("secureConnection", onClientConnection);
                     s3 = tls.createServer(options)
                         .on("error", function (error) { throw error; })
-                        .listen(c.backendSipProxyListeningPortForGateways, "0.0.0.0")
+                        .listen(_constants_1.c.backendSipProxyListeningPortForGateways, "0.0.0.0")
                         .on("secureConnection", onGatewayConnection);
                     return [4 /*yield*/, Promise.all([s1, s2, s3].map(function (s) { return new Promise(function (resolve) { return s1.on("listening", function () { return resolve(); }); }); }))];
                 case 2:
@@ -243,7 +243,7 @@ function onGatewayConnection(gatewaySocketRaw) {
     */
     backendSipApi_1.startListening(gatewaySocket);
     gatewaySocket.evtRequest.attach(function (sipRequest) {
-        var flowToken = sipRequest.headers.via[0].params[c.flowTokenKey];
+        var flowToken = sipRequest.headers.via[0].params[_constants_1.c.flowTokenKey];
         var clientSocket = clientSockets.get(flowToken);
         if (!clientSocket)
             return;
@@ -252,7 +252,7 @@ function onGatewayConnection(gatewaySocketRaw) {
         clientSocket.write(sipRequest);
     });
     gatewaySocket.evtResponse.attach(function (sipResponse) {
-        var flowToken = sipResponse.headers.via[0].params[c.flowTokenKey];
+        var flowToken = sipResponse.headers.via[0].params[_constants_1.c.flowTokenKey];
         var clientSocket = clientSockets.get(flowToken);
         if (!clientSocket)
             return;

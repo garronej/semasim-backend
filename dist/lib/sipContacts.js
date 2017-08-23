@@ -52,7 +52,7 @@ var sipLibrary = require("./tools/sipLibrary");
 var db = require("./dbInterface");
 var gatewaySipProxy_1 = require("./gatewaySipProxy");
 var backendSipApi = require("./backendSipApi");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_sipContacts");
 var Contact;
@@ -89,7 +89,7 @@ var Contact;
     }
     Contact.readUserAgent = readUserAgent;
     function readFlowToken(contact) {
-        return sipLibrary.parsePath(contact.path).pop().uri.params[c.flowTokenKey];
+        return sipLibrary.parsePath(contact.path).pop().uri.params[_constants_1.c.flowTokenKey];
     }
     Contact.readFlowToken = readFlowToken;
     function readAstSocketSrcPort(contact) {

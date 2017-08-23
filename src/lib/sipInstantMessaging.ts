@@ -3,7 +3,7 @@ import { DongleExtendedClient, Ami } from "chan-dongle-extended-client";
 import { Contact } from "./sipContacts";
 import { evtOutgoingMessage, evtIncomingMessage } from "./gatewaySipProxy";
 import * as sipLibrary from "./tools/sipLibrary";
-import * as c from "./_constants";
+import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_sipInstantMessaging");

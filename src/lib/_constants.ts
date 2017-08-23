@@ -2,47 +2,81 @@ import * as fbAdmin from "firebase-admin";
 import * as fs from "fs";
 import * as path from "path";
 
-export const dbParams = {
-    "host": "127.0.0.1",
-    "user": "root",
-    "password": "abcde12345"
-};
+export class c {
 
-export const dbParamsBackend= {
-    ...dbParams,
-    "password": fs.readFileSync(path.join("/", "home", "admin", "mysql_root_user_password.txt"), "utf8").replace(/\s/g,""),
-    "database": "semasim_backend"
-};
+    public static readonly dbParamsGateway = {
+        "host": "127.0.0.1",
+        "user": "root",
+        "password": "abcde12345",
+        "database": "semasim"
+    };
 
-export const gain = `${4000}`;
+    private static __dbParamsBackend__: { 
+        host: string; 
+        user: string; 
+        password: string;
+        database: string;
+    } | undefined= undefined;
 
-export const jitterBuffer = {
-    //type: "fixed",
-    //params: "2500,10000"
-    //type: "fixed",
-    //params: "default"
-    type: "adaptive",
-    params: "default"
-};
+    public static get dbParamsBackend() {
 
-//TODO: not defined here get from chan-dongle-extended-client
-export const dongleCallContext= "from-dongle";
+        if( this.__dbParamsBackend__ ) return this.__dbParamsBackend__;
 
-export const phoneNumber = "_[+0-9].";
+        this.__dbParamsBackend__ ={
+            ...c.dbParamsGateway,
+            "password": fs.readFileSync(
+                path.join("/", "home", "admin", "mysql_root_user_password.txt"), "utf8"
+            ).replace(/\s/g, ""),
+            "database": "semasim_backend"
+        };
 
-export const sipCallContext = "from-sip-call";
+        return this.__dbParamsBackend__;
 
-export const sipMessageContext = "from-sip-message";
+    }
 
-export const serviceAccount: fbAdmin.ServiceAccount= require("../../res/semasimdev-firebase-adminsdk.json");
+    public static readonly gain = `${4000}`;
 
-export const backendSipProxyListeningPortForGateways = 50610;
+    public static readonly jitterBuffer = {
+        //type: "fixed",
+        //params: "2500,10000"
+        //type: "fixed",
+        //params: "default"
+        type: "adaptive",
+        params: "default"
+    };
 
-export const flowTokenKey = "flowtoken";
+    //TODO: not defined here get from chan-dongle-extended-client
+    public static readonly dongleCallContext = "from-dongle";
 
-export const backendHostname= "semasim.com";
+    public static readonly phoneNumber = "_[+0-9].";
 
-export function getTlsOptions(): { key: string; cert: string; ca: string } {
+    public static readonly sipCallContext = "from-sip-call";
+
+    public static readonly sipMessageContext = "from-sip-message";
+
+    public static get serviceAccount(): fbAdmin.ServiceAccount {
+
+        return require(
+            path.join(__dirname, "..", "..", "res", "semasimdev-firebase-adminsdk.json")
+        );
+
+    }
+
+    public static readonly backendSipProxyListeningPortForGateways = 50610;
+
+    public static readonly flowTokenKey = "flowtoken";
+
+    public static readonly backendHostname = "semasim.com";
+
+    private static __tlsOptions__: {
+        key: string;
+        cert: string;
+        ca: string;
+    } | undefined= undefined;
+
+    public static get tlsOptions() {
+
+        if( this.__tlsOptions__ ) return this.__tlsOptions__;
 
         let pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
 
@@ -50,12 +84,20 @@ export function getTlsOptions(): { key: string; cert: string; ca: string } {
         let cert = fs.readFileSync(path.join(pathToCerts, "fullchain2.pem"), "utf8");
         let ca = fs.readFileSync(path.join(pathToCerts, "chain2.pem"), "utf8");
 
-        return { key, cert, ca };
+        this.__tlsOptions__= { key, cert, ca };
+
+        return this.__tlsOptions__;
+
+    }
+
+    public static readonly webApiPath = "api";
+    public static readonly webApiPort = 4430;
+
+    public static readonly reg_expires = 21600;
+
+    public static readonly regExpEmail= 
+/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+
+    public static readonly regExpPassword= (/^[0-9a-zA-Z]{6,}$/);
 
 }
-
-
-export const webApiPath = "api";
-export const webApiPort = 4430;
-
-export const reg_expires= 21600;

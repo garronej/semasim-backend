@@ -56,7 +56,7 @@ var backendSipProxy_1 = require("./backendSipProxy");
 var gatewaySipApi_1 = require("./gatewaySipApi");
 var sipContacts_1 = require("./sipContacts");
 var db = require("./dbInterface");
-var c = require("./_constants");
+var _constants_1 = require("./_constants");
 require("colors");
 var _debug = require("debug");
 var debug = _debug("_gatewaySipProxy");
@@ -108,8 +108,8 @@ function start() {
             debug("(re)Staring !");
             asteriskSockets = new sipLibrary.Store();
             backendSocket = new sipLibrary.Socket(tls.connect({
-                "host": c.backendHostname,
-                "port": c.backendSipProxyListeningPortForGateways
+                "host": _constants_1.c.backendHostname,
+                "port": _constants_1.c.backendSipProxyListeningPortForGateways
             }));
             backendSocket.setKeepAlive(true);
             gatewaySipApi_1.startListening(backendSocket);
@@ -204,7 +204,7 @@ function start() {
                 return __generator(this, function (_a) {
                     switch (_a.label) {
                         case 0:
-                            flowToken = sipRequest.headers.via[0].params[c.flowTokenKey];
+                            flowToken = sipRequest.headers.via[0].params[_constants_1.c.flowTokenKey];
                             asteriskSocket = asteriskSockets.get(flowToken);
                             if (!asteriskSocket)
                                 asteriskSocket = createAsteriskSocket(flowToken, backendSocket);
@@ -257,7 +257,7 @@ function start() {
             backendSocket.evtResponse.attach(function (sipResponse) {
                 var flowToken;
                 try {
-                    flowToken = sipResponse.headers.via[0].params[c.flowTokenKey];
+                    flowToken = sipResponse.headers.via[0].params[_constants_1.c.flowTokenKey];
                 }
                 catch (error) {
                     console.log(error.message);

@@ -22,10 +22,10 @@ var ts_events_extended_1 = require("ts-events-extended");
 var md5 = require("md5");
 var sip = require("sip");
 var _sdp_ = require("sip/sdp");
-exports.regIdKey = "reg-id";
-exports.instanceIdKey = "+sip.instance";
 var _debug = require("debug");
 var debug = _debug("_tools/sipLibrary");
+exports.regIdKey = "reg-id";
+exports.instanceIdKey = "+sip.instance";
 exports.parseSdp = _sdp_.parse;
 exports.stringifySdp = _sdp_.stringify;
 function overwriteGlobalAndAudioAddrInSdpCandidates(sdp) {

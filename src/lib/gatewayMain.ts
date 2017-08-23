@@ -17,7 +17,7 @@ import * as db from "./dbInterface";
 import * as gatewaySipProxy from "./gatewaySipProxy";
 import * as sipInstantMessaging from "./sipInstantMessaging";
 
-import * as c from "./_constants";
+import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_gatewayMain");

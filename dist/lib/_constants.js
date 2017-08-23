@@ -10,38 +10,70 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var path = require("path");
-exports.dbParams = {
-    "host": "127.0.0.1",
-    "user": "root",
-    "password": "abcde12345"
-};
-exports.dbParamsBackend = __assign({}, exports.dbParams, { "password": fs.readFileSync(path.join("/", "home", "admin", "mysql_root_user_password.txt"), "utf8").replace(/\s/g, ""), "database": "semasim_backend" });
-exports.gain = "" + 4000;
-exports.jitterBuffer = {
-    //type: "fixed",
-    //params: "2500,10000"
-    //type: "fixed",
-    //params: "default"
-    type: "adaptive",
-    params: "default"
-};
-//TODO: not defined here get from chan-dongle-extended-client
-exports.dongleCallContext = "from-dongle";
-exports.phoneNumber = "_[+0-9].";
-exports.sipCallContext = "from-sip-call";
-exports.sipMessageContext = "from-sip-message";
-exports.serviceAccount = require("../../res/semasimdev-firebase-adminsdk.json");
-exports.backendSipProxyListeningPortForGateways = 50610;
-exports.flowTokenKey = "flowtoken";
-exports.backendHostname = "semasim.com";
-function getTlsOptions() {
-    var pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
-    var key = fs.readFileSync(path.join(pathToCerts, "privkey2.pem"), "utf8");
-    var cert = fs.readFileSync(path.join(pathToCerts, "fullchain2.pem"), "utf8");
-    var ca = fs.readFileSync(path.join(pathToCerts, "chain2.pem"), "utf8");
-    return { key: key, cert: cert, ca: ca };
-}
-exports.getTlsOptions = getTlsOptions;
-exports.webApiPath = "api";
-exports.webApiPort = 4430;
-exports.reg_expires = 21600;
+var c = (function () {
+    function c() {
+    }
+    Object.defineProperty(c, "dbParamsBackend", {
+        get: function () {
+            if (this.__dbParamsBackend__)
+                return this.__dbParamsBackend__;
+            this.__dbParamsBackend__ = __assign({}, c.dbParamsGateway, { "password": fs.readFileSync(path.join("/", "home", "admin", "mysql_root_user_password.txt"), "utf8").replace(/\s/g, ""), "database": "semasim_backend" });
+            return this.__dbParamsBackend__;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(c, "serviceAccount", {
+        get: function () {
+            return require(path.join(__dirname, "..", "..", "res", "semasimdev-firebase-adminsdk.json"));
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(c, "tlsOptions", {
+        get: function () {
+            if (this.__tlsOptions__)
+                return this.__tlsOptions__;
+            var pathToCerts = path.join("/", "home", "admin", "ns.semasim.com");
+            var key = fs.readFileSync(path.join(pathToCerts, "privkey2.pem"), "utf8");
+            var cert = fs.readFileSync(path.join(pathToCerts, "fullchain2.pem"), "utf8");
+            var ca = fs.readFileSync(path.join(pathToCerts, "chain2.pem"), "utf8");
+            this.__tlsOptions__ = { key: key, cert: cert, ca: ca };
+            return this.__tlsOptions__;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    c.dbParamsGateway = {
+        "host": "127.0.0.1",
+        "user": "root",
+        "password": "abcde12345",
+        "database": "semasim"
+    };
+    c.__dbParamsBackend__ = undefined;
+    c.gain = "" + 4000;
+    c.jitterBuffer = {
+        //type: "fixed",
+        //params: "2500,10000"
+        //type: "fixed",
+        //params: "default"
+        type: "adaptive",
+        params: "default"
+    };
+    //TODO: not defined here get from chan-dongle-extended-client
+    c.dongleCallContext = "from-dongle";
+    c.phoneNumber = "_[+0-9].";
+    c.sipCallContext = "from-sip-call";
+    c.sipMessageContext = "from-sip-message";
+    c.backendSipProxyListeningPortForGateways = 50610;
+    c.flowTokenKey = "flowtoken";
+    c.backendHostname = "semasim.com";
+    c.__tlsOptions__ = undefined;
+    c.webApiPath = "api";
+    c.webApiPort = 4430;
+    c.reg_expires = 21600;
+    c.regExpEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    c.regExpPassword = (/^[0-9a-zA-Z]{6,}$/);
+    return c;
+}());
+exports.c = c;
