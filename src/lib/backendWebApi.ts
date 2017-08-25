@@ -3,8 +3,6 @@ import * as express from "express";
 import * as logger from "morgan";
 import * as fs from "fs";
 import * as path from "path";//TODO: remove
-import * as clone from "clone";
-import * as nodeRestClient from "node-rest-client";
 import * as gatewaySipApi from "./gatewaySipApi";
 import { gatewaySockets } from "./backendSipProxy";
 import * as db from "./dbInterface";
@@ -24,8 +22,10 @@ export function startServer(): Promise<void> {
         router.get("/:method", (req, res) => {
 
             switch (req.params.method) {
-                case getConfigAndUnlock.methodName: return getConfigAndUnlock.handler(req, res);
-                case getUserConfig.methodName: return getUserConfig.handler(req, res);
+                case createUserEndpointConfig.methodName: 
+                    return createUserEndpointConfig.handler(req, res);
+                case getUserConfig.methodName: 
+                    return getUserConfig.handler(req, res);
                 default: return res.status(400).end();
             }
 
@@ -43,9 +43,132 @@ export function startServer(): Promise<void> {
 
 }
 
+//TODO: test!
+export namespace createUserEndpointConfig {
+
+    export const methodName= "create-user-endpoint-config";
+
+    type Request = {
+        imei: string;
+        last_four_digits_of_iccid: string;
+        pin_first_try: string;
+        pin_second_try?: string;
+    }
+
+    function validateQueryString(query: Object): query is Request {
+
+        try {
+
+            let { 
+                imei,
+                last_four_digits_of_iccid,
+                pin_first_try,
+                pin_second_try
+            } = query as Request;
+
+            return (
+                imei.match(c.regExpImei) !== null &&
+                last_four_digits_of_iccid.match(c.regExpFourDigits) !== null &&
+                pin_first_try.match(c.regExpFourDigits) !== null &&
+                (pin_second_try === undefined || pin_second_try.match(c.regExpFourDigits) !== null)
+            );
+
+        } catch (error) {
+            return false;
+        }
+
+    }
+
+    export async function handler(
+        req: express.Request,
+        res: express.Response
+    ) {
+
+        debug("=>createUserEndpointConfig");
+
+            try {
+
+            let query: Object = req.query;
+
+            debug({ query });
+
+            if (!validateQueryString(query))
+                throw new Error("INVALID_QUERY");
+
+            let { 
+                imei,
+                last_four_digits_of_iccid,
+                pin_first_try,
+                pin_second_try
+            }= query;
+
+            let email: string= (req as any).session.email;
+
+            if (!email)
+                throw new Error("FORBIDDEN");
+
+            let gatewaySocket= gatewaySockets.get(imei);
+
+            if( !gatewaySocket ) 
+                throw new Error("DONGLE NOT FOUND");
+
+            let hasSim = await gatewaySipApi.doesDongleHasSim.run(
+                gatewaySocket,
+                imei,
+                last_four_digits_of_iccid
+            );
+
+            if (!hasSim)
+                throw new Error("WRONG SIM");
+
+            let unlockResult= await gatewaySipApi.unlockDongle.run(
+                gatewaySocket,
+                { 
+                    imei, 
+                    last_four_digits_of_iccid, 
+                    pin_first_try, 
+                    pin_second_try 
+                }
+            );
+
+            if (!unlockResult.dongleFound)
+                throw new Error("DONGLE NOT FOUND");
+
+            if (unlockResult.pinState !== "READY")
+                throw new Error("WRONG PIN");
+
+            await db.semasim_backend.addConfig(email, {
+                "dongle_imei": imei,
+                "sim_iccid": unlockResult.iccid,
+                "sim_number": unlockResult.number || null,
+                "sim_service_provider": unlockResult.serviceProvider || null
+            });
+
+            res.statusMessage = "SUCCESS";
+
+            res.status(200).end();
+
+        } catch (error) {
+
+            debug(error.message);
+
+            //TODO do not give debug info here
+            res.statusMessage = error.message;
+
+            res.status(400).end();
+
+        }
+
+
+    }
+
+
+
+}
+
 export namespace getUserConfig {
 
-    export const methodName= "get-user-config";
+    export const methodName = "get-user-config";
 
     function generateUserConfig(
         endpointConfigs: string[]
@@ -239,144 +362,6 @@ export namespace getUserConfig {
 
 }
 
-export namespace getConfigAndUnlock {
-
-    let xml: string | undefined = undefined;
-
-    function generateXml(
-        imei: string,
-        last_four_digits_of_iccid: string
-    ) {
-
-        if (!xml) {
-            xml = fs.readFileSync(path.join(__dirname, "..", "..", "res", "remote_provisioning.xml"), "utf8");
-            xml = xml.replace(/DOMAIN/g, c.backendHostname);
-            xml = xml.replace(/REG_EXPIRES/g, `${c.reg_expires}`);
-        }
-
-        let newXml = xml;
-
-        newXml = newXml.replace(/IMEI/g, imei);
-        newXml = newXml.replace(/LAST_FOUR_DIGITS_OF_ICCID/g, last_four_digits_of_iccid);
-        newXml = newXml.replace(/DISPLAY_NAME/g, "XXXXXXX");
-
-        return newXml;
-
-
-    }
-
-
-
-    export const methodName = "get-config-and-unlock";
-
-    function validateQueryString(query: Object): query is gatewaySipApi.unlockDongle.Request {
-
-        try {
-
-            let {
-            imei,
-                last_four_digits_of_iccid,
-                pin_first_try,
-                pin_second_try
-        } = query as gatewaySipApi.unlockDongle.Request;
-
-            return (
-                imei.match(/^[0-9]{15}$/) !== null &&
-                last_four_digits_of_iccid.match(/^[0-9]{4}$/) !== null &&
-                pin_first_try.match(/^[0-9]{4}$/) !== null &&
-                (pin_second_try === undefined || pin_second_try.match(/^[0-9]{4}$/) !== null)
-            );
-
-        } catch (error) {
-            return false;
-        }
-
-    }
-
-    export async function handler(
-        req: express.Request,
-        res: express.Response
-    ) {
-
-        try {
-
-            debug("=>getConfig");
-
-            let query: Object = req.query;
-
-            debug({ query });
-
-            if (!validateQueryString(query))
-                throw new Error("INVALID_QUERY");
-
-            let gatewaySocket = gatewaySockets.get(query.imei);
-
-            if (!gatewaySocket) throw new Error("GATEWAY_NOT_FOUND");
-
-            let resp = await gatewaySipApi.unlockDongle.run(gatewaySocket, query);
-
-            if (resp.pinState !== "READY")
-                throw new Error("UNLOCK_FAILED");
-
-            debug({ resp });
-
-            res.setHeader("Content-Type", "application/xml; charset=utf-8");
-
-            let xml = generateXml(query.imei, query.last_four_digits_of_iccid);
-
-            debug(xml);
-
-            res.status(200).send(new Buffer(xml, "utf8"));
-
-        } catch (error) {
-
-            debug(error.message);
-
-            res.statusMessage = error.message;
-
-            res.status(400).end();
-
-        }
-
-    }
-
-    export function run(
-        params: gatewaySipApi.unlockDongle.Request
-    ): Promise<string> {
-
-        return new Promise((resolve, reject) => {
-
-            let client = new nodeRestClient.Client();
-
-            let paramsAsRecord = (() => {
-
-                let out: Record<string, string | undefined> = {};
-
-                for (let key of Object.keys(params))
-                    out[key] = params[key];
-
-                return out;
-
-            })();
-
-            client.get(
-                buildUrl(methodName, paramsAsRecord),
-                (data, { statusCode, statusMessage }) => {
-
-                    if (statusCode !== 200)
-                        return reject(new Error(`webAPI ${methodName} error ${statusCode}, ${statusMessage}`));
-
-                    resolve(data);
-
-                }
-            );
-
-        });
-
-    }
-
-
-}
 
 function buildUrl(
     methodName: string,

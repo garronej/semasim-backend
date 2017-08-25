@@ -128,7 +128,55 @@ var isDongleConnected;
     }
     isDongleConnected.run = run;
 })(isDongleConnected = exports.isDongleConnected || (exports.isDongleConnected = {}));
-//TODO: to test
+var doesDongleHasSim;
+(function (doesDongleHasSim) {
+    doesDongleHasSim.methodName = "doesDongleHasSIm";
+    function handle(_a) {
+        var imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid;
+        return __awaiter(this, void 0, void 0, function () {
+            var dongleClient, dongle, lockedDongle;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        dongleClient = chan_dongle_extended_client_1.DongleExtendedClient.localhost();
+                        return [4 /*yield*/, dongleClient.getActiveDongle(imei)];
+                    case 1:
+                        dongle = _a.sent();
+                        if (dongle &&
+                            (dongle.imei.substring(imei.length - 4) === last_four_digits_of_iccid))
+                            return [2 /*return*/, { "value": true }];
+                        return [4 /*yield*/, dongleClient.getLockedDongles()];
+                    case 2:
+                        lockedDongle = (_a.sent()).filter(function (d) { return d.imei === imei; }).pop();
+                        if (!lockedDongle)
+                            return [2 /*return*/, { "value": false }];
+                        if (lockedDongle.iccid.substring(lockedDongle.iccid.length - 4) === last_four_digits_of_iccid)
+                            return [2 /*return*/, { "value": true }];
+                        else
+                            return [2 /*return*/, { "value": "MAYBE" }];
+                        return [2 /*return*/];
+                }
+            });
+        });
+    }
+    doesDongleHasSim.handle = handle;
+    function run(gatewaySocket, imei, last_four_digits_of_iccid) {
+        return __awaiter(this, void 0, void 0, function () {
+            var payload, response;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        payload = { imei: imei, last_four_digits_of_iccid: last_four_digits_of_iccid };
+                        return [4 /*yield*/, sipApiFramework.sendRequest(gatewaySocket, doesDongleHasSim.methodName, payload)];
+                    case 1:
+                        response = _a.sent();
+                        return [2 /*return*/, response.value];
+                }
+            });
+        });
+    }
+    doesDongleHasSim.run = run;
+})(doesDongleHasSim = exports.doesDongleHasSim || (exports.doesDongleHasSim = {}));
 var unlockDongle;
 (function (unlockDongle) {
     unlockDongle.methodName = "unlockDongle";
@@ -154,7 +202,13 @@ var unlockDongle;
                         if (activeDongle) {
                             if (!isValidPass(activeDongle.iccid, last_four_digits_of_iccid))
                                 throw new Error("ICCID does not match");
-                            return [2 /*return*/, { "dongleFound": true, pinState: "READY" }];
+                            return [2 /*return*/, {
+                                    "dongleFound": true,
+                                    pinState: "READY",
+                                    "iccid": activeDongle.iccid,
+                                    "number": activeDongle.number,
+                                    "serviceProvider": activeDongle.serviceProvider
+                                }];
                         }
                         return [4 /*yield*/, dongleClient.getLockedDongles()];
                     case 3:
@@ -187,15 +241,35 @@ var unlockDongle;
                     case 4:
                         resultFirstTry = _b.sent();
                         if (!matchLocked(resultFirstTry))
-                            return [2 /*return*/, { "dongleFound": true, "pinState": "READY" }];
+                            return [2 /*return*/, {
+                                    "dongleFound": true,
+                                    "pinState": "READY",
+                                    "iccid": resultFirstTry.iccid,
+                                    "number": resultFirstTry.number,
+                                    "serviceProvider": resultFirstTry.serviceProvider
+                                }];
                         if (!pin_second_try)
-                            return [2 /*return*/, { "dongleFound": true, "pinState": resultFirstTry.pinState, "tryLeft": resultFirstTry.tryLeft }];
+                            return [2 /*return*/, {
+                                    "dongleFound": true,
+                                    "pinState": resultFirstTry.pinState,
+                                    "tryLeft": resultFirstTry.tryLeft
+                                }];
                         return [4 /*yield*/, attemptUnlock(pin_second_try)];
                     case 5:
                         resultSecondTry = _b.sent();
                         if (!matchLocked(resultSecondTry))
-                            return [2 /*return*/, { "dongleFound": true, "pinState": "READY" }];
-                        return [2 /*return*/, { "dongleFound": true, "pinState": resultSecondTry.pinState, "tryLeft": resultSecondTry.tryLeft }];
+                            return [2 /*return*/, {
+                                    "dongleFound": true,
+                                    "pinState": "READY",
+                                    "iccid": resultSecondTry.iccid,
+                                    "number": resultSecondTry.number,
+                                    "serviceProvider": resultSecondTry.serviceProvider
+                                }];
+                        return [2 /*return*/, {
+                                "dongleFound": true,
+                                "pinState": resultSecondTry.pinState,
+                                "tryLeft": resultSecondTry.tryLeft
+                            }];
                     case 6:
                         error_1 = _b.sent();
                         debug(error_1.message);

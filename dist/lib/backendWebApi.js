@@ -68,9 +68,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var https = require("https");
 var express = require("express");
 var logger = require("morgan");
-var fs = require("fs");
-var path = require("path"); //TODO: remove
-var nodeRestClient = require("node-rest-client");
 var gatewaySipApi = require("./gatewaySipApi");
 var backendSipProxy_1 = require("./backendSipProxy");
 var db = require("./dbInterface");
@@ -83,8 +80,10 @@ function startServer() {
             .use(logger("dev"));
         router.get("/:method", function (req, res) {
             switch (req.params.method) {
-                case getConfigAndUnlock.methodName: return getConfigAndUnlock.handler(req, res);
-                case getUserConfig.methodName: return getUserConfig.handler(req, res);
+                case createUserEndpointConfig.methodName:
+                    return createUserEndpointConfig.handler(req, res);
+                case getUserConfig.methodName:
+                    return getUserConfig.handler(req, res);
                 default: return res.status(400).end();
             }
         });
@@ -97,6 +96,85 @@ function startServer() {
     });
 }
 exports.startServer = startServer;
+//TODO: test!
+var createUserEndpointConfig;
+(function (createUserEndpointConfig) {
+    createUserEndpointConfig.methodName = "create-user-endpoint-config";
+    function validateQueryString(query) {
+        try {
+            var _a = query, imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid, pin_first_try = _a.pin_first_try, pin_second_try = _a.pin_second_try;
+            return (imei.match(_constants_1.c.regExpImei) !== null &&
+                last_four_digits_of_iccid.match(_constants_1.c.regExpFourDigits) !== null &&
+                pin_first_try.match(_constants_1.c.regExpFourDigits) !== null &&
+                (pin_second_try === undefined || pin_second_try.match(_constants_1.c.regExpFourDigits) !== null));
+        }
+        catch (error) {
+            return false;
+        }
+    }
+    function handler(req, res) {
+        return __awaiter(this, void 0, void 0, function () {
+            var query, imei, last_four_digits_of_iccid, pin_first_try, pin_second_try, email, gatewaySocket, hasSim, unlockResult, error_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        debug("=>createUserEndpointConfig");
+                        _a.label = 1;
+                    case 1:
+                        _a.trys.push([1, 5, , 6]);
+                        query = req.query;
+                        debug({ query: query });
+                        if (!validateQueryString(query))
+                            throw new Error("INVALID_QUERY");
+                        imei = query.imei, last_four_digits_of_iccid = query.last_four_digits_of_iccid, pin_first_try = query.pin_first_try, pin_second_try = query.pin_second_try;
+                        email = req.session.email;
+                        if (!email)
+                            throw new Error("FORBIDDEN");
+                        gatewaySocket = backendSipProxy_1.gatewaySockets.get(imei);
+                        if (!gatewaySocket)
+                            throw new Error("DONGLE NOT FOUND");
+                        return [4 /*yield*/, gatewaySipApi.doesDongleHasSim.run(gatewaySocket, imei, last_four_digits_of_iccid)];
+                    case 2:
+                        hasSim = _a.sent();
+                        if (!hasSim)
+                            throw new Error("WRONG SIM");
+                        return [4 /*yield*/, gatewaySipApi.unlockDongle.run(gatewaySocket, {
+                                imei: imei,
+                                last_four_digits_of_iccid: last_four_digits_of_iccid,
+                                pin_first_try: pin_first_try,
+                                pin_second_try: pin_second_try
+                            })];
+                    case 3:
+                        unlockResult = _a.sent();
+                        if (!unlockResult.dongleFound)
+                            throw new Error("DONGLE NOT FOUND");
+                        if (unlockResult.pinState !== "READY")
+                            throw new Error("WRONG PIN");
+                        return [4 /*yield*/, db.semasim_backend.addConfig(email, {
+                                "dongle_imei": imei,
+                                "sim_iccid": unlockResult.iccid,
+                                "sim_number": unlockResult.number || null,
+                                "sim_service_provider": unlockResult.serviceProvider || null
+                            })];
+                    case 4:
+                        _a.sent();
+                        res.statusMessage = "SUCCESS";
+                        res.status(200).end();
+                        return [3 /*break*/, 6];
+                    case 5:
+                        error_1 = _a.sent();
+                        debug(error_1.message);
+                        //TODO do not give debug info here
+                        res.statusMessage = error_1.message;
+                        res.status(400).end();
+                        return [3 /*break*/, 6];
+                    case 6: return [2 /*return*/];
+                }
+            });
+        });
+    }
+    createUserEndpointConfig.handler = handler;
+})(createUserEndpointConfig = exports.createUserEndpointConfig || (exports.createUserEndpointConfig = {}));
 var getUserConfig;
 (function (getUserConfig) {
     getUserConfig.methodName = "get-user-config";
@@ -155,13 +233,13 @@ var getUserConfig;
     function handler(req, res) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var query, configs, endpointConfigs, id, _loop_1, _a, _b, _c, dongle_imei, sim_iccid, sim_number, sim_service_provider, e_1_1, xml, error_1, e_1, _d;
+            var query, configs, endpointConfigs, id, _loop_1, _a, _b, _c, dongle_imei, sim_iccid, sim_number, sim_service_provider, e_1_1, xml, error_2, e_1, _d;
             return __generator(this, function (_e) {
                 switch (_e.label) {
                     case 0:
                         debug("=>getUserConfig");
                         return [4 /*yield*/, (function () { return __awaiter(_this, void 0, void 0, function () {
-                                var email, password, url, error_2;
+                                var email, password, url, error_3;
                                 return __generator(this, function (_a) {
                                     switch (_a.label) {
                                         case 0:
@@ -193,8 +271,8 @@ var getUserConfig;
                                             url = buildUrl(getUserConfig.methodName, { email: email, password: password });
                                             return [3 /*break*/, 6];
                                         case 5:
-                                            error_2 = _a.sent();
-                                            console.log("error", error_2);
+                                            error_3 = _a.sent();
+                                            console.log("error", error_3);
                                             return [3 /*break*/, 6];
                                         case 6: return [2 /*return*/];
                                     }
@@ -262,9 +340,9 @@ var getUserConfig;
                         res.status(200).send(new Buffer(xml, "utf8"));
                         return [3 /*break*/, 14];
                     case 13:
-                        error_1 = _e.sent();
-                        debug(error_1.message);
-                        res.statusMessage = error_1.message;
+                        error_2 = _e.sent();
+                        debug(error_2.message);
+                        res.statusMessage = error_2.message;
                         res.status(400).end();
                         return [3 /*break*/, 14];
                     case 14: return [2 /*return*/];
@@ -274,103 +352,6 @@ var getUserConfig;
     }
     getUserConfig.handler = handler;
 })(getUserConfig = exports.getUserConfig || (exports.getUserConfig = {}));
-var getConfigAndUnlock;
-(function (getConfigAndUnlock) {
-    var xml = undefined;
-    function generateXml(imei, last_four_digits_of_iccid) {
-        if (!xml) {
-            xml = fs.readFileSync(path.join(__dirname, "..", "..", "res", "remote_provisioning.xml"), "utf8");
-            xml = xml.replace(/DOMAIN/g, _constants_1.c.backendHostname);
-            xml = xml.replace(/REG_EXPIRES/g, "" + _constants_1.c.reg_expires);
-        }
-        var newXml = xml;
-        newXml = newXml.replace(/IMEI/g, imei);
-        newXml = newXml.replace(/LAST_FOUR_DIGITS_OF_ICCID/g, last_four_digits_of_iccid);
-        newXml = newXml.replace(/DISPLAY_NAME/g, "XXXXXXX");
-        return newXml;
-    }
-    getConfigAndUnlock.methodName = "get-config-and-unlock";
-    function validateQueryString(query) {
-        try {
-            var _a = query, imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid, pin_first_try = _a.pin_first_try, pin_second_try = _a.pin_second_try;
-            return (imei.match(/^[0-9]{15}$/) !== null &&
-                last_four_digits_of_iccid.match(/^[0-9]{4}$/) !== null &&
-                pin_first_try.match(/^[0-9]{4}$/) !== null &&
-                (pin_second_try === undefined || pin_second_try.match(/^[0-9]{4}$/) !== null));
-        }
-        catch (error) {
-            return false;
-        }
-    }
-    function handler(req, res) {
-        return __awaiter(this, void 0, void 0, function () {
-            var query, gatewaySocket, resp, xml_1, error_3;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        _a.trys.push([0, 2, , 3]);
-                        debug("=>getConfig");
-                        query = req.query;
-                        debug({ query: query });
-                        if (!validateQueryString(query))
-                            throw new Error("INVALID_QUERY");
-                        gatewaySocket = backendSipProxy_1.gatewaySockets.get(query.imei);
-                        if (!gatewaySocket)
-                            throw new Error("GATEWAY_NOT_FOUND");
-                        return [4 /*yield*/, gatewaySipApi.unlockDongle.run(gatewaySocket, query)];
-                    case 1:
-                        resp = _a.sent();
-                        if (resp.pinState !== "READY")
-                            throw new Error("UNLOCK_FAILED");
-                        debug({ resp: resp });
-                        res.setHeader("Content-Type", "application/xml; charset=utf-8");
-                        xml_1 = generateXml(query.imei, query.last_four_digits_of_iccid);
-                        debug(xml_1);
-                        res.status(200).send(new Buffer(xml_1, "utf8"));
-                        return [3 /*break*/, 3];
-                    case 2:
-                        error_3 = _a.sent();
-                        debug(error_3.message);
-                        res.statusMessage = error_3.message;
-                        res.status(400).end();
-                        return [3 /*break*/, 3];
-                    case 3: return [2 /*return*/];
-                }
-            });
-        });
-    }
-    getConfigAndUnlock.handler = handler;
-    function run(params) {
-        return new Promise(function (resolve, reject) {
-            var client = new nodeRestClient.Client();
-            var paramsAsRecord = (function () {
-                var out = {};
-                try {
-                    for (var _a = __values(Object.keys(params)), _b = _a.next(); !_b.done; _b = _a.next()) {
-                        var key = _b.value;
-                        out[key] = params[key];
-                    }
-                }
-                catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                finally {
-                    try {
-                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
-                    }
-                    finally { if (e_2) throw e_2.error; }
-                }
-                return out;
-                var e_2, _c;
-            })();
-            client.get(buildUrl(getConfigAndUnlock.methodName, paramsAsRecord), function (data, _a) {
-                var statusCode = _a.statusCode, statusMessage = _a.statusMessage;
-                if (statusCode !== 200)
-                    return reject(new Error("webAPI " + getConfigAndUnlock.methodName + " error " + statusCode + ", " + statusMessage));
-                resolve(data);
-            });
-        });
-    }
-    getConfigAndUnlock.run = run;
-})(getConfigAndUnlock = exports.getConfigAndUnlock || (exports.getConfigAndUnlock = {}));
 function buildUrl(methodName, params) {
     var query = [];
     try {
@@ -382,15 +363,15 @@ function buildUrl(methodName, params) {
             query[query.length] = key + "=" + params[key];
         }
     }
-    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+    catch (e_2_1) { e_2 = { error: e_2_1 }; }
     finally {
         try {
             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
         }
-        finally { if (e_3) throw e_3.error; }
+        finally { if (e_2) throw e_2.error; }
     }
     var url = "https://" + _constants_1.c.backendHostname + ":" + _constants_1.c.webApiPort + "/" + _constants_1.c.webApiPath + "/" + methodName + "?" + query.join("&");
     console.log("GET " + url);
     return url;
-    var e_3, _c;
+    var e_2, _c;
 }

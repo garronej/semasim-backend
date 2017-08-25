@@ -1,8 +1,8 @@
 {
   "name": "semasim-daemon",
   "description": "Semasim daemon running on user devices",
-  "main": "./dist/lib/index.js",
-  "types": "./dist/lib/index.d.ts",
+  "main": "./dist/lib/backendWebApi.js",
+  "types": "./dist/lib/backendWebApi.d.ts",
   "version": "0.4.1",
   "scripts": {
     "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
@@ -29,7 +29,6 @@
     "md5": "^2.2.1",
     "morgan": "^1.8.2",
     "mysql": "^2.13.0",
-    "node-rest-client": "^3.1.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "run-exclusive": "garronej/run-exclusive",
     "sip": "github:garronej/sip.js",

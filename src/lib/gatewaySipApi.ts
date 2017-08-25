@@ -74,8 +74,62 @@ export namespace isDongleConnected{
 
 }
 
+export namespace doesDongleHasSim{
 
-//TODO: to test
+    export const methodName= "doesDongleHasSIm";
+
+    export interface Request {
+        imei: string;
+        last_four_digits_of_iccid: string;
+    }
+
+    export interface Response {
+        value: boolean | "MAYBE";
+    }
+
+    export async function handle(
+        { imei, last_four_digits_of_iccid }: Request
+    ): Promise<Response> {
+
+        let dongleClient= DongleExtendedClient.localhost();
+
+        let dongle= await dongleClient.getActiveDongle(imei);
+
+        if( 
+            dongle && 
+            ( dongle.imei.substring(imei.length - 4) === last_four_digits_of_iccid )
+        ) return { "value": true };
+
+        let lockedDongle= (await dongleClient.getLockedDongles()).filter( d => d.imei === imei).pop();
+
+        if( !lockedDongle ) return { "value": false };
+
+        if( lockedDongle.iccid.substring(lockedDongle.iccid.length - 4) === last_four_digits_of_iccid )
+            return { "value": true };
+        else
+            return { "value": "MAYBE" };
+
+    }
+
+    export async function run(
+        gatewaySocket: sipLibrary.Socket,
+        imei: string,
+        last_four_digits_of_iccid: string
+    ): Promise<Response["value"]> {
+
+        let payload: Request= { imei, last_four_digits_of_iccid };
+
+        let response = await sipApiFramework.sendRequest(gatewaySocket, methodName, payload);
+
+        return (response as Response).value;
+
+    }
+
+
+
+}
+
+
 export namespace unlockDongle {
 
     export const methodName = "unlockDongle";
@@ -87,10 +141,19 @@ export namespace unlockDongle {
         pin_second_try?: string;
     }
 
-    export interface Response {
-        dongleFound: boolean;
-        pinState?: LockedDongle["pinState"] | "READY";
-        tryLeft?: number;
+
+    export type Response = {
+        dongleFound: true;
+        pinState: LockedDongle["pinState"];
+        tryLeft: number;
+    }| {
+        dongleFound: false;
+    } | {
+        dongleFound: true;
+        pinState: "READY";
+        iccid: string;
+        number: string | undefined;
+        serviceProvider: string | undefined;
     }
 
     function isValidPass(iccid: string, last_four_digits_of_iccid: string){
@@ -115,7 +178,13 @@ export namespace unlockDongle {
                 if (!isValidPass(activeDongle.iccid, last_four_digits_of_iccid))
                     throw new Error("ICCID does not match");
 
-                return { "dongleFound": true, pinState: "READY" };
+                return { 
+                    "dongleFound": true, 
+                    pinState: "READY", 
+                    "iccid": activeDongle.iccid,
+                    "number": activeDongle.number, 
+                    "serviceProvider": activeDongle.serviceProvider 
+                };
 
             }
 
@@ -152,17 +221,37 @@ export namespace unlockDongle {
             let resultFirstTry = await attemptUnlock(pin_first_try);
 
             if (!matchLocked(resultFirstTry))
-                return { "dongleFound": true, "pinState": "READY" };
+                return { 
+                    "dongleFound": true, 
+                    "pinState": "READY",
+                    "iccid": resultFirstTry.iccid,
+                    "number": resultFirstTry.number,
+                    "serviceProvider": resultFirstTry.serviceProvider
+                };
 
             if (!pin_second_try)
-                return { "dongleFound": true, "pinState": resultFirstTry.pinState, "tryLeft": resultFirstTry.tryLeft };
+                return { 
+                    "dongleFound": true, 
+                    "pinState": resultFirstTry.pinState, 
+                    "tryLeft": resultFirstTry.tryLeft 
+                };
 
             let resultSecondTry = await attemptUnlock(pin_second_try);
 
             if (!matchLocked(resultSecondTry))
-                return { "dongleFound": true, "pinState": "READY" };
+                return { 
+                    "dongleFound": true, 
+                    "pinState": "READY",
+                    "iccid": resultSecondTry.iccid,
+                    "number": resultSecondTry.number,
+                    "serviceProvider": resultSecondTry.serviceProvider
+                };
 
-            return { "dongleFound": true, "pinState": resultSecondTry.pinState, "tryLeft": resultSecondTry.tryLeft };
+            return { 
+                "dongleFound": true, 
+                "pinState": resultSecondTry.pinState, 
+                "tryLeft": resultSecondTry.tryLeft 
+            };
 
         } catch (error) {
 

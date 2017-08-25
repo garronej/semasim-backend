@@ -13,6 +13,18 @@ export declare namespace isDongleConnected {
     function handle({imei}: Request): Promise<Response>;
     function run(gatewaySocket: sipLibrary.Socket, imei: string): Promise<Response>;
 }
+export declare namespace doesDongleHasSim {
+    const methodName = "doesDongleHasSIm";
+    interface Request {
+        imei: string;
+        last_four_digits_of_iccid: string;
+    }
+    interface Response {
+        value: boolean | "MAYBE";
+    }
+    function handle({imei, last_four_digits_of_iccid}: Request): Promise<Response>;
+    function run(gatewaySocket: sipLibrary.Socket, imei: string, last_four_digits_of_iccid: string): Promise<Response["value"]>;
+}
 export declare namespace unlockDongle {
     const methodName = "unlockDongle";
     interface Request {
@@ -21,11 +33,19 @@ export declare namespace unlockDongle {
         pin_first_try: string;
         pin_second_try?: string;
     }
-    interface Response {
-        dongleFound: boolean;
-        pinState?: LockedDongle["pinState"] | "READY";
-        tryLeft?: number;
-    }
+    type Response = {
+        dongleFound: true;
+        pinState: LockedDongle["pinState"];
+        tryLeft: number;
+    } | {
+        dongleFound: false;
+    } | {
+        dongleFound: true;
+        pinState: "READY";
+        iccid: string;
+        number: string | undefined;
+        serviceProvider: string | undefined;
+    };
     function handle({imei, last_four_digits_of_iccid, pin_first_try, pin_second_try}: Request): Promise<Response>;
     function run(gatewaySocket: sipLibrary.Socket, request: Request): Promise<Response>;
 }

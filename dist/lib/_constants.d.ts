@@ -35,6 +35,8 @@ export declare class c {
     static readonly webApiPath: string;
     static readonly webApiPort: number;
     static readonly reg_expires: number;
+    static readonly regExpImei: RegExp;
     static readonly regExpEmail: RegExp;
     static readonly regExpPassword: RegExp;
+    static readonly regExpFourDigits: RegExp;
 }

@@ -95,9 +95,13 @@ export class c {
 
     public static readonly reg_expires = 21600;
 
+    public static readonly regExpImei= /^[0-9]{15}$/;
+
     public static readonly regExpEmail= 
 /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
-    public static readonly regExpPassword= (/^[0-9a-zA-Z]{6,}$/);
+    public static readonly regExpPassword= /^[0-9a-zA-Z]{6,}$/;
+
+    public static readonly regExpFourDigits= /^[0-9]{4}$/;
 
 }
