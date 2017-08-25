@@ -32,8 +32,6 @@ export declare class c {
         cert: string;
         ca: string;
     };
-    static readonly webApiPath: string;
-    static readonly webApiPort: number;
     static readonly reg_expires: number;
     static readonly regExpImei: RegExp;
     static readonly regExpEmail: RegExp;

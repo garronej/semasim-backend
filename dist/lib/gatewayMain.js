@@ -50,7 +50,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var agi = require("./tools/agiClient");
+var agi = require("../tools/agiClient");
 var sipContacts_1 = require("./sipContacts");
 var backendSipApi = require("./backendSipApi");
 var db = require("./dbInterface");
@@ -379,7 +379,7 @@ function notifyNewSipMessagesToSend() {
                 case 0: return [4 /*yield*/, db.asterisk.queryContacts()];
                 case 1:
                     (_a.sent()).forEach(function (contact) { return __awaiter(_this, void 0, void 0, function () {
-                        var messages, evtTracer, status, error_3;
+                        var messages, evtTracer, status_1, error_3;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, db.semasim.getUndeliveredMessagesOfUaInstance(sipContacts_1.Contact.buildUaInstancePk(contact))];
@@ -394,8 +394,8 @@ function notifyNewSipMessagesToSend() {
                                     sipContacts_1.wakeUpContact(contact, 0, evtTracer);
                                     return [4 /*yield*/, evtTracer.waitFor()];
                                 case 3:
-                                    status = _a.sent();
-                                    if (status !== "REACHABLE")
+                                    status_1 = _a.sent();
+                                    if (status_1 !== "REACHABLE")
                                         return [2 /*return*/];
                                     return [4 /*yield*/, senPendingSipMessagesToReachableContact(contact)];
                                 case 4:

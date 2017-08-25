@@ -1,4 +1,4 @@
-import * as sip from "./tools/sipLibrary";
+import * as sip from "../tools/sipLibrary";
 import { Contact } from "./sipContacts";
 import "colors";
 export declare function getPublicIp(): Promise<string>;

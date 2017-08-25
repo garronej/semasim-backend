@@ -90,9 +90,6 @@ export class c {
 
     }
 
-    public static readonly webApiPath = "api";
-    public static readonly webApiPort = 4430;
-
     public static readonly reg_expires = 21600;
 
     public static readonly regExpImei= /^[0-9]{15}$/;

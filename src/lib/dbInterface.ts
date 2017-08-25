@@ -629,7 +629,7 @@ export namespace semasim_backend {
         sim_number: string | null;
     }
 
-    export async function addUser(email: string, password: string): Promise<boolean> {
+    export async function addUser(email: string, password: string): Promise<number> {
 
         console.log("=>addUser");
 
@@ -640,27 +640,27 @@ export namespace semasim_backend {
 
         try {
 
-            await query(sql, values);
+            let { insertId }= await query(sql, values);
 
             console.log("user added");
 
-            return true;
+            return insertId;
 
         } catch (error) {
 
             console.log("user exist");
 
-            return false;
+            return 0;
 
         }
 
     }
 
-    export async function deleteUser(email: string): Promise<boolean> {
+    export async function deleteUser(user_id: number): Promise<boolean> {
 
         console.log("=>deleteUser");
 
-        let { affectedRows }= await query("DELETE FROM user WHERE `email` = ?", [email]);
+        let { affectedRows }= await query("DELETE FROM user WHERE `id` = ?", [user_id]);
 
         let isDeleted= affectedRows !== 0;
 
@@ -670,25 +670,25 @@ export namespace semasim_backend {
 
     }
 
-    export async function checkUserPassword(email: string, password: string): Promise<boolean> {
+    export async function getUserIdIfGranted(email: string, password: string): Promise<number> {
 
         console.log("=>checkUserPassword");
 
         try {
 
-            let [{ password_md5 }] = await query("SELECT `password_md5` from `user` WHERE `email`= ?", [email]);
+            let [{ id, password_md5 }] = await query("SELECT `id`, `password_md5` from `user` WHERE `email`= ?", [email]);
 
             let match= password_md5 === md5(password);
 
             console.log({ match });
 
-            return match;
+            return id;
 
         } catch (error) {
 
             console.log("user not found");
 
-            return false;
+            return 0;
 
         }
 
@@ -697,7 +697,7 @@ export namespace semasim_backend {
 
 
     export async function addConfig(
-        user_email: string,
+        user_id: number,
         { dongle_imei, sim_iccid, sim_service_provider, sim_number }: Config
     ): Promise<boolean> {
 
@@ -705,8 +705,6 @@ export namespace semasim_backend {
         console.log("=>addConfig");
 
         try {
-
-            let [{ user_id }] = await query("SELECT `id` as  `user_id` FROM user WHERE email = ?", [user_email]);
 
             let [sql, values] = buildInsertOrUpdateQuery("config", {
                 user_id,
@@ -735,21 +733,16 @@ export namespace semasim_backend {
     }
 
     export function getUserConfigs(
-        user_email: string,
+        user_id: number
     ): Promise<Config[]> {
 
         console.log("=>getUserConfigs");
 
         return query([
-            "SELECT",
-            "config.`dongle_imei`,",
-            "config.`sim_iccid`,",
-            "config.`sim_service_provider`,",
-            "config.`sim_number`",
+            "SELECT `dongle_imei`, `sim_iccid`, `sim_service_provider`, `sim_number`",
             "FROM config",
-            "INNER JOIN user ON user.`id`= config.`user_id`",
-            "WHERE user.`email`= ?"
-        ].join("\n"),[ user_email ]);
+            "WHERE `user_id`= ?"
+        ].join("\n"),[ user_id ]);
 
     }
 

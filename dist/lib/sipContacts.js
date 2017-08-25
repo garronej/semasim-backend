@@ -48,7 +48,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var ts_events_extended_1 = require("ts-events-extended");
 var runExclusive = require("run-exclusive");
-var sipLibrary = require("./tools/sipLibrary");
+var sipLibrary = require("../tools/sipLibrary");
 var db = require("./dbInterface");
 var gatewaySipProxy_1 = require("./gatewaySipProxy");
 var backendSipApi = require("./backendSipApi");

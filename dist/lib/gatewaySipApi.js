@@ -52,7 +52,7 @@ var __read = (this && this.__read) || function (o, n) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-var sipApiFramework = require("./tools/sipApiFramework");
+var sipApiFramework = require("../tools/sipApiFramework");
 var dbInterface_1 = require("./dbInterface");
 var _debug = require("debug");
 var debug = _debug("_gatewaySipApi");

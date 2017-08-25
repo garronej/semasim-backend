@@ -2,7 +2,7 @@ import * as tls from "tls";
 import * as net from "net";
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
 import { DongleExtendedClient } from "chan-dongle-extended-client";
-import * as sipLibrary from "./tools/sipLibrary";
+import * as sipLibrary from "../tools/sipLibrary";
 import * as os from "os";
 import * as backendSipApi from "./backendSipApi";
 import { extraParamFlowToken } from "./backendSipProxy";

@@ -1,6 +1,6 @@
 import { LockedDongle, DongleActive,  DongleExtendedClient } from "chan-dongle-extended-client";
-import * as sipApiFramework from "./tools/sipApiFramework";
-import * as sipLibrary from "./tools/sipLibrary";
+import * as sipApiFramework from "../tools/sipApiFramework";
+import * as sipLibrary from "../tools/sipLibrary";
 import { gatewaySockets, qualifyContact } from "./backendSipProxy";
 import { asterisk as dbAsterisk } from "./dbInterface";
 

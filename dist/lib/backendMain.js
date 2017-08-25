@@ -37,8 +37,14 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 require("rejection-tracker").main(__dirname, "..", "..");
+var https = require("https");
+var express = require("express");
+var session = require("express-session");
 var backendSipProxy = require("./backendSipProxy");
 var backendWebApi = require("./backendWebApi");
+var backendWebApiClient_1 = require("./backendWebApiClient");
+var _constants_1 = require("./_constants");
+var port = 4430;
 (function () { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -48,10 +54,19 @@ var backendWebApi = require("./backendWebApi");
             case 1:
                 _a.sent();
                 console.log("Sip proxy server started !");
-                return [4 /*yield*/, backendWebApi.startServer()];
+                return [4 /*yield*/, new Promise(function (resolve) {
+                        var app = express();
+                        app
+                            .use(session({ "secret": "Fe3SeLc3dds3" }))
+                            .use("/" + backendWebApiClient_1.webApiPath, backendWebApi.getRouter());
+                        https.createServer(_constants_1.c.tlsOptions)
+                            .on("request", app)
+                            .listen(port)
+                            .on("listening", function () { return resolve(); });
+                    })];
             case 2:
                 _a.sent();
-                console.log("Web API started");
+                console.log("Web API started on port: " + port);
                 return [2 /*return*/];
         }
     });

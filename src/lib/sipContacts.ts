@@ -1,7 +1,7 @@
 import { DongleExtendedClient } from "chan-dongle-extended-client";
 import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
-import * as sipLibrary from "./tools/sipLibrary";
+import * as sipLibrary from "../tools/sipLibrary";
 import * as db from "./dbInterface";
 import { getAsteriskSockets } from "./gatewaySipProxy";
 import * as backendSipApi from "./backendSipApi";

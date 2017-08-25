@@ -3,7 +3,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
 import { DongleExtendedClient, DongleActive } from "chan-dongle-extended-client";
-import * as agi from "./tools/agiClient";
+import * as agi from "../tools/agiClient";
 import { 
     wakeUpContact, 
     WakeUpContactTracer, 

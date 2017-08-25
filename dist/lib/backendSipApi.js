@@ -35,9 +35,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var sipApiFramework = require("./tools/sipApiFramework");
+var sipApiFramework = require("../tools/sipApiFramework");
 var sipContacts_1 = require("./sipContacts");
-var firebaseFunctions = require("./tools/firebaseFunctions");
+var firebaseFunctions = require("../tools/firebaseFunctions");
 var backendSipProxy_1 = require("./backendSipProxy");
 var gatewaySipProxy_1 = require("./gatewaySipProxy");
 var gatewaySipApi = require("./gatewaySipApi");

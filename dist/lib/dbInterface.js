@@ -577,7 +577,7 @@ var semasim_backend;
     }
     function addUser(email, password) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, sql, values, error_2;
+            var _a, sql, values, insertId, error_2;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -591,27 +591,27 @@ var semasim_backend;
                         _b.trys.push([1, 3, , 4]);
                         return [4 /*yield*/, query(sql, values)];
                     case 2:
-                        _b.sent();
+                        insertId = (_b.sent()).insertId;
                         console.log("user added");
-                        return [2 /*return*/, true];
+                        return [2 /*return*/, insertId];
                     case 3:
                         error_2 = _b.sent();
                         console.log("user exist");
-                        return [2 /*return*/, false];
+                        return [2 /*return*/, 0];
                     case 4: return [2 /*return*/];
                 }
             });
         });
     }
     semasim_backend.addUser = addUser;
-    function deleteUser(email) {
+    function deleteUser(user_id) {
         return __awaiter(this, void 0, void 0, function () {
             var affectedRows, isDeleted;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         console.log("=>deleteUser");
-                        return [4 /*yield*/, query("DELETE FROM user WHERE `email` = ?", [email])];
+                        return [4 /*yield*/, query("DELETE FROM user WHERE `id` = ?", [user_id])];
                     case 1:
                         affectedRows = (_a.sent()).affectedRows;
                         isDeleted = affectedRows !== 0;
@@ -622,81 +622,73 @@ var semasim_backend;
         });
     }
     semasim_backend.deleteUser = deleteUser;
-    function checkUserPassword(email, password) {
+    function getUserIdIfGranted(email, password) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, password_md5, match, error_3;
+            var _a, _b, id, password_md5, match, error_3;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        console.log("=>checkUserPassword");
+                        _c.label = 1;
+                    case 1:
+                        _c.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, query("SELECT `id`, `password_md5` from `user` WHERE `email`= ?", [email])];
+                    case 2:
+                        _a = __read.apply(void 0, [_c.sent(), 1]), _b = _a[0], id = _b.id, password_md5 = _b.password_md5;
+                        match = password_md5 === md5(password);
+                        console.log({ match: match });
+                        return [2 /*return*/, id];
+                    case 3:
+                        error_3 = _c.sent();
+                        console.log("user not found");
+                        return [2 /*return*/, 0];
+                    case 4: return [2 /*return*/];
+                }
+            });
+        });
+    }
+    semasim_backend.getUserIdIfGranted = getUserIdIfGranted;
+    function addConfig(user_id, _a) {
+        var dongle_imei = _a.dongle_imei, sim_iccid = _a.sim_iccid, sim_service_provider = _a.sim_service_provider, sim_number = _a.sim_number;
+        return __awaiter(this, void 0, void 0, function () {
+            var _a, sql, values, error_4;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        console.log("=>checkUserPassword");
+                        //TODO: makes test if 
+                        console.log("=>addConfig");
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, , 4]);
-                        return [4 /*yield*/, query("SELECT `password_md5` from `user` WHERE `email`= ?", [email])];
+                        _a = __read(buildInsertOrUpdateQuery("config", {
+                            user_id: user_id,
+                            dongle_imei: dongle_imei,
+                            sim_iccid: sim_iccid,
+                            sim_service_provider: sim_service_provider,
+                            sim_number: sim_number
+                        }), 2), sql = _a[0], values = _a[1];
+                        return [4 /*yield*/, query(sql, values)];
                     case 2:
-                        _a = __read.apply(void 0, [_b.sent(), 1]), password_md5 = _a[0].password_md5;
-                        match = password_md5 === md5(password);
-                        console.log({ match: match });
-                        return [2 /*return*/, match];
+                        _b.sent();
+                        console.log("successfully inserted");
+                        return [2 /*return*/, true];
                     case 3:
-                        error_3 = _b.sent();
-                        console.log("user not found");
+                        error_4 = _b.sent();
+                        console.log("user does not exist");
                         return [2 /*return*/, false];
                     case 4: return [2 /*return*/];
                 }
             });
         });
     }
-    semasim_backend.checkUserPassword = checkUserPassword;
-    function addConfig(user_email, _a) {
-        var dongle_imei = _a.dongle_imei, sim_iccid = _a.sim_iccid, sim_service_provider = _a.sim_service_provider, sim_number = _a.sim_number;
-        return __awaiter(this, void 0, void 0, function () {
-            var _a, user_id, _b, sql, values, error_4;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        //TODO: makes test if 
-                        console.log("=>addConfig");
-                        _c.label = 1;
-                    case 1:
-                        _c.trys.push([1, 4, , 5]);
-                        return [4 /*yield*/, query("SELECT `id` as  `user_id` FROM user WHERE email = ?", [user_email])];
-                    case 2:
-                        _a = __read.apply(void 0, [_c.sent(), 1]), user_id = _a[0].user_id;
-                        _b = __read(buildInsertOrUpdateQuery("config", {
-                            user_id: user_id,
-                            dongle_imei: dongle_imei,
-                            sim_iccid: sim_iccid,
-                            sim_service_provider: sim_service_provider,
-                            sim_number: sim_number
-                        }), 2), sql = _b[0], values = _b[1];
-                        return [4 /*yield*/, query(sql, values)];
-                    case 3:
-                        _c.sent();
-                        console.log("successfully inserted");
-                        return [2 /*return*/, true];
-                    case 4:
-                        error_4 = _c.sent();
-                        console.log("user does not exist");
-                        return [2 /*return*/, false];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    }
     semasim_backend.addConfig = addConfig;
-    function getUserConfigs(user_email) {
+    function getUserConfigs(user_id) {
         console.log("=>getUserConfigs");
         return query([
-            "SELECT",
-            "config.`dongle_imei`,",
-            "config.`sim_iccid`,",
-            "config.`sim_service_provider`,",
-            "config.`sim_number`",
+            "SELECT `dongle_imei`, `sim_iccid`, `sim_service_provider`, `sim_number`",
             "FROM config",
-            "INNER JOIN user ON user.`id`= config.`user_id`",
-            "WHERE user.`email`= ?"
-        ].join("\n"), [user_email]);
+            "WHERE `user_id`= ?"
+        ].join("\n"), [user_id]);
     }
     semasim_backend.getUserConfigs = getUserConfigs;
 })(semasim_backend = exports.semasim_backend || (exports.semasim_backend = {}));

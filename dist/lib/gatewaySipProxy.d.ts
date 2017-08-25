@@ -1,5 +1,5 @@
 import { SyncEvent, VoidSyncEvent } from "ts-events-extended";
-import * as sipLibrary from "./tools/sipLibrary";
+import * as sipLibrary from "../tools/sipLibrary";
 import { Contact } from "./sipContacts";
 import "colors";
 export declare const evtIncomingMessage: SyncEvent<{

@@ -1,7 +1,7 @@
-import * as sipApiFramework from "./tools/sipApiFramework";
-import * as sipLibrary from "./tools/sipLibrary";
+import * as sipApiFramework from "../tools/sipApiFramework";
+import * as sipLibrary from "../tools/sipLibrary";
 import { Contact } from "./sipContacts";
-import * as firebaseFunctions from "./tools/firebaseFunctions";
+import * as firebaseFunctions from "../tools/firebaseFunctions";
 import { gatewaySockets, qualifyContact } from "./backendSipProxy";
 import { getBackendSocket } from "./gatewaySipProxy";
 import * as gatewaySipApi from "./gatewaySipApi";

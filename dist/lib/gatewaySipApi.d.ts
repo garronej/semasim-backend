@@ -1,5 +1,5 @@
 import { LockedDongle } from "chan-dongle-extended-client";
-import * as sipLibrary from "./tools/sipLibrary";
+import * as sipLibrary from "../tools/sipLibrary";
 export declare function startListening(backendSocket: sipLibrary.Socket): void;
 export declare namespace isDongleConnected {
     const methodName = "isDongleConnected";

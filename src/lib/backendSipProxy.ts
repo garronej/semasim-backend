@@ -3,7 +3,7 @@ import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
 import { SyncEvent } from "ts-events-extended";
-import * as sip from "./tools/sipLibrary";
+import * as sip from "../tools/sipLibrary";
 import { startListening as apiStartListening } from "./backendSipApi";
 import { Contact } from "./sipContacts";
 import { c } from "./_constants";

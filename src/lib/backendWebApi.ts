@@ -1,70 +1,158 @@
 import * as https from "https";
 import * as express from "express";
 import * as logger from "morgan";
-import * as fs from "fs";
-import * as path from "path";//TODO: remove
+import * as bodyParser from "body-parser";
 import * as gatewaySipApi from "./gatewaySipApi";
 import { gatewaySockets } from "./backendSipProxy";
 import * as db from "./dbInterface";
 
+import * as _ from "./backendWebApiClient";
 
 import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_backendWebApi");
 
-export function startServer(): Promise<void> {
+export function getRouter(): express.Router {
 
-    return new Promise<void>(resolve => {
+    return express.Router()
+    .use(logger("dev"))
+    .use(bodyParser.json())
+    .use("/:method", function (req, res) {
 
-        let router = express.Router()
-            .use(logger("dev"))
-        router.get("/:method", (req, res) => {
+        let handler= handlers[req.params.method];
 
-            switch (req.params.method) {
-                case createUserEndpointConfig.methodName: 
-                    return createUserEndpointConfig.handler(req, res);
-                case getUserConfig.methodName: 
-                    return getUserConfig.handler(req, res);
-                default: return res.status(400).end();
-            }
+        if (!handler)
+            return res.status(400).end();
 
-        });
-
-        let app = express()
-            .use(`/${c.webApiPath}`, router);
-
-        let httpsServer = https.createServer(c.tlsOptions)
-            .on("request", app)
-            .listen(c.webApiPort)
-            .on("listening", () => resolve());
+        handler(req, res);
 
     });
 
 }
 
-//TODO: test!
-export namespace createUserEndpointConfig {
+function fail(res: express.Response, statusMessage: string) {
 
-    export const methodName= "create-user-endpoint-config";
+    debug("error", statusMessage);
 
-    type Request = {
-        imei: string;
-        last_four_digits_of_iccid: string;
-        pin_first_try: string;
-        pin_second_try?: string;
-    }
+    res.statusMessage = statusMessage;
 
-    function validateQueryString(query: Object): query is Request {
+    res.status(400).end();
+
+}
+
+function failNoStatus(res: express.Response, reason?: string) {
+
+    if( reason ) debug("error", reason);
+
+    res.status(400).end();
+
+}
+
+const handlers: Record<string, (req: express.Request, res: express.Response) => any> = {};
+
+handlers[_.loginUser.methodName] = async (req, res) => {
+
+    debug(`=>${_.loginUser.methodName}`);
+
+    const validateBody = (query: Object): query is _.loginUser.Request => {
 
         try {
 
-            let { 
+            let {
+                email,
+                password
+            } = query as _.loginUser.Request;
+
+            return (
+                email.match(c.regExpEmail) !== null &&
+                password.match(c.regExpPassword) !== null
+            );
+
+        } catch (error) {
+            return false;
+        }
+
+    };
+
+    let body: Object = req.body;
+
+    debug({ body });
+
+    if (!validateBody(body))
+        return failNoStatus(res, "malformed");
+
+    let { email, password } = body;
+
+    let user_id = await db.semasim_backend.getUserIdIfGranted(email, password);
+
+    if (!user_id)
+        return failNoStatus(res, "Auth failed");
+
+    req.session!.user_id= user_id;
+
+    debug(`User granted ${user_id}`);
+
+    res.status(200).end();
+
+};
+
+handlers[_.createUser.methodName] = async (req, res) => {
+
+    debug(`=>${_.createUser.methodName}`);
+
+    const validateBody = (query: Object): query is _.createUser.Request => {
+
+        try {
+
+            let {
+                email,
+                password
+            } = query as _.createUser.Request;
+
+            return (
+                email.match(c.regExpEmail) !== null &&
+                password.match(c.regExpPassword) !== null
+            );
+
+        } catch (error) {
+            return false;
+        }
+
+    };
+
+    let body: Object = req.body;
+
+    debug({ body });
+
+    if (!validateBody(body))
+        return failNoStatus(res, "malformed");
+
+    let { email, password } = body;
+
+    let isCreated = await db.semasim_backend.addUser(email, password);
+
+    if (!isCreated)
+        return fail(res, "EMAIL_NOT_AVAILABLE" as _.createUser.StatusMessage);
+
+    res.status(200).end();
+
+}
+
+handlers[_.createDongleConfig.methodName] = async (req, res) => {
+
+    debug(`=>${_.createDongleConfig.methodName}`);
+
+    const validateBody = (query: Object): query is _.createDongleConfig.Request => {
+
+        try {
+
+            let {
                 imei,
                 last_four_digits_of_iccid,
                 pin_first_try,
                 pin_second_try
-            } = query as Request;
+            } = query as _.createDongleConfig.Request;
 
             return (
                 imei.match(c.regExpImei) !== null &&
@@ -77,102 +165,89 @@ export namespace createUserEndpointConfig {
             return false;
         }
 
-    }
+    };
 
-    export async function handler(
-        req: express.Request,
-        res: express.Response
-    ) {
 
-        debug("=>createUserEndpointConfig");
+    let body: Object = req.body;
 
-            try {
+    debug({ body });
 
-            let query: Object = req.query;
+    if (!validateBody(body))
+        return failNoStatus(res, "malformed");
 
-            debug({ query });
+    let { imei, last_four_digits_of_iccid, pin_first_try, pin_second_try } = body;
 
-            if (!validateQueryString(query))
-                throw new Error("INVALID_QUERY");
+    let user_id: number = req.session!.user_id;
 
-            let { 
-                imei,
-                last_four_digits_of_iccid,
-                pin_first_try,
-                pin_second_try
-            }= query;
+    if (!user_id)
+        return fail(res, "USER_NOT_LOGGED" as _.createDongleConfig.StatusMessage);
 
-            let email: string= (req as any).session.email;
+    let gatewaySocket = gatewaySockets.get(imei);
 
-            if (!email)
-                throw new Error("FORBIDDEN");
+    if (!gatewaySocket)
+        return fail(res, "DONGLE_NOT_FOUND" as _.createDongleConfig.StatusMessage);
 
-            let gatewaySocket= gatewaySockets.get(imei);
+    let hasSim = await gatewaySipApi.doesDongleHasSim.run(
+        gatewaySocket,
+        imei,
+        last_four_digits_of_iccid
+    );
 
-            if( !gatewaySocket ) 
-                throw new Error("DONGLE NOT FOUND");
+    if (!hasSim)
+        return fail(res, "WRONG_SIM" as _.createDongleConfig.StatusMessage);
 
-            let hasSim = await gatewaySipApi.doesDongleHasSim.run(
-                gatewaySocket,
-                imei,
-                last_four_digits_of_iccid
+    let unlockResult = await gatewaySipApi.unlockDongle.run(
+        gatewaySocket,
+        {
+            imei,
+            last_four_digits_of_iccid,
+            pin_first_try,
+            pin_second_try
+        }
+    );
+
+    if (!unlockResult.dongleFound)
+        return fail(res, "DONGLE_NOT_FOUND" as _.createDongleConfig.StatusMessage);
+
+    if (unlockResult.pinState !== "READY")
+        return fail(res, "WRONG_PIN" as _.createDongleConfig.StatusMessage);
+
+    await db.semasim_backend.addConfig(user_id, {
+        "dongle_imei": imei,
+        "sim_iccid": unlockResult.iccid,
+        "sim_number": unlockResult.number || null,
+        "sim_service_provider": unlockResult.serviceProvider || null
+    });
+
+    res.status(200).end();
+
+
+};
+
+
+
+handlers[_.getUserConfig.methodName] = async (req, res) => {
+
+    debug(`=>${_.getUserConfig.methodName}`);
+
+    const validateQueryString = (query: Object): query is _.getUserConfig.Request => {
+
+        try {
+
+            let { email, password } = query as _.getUserConfig.Request;
+
+            return (
+                email.match(c.regExpEmail) !== null &&
+                password.match(c.regExpPassword) !== null
             );
-
-            if (!hasSim)
-                throw new Error("WRONG SIM");
-
-            let unlockResult= await gatewaySipApi.unlockDongle.run(
-                gatewaySocket,
-                { 
-                    imei, 
-                    last_four_digits_of_iccid, 
-                    pin_first_try, 
-                    pin_second_try 
-                }
-            );
-
-            if (!unlockResult.dongleFound)
-                throw new Error("DONGLE NOT FOUND");
-
-            if (unlockResult.pinState !== "READY")
-                throw new Error("WRONG PIN");
-
-            await db.semasim_backend.addConfig(email, {
-                "dongle_imei": imei,
-                "sim_iccid": unlockResult.iccid,
-                "sim_number": unlockResult.number || null,
-                "sim_service_provider": unlockResult.serviceProvider || null
-            });
-
-            res.statusMessage = "SUCCESS";
-
-            res.status(200).end();
 
         } catch (error) {
-
-            debug(error.message);
-
-            //TODO do not give debug info here
-            res.statusMessage = error.message;
-
-            res.status(400).end();
-
+            return false;
         }
 
+    };
 
-    }
-
-
-
-}
-
-export namespace getUserConfig {
-
-    export const methodName = "get-user-config";
-
-    function generateUserConfig(
-        endpointConfigs: string[]
-    ): string {
+    const generateGlobalConfig = (endpointConfigs: string[]): string => {
 
         return [
             `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -199,12 +274,7 @@ export namespace getUserConfig {
 
     }
 
-    function generateEndpointConfig(
-        id: number,
-        display_name: string,
-        imei: string,
-        last_four_digits_of_iccid: string
-    ): string {
+    const generateDongleConfig = (id: number, display_name: string, imei: string, last_four_digits_of_iccid: string): string => {
 
         return [
             `  <section name="proxy_${id}">`,
@@ -226,163 +296,98 @@ export namespace getUserConfig {
 
     }
 
-    type Request = {
-        email: string;
-        password: string;
-    }
 
-    function validateQueryString(query: Object): query is Request {
+    /*
+    await (async () => {
 
         try {
 
-            let { email, password } = query as Request;
+            let email = "joseph.garrone.gj@gmail.com";
+            let password = "abcde12345";
 
-            return (
-                email.match(c.regExpEmail) !== null &&
-                password.match(c.regExpPassword) !== null
-            );
+            await db.semasim_backend.deleteUser(email);
 
+            await db.semasim_backend.addUser(email, "abcde12345");
+
+            await db.semasim_backend.addConfig(email, {
+                "dongle_imei": "353145038273450",
+                "sim_iccid": "8933150116110005978",
+                "sim_number": "+33769365812",
+                "sim_service_provider": "Free"
+            });
+
+            await db.semasim_backend.addConfig(email, {
+                "dongle_imei": "358880032664586",
+                "sim_iccid": "8933201717151946530",
+                "sim_number": "+33636786385",
+                "sim_service_provider": "Bouygues Telecom"
+            });
+
+            let url = buildUrl(methodName, { email, password });
         } catch (error) {
-            return false;
+
+            console.log("error", error);
         }
 
-    }
+    })();
+    */
 
-    export async function handler(
-        req: express.Request,
-        res: express.Response
+
+    let query: Object = req.query;
+
+    debug({ query });
+
+    if (!validateQueryString(query))
+        return failNoStatus(res, "malformed");
+
+    let { email, password } = query;
+
+    let user_id = await db.semasim_backend.getUserIdIfGranted(email, password);
+
+    if (!user_id)
+        return failNoStatus(res, "user not found");
+
+    let endpointConfigs: string[] = [];
+
+    let id = 0;
+
+    for (
+        let { dongle_imei, sim_iccid, sim_number, sim_service_provider }
+        of
+        await db.semasim_backend.getUserConfigs(user_id)
     ) {
 
-        debug("=>getUserConfig");
+        let last_four_digits_of_iccid = sim_iccid.substring(sim_iccid.length - 4);
 
-        await (async () => {
+        let display_name = (() => {
 
-            try {
+            let out = sim_service_provider || "";
 
-                let email = "joseph.garrone.gj@gmail.com";
-                let password = "abcde12345";
+            out += sim_number || "";
 
-                await db.semasim_backend.deleteUser(email);
+            if (!out) out += last_four_digits_of_iccid;
 
-                await db.semasim_backend.addUser(email, "abcde12345");
-
-                await db.semasim_backend.addConfig(email, {
-                    "dongle_imei": "353145038273450",
-                    "sim_iccid": "8933150116110005978",
-                    "sim_number": "+33769365812",
-                    "sim_service_provider": "Free"
-                });
-
-                await db.semasim_backend.addConfig(email, {
-                    "dongle_imei": "358880032664586",
-                    "sim_iccid": "8933201717151946530",
-                    "sim_number": "+33636786385",
-                    "sim_service_provider": "Bouygues Telecom"
-                });
-
-                let url = buildUrl(methodName, { email, password });
-            } catch (error) {
-
-                console.log("error", error);
-            }
+            return out;
 
         })();
 
-        try {
-
-            let query: Object = req.query;
-
-            debug({ query });
-
-            if (!validateQueryString(query))
-                throw new Error("INVALID_QUERY");
-
-            if (!await db.semasim_backend.checkUserPassword(query.email, query.password))
-                throw new Error("FORBIDDEN");
-
-            let configs = await db.semasim_backend.getUserConfigs(query.email);
-
-            let endpointConfigs: string[] = [];
-
-            let id = 0;
-
-            for (let {
-                dongle_imei,
-                sim_iccid,
-                sim_number,
-                sim_service_provider
-            } of await db.semasim_backend.getUserConfigs(query.email)) {
-
-                let last_four_digits_of_iccid = sim_iccid.substring(sim_iccid.length - 4);
-
-                let display_name = (() => {
-
-                    let out = sim_service_provider || "";
-
-                    out += sim_number || "";
-
-                    if (!out) out += last_four_digits_of_iccid;
-
-                    return out;
-
-                })();
-
-                endpointConfigs[endpointConfigs.length] = generateEndpointConfig(
-                    id++,
-                    display_name,
-                    dongle_imei,
-                    last_four_digits_of_iccid
-                );
-
-            }
-
-            let xml = generateUserConfig(endpointConfigs);
-
-            debug(xml);
-
-            res.setHeader("Content-Type", "application/xml; charset=utf-8");
-
-            res.status(200).send(new Buffer(xml, "utf8"));
-
-        } catch (error) {
-
-            debug(error.message);
-
-            res.statusMessage = error.message;
-
-            res.status(400).end();
-
-        }
-
+        endpointConfigs[endpointConfigs.length] = generateDongleConfig(
+            id++,
+            display_name,
+            dongle_imei,
+            last_four_digits_of_iccid
+        );
 
     }
 
+    let xml = generateGlobalConfig(endpointConfigs);
+
+    debug(xml);
+
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+
+    res.status(200).send(new Buffer(xml, "utf8"));
 
 
+};
 
-}
-
-
-function buildUrl(
-    methodName: string,
-    params: Record<string, string | undefined>
-): string {
-
-    let query: string[] = [];
-
-    for (let key of Object.keys(params)) {
-
-        let value = params[key];
-
-        if (value === undefined) continue;
-
-        query[query.length] = `${key}=${params[key]}`;
-
-    }
-
-    let url = `https://${c.backendHostname}:${c.webApiPort}/${c.webApiPath}/${methodName}?${query.join("&")}`;
-
-    console.log(`GET ${url}`);
-
-    return url;
-}
