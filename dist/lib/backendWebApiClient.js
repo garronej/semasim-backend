@@ -1,44 +1,47 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webApiPath = "api";
-function loginUser($, request, callback) {
-    $.ajax({
-        "url": "/" + exports.webApiPath + "/" + loginUser.methodName,
-        "method": "POST",
-        "data": request
-    })
-        .fail(function (jqXHR, textStatus, statusMessage) { return callback(false); })
-        .done(function (data) { return callback(true); });
-}
-exports.loginUser = loginUser;
+var loginUser;
 (function (loginUser) {
     loginUser.methodName = "login-user";
+    function run($, params, callback) {
+        $.ajax({
+            "url": "/" + exports.webApiPath + "/" + loginUser.methodName,
+            "method": "POST",
+            "data": params
+        })
+            .fail(function (jqXHR, textStatus, statusMessage) { return callback(false); })
+            .done(function (data) { return callback(true); });
+    }
+    loginUser.run = run;
 })(loginUser = exports.loginUser || (exports.loginUser = {}));
-function createUser($, request, callback) {
-    $.ajax({
-        "url": "/" + exports.webApiPath + "/" + createDongleConfig.methodName,
-        "method": "POST",
-        "data": request
-    })
-        .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
-        .done(function (data) { return callback("CREATED"); });
-}
-exports.createUser = createUser;
-(function (createUser) {
-    createUser.methodName = "create-user";
-})(createUser = exports.createUser || (exports.createUser = {}));
-function createDongleConfig($, request, callback) {
-    $.ajax({
-        "url": "/" + exports.webApiPath + "/" + createDongleConfig.methodName,
-        "method": "POST",
-        "data": request
-    })
-        .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
-        .done(function (data) { return callback("SUCCESS"); });
-}
-exports.createDongleConfig = createDongleConfig;
+var registerUser;
+(function (registerUser) {
+    registerUser.methodName = "register-user";
+    function run($, params, callback) {
+        $.ajax({
+            "url": "/" + exports.webApiPath + "/" + registerUser.methodName,
+            "method": "POST",
+            "data": params
+        })
+            .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
+            .done(function (data) { return callback("CREATED"); });
+    }
+    registerUser.run = run;
+})(registerUser = exports.registerUser || (exports.registerUser = {}));
+var createDongleConfig;
 (function (createDongleConfig) {
     createDongleConfig.methodName = "create-dongle-config";
+    function run($, params, callback) {
+        $.ajax({
+            "url": "/" + exports.webApiPath + "/" + createDongleConfig.methodName,
+            "method": "POST",
+            "data": params
+        })
+            .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
+            .done(function (data) { return callback("SUCCESS"); });
+    }
+    createDongleConfig.run = run;
 })(createDongleConfig = exports.createDongleConfig || (exports.createDongleConfig = {}));
 var getUserConfig;
 (function (getUserConfig) {

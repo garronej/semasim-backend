@@ -3,11 +3,14 @@ require("rejection-tracker").main(__dirname, "..", "..");
 import * as https from "https";
 import * as express from "express";
 import * as session from "express-session";
+import * as ejs from "ejs";
 
 import * as backendSipProxy from "./backendSipProxy";
 import * as backendWebApi from "./backendWebApi";
 
 import { webApiPath } from "./backendWebApiClient";
+
+import * as www from "../../../semasim-webclient";
 
 import { c } from "./_constants";
 
@@ -15,7 +18,7 @@ const port = 4430;
 
 (async () => {
 
-    console.log("Starting semasim backend");
+    console.log("Starting semasim backend !");
 
     await backendSipProxy.startServer();
 
@@ -25,9 +28,12 @@ const port = 4430;
 
         let app = express();
 
+        app.set("view engine", "ejs");
+
         app
-        .use(session({"secret": "Fe3SeLc3dds3" }))
-        .use(`/${webApiPath}`, backendWebApi.getRouter());
+        .use(session({"secret": "Fe3SeLc3dds3", "resave": false, "saveUninitialized": false })) 
+        .use(`/${webApiPath}`, backendWebApi.getRouter())
+        .use("/", www.webRouter);
 
         https.createServer(c.tlsOptions)
             .on("request", app)
@@ -36,6 +42,6 @@ const port = 4430;
 
     });
 
-    console.log("Web API started on port: " + port);
+    console.log(`Web API started on port: ${port}`);
 
 })();

@@ -43,22 +43,25 @@ var session = require("express-session");
 var backendSipProxy = require("./backendSipProxy");
 var backendWebApi = require("./backendWebApi");
 var backendWebApiClient_1 = require("./backendWebApiClient");
+var www = require("../../../semasim-webclient");
 var _constants_1 = require("./_constants");
 var port = 4430;
 (function () { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                console.log("Starting semasim backend");
+                console.log("Starting semasim backend !");
                 return [4 /*yield*/, backendSipProxy.startServer()];
             case 1:
                 _a.sent();
                 console.log("Sip proxy server started !");
                 return [4 /*yield*/, new Promise(function (resolve) {
                         var app = express();
+                        app.set("view engine", "ejs");
                         app
-                            .use(session({ "secret": "Fe3SeLc3dds3" }))
-                            .use("/" + backendWebApiClient_1.webApiPath, backendWebApi.getRouter());
+                            .use(session({ "secret": "Fe3SeLc3dds3", "resave": false, "saveUninitialized": false }))
+                            .use("/" + backendWebApiClient_1.webApiPath, backendWebApi.getRouter())
+                            .use("/", www.webRouter);
                         https.createServer(_constants_1.c.tlsOptions)
                             .on("request", app)
                             .listen(port)

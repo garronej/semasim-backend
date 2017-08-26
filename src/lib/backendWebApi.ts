@@ -17,7 +17,7 @@ export function getRouter(): express.Router {
 
     return express.Router()
     .use(logger("dev"))
-    .use(bodyParser.json())
+    .use(bodyParser.urlencoded({ "extended": true }))
     .use("/:method", function (req, res) {
 
         let handler= handlers[req.params.method];
@@ -53,16 +53,18 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
 handlers[_.loginUser.methodName] = async (req, res) => {
 
+    type Params= _.loginUser.Params;
+
     debug(`=>${_.loginUser.methodName}`);
 
-    const validateBody = (query: Object): query is _.loginUser.Request => {
+    const validateBody = (query: Object): query is Params => {
 
         try {
 
             let {
                 email,
                 password
-            } = query as _.loginUser.Request;
+            } = query as Params;
 
             return (
                 email.match(c.regExpEmail) !== null &&
@@ -97,18 +99,23 @@ handlers[_.loginUser.methodName] = async (req, res) => {
 
 };
 
-handlers[_.createUser.methodName] = async (req, res) => {
+handlers[_.registerUser.methodName] = async (req, res) => {
 
-    debug(`=>${_.createUser.methodName}`);
+    type Params= _.registerUser.Params;
+    type StatusMessage = _.registerUser.StatusMessage;
 
-    const validateBody = (query: Object): query is _.createUser.Request => {
+    debug(`=>${_.registerUser.methodName}`);
+
+    debug({ "session": req.session });
+
+    const validateBody = (query: Object): query is Params => {
 
         try {
 
             let {
                 email,
                 password
-            } = query as _.createUser.Request;
+            } = query as Params;
 
             return (
                 email.match(c.regExpEmail) !== null &&
@@ -133,7 +140,7 @@ handlers[_.createUser.methodName] = async (req, res) => {
     let isCreated = await db.semasim_backend.addUser(email, password);
 
     if (!isCreated)
-        return fail(res, "EMAIL_NOT_AVAILABLE" as _.createUser.StatusMessage);
+        return fail(res, "EMAIL_NOT_AVAILABLE" as StatusMessage);
 
     res.status(200).end();
 
@@ -141,9 +148,12 @@ handlers[_.createUser.methodName] = async (req, res) => {
 
 handlers[_.createDongleConfig.methodName] = async (req, res) => {
 
+    type Params= _.createDongleConfig.Params;
+    type StatusMessage = _.createDongleConfig.StatusMessage;
+
     debug(`=>${_.createDongleConfig.methodName}`);
 
-    const validateBody = (query: Object): query is _.createDongleConfig.Request => {
+    const validateBody = (query: Object): query is Params => {
 
         try {
 
@@ -152,7 +162,7 @@ handlers[_.createDongleConfig.methodName] = async (req, res) => {
                 last_four_digits_of_iccid,
                 pin_first_try,
                 pin_second_try
-            } = query as _.createDongleConfig.Request;
+            } = query as Params;
 
             return (
                 imei.match(c.regExpImei) !== null &&
@@ -180,12 +190,12 @@ handlers[_.createDongleConfig.methodName] = async (req, res) => {
     let user_id: number = req.session!.user_id;
 
     if (!user_id)
-        return fail(res, "USER_NOT_LOGGED" as _.createDongleConfig.StatusMessage);
+        return fail(res, "USER_NOT_LOGGED" as StatusMessage);
 
     let gatewaySocket = gatewaySockets.get(imei);
 
     if (!gatewaySocket)
-        return fail(res, "DONGLE_NOT_FOUND" as _.createDongleConfig.StatusMessage);
+        return fail(res, "DONGLE_NOT_FOUND" as StatusMessage);
 
     let hasSim = await gatewaySipApi.doesDongleHasSim.run(
         gatewaySocket,
@@ -194,7 +204,7 @@ handlers[_.createDongleConfig.methodName] = async (req, res) => {
     );
 
     if (!hasSim)
-        return fail(res, "WRONG_SIM" as _.createDongleConfig.StatusMessage);
+        return fail(res, "WRONG_SIM" as StatusMessage);
 
     let unlockResult = await gatewaySipApi.unlockDongle.run(
         gatewaySocket,
@@ -207,10 +217,10 @@ handlers[_.createDongleConfig.methodName] = async (req, res) => {
     );
 
     if (!unlockResult.dongleFound)
-        return fail(res, "DONGLE_NOT_FOUND" as _.createDongleConfig.StatusMessage);
+        return fail(res, "DONGLE_NOT_FOUND" as StatusMessage);
 
     if (unlockResult.pinState !== "READY")
-        return fail(res, "WRONG_PIN" as _.createDongleConfig.StatusMessage);
+        return fail(res, "WRONG_PIN" as StatusMessage);
 
     await db.semasim_backend.addConfig(user_id, {
         "dongle_imei": imei,
@@ -221,20 +231,21 @@ handlers[_.createDongleConfig.methodName] = async (req, res) => {
 
     res.status(200).end();
 
-
 };
 
 
 
 handlers[_.getUserConfig.methodName] = async (req, res) => {
 
+    type Params= _.getUserConfig.Params;
+
     debug(`=>${_.getUserConfig.methodName}`);
 
-    const validateQueryString = (query: Object): query is _.getUserConfig.Request => {
+    const validateQueryString = (query: Object): query is Params => {
 
         try {
 
-            let { email, password } = query as _.getUserConfig.Request;
+            let { email, password } = query as Params;
 
             return (
                 email.match(c.regExpEmail) !== null &&
@@ -295,43 +306,6 @@ handlers[_.getUserConfig.methodName] = async (req, res) => {
 
 
     }
-
-
-    /*
-    await (async () => {
-
-        try {
-
-            let email = "joseph.garrone.gj@gmail.com";
-            let password = "abcde12345";
-
-            await db.semasim_backend.deleteUser(email);
-
-            await db.semasim_backend.addUser(email, "abcde12345");
-
-            await db.semasim_backend.addConfig(email, {
-                "dongle_imei": "353145038273450",
-                "sim_iccid": "8933150116110005978",
-                "sim_number": "+33769365812",
-                "sim_service_provider": "Free"
-            });
-
-            await db.semasim_backend.addConfig(email, {
-                "dongle_imei": "358880032664586",
-                "sim_iccid": "8933201717151946530",
-                "sim_number": "+33636786385",
-                "sim_service_provider": "Bouygues Telecom"
-            });
-
-            let url = buildUrl(methodName, { email, password });
-        } catch (error) {
-
-            console.log("error", error);
-        }
-
-    })();
-    */
-
 
     let query: Object = req.query;
 

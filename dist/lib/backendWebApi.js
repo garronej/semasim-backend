@@ -79,7 +79,7 @@ var debug = _debug("_backendWebApi");
 function getRouter() {
     return express.Router()
         .use(logger("dev"))
-        .use(bodyParser.json())
+        .use(bodyParser.urlencoded({ "extended": true }))
         .use("/:method", function (req, res) {
         var handler = handlers[req.params.method];
         if (!handler)
@@ -132,12 +132,13 @@ handlers[_.loginUser.methodName] = function (req, res) { return __awaiter(_this,
         }
     });
 }); };
-handlers[_.createUser.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+handlers[_.registerUser.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var validateBody, body, email, password, isCreated;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                debug("=>" + _.createUser.methodName);
+                debug("=>" + _.registerUser.methodName);
+                debug({ "session": req.session });
                 validateBody = function (query) {
                     try {
                         var _a = query, email_2 = _a.email, password_2 = _a.password;
