@@ -581,7 +581,7 @@ var semasim_backend;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        console.log("=>addUser");
+                        debug("=>addUser");
                         _a = __read(buildInsertQuery("user", {
                             email: email,
                             "password_md5": md5(password)
@@ -610,7 +610,7 @@ var semasim_backend;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        console.log("=>deleteUser");
+                        debug("=>deleteUser");
                         return [4 /*yield*/, query("DELETE FROM user WHERE `id` = ?", [user_id])];
                     case 1:
                         affectedRows = (_a.sent()).affectedRows;
@@ -628,7 +628,7 @@ var semasim_backend;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        console.log("=>checkUserPassword");
+                        debug("=>getUserIdIfGranted");
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, , 4]);
@@ -636,11 +636,16 @@ var semasim_backend;
                     case 2:
                         _a = __read.apply(void 0, [_c.sent(), 1]), _b = _a[0], id = _b.id, password_md5 = _b.password_md5;
                         match = password_md5 === md5(password);
-                        console.log({ match: match });
-                        return [2 /*return*/, id];
+                        if (match)
+                            return [2 /*return*/, id];
+                        else {
+                            debug("Wrong pass");
+                            return [2 /*return*/, 0];
+                        }
+                        return [3 /*break*/, 4];
                     case 3:
                         error_3 = _c.sent();
-                        console.log("user not found");
+                        debug("user not found");
                         return [2 /*return*/, 0];
                     case 4: return [2 /*return*/];
                 }
@@ -655,8 +660,7 @@ var semasim_backend;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        //TODO: makes test if 
-                        console.log("=>addConfig");
+                        debug("=>addConfig");
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, , 4]);
@@ -670,7 +674,6 @@ var semasim_backend;
                         return [4 /*yield*/, query(sql, values)];
                     case 2:
                         _b.sent();
-                        console.log("successfully inserted");
                         return [2 /*return*/, true];
                     case 3:
                         error_4 = _b.sent();
@@ -683,7 +686,7 @@ var semasim_backend;
     }
     semasim_backend.addConfig = addConfig;
     function getUserConfigs(user_id) {
-        console.log("=>getUserConfigs");
+        debug("=>getUserConfigs");
         return query([
             "SELECT `dongle_imei`, `sim_iccid`, `sim_service_provider`, `sim_number`",
             "FROM config",

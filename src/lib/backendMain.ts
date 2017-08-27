@@ -10,7 +10,7 @@ import * as backendWebApi from "./backendWebApi";
 
 import { webApiPath } from "./backendWebApiClient";
 
-import * as www from "../../../semasim-webclient";
+import { webRouter, cookieSecret } from "../../../semasim-webclient";
 
 import { c } from "./_constants";
 
@@ -31,9 +31,9 @@ const port = 4430;
         app.set("view engine", "ejs");
 
         app
-        .use(session({"secret": "Fe3SeLc3dds3", "resave": false, "saveUninitialized": false })) 
+        .use(session({"secret": cookieSecret, "resave": false, "saveUninitialized": false })) 
         .use(`/${webApiPath}`, backendWebApi.getRouter())
-        .use("/", www.webRouter);
+        .use("/", webRouter);
 
         https.createServer(c.tlsOptions)
             .on("request", app)

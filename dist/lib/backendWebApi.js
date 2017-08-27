@@ -67,8 +67,8 @@ var __values = (this && this.__values) || function (o) {
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
-var logger = require("morgan");
 var bodyParser = require("body-parser");
+var logger = require("morgan");
 var gatewaySipApi = require("./gatewaySipApi");
 var backendSipProxy_1 = require("./backendSipProxy");
 var db = require("./dbInterface");
@@ -79,8 +79,9 @@ var debug = _debug("_backendWebApi");
 function getRouter() {
     return express.Router()
         .use(logger("dev"))
-        .use(bodyParser.urlencoded({ "extended": true }))
+        .use(bodyParser.json())
         .use("/:method", function (req, res) {
+        debug("Api call");
         var handler = handlers[req.params.method];
         if (!handler)
             return res.status(400).end();
@@ -123,9 +124,11 @@ handlers[_.loginUser.methodName] = function (req, res) { return __awaiter(_this,
                 return [4 /*yield*/, db.semasim_backend.getUserIdIfGranted(email, password)];
             case 1:
                 user_id = _a.sent();
+                debug("======>", { user_id: user_id });
                 if (!user_id)
                     return [2 /*return*/, failNoStatus(res, "Auth failed")];
                 req.session.user_id = user_id;
+                req.session.user_email = email;
                 debug("User granted " + user_id);
                 res.status(200).end();
                 return [2 /*return*/];
@@ -164,12 +167,12 @@ handlers[_.registerUser.methodName] = function (req, res) { return __awaiter(_th
         }
     });
 }); };
-handlers[_.createDongleConfig.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+handlers[_.createdUserEndpointConfig.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var validateBody, body, imei, last_four_digits_of_iccid, pin_first_try, pin_second_try, user_id, gatewaySocket, hasSim, unlockResult;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                debug("=>" + _.createDongleConfig.methodName);
+                debug("=>" + _.createdUserEndpointConfig.methodName);
                 validateBody = function (query) {
                     try {
                         var _a = query, imei_1 = _a.imei, last_four_digits_of_iccid_1 = _a.last_four_digits_of_iccid, pin_first_try_1 = _a.pin_first_try, pin_second_try_1 = _a.pin_second_try;
@@ -223,12 +226,30 @@ handlers[_.createDongleConfig.methodName] = function (req, res) { return __await
         }
     });
 }); };
-handlers[_.getUserConfig.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+handlers[_.getUserEndpointConfigs.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var user_id, configs;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                debug("=>" + _.getUserEndpointConfigs.methodName);
+                user_id = req.session.user_id;
+                if (!user_id)
+                    return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
+                return [4 /*yield*/, db.semasim_backend.getUserConfigs(user_id)];
+            case 1:
+                configs = _a.sent();
+                res.setHeader("Content-Type", "application/json; charset=utf-8");
+                res.status(200).send(new Buffer(JSON.stringify(configs), "utf8"));
+                return [2 /*return*/];
+        }
+    });
+}); };
+handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var validateQueryString, generateGlobalConfig, generateDongleConfig, query, email, password, user_id, endpointConfigs, id, _loop_1, _a, _b, _c, dongle_imei, sim_iccid, sim_number, sim_service_provider, e_1_1, xml, e_1, _d;
     return __generator(this, function (_e) {
         switch (_e.label) {
             case 0:
-                debug("=>" + _.getUserConfig.methodName);
+                debug("=>" + _.getUserLinphoneConfig.methodName);
                 validateQueryString = function (query) {
                     try {
                         var _a = query, email_3 = _a.email, password_3 = _a.password;

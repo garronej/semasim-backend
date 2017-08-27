@@ -16,7 +16,7 @@ export declare namespace registerUser {
     type StatusMessage = "CREATED" | "EMAIL_NOT_AVAILABLE";
     function run($: any, params: Params, callback: (status: StatusMessage) => void): void;
 }
-export declare namespace createDongleConfig {
+export declare namespace createdUserEndpointConfig {
     const methodName = "create-dongle-config";
     type Params = {
         imei: string;
@@ -27,8 +27,18 @@ export declare namespace createDongleConfig {
     type StatusMessage = string;
     function run($: any, params: Params, callback: (status: StatusMessage) => void): void;
 }
-export declare namespace getUserConfig {
-    const methodName = "get-user-config";
+export declare namespace getUserEndpointConfigs {
+    const methodName = "get-user-endpoint-configs";
+    type ReturnValue = {
+        dongle_imei: string;
+        sim_iccid: string;
+        sim_service_provider: string | null;
+        sim_number: string | null;
+    }[];
+    function run(nodeRestClientInst: any, host: string, cookie: string): Promise<ReturnValue>;
+}
+export declare namespace getUserLinphoneConfig {
+    const methodName = "get-user-linphone-config";
     type Params = {
         email: string;
         password: string;

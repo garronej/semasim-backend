@@ -1,5 +1,19 @@
 export const webApiPath = "api";
 
+function buildAjaxPostQuery(
+    methodName: string,
+    params: Object,
+): JQuery.AjaxSettings<any>{
+
+    return {
+            "url": `/${webApiPath}/${methodName}`,
+            "method": "POST",
+            "contentType": "application/json; charset=UTF-8",
+            "data": JSON.stringify(params)
+    };
+
+}
+
 export namespace loginUser {
 
     export const methodName = "login-user";
@@ -15,11 +29,9 @@ export namespace loginUser {
         callback: (success: boolean) => void
     ) {
 
-        ($ as JQueryStatic<any>).ajax({
-            "url": `/${webApiPath}/${methodName}`,
-            "method": "POST",
-            "data": params
-        })
+        ($ as JQueryStatic<any>).ajax(
+            buildAjaxPostQuery(methodName, params)
+        )
             .fail((jqXHR, textStatus, statusMessage) => callback(false))
             .done(data => callback(true));
 
@@ -44,11 +56,9 @@ export namespace registerUser {
         callback: (status: StatusMessage) => void
     ) {
 
-        ($ as JQueryStatic<any>).ajax({
-            "url": `/${webApiPath}/${methodName}`,
-            "method": "POST",
-            "data": params
-        })
+        ($ as JQueryStatic<any>).ajax(
+            buildAjaxPostQuery(methodName, params)
+        )
             .fail((jqXHR, textStatus, statusMessage) => callback(statusMessage as StatusMessage))
             .done(data => callback("CREATED"));
 
@@ -57,7 +67,7 @@ export namespace registerUser {
 }
 
 
-export namespace createDongleConfig {
+export namespace createdUserEndpointConfig {
 
     export const methodName = "create-dongle-config";
 
@@ -76,11 +86,9 @@ export namespace createDongleConfig {
         callback: (status: StatusMessage) => void
     ) {
 
-        ($ as JQueryStatic<any>).ajax({
-            "url": `/${webApiPath}/${methodName}`,
-            "method": "POST",
-            "data": params
-        })
+        ($ as JQueryStatic<any>).ajax(
+            buildAjaxPostQuery(methodName, params)
+        )
             .fail((jqXHR, textStatus, statusMessage) => callback(statusMessage as StatusMessage))
             .done(data => callback("SUCCESS"));
 
@@ -88,9 +96,58 @@ export namespace createDongleConfig {
 
 }
 
-export namespace getUserConfig {
+export namespace getUserEndpointConfigs {
 
-    export const methodName = "get-user-config";
+    export const methodName = "get-user-endpoint-configs";
+
+    export type ReturnValue = {
+        dongle_imei: string;
+        sim_iccid: string;
+        sim_service_provider: string | null;
+        sim_number: string | null;
+    }[];
+
+    export function run(
+        nodeRestClientInst, 
+        host: string,
+        cookie: string
+    ): Promise<ReturnValue> {
+
+        return new Promise((resolve, reject) => {
+
+            nodeRestClientInst.post(
+                `https://${host}/${webApiPath}/${methodName}`,
+                { 
+                    "data": {}, 
+                    "headers": { 
+                        "Content-Type": "application/json",
+                        "Cookie": cookie
+                    } 
+                },
+                (data, { statusCode, statusMessage }) => {
+
+                    if (statusCode !== 200){
+                        reject(new Error(statusMessage));
+                        return;
+                    }
+
+                    resolve(data);
+
+                }
+            );
+
+
+
+        });
+
+    }
+
+}
+
+
+export namespace getUserLinphoneConfig {
+
+    export const methodName = "get-user-linphone-config";
 
     export type Params = {
         email: string;
@@ -98,6 +155,7 @@ export namespace getUserConfig {
     }
 
 }
+
 
 
 /*

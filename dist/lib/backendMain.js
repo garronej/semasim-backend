@@ -43,7 +43,7 @@ var session = require("express-session");
 var backendSipProxy = require("./backendSipProxy");
 var backendWebApi = require("./backendWebApi");
 var backendWebApiClient_1 = require("./backendWebApiClient");
-var www = require("../../../semasim-webclient");
+var semasim_webclient_1 = require("../../../semasim-webclient");
 var _constants_1 = require("./_constants");
 var port = 4430;
 (function () { return __awaiter(_this, void 0, void 0, function () {
@@ -59,9 +59,9 @@ var port = 4430;
                         var app = express();
                         app.set("view engine", "ejs");
                         app
-                            .use(session({ "secret": "Fe3SeLc3dds3", "resave": false, "saveUninitialized": false }))
+                            .use(session({ "secret": semasim_webclient_1.cookieSecret, "resave": false, "saveUninitialized": false }))
                             .use("/" + backendWebApiClient_1.webApiPath, backendWebApi.getRouter())
-                            .use("/", www.webRouter);
+                            .use("/", semasim_webclient_1.webRouter);
                         https.createServer(_constants_1.c.tlsOptions)
                             .on("request", app)
                             .listen(port)

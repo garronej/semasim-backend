@@ -1,7 +1,7 @@
 import * as https from "https";
 import * as express from "express";
-import * as logger from "morgan";
 import * as bodyParser from "body-parser";
+import * as logger from "morgan";
 import * as gatewaySipApi from "./gatewaySipApi";
 import { gatewaySockets } from "./backendSipProxy";
 import * as db from "./dbInterface";
@@ -17,8 +17,11 @@ export function getRouter(): express.Router {
 
     return express.Router()
     .use(logger("dev"))
-    .use(bodyParser.urlencoded({ "extended": true }))
+    //.use(bodyParser.urlencoded({ "extended": true }))
+    .use(bodyParser.json())
     .use("/:method", function (req, res) {
+
+        debug("Api call");
 
         let handler= handlers[req.params.method];
 
@@ -88,10 +91,13 @@ handlers[_.loginUser.methodName] = async (req, res) => {
 
     let user_id = await db.semasim_backend.getUserIdIfGranted(email, password);
 
+    debug("======>", { user_id });
+
     if (!user_id)
         return failNoStatus(res, "Auth failed");
 
     req.session!.user_id= user_id;
+    req.session!.user_email= email;
 
     debug(`User granted ${user_id}`);
 
@@ -146,12 +152,12 @@ handlers[_.registerUser.methodName] = async (req, res) => {
 
 }
 
-handlers[_.createDongleConfig.methodName] = async (req, res) => {
+handlers[_.createdUserEndpointConfig.methodName] = async (req, res) => {
 
-    type Params= _.createDongleConfig.Params;
-    type StatusMessage = _.createDongleConfig.StatusMessage;
+    type Params= _.createdUserEndpointConfig.Params;
+    type StatusMessage = _.createdUserEndpointConfig.StatusMessage;
 
-    debug(`=>${_.createDongleConfig.methodName}`);
+    debug(`=>${_.createdUserEndpointConfig.methodName}`);
 
     const validateBody = (query: Object): query is Params => {
 
@@ -234,12 +240,32 @@ handlers[_.createDongleConfig.methodName] = async (req, res) => {
 };
 
 
+handlers[_.getUserEndpointConfigs.methodName] = async (req, res) => {
 
-handlers[_.getUserConfig.methodName] = async (req, res) => {
+    type ReturnValue= _.getUserEndpointConfigs.ReturnValue;
 
-    type Params= _.getUserConfig.Params;
+    debug(`=>${_.getUserEndpointConfigs.methodName}`);
 
-    debug(`=>${_.getUserConfig.methodName}`);
+    let user_id: number = req.session!.user_id;
+
+    if (!user_id)
+        return fail(res, "USER_NOT_LOGGED");
+    
+    let configs: ReturnValue= await db.semasim_backend.getUserConfigs(user_id);
+
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+    res.status(200).send(new Buffer(JSON.stringify(configs), "utf8"));
+
+};
+
+
+
+handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
+
+    type Params= _.getUserLinphoneConfig.Params;
+
+    debug(`=>${_.getUserLinphoneConfig.methodName}`);
 
     const validateQueryString = (query: Object): query is Params => {
 

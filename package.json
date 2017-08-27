@@ -5,18 +5,19 @@
   "types": "./dist/lib/backendWebApiClient.d.ts",
   "version": "0.4.1",
   "scripts": {
-    "tsc": "./node_modules/.bin/tsc -p ./tsconfig.json",
+    "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
+    "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "gateway": "DEBUG=_* nodemon ./dist/lib/gatewayMain",
     "backend": "DEBUG=_* nodemon ./dist/lib/backendMain",
     "gw": "npm run gateway",
-    "be": "npm run backend"
+    "bk": "npm run backend"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/garronej/trackable-map.git"
+    "url": "git+https://github.com/garronej/semasim-daemon.git"
   },
   "author": "Joseph Garrone",
-  "license": "MIT",
+  "license": "GNU GPLv2",
   "keywords": [],
   "dependencies": {
     "@types/express-session": "^1.15.3",
@@ -28,7 +29,6 @@
     "express": "^4.15.3",
     "express-session": "^1.15.5",
     "firebase-admin": "^5.1.0",
-    "jquery": "2.1.1",
     "js-base64": "^2.1.9",
     "md5": "^2.2.1",
     "morgan": "^1.8.2",
@@ -49,6 +49,7 @@
     "@types/jquery": "^3.2.12",
     "@types/js-base64": "^2.1.5",
     "@types/md5": "^2.1.32",
+    "@types/morgan": "^1.7.32",
     "@types/mysql": "0.0.32",
     "@types/node": "^4.0.0",
     "nodemon": "^1.11.0",

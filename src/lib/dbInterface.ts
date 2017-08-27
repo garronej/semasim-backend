@@ -631,7 +631,7 @@ export namespace semasim_backend {
 
     export async function addUser(email: string, password: string): Promise<number> {
 
-        console.log("=>addUser");
+        debug("=>addUser");
 
         let [sql, values] = buildInsertQuery("user", {
             email,
@@ -658,7 +658,7 @@ export namespace semasim_backend {
 
     export async function deleteUser(user_id: number): Promise<boolean> {
 
-        console.log("=>deleteUser");
+        debug("=>deleteUser");
 
         let { affectedRows }= await query("DELETE FROM user WHERE `id` = ?", [user_id]);
 
@@ -670,9 +670,12 @@ export namespace semasim_backend {
 
     }
 
-    export async function getUserIdIfGranted(email: string, password: string): Promise<number> {
+    export async function getUserIdIfGranted(
+        email: string, 
+        password: string
+    ): Promise<number> {
 
-        console.log("=>checkUserPassword");
+        debug("=>getUserIdIfGranted");
 
         try {
 
@@ -680,13 +683,18 @@ export namespace semasim_backend {
 
             let match= password_md5 === md5(password);
 
-            console.log({ match });
+            if( match ) return id;
+            else{
 
-            return id;
+                debug("Wrong pass");
+
+                return 0;
+
+            }
 
         } catch (error) {
 
-            console.log("user not found");
+            debug("user not found");
 
             return 0;
 
@@ -701,8 +709,7 @@ export namespace semasim_backend {
         { dongle_imei, sim_iccid, sim_service_provider, sim_number }: Config
     ): Promise<boolean> {
 
-        //TODO: makes test if 
-        console.log("=>addConfig");
+        debug("=>addConfig");
 
         try {
 
@@ -715,8 +722,6 @@ export namespace semasim_backend {
             });
 
             await query(sql, values);
-
-            console.log("successfully inserted");
 
             return true;
 
@@ -736,7 +741,7 @@ export namespace semasim_backend {
         user_id: number
     ): Promise<Config[]> {
 
-        console.log("=>getUserConfigs");
+        debug("=>getUserConfigs");
 
         return query([
             "SELECT `dongle_imei`, `sim_iccid`, `sim_service_provider`, `sim_number`",

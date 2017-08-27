@@ -1,15 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webApiPath = "api";
+function buildAjaxPostQuery(methodName, params) {
+    return {
+        "url": "/" + exports.webApiPath + "/" + methodName,
+        "method": "POST",
+        "contentType": "application/json; charset=UTF-8",
+        "data": JSON.stringify(params)
+    };
+}
 var loginUser;
 (function (loginUser) {
     loginUser.methodName = "login-user";
     function run($, params, callback) {
-        $.ajax({
-            "url": "/" + exports.webApiPath + "/" + loginUser.methodName,
-            "method": "POST",
-            "data": params
-        })
+        $.ajax(buildAjaxPostQuery(loginUser.methodName, params))
             .fail(function (jqXHR, textStatus, statusMessage) { return callback(false); })
             .done(function (data) { return callback(true); });
     }
@@ -19,34 +23,49 @@ var registerUser;
 (function (registerUser) {
     registerUser.methodName = "register-user";
     function run($, params, callback) {
-        $.ajax({
-            "url": "/" + exports.webApiPath + "/" + registerUser.methodName,
-            "method": "POST",
-            "data": params
-        })
+        $.ajax(buildAjaxPostQuery(registerUser.methodName, params))
             .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
             .done(function (data) { return callback("CREATED"); });
     }
     registerUser.run = run;
 })(registerUser = exports.registerUser || (exports.registerUser = {}));
-var createDongleConfig;
-(function (createDongleConfig) {
-    createDongleConfig.methodName = "create-dongle-config";
+var createdUserEndpointConfig;
+(function (createdUserEndpointConfig) {
+    createdUserEndpointConfig.methodName = "create-dongle-config";
     function run($, params, callback) {
-        $.ajax({
-            "url": "/" + exports.webApiPath + "/" + createDongleConfig.methodName,
-            "method": "POST",
-            "data": params
-        })
+        $.ajax(buildAjaxPostQuery(createdUserEndpointConfig.methodName, params))
             .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
             .done(function (data) { return callback("SUCCESS"); });
     }
-    createDongleConfig.run = run;
-})(createDongleConfig = exports.createDongleConfig || (exports.createDongleConfig = {}));
-var getUserConfig;
-(function (getUserConfig) {
-    getUserConfig.methodName = "get-user-config";
-})(getUserConfig = exports.getUserConfig || (exports.getUserConfig = {}));
+    createdUserEndpointConfig.run = run;
+})(createdUserEndpointConfig = exports.createdUserEndpointConfig || (exports.createdUserEndpointConfig = {}));
+var getUserEndpointConfigs;
+(function (getUserEndpointConfigs) {
+    getUserEndpointConfigs.methodName = "get-user-endpoint-configs";
+    function run(nodeRestClientInst, host, cookie) {
+        return new Promise(function (resolve, reject) {
+            nodeRestClientInst.post("https://" + host + "/" + exports.webApiPath + "/" + getUserEndpointConfigs.methodName, {
+                "data": {},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cookie": cookie
+                }
+            }, function (data, _a) {
+                var statusCode = _a.statusCode, statusMessage = _a.statusMessage;
+                if (statusCode !== 200) {
+                    reject(new Error(statusMessage));
+                    return;
+                }
+                resolve(data);
+            });
+        });
+    }
+    getUserEndpointConfigs.run = run;
+})(getUserEndpointConfigs = exports.getUserEndpointConfigs || (exports.getUserEndpointConfigs = {}));
+var getUserLinphoneConfig;
+(function (getUserLinphoneConfig) {
+    getUserLinphoneConfig.methodName = "get-user-linphone-config";
+})(getUserLinphoneConfig = exports.getUserLinphoneConfig || (exports.getUserLinphoneConfig = {}));
 /*
 function buildUrl(
     methodName: string,
