@@ -71,17 +71,22 @@ function startListening(backendSocket) {
                         switch (_a) {
                             case unlockDongle.methodName: return [3 /*break*/, 1];
                             case isDongleConnected.methodName: return [3 /*break*/, 3];
+                            case doesDongleHasSim.methodName: return [3 /*break*/, 5];
                         }
-                        return [3 /*break*/, 5];
+                        return [3 /*break*/, 7];
                     case 1: return [4 /*yield*/, unlockDongle.handle(payload)];
                     case 2:
                         response = _b.sent();
-                        return [3 /*break*/, 5];
+                        return [3 /*break*/, 7];
                     case 3: return [4 /*yield*/, isDongleConnected.handle(payload)];
                     case 4:
                         response = _b.sent();
-                        return [3 /*break*/, 5];
-                    case 5:
+                        return [3 /*break*/, 7];
+                    case 5: return [4 /*yield*/, doesDongleHasSim.handle(payload)];
+                    case 6:
+                        response = _b.sent();
+                        return [3 /*break*/, 7];
+                    case 7:
                         sendResponse(response);
                         return [2 /*return*/];
                 }
@@ -130,7 +135,7 @@ var isDongleConnected;
 })(isDongleConnected = exports.isDongleConnected || (exports.isDongleConnected = {}));
 var doesDongleHasSim;
 (function (doesDongleHasSim) {
-    doesDongleHasSim.methodName = "doesDongleHasSIm";
+    doesDongleHasSim.methodName = "doesDongleHasSim";
     function handle(_a) {
         var imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid;
         return __awaiter(this, void 0, void 0, function () {
@@ -138,12 +143,13 @@ var doesDongleHasSim;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        debug("=>" + doesDongleHasSim.methodName);
                         dongleClient = chan_dongle_extended_client_1.DongleExtendedClient.localhost();
                         return [4 /*yield*/, dongleClient.getActiveDongle(imei)];
                     case 1:
                         dongle = _a.sent();
                         if (dongle &&
-                            (dongle.imei.substring(imei.length - 4) === last_four_digits_of_iccid))
+                            (dongle.iccid.substring(dongle.iccid.length - 4) === last_four_digits_of_iccid))
                             return [2 /*return*/, { "value": true }];
                         return [4 /*yield*/, dongleClient.getLockedDongles()];
                     case 2:
@@ -220,7 +226,7 @@ var unlockDongle;
                                     return false;
                                 return true;
                             }), 1]), lockedDongle = _a[0];
-                        if (lockedDongle.pinState !== "SIM PIN" || lockedDongle.tryLeft !== 3)
+                        if (lockedDongle.pinState !== "SIM PIN" || lockedDongle.tryLeft !== 3 || !pin_first_try)
                             return [2 /*return*/, { "dongleFound": true, "pinState": "SIM PIN", "tryLeft": lockedDongle.tryLeft }];
                         attemptUnlock = function (pin) { return __awaiter(_this, void 0, void 0, function () {
                             return __generator(this, function (_a) {

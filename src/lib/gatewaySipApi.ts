@@ -23,6 +23,9 @@ export function startListening(backendSocket: sipLibrary.Socket) {
                 case isDongleConnected.methodName:
                     response= await isDongleConnected.handle(payload as isDongleConnected.Request);
                     break;
+                case doesDongleHasSim.methodName:
+                    response= await doesDongleHasSim.handle(payload as doesDongleHasSim.Request);
+                    break;
             }
 
             sendResponse(response);
@@ -76,7 +79,7 @@ export namespace isDongleConnected{
 
 export namespace doesDongleHasSim{
 
-    export const methodName= "doesDongleHasSIm";
+    export const methodName= "doesDongleHasSim";
 
     export interface Request {
         imei: string;
@@ -91,13 +94,15 @@ export namespace doesDongleHasSim{
         { imei, last_four_digits_of_iccid }: Request
     ): Promise<Response> {
 
+        debug(`=>${methodName}`);
+
         let dongleClient= DongleExtendedClient.localhost();
 
         let dongle= await dongleClient.getActiveDongle(imei);
 
         if( 
             dongle && 
-            ( dongle.imei.substring(imei.length - 4) === last_four_digits_of_iccid )
+            ( dongle.iccid.substring(dongle.iccid.length - 4) === last_four_digits_of_iccid )
         ) return { "value": true };
 
         let lockedDongle= (await dongleClient.getLockedDongles()).filter( d => d.imei === imei).pop();
@@ -137,7 +142,7 @@ export namespace unlockDongle {
     export interface Request {
         imei: string;
         last_four_digits_of_iccid: string;
-        pin_first_try: string;
+        pin_first_try?: string;
         pin_second_try?: string;
     }
 
@@ -202,7 +207,7 @@ export namespace unlockDongle {
                 }
             );
 
-            if (lockedDongle.pinState !== "SIM PIN" || lockedDongle.tryLeft !== 3)
+            if (lockedDongle.pinState !== "SIM PIN" || lockedDongle.tryLeft !== 3 || !pin_first_try )
                 return { "dongleFound": true, "pinState": "SIM PIN", "tryLeft": lockedDongle.tryLeft };
 
             let attemptUnlock = async (pin: string): Promise<LockedDongle | DongleActive> => {

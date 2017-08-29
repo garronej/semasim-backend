@@ -26,7 +26,7 @@ export function getRouter(): express.Router {
         let handler= handlers[req.params.method];
 
         if (!handler)
-            return res.status(400).end();
+            return res.status(404).end();
 
         handler(req, res);
 
@@ -34,7 +34,7 @@ export function getRouter(): express.Router {
 
 }
 
-function fail(res: express.Response, statusMessage: string) {
+function fail<T extends string>(res: express.Response, statusMessage: T) {
 
     debug("error", statusMessage);
 
@@ -146,7 +146,7 @@ handlers[_.registerUser.methodName] = async (req, res) => {
     let isCreated = await db.semasim_backend.addUser(email, password);
 
     if (!isCreated)
-        return fail(res, "EMAIL_NOT_AVAILABLE" as StatusMessage);
+        return fail<StatusMessage>(res, "EMAIL_NOT_AVAILABLE");
 
     res.status(200).end();
 
@@ -173,7 +173,7 @@ handlers[_.createdUserEndpointConfig.methodName] = async (req, res) => {
             return (
                 imei.match(c.regExpImei) !== null &&
                 last_four_digits_of_iccid.match(c.regExpFourDigits) !== null &&
-                pin_first_try.match(c.regExpFourDigits) !== null &&
+                (pin_first_try === undefined || pin_first_try.match(c.regExpFourDigits) !== null) &&
                 (pin_second_try === undefined || pin_second_try.match(c.regExpFourDigits) !== null)
             );
 
@@ -196,12 +196,16 @@ handlers[_.createdUserEndpointConfig.methodName] = async (req, res) => {
     let user_id: number = req.session!.user_id;
 
     if (!user_id)
-        return fail(res, "USER_NOT_LOGGED" as StatusMessage);
+        return fail<StatusMessage>(res, "USER_NOT_LOGGED");
+
+    debug({ user_id });
 
     let gatewaySocket = gatewaySockets.get(imei);
 
+    debug("Gateway socket found");
+
     if (!gatewaySocket)
-        return fail(res, "DONGLE_NOT_FOUND" as StatusMessage);
+        return fail<StatusMessage>(res, "DONGLE_NOT_FOUND");
 
     let hasSim = await gatewaySipApi.doesDongleHasSim.run(
         gatewaySocket,
@@ -210,7 +214,8 @@ handlers[_.createdUserEndpointConfig.methodName] = async (req, res) => {
     );
 
     if (!hasSim)
-        return fail(res, "WRONG_SIM" as StatusMessage);
+        return fail<StatusMessage>(res, "ICCID_MISMATCH");
+
 
     let unlockResult = await gatewaySipApi.unlockDongle.run(
         gatewaySocket,
@@ -223,12 +228,19 @@ handlers[_.createdUserEndpointConfig.methodName] = async (req, res) => {
     );
 
     if (!unlockResult.dongleFound)
-        return fail(res, "DONGLE_NOT_FOUND" as StatusMessage);
+        return fail<StatusMessage>(res, "DONGLE_NOT_FOUND");
 
-    if (unlockResult.pinState !== "READY")
-        return fail(res, "WRONG_PIN" as StatusMessage);
+    if (unlockResult.pinState !== "READY") {
 
-    await db.semasim_backend.addConfig(user_id, {
+        if (!pin_first_try)
+            fail<StatusMessage>(res, "SIM_PIN_LOCKED_AND_NO_PIN_PROVIDED");
+        else
+            fail<StatusMessage>(res, "WRONG_PIN");
+
+        return;
+    }
+
+    await db.semasim_backend.addEndpointConfig(user_id, {
         "dongle_imei": imei,
         "sim_iccid": unlockResult.iccid,
         "sim_number": unlockResult.number || null,
@@ -242,7 +254,7 @@ handlers[_.createdUserEndpointConfig.methodName] = async (req, res) => {
 
 handlers[_.getUserEndpointConfigs.methodName] = async (req, res) => {
 
-    type ReturnValue= _.getUserEndpointConfigs.ReturnValue;
+    type ReturnValue = _.getUserEndpointConfigs.ReturnValue;
 
     debug(`=>${_.getUserEndpointConfigs.methodName}`);
 
@@ -250,8 +262,8 @@ handlers[_.getUserEndpointConfigs.methodName] = async (req, res) => {
 
     if (!user_id)
         return fail(res, "USER_NOT_LOGGED");
-    
-    let configs: ReturnValue= await db.semasim_backend.getUserConfigs(user_id);
+
+    let configs: ReturnValue = await db.semasim_backend.getUserEndpointConfigs(user_id);
 
     res.setHeader("Content-Type", "application/json; charset=utf-8");
 
@@ -263,7 +275,7 @@ handlers[_.getUserEndpointConfigs.methodName] = async (req, res) => {
 
 handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
 
-    type Params= _.getUserLinphoneConfig.Params;
+    type Params = _.getUserLinphoneConfig.Params;
 
     debug(`=>${_.getUserLinphoneConfig.methodName}`);
 
@@ -354,7 +366,7 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
     for (
         let { dongle_imei, sim_iccid, sim_number, sim_service_provider }
         of
-        await db.semasim_backend.getUserConfigs(user_id)
+        await db.semasim_backend.getUserEndpointConfigs(user_id)
     ) {
 
         let last_four_digits_of_iccid = sim_iccid.substring(sim_iccid.length - 4);
@@ -390,4 +402,56 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
 
 
 };
+
+handlers[_.deleteUserEndpointConfig.methodName] = async (req, res) => {
+
+    type Params = _.deleteUserEndpointConfig.Params;
+    type StatusMessage = _.deleteUserEndpointConfig.StatusMessage;
+
+    debug(`=>${_.deleteUserEndpointConfig.methodName}`);
+
+    const validateBody = (query: Object): query is Params => {
+
+        try {
+
+            let {
+                imei
+            } = query as Params;
+
+            return (
+                imei.match(c.regExpImei) !== null
+            );
+
+        } catch (error) {
+            return false;
+        }
+
+    };
+
+
+    let body: Object = req.body;
+
+    debug({ body });
+
+    if (!validateBody(body))
+        return failNoStatus(res, "malformed");
+
+    let { imei } = body;
+
+    let user_id: number = req.session!.user_id;
+
+    if (!user_id)
+        return fail<StatusMessage>(res, "USER_NOT_LOGGED");
+
+    debug({ user_id });
+
+    let isDeleted = await db.semasim_backend.deleteEndpointConfig(user_id, imei);
+
+    if (!isDeleted)
+        return fail<StatusMessage>(res, "ENDPOINT_CONFIG_NOT_FOUND");
+
+    res.status(200).end();
+
+};
+
 

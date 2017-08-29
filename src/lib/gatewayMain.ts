@@ -22,7 +22,7 @@ import { c } from "./_constants";
 import * as _debug from "debug";
 let debug = _debug("_gatewayMain");
 
-debug("Starting semasim gateway");
+debug("Starting semasim gateway !");
 
 let scripts: agi.Scripts= {};
 

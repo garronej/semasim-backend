@@ -622,7 +622,7 @@ export namespace semasim_backend {
 
     }
 
-    export interface Config {
+    export interface EndpointConfig {
         dongle_imei: string;
         sim_iccid: string;
         sim_service_provider: string | null;
@@ -704,16 +704,17 @@ export namespace semasim_backend {
     }
 
 
-    export async function addConfig(
+    //TODO: test if an other user add same device
+    export async function addEndpointConfig(
         user_id: number,
-        { dongle_imei, sim_iccid, sim_service_provider, sim_number }: Config
+        { dongle_imei, sim_iccid, sim_service_provider, sim_number }: EndpointConfig
     ): Promise<boolean> {
 
-        debug("=>addConfig");
+        debug("=>addEndpointConfig");
 
         try {
 
-            let [sql, values] = buildInsertOrUpdateQuery("config", {
+            let [sql, values] = buildInsertOrUpdateQuery("endpoint_config", {
                 user_id,
                 dongle_imei,
                 sim_iccid,
@@ -727,27 +728,45 @@ export namespace semasim_backend {
 
         } catch (error) {
 
-            console.log("user does not exist");
+            debug("User does not exist");
 
             return false;
 
         }
 
+    }
+
+    export async function deleteEndpointConfig(
+        user_id: number,
+        imei: string
+    ): Promise<boolean> {
+
+        debug("=>deleteEndpointConfig");
+
+        let { affectedRows } = await query(
+            "DELETE FROM endpoint_config WHERE `user_id`=? AND `dongle_imei`=?", [ user_id, imei]
+        );
+
+        let isDeleted = affectedRows ? true : false;
+
+        return isDeleted;
+
+
 
 
     }
 
-    export function getUserConfigs(
+    export function getUserEndpointConfigs(
         user_id: number
-    ): Promise<Config[]> {
+    ): Promise<EndpointConfig[]> {
 
         debug("=>getUserConfigs");
 
         return query([
             "SELECT `dongle_imei`, `sim_iccid`, `sim_service_provider`, `sim_number`",
-            "FROM config",
+            "FROM endpoint_config",
             "WHERE `user_id`= ?"
-        ].join("\n"),[ user_id ]);
+        ].join("\n"), [user_id]);
 
     }
 

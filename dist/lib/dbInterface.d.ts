@@ -45,7 +45,7 @@ export declare namespace semasim {
     }[]>;
 }
 export declare namespace semasim_backend {
-    interface Config {
+    interface EndpointConfig {
         dongle_imei: string;
         sim_iccid: string;
         sim_service_provider: string | null;
@@ -54,6 +54,7 @@ export declare namespace semasim_backend {
     function addUser(email: string, password: string): Promise<number>;
     function deleteUser(user_id: number): Promise<boolean>;
     function getUserIdIfGranted(email: string, password: string): Promise<number>;
-    function addConfig(user_id: number, {dongle_imei, sim_iccid, sim_service_provider, sim_number}: Config): Promise<boolean>;
-    function getUserConfigs(user_id: number): Promise<Config[]>;
+    function addEndpointConfig(user_id: number, {dongle_imei, sim_iccid, sim_service_provider, sim_number}: EndpointConfig): Promise<boolean>;
+    function deleteEndpointConfig(user_id: number, imei: string): Promise<boolean>;
+    function getUserEndpointConfigs(user_id: number): Promise<EndpointConfig[]>;
 }

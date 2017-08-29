@@ -31,7 +31,7 @@ var registerUser;
 })(registerUser = exports.registerUser || (exports.registerUser = {}));
 var createdUserEndpointConfig;
 (function (createdUserEndpointConfig) {
-    createdUserEndpointConfig.methodName = "create-dongle-config";
+    createdUserEndpointConfig.methodName = "create-user-endpoint_config";
     function run($, params, callback) {
         $.ajax(buildAjaxPostQuery(createdUserEndpointConfig.methodName, params))
             .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
@@ -39,6 +39,16 @@ var createdUserEndpointConfig;
     }
     createdUserEndpointConfig.run = run;
 })(createdUserEndpointConfig = exports.createdUserEndpointConfig || (exports.createdUserEndpointConfig = {}));
+var deleteUserEndpointConfig;
+(function (deleteUserEndpointConfig) {
+    deleteUserEndpointConfig.methodName = "delete-user-endpoint-config";
+    function run($, params, callback) {
+        $.ajax(buildAjaxPostQuery(deleteUserEndpointConfig.methodName, params))
+            .fail(function (jqXHR, textStatus, statusMessage) { return callback(statusMessage); })
+            .done(function (data) { return callback("SUCCESS"); });
+    }
+    deleteUserEndpointConfig.run = run;
+})(deleteUserEndpointConfig = exports.deleteUserEndpointConfig || (exports.deleteUserEndpointConfig = {}));
 var getUserEndpointConfigs;
 (function (getUserEndpointConfigs) {
     getUserEndpointConfigs.methodName = "get-user-endpoint-configs";

@@ -653,18 +653,19 @@ var semasim_backend;
         });
     }
     semasim_backend.getUserIdIfGranted = getUserIdIfGranted;
-    function addConfig(user_id, _a) {
+    //TODO: test if an other user add same device
+    function addEndpointConfig(user_id, _a) {
         var dongle_imei = _a.dongle_imei, sim_iccid = _a.sim_iccid, sim_service_provider = _a.sim_service_provider, sim_number = _a.sim_number;
         return __awaiter(this, void 0, void 0, function () {
             var _a, sql, values, error_4;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        debug("=>addConfig");
+                        debug("=>addEndpointConfig");
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, , 4]);
-                        _a = __read(buildInsertOrUpdateQuery("config", {
+                        _a = __read(buildInsertOrUpdateQuery("endpoint_config", {
                             user_id: user_id,
                             dongle_imei: dongle_imei,
                             sim_iccid: sim_iccid,
@@ -677,21 +678,38 @@ var semasim_backend;
                         return [2 /*return*/, true];
                     case 3:
                         error_4 = _b.sent();
-                        console.log("user does not exist");
+                        debug("User does not exist");
                         return [2 /*return*/, false];
                     case 4: return [2 /*return*/];
                 }
             });
         });
     }
-    semasim_backend.addConfig = addConfig;
-    function getUserConfigs(user_id) {
+    semasim_backend.addEndpointConfig = addEndpointConfig;
+    function deleteEndpointConfig(user_id, imei) {
+        return __awaiter(this, void 0, void 0, function () {
+            var affectedRows, isDeleted;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        debug("=>deleteEndpointConfig");
+                        return [4 /*yield*/, query("DELETE FROM endpoint_config WHERE `user_id`=? AND `dongle_imei`=?", [user_id, imei])];
+                    case 1:
+                        affectedRows = (_a.sent()).affectedRows;
+                        isDeleted = affectedRows ? true : false;
+                        return [2 /*return*/, isDeleted];
+                }
+            });
+        });
+    }
+    semasim_backend.deleteEndpointConfig = deleteEndpointConfig;
+    function getUserEndpointConfigs(user_id) {
         debug("=>getUserConfigs");
         return query([
             "SELECT `dongle_imei`, `sim_iccid`, `sim_service_provider`, `sim_number`",
-            "FROM config",
+            "FROM endpoint_config",
             "WHERE `user_id`= ?"
         ].join("\n"), [user_id]);
     }
-    semasim_backend.getUserConfigs = getUserConfigs;
+    semasim_backend.getUserEndpointConfigs = getUserEndpointConfigs;
 })(semasim_backend = exports.semasim_backend || (exports.semasim_backend = {}));

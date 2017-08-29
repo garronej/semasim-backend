@@ -59,7 +59,7 @@ var sipInstantMessaging = require("./sipInstantMessaging");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_gatewayMain");
-debug("Starting semasim gateway");
+debug("Starting semasim gateway !");
 var scripts = {};
 scripts[_constants_1.c.sipCallContext] = {};
 scripts[_constants_1.c.sipCallContext][_constants_1.c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {

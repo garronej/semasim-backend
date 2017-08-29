@@ -14,7 +14,7 @@ export declare namespace isDongleConnected {
     function run(gatewaySocket: sipLibrary.Socket, imei: string): Promise<Response>;
 }
 export declare namespace doesDongleHasSim {
-    const methodName = "doesDongleHasSIm";
+    const methodName = "doesDongleHasSim";
     interface Request {
         imei: string;
         last_four_digits_of_iccid: string;
@@ -30,7 +30,7 @@ export declare namespace unlockDongle {
     interface Request {
         imei: string;
         last_four_digits_of_iccid: string;
-        pin_first_try: string;
+        pin_first_try?: string;
         pin_second_try?: string;
     }
     type Response = {

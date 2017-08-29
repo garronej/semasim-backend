@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Dim 27 Août 2017 à 10:49
+-- Généré le :  Mar 29 Août 2017 à 03:37
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -23,17 +23,17 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Structure de la table `config`
+-- Structure de la table `endpoint_config`
 --
 
-CREATE TABLE IF NOT EXISTS `config` (
+CREATE TABLE IF NOT EXISTS `endpoint_config` (
 `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `dongle_imei` varchar(15) NOT NULL,
   `sim_iccid` varchar(22) NOT NULL,
   `sim_service_provider` varchar(100) DEFAULT NULL,
   `sim_number` varchar(30) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
 
@@ -45,16 +45,16 @@ CREATE TABLE IF NOT EXISTS `user` (
 `id` int(11) NOT NULL,
   `email` varchar(150) NOT NULL,
   `password_md5` varchar(32) NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8;
 
 --
 -- Index pour les tables exportées
 --
 
 --
--- Index pour la table `config`
+-- Index pour la table `endpoint_config`
 --
-ALTER TABLE `config`
+ALTER TABLE `endpoint_config`
  ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `dongle_imei` (`dongle_imei`), ADD UNIQUE KEY `sim_iccid` (`sim_iccid`), ADD KEY `user_id` (`user_id`);
 
 --
@@ -68,26 +68,25 @@ ALTER TABLE `user`
 --
 
 --
--- AUTO_INCREMENT pour la table `config`
+-- AUTO_INCREMENT pour la table `endpoint_config`
 --
-ALTER TABLE `config`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `endpoint_config`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=2;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=45;
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=46;
 --
 -- Contraintes pour les tables exportées
 --
 
 --
--- Contraintes pour la table `config`
+-- Contraintes pour la table `endpoint_config`
 --
-ALTER TABLE `config`
-ADD CONSTRAINT `config_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `endpoint_config`
+ADD CONSTRAINT `endpoint_config_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-

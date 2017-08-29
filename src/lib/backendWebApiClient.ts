@@ -69,16 +69,42 @@ export namespace registerUser {
 
 export namespace createdUserEndpointConfig {
 
-    export const methodName = "create-dongle-config";
+    export const methodName = "create-user-endpoint_config";
 
     export type Params = {
         imei: string;
         last_four_digits_of_iccid: string;
-        pin_first_try: string;
+        pin_first_try?: string;
         pin_second_try?: string;
     }
 
-    export type StatusMessage = string;
+    export type StatusMessage = "USER_NOT_LOGGED" | "DONGLE_NOT_FOUND" | "ICCID_MISMATCH" | "WRONG_PIN" | "SIM_PIN_LOCKED_AND_NO_PIN_PROVIDED" | "SUCCESS";
+
+    export function run(
+        $: any,
+        params: Params,
+        callback: (status: StatusMessage) => void
+    ) {
+
+        ($ as JQueryStatic<any>).ajax(
+            buildAjaxPostQuery(methodName, params)
+        )
+            .fail((jqXHR, textStatus, statusMessage) => callback(statusMessage as StatusMessage))
+            .done(data => callback("SUCCESS"));
+
+    }
+
+}
+
+export namespace deleteUserEndpointConfig {
+
+    export const methodName= "delete-user-endpoint-config";
+
+    export type Params = {
+        imei: string;
+    };
+
+    export type StatusMessage = "USER_NOT_LOGGED" | "ENDPOINT_CONFIG_NOT_FOUND" | "SUCCESS";
 
     export function run(
         $: any,
@@ -143,6 +169,7 @@ export namespace getUserEndpointConfigs {
     }
 
 }
+
 
 
 export namespace getUserLinphoneConfig {

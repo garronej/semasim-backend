@@ -84,7 +84,7 @@ function getRouter() {
         debug("Api call");
         var handler = handlers[req.params.method];
         if (!handler)
-            return res.status(400).end();
+            return res.status(404).end();
         handler(req, res);
     });
 }
@@ -178,7 +178,7 @@ handlers[_.createdUserEndpointConfig.methodName] = function (req, res) { return 
                         var _a = query, imei_1 = _a.imei, last_four_digits_of_iccid_1 = _a.last_four_digits_of_iccid, pin_first_try_1 = _a.pin_first_try, pin_second_try_1 = _a.pin_second_try;
                         return (imei_1.match(_constants_1.c.regExpImei) !== null &&
                             last_four_digits_of_iccid_1.match(_constants_1.c.regExpFourDigits) !== null &&
-                            pin_first_try_1.match(_constants_1.c.regExpFourDigits) !== null &&
+                            (pin_first_try_1 === undefined || pin_first_try_1.match(_constants_1.c.regExpFourDigits) !== null) &&
                             (pin_second_try_1 === undefined || pin_second_try_1.match(_constants_1.c.regExpFourDigits) !== null));
                     }
                     catch (error) {
@@ -193,14 +193,16 @@ handlers[_.createdUserEndpointConfig.methodName] = function (req, res) { return 
                 user_id = req.session.user_id;
                 if (!user_id)
                     return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
+                debug({ user_id: user_id });
                 gatewaySocket = backendSipProxy_1.gatewaySockets.get(imei);
+                debug("Gateway socket found");
                 if (!gatewaySocket)
                     return [2 /*return*/, fail(res, "DONGLE_NOT_FOUND")];
                 return [4 /*yield*/, gatewaySipApi.doesDongleHasSim.run(gatewaySocket, imei, last_four_digits_of_iccid)];
             case 1:
                 hasSim = _a.sent();
                 if (!hasSim)
-                    return [2 /*return*/, fail(res, "WRONG_SIM")];
+                    return [2 /*return*/, fail(res, "ICCID_MISMATCH")];
                 return [4 /*yield*/, gatewaySipApi.unlockDongle.run(gatewaySocket, {
                         imei: imei,
                         last_four_digits_of_iccid: last_four_digits_of_iccid,
@@ -211,9 +213,14 @@ handlers[_.createdUserEndpointConfig.methodName] = function (req, res) { return 
                 unlockResult = _a.sent();
                 if (!unlockResult.dongleFound)
                     return [2 /*return*/, fail(res, "DONGLE_NOT_FOUND")];
-                if (unlockResult.pinState !== "READY")
-                    return [2 /*return*/, fail(res, "WRONG_PIN")];
-                return [4 /*yield*/, db.semasim_backend.addConfig(user_id, {
+                if (unlockResult.pinState !== "READY") {
+                    if (!pin_first_try)
+                        fail(res, "SIM_PIN_LOCKED_AND_NO_PIN_PROVIDED");
+                    else
+                        fail(res, "WRONG_PIN");
+                    return [2 /*return*/];
+                }
+                return [4 /*yield*/, db.semasim_backend.addEndpointConfig(user_id, {
                         "dongle_imei": imei,
                         "sim_iccid": unlockResult.iccid,
                         "sim_number": unlockResult.number || null,
@@ -235,7 +242,7 @@ handlers[_.getUserEndpointConfigs.methodName] = function (req, res) { return __a
                 user_id = req.session.user_id;
                 if (!user_id)
                     return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
-                return [4 /*yield*/, db.semasim_backend.getUserConfigs(user_id)];
+                return [4 /*yield*/, db.semasim_backend.getUserEndpointConfigs(user_id)];
             case 1:
                 configs = _a.sent();
                 res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -328,7 +335,7 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                 _e.label = 2;
             case 2:
                 _e.trys.push([2, 7, 8, 9]);
-                return [4 /*yield*/, db.semasim_backend.getUserConfigs(user_id)];
+                return [4 /*yield*/, db.semasim_backend.getUserEndpointConfigs(user_id)];
             case 3:
                 _a = __values.apply(void 0, [_e.sent()]), _b = _a.next();
                 _e.label = 4;
@@ -356,6 +363,40 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                 debug(xml);
                 res.setHeader("Content-Type", "application/xml; charset=utf-8");
                 res.status(200).send(new Buffer(xml, "utf8"));
+                return [2 /*return*/];
+        }
+    });
+}); };
+handlers[_.deleteUserEndpointConfig.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var validateBody, body, imei, user_id, isDeleted;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                debug("=>" + _.deleteUserEndpointConfig.methodName);
+                validateBody = function (query) {
+                    try {
+                        var imei_2 = query.imei;
+                        return (imei_2.match(_constants_1.c.regExpImei) !== null);
+                    }
+                    catch (error) {
+                        return false;
+                    }
+                };
+                body = req.body;
+                debug({ body: body });
+                if (!validateBody(body))
+                    return [2 /*return*/, failNoStatus(res, "malformed")];
+                imei = body.imei;
+                user_id = req.session.user_id;
+                if (!user_id)
+                    return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
+                debug({ user_id: user_id });
+                return [4 /*yield*/, db.semasim_backend.deleteEndpointConfig(user_id, imei)];
+            case 1:
+                isDeleted = _a.sent();
+                if (!isDeleted)
+                    return [2 /*return*/, fail(res, "ENDPOINT_CONFIG_NOT_FOUND")];
+                res.status(200).end();
                 return [2 /*return*/];
         }
     });
