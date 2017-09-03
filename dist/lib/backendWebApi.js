@@ -252,14 +252,16 @@ handlers[_.getUserEndpointConfigs.methodName] = function (req, res) { return __a
     });
 }); };
 handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var validateQueryString, generateGlobalConfig, generateDongleConfig, query, email, password, user_id, endpointConfigs, id, _loop_1, _a, _b, _c, dongle_imei, sim_iccid, sim_number, sim_service_provider, e_1_1, xml, e_1, _d;
+    var validateQueryString, generateGlobalConfig, generateDongleConfig, query, email_as_hex, password_as_hex, email, password, user_id, endpointConfigs, id, _loop_1, _a, _b, _c, dongle_imei, sim_iccid, sim_number, sim_service_provider, e_1_1, xml, e_1, _d;
     return __generator(this, function (_e) {
         switch (_e.label) {
             case 0:
                 debug("=>" + _.getUserLinphoneConfig.methodName);
                 validateQueryString = function (query) {
                     try {
-                        var _a = query, email_3 = _a.email, password_3 = _a.password;
+                        var _a = query, email_as_hex_1 = _a.email_as_hex, password_as_hex_1 = _a.password_as_hex;
+                        var email_3 = (new Buffer(email_as_hex_1, "hex")).toString("utf8");
+                        var password_3 = (new Buffer(password_as_hex_1, "hex")).toString("utf8");
                         return (email_3.match(_constants_1.c.regExpEmail) !== null &&
                             password_3.match(_constants_1.c.regExpPassword) !== null);
                     }
@@ -284,8 +286,8 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                         "  </section>",
                         "  <section name=\"net\">",
                         "    <entry name=\"dns_srv_enabled\">0</entry>",
-                        "    <entry name=\"firewall_policy\">ice</entry>",
                         "    <entry name=\"stun_server\">" + _constants_1.c.backendHostname + "</entry>",
+                        "    <entry name=\"firewall_policy\">ice</entry>",
                         "  </section>"
                     ], endpointConfigs, [
                         "</config>"
@@ -313,7 +315,9 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                 debug({ query: query });
                 if (!validateQueryString(query))
                     return [2 /*return*/, failNoStatus(res, "malformed")];
-                email = query.email, password = query.password;
+                email_as_hex = query.email_as_hex, password_as_hex = query.password_as_hex;
+                email = (new Buffer(email_as_hex, "hex")).toString("utf8");
+                password = (new Buffer(password_as_hex, "hex")).toString("utf8");
                 return [4 /*yield*/, db.semasim_backend.getUserIdIfGranted(email, password)];
             case 1:
                 user_id = _e.sent();

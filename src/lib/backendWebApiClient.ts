@@ -177,8 +177,8 @@ export namespace getUserLinphoneConfig {
     export const methodName = "get-user-linphone-config";
 
     export type Params = {
-        email: string;
-        password: string;
+        email_as_hex: string;
+        password_as_hex: string;
     }
 
 }

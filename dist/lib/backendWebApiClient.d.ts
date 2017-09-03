@@ -48,7 +48,7 @@ export declare namespace getUserEndpointConfigs {
 export declare namespace getUserLinphoneConfig {
     const methodName = "get-user-linphone-config";
     type Params = {
-        email: string;
-        password: string;
+        email_as_hex: string;
+        password_as_hex: string;
     };
 }

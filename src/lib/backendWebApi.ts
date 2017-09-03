@@ -283,7 +283,10 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
 
         try {
 
-            let { email, password } = query as Params;
+            let { email_as_hex, password_as_hex } = query as Params;
+
+            let email= (new Buffer(email_as_hex, "hex")).toString("utf8");
+            let password= (new Buffer(password_as_hex, "hex")).toString("utf8");
 
             return (
                 email.match(c.regExpEmail) !== null &&
@@ -314,8 +317,8 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
             `  </section>`,
             `  <section name="net">`,
             `    <entry name="dns_srv_enabled">0</entry>`,
-            `    <entry name="firewall_policy">ice</entry>`,
             `    <entry name="stun_server">${c.backendHostname}</entry>`,
+            `    <entry name="firewall_policy">ice</entry>`,
             `  </section>`,
             ...endpointConfigs,
             `</config>`
@@ -352,7 +355,10 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
     if (!validateQueryString(query))
         return failNoStatus(res, "malformed");
 
-    let { email, password } = query;
+    let { email_as_hex, password_as_hex } = query;
+
+    let email = (new Buffer(email_as_hex, "hex")).toString("utf8");
+    let password = (new Buffer(password_as_hex, "hex")).toString("utf8");
 
     let user_id = await db.semasim_backend.getUserIdIfGranted(email, password);
 
@@ -397,6 +403,7 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
     debug(xml);
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
+
 
     res.status(200).send(new Buffer(xml, "utf8"));
 
