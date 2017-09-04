@@ -425,7 +425,7 @@ var semasim;
             });
         });
     });
-    semasim.addMessageTowardSip = runExclusive.build(groupRef, function (from_number, contact_name, text, date, target) { return __awaiter(_this, void 0, void 0, function () {
+    semasim.addMessageTowardSip = runExclusive.build(groupRef, function (from_number, text, date, target) { return __awaiter(_this, void 0, void 0, function () {
         var ua_instance_ids, imei, _a, dongle_imei, instance_id, _b, dongle_imei, instance_id, _c, id, _d, sim_iccid, creation_timestamp, sql_values, insertId, message_toward_sip_id, sql, values, ua_instance_ids_1, ua_instance_ids_1_1, ua_instance_id, _e, _sql, _values, e_2, _f;
         return __generator(this, function (_g) {
             switch (_g.label) {
@@ -470,7 +470,6 @@ var semasim;
                         sim_iccid: sim_iccid,
                         creation_timestamp: creation_timestamp,
                         from_number: from_number,
-                        contact_name: contact_name,
                         "base64_text": (new Buffer(text, "utf8")).toString("base64")
                     });
                     return [4 /*yield*/, query(sql_values[0], sql_values[1])];
@@ -542,7 +541,7 @@ var semasim;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, query([
-                            "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`contact_name`, message_toward_sip.`base64_text`",
+                            "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`base64_text`",
                             "FROM message_toward_sip",
                             "INNER JOIN sim",
                             "ON sim.`iccid` = message_toward_sip.`sim_iccid`",
@@ -575,17 +574,18 @@ var semasim_backend;
         }
         return queryOnConnection(connection, sql, values);
     }
+    function computePasswordMd5(email, password) {
+        return md5(">" + email.toLowerCase() + "<>" + password + "<");
+    }
     function addUser(email, password) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, sql, values, insertId, error_2;
+            var password_md5, _a, sql, values, insertId, error_2;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         debug("=>addUser");
-                        _a = __read(buildInsertQuery("user", {
-                            email: email,
-                            "password_md5": md5(password)
-                        }), 2), sql = _a[0], values = _a[1];
+                        password_md5 = computePasswordMd5(email, password);
+                        _a = __read(buildInsertQuery("user", { email: email, password_md5: password_md5 }), 2), sql = _a[0], values = _a[1];
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, , 4]);
@@ -624,7 +624,7 @@ var semasim_backend;
     semasim_backend.deleteUser = deleteUser;
     function getUserIdIfGranted(email, password) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, _b, id, password_md5, match, error_3;
+            var _a, _b, id, password_md5, error_3;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -635,8 +635,7 @@ var semasim_backend;
                         return [4 /*yield*/, query("SELECT `id`, `password_md5` from `user` WHERE `email`= ?", [email])];
                     case 2:
                         _a = __read.apply(void 0, [_c.sent(), 1]), _b = _a[0], id = _b.id, password_md5 = _b.password_md5;
-                        match = password_md5 === md5(password);
-                        if (match)
+                        if (password_md5 === computePasswordMd5(email, password))
                             return [2 /*return*/, id];
                         else {
                             debug("Wrong pass");

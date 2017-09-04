@@ -209,11 +209,11 @@ const sendDonglePendingMessages = runExclusive.build(
 
             await db.semasim.addMessageTowardSip(
                 to_number, 
-                (await dongleClient.getContactName(imei, to_number)) || null,
                 `---Message send, sentMessageId: ${sentMessageId}---`, 
                 new Date(), 
                 { "uaInstance": sender }
             );
+
             notifyNewSipMessagesToSend();
 
         }
@@ -230,7 +230,7 @@ const senPendingSipMessagesToReachableContact = runExclusive.build(
 
         for (let message of messages) {
 
-            debug(`Sending: ${JSON.stringify(message.text)} from ${message.contact_name} ( ${message.from_number} )`);
+            debug(`Sending: ${JSON.stringify(message.text)} from ${message.from_number}`);
 
             let received: boolean;
 
@@ -240,8 +240,7 @@ const senPendingSipMessagesToReachableContact = runExclusive.build(
                     contact, 
                     message.from_number, 
                     {}, 
-                    message.text,
-                    message.contact_name || undefined
+                    message.text
                 );
 
             } catch (error) {
@@ -314,7 +313,6 @@ dongleClient.evtNewMessage.attach(
 
         await db.semasim.addMessageTowardSip(
             number, 
-            (await dongleClient.getContactName(imei, number)) || null,
             text, 
             date, 
             { "allUaInstanceOfImei": imei }
@@ -336,11 +334,8 @@ dongleClient.evtMessageStatusReport.attach(
 
         let { sender, text } = resp;
 
-        let contact_name= (await dongleClient.getContactName(imei, recipient)) || null;
-
         await db.semasim.addMessageTowardSip(
             recipient, 
-            contact_name,
             `---STATUS REPORT FOR MESSAGE ID ${messageId}: ${status}---`, 
             dischargeTime, 
             { "uaInstance": sender }
@@ -348,7 +343,6 @@ dongleClient.evtMessageStatusReport.attach(
 
         await db.semasim.addMessageTowardSip(
             recipient, 
-            contact_name,
             `YOU:\n${text}`, 
             new Date(dischargeTime.getTime() + 1), 
             { "allUaInstanceOfEndpointOtherThan": sender }
@@ -358,6 +352,3 @@ dongleClient.evtMessageStatusReport.attach(
 
     }
 );
-
-
-

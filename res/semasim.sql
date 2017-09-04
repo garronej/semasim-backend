@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Jeu 17 Août 2017 à 20:03
+-- Généré le :  Lun 04 Septembre 2017 à 15:17
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS `message_toward_gsm` (
   `to_number` varchar(25) NOT NULL,
   `base64_text` text NOT NULL,
   `sent_message_id` bigint(20) DEFAULT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
 
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS `message_toward_sip` (
   `creation_timestamp` bigint(20) NOT NULL,
   `from_number` varchar(25) DEFAULT NULL,
   `base64_text` text NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=72 DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
 
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS `ua_instance` (
 `id` int(11) NOT NULL,
   `dongle_imei` varchar(15) NOT NULL,
   `instance_id` varchar(125) NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=138 DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
 
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS `ua_instance_message_toward_sip` (
   `ua_instance_id` int(11) NOT NULL,
   `message_toward_sip_id` int(11) NOT NULL,
   `delivered_timestamp` bigint(20) DEFAULT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=103 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=1038 DEFAULT CHARSET=utf8;
 
 --
 -- Index pour les tables exportées
@@ -144,22 +144,22 @@ ALTER TABLE `ua_instance_message_toward_sip`
 -- AUTO_INCREMENT pour la table `message_toward_gsm`
 --
 ALTER TABLE `message_toward_gsm`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=11;
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=33;
 --
 -- AUTO_INCREMENT pour la table `message_toward_sip`
 --
 ALTER TABLE `message_toward_sip`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=43;
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=72;
 --
 -- AUTO_INCREMENT pour la table `ua_instance`
 --
 ALTER TABLE `ua_instance`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=26;
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=138;
 --
 -- AUTO_INCREMENT pour la table `ua_instance_message_toward_sip`
 --
 ALTER TABLE `ua_instance_message_toward_sip`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=103;
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1038;
 --
 -- Contraintes pour les tables exportées
 --

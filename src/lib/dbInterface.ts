@@ -459,7 +459,7 @@ export namespace semasim {
 
 
     export const addMessageTowardSip = runExclusive.build(groupRef,
-        async (from_number: string, contact_name: string | null, text: string, date: Date, target: TargetUaInstances) => {
+        async (from_number: string, text: string, date: Date, target: TargetUaInstances) => {
 
             let ua_instance_ids: number[];
             let imei: string;
@@ -508,7 +508,6 @@ export namespace semasim {
                 sim_iccid,
                 creation_timestamp,
                 from_number,
-                contact_name,
                 "base64_text": (new Buffer(text, "utf8")).toString("base64")
             });
 
@@ -569,11 +568,11 @@ export namespace semasim {
 
 
     export const getUndeliveredMessagesOfUaInstance = runExclusive.build(groupRef,
-        async ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number; from_number: string; contact_name: string | null; text: string }[]> => {
+        async ({ dongle_imei, instance_id }: UaInstancePk): Promise<{ creation_timestamp: number; from_number: string; text: string }[]> => {
 
             return (await query(
                 [
-                    "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`contact_name`, message_toward_sip.`base64_text`",
+                    "SELECT message_toward_sip.`creation_timestamp`, message_toward_sip.`from_number`, message_toward_sip.`base64_text`",
                     "FROM message_toward_sip",
                     "INNER JOIN sim",
                     "ON sim.`iccid` = message_toward_sip.`sim_iccid`",
@@ -629,14 +628,17 @@ export namespace semasim_backend {
         sim_number: string | null;
     }
 
+    function computePasswordMd5(email: string, password: string): string {
+        return md5(`>${email.toLowerCase()}<>${password}<`);
+    }
+
     export async function addUser(email: string, password: string): Promise<number> {
 
         debug("=>addUser");
 
-        let [sql, values] = buildInsertQuery("user", {
-            email,
-            "password_md5": md5(password)
-        });
+        let password_md5= computePasswordMd5(email, password);
+
+        let [sql, values] = buildInsertQuery("user", { email, password_md5 });
 
         try {
 
@@ -681,9 +683,7 @@ export namespace semasim_backend {
 
             let [{ id, password_md5 }] = await query("SELECT `id`, `password_md5` from `user` WHERE `email`= ?", [email]);
 
-            let match= password_md5 === md5(password);
-
-            if( match ) return id;
+            if( password_md5 === computePasswordMd5(email, password) ) return id;
             else{
 
                 debug("Wrong pass");
