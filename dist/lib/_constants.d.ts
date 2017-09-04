@@ -37,4 +37,5 @@ export declare class c {
     static readonly regExpEmail: RegExp;
     static readonly regExpPassword: RegExp;
     static readonly regExpFourDigits: RegExp;
+    static readonly strMissedCall: string;
 }

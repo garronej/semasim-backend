@@ -88,38 +88,30 @@ scripts[_constants_1.c.sipCallContext][_constants_1.c.phoneNumber] = function (c
 scripts[_constants_1.c.dongleCallContext] = {};
 scripts[_constants_1.c.dongleCallContext][_constants_1.c.phoneNumber] = function (channel) { return __awaiter(_this, void 0, void 0, function () {
     var _this = this;
-    var _, imei, wakeUpAllContactsPromise, name, dialString, failure;
+    var _, number, imei, dialString, failure;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                debug("Call from " + channel.request.callerid + " !");
                 _ = channel.relax;
+                number = channel.request.callerid;
                 return [4 /*yield*/, _.getVariable("DONGLEIMEI")];
             case 1:
                 imei = (_a.sent());
-                wakeUpAllContactsPromise = sipContacts_1.wakeUpAllContacts(imei, 9000);
-                return [4 /*yield*/, chan_dongle_extended_client_1.DongleExtendedClient.localhost().getContactName(imei, channel.request.callerid)];
+                debug("Call from " + number + " !");
+                return [4 /*yield*/, sipContacts_1.wakeUpAllContacts(imei, 9000)];
             case 2:
-                name = _a.sent();
-                //await _.setVariable("CALLERID(name-charset)", "utf8");
-                return [4 /*yield*/, _.setVariable("CALLERID(name)", name || "")];
-            case 3:
-                //await _.setVariable("CALLERID(name-charset)", "utf8");
-                _a.sent();
-                return [4 /*yield*/, wakeUpAllContactsPromise];
-            case 4:
                 dialString = (_a.sent())
                     .reachableContacts
                     .map(function (_a) {
                     var uri = _a.uri;
                     return "PJSIP/" + imei + "/" + uri;
                 }).join("&");
-                debug({ dialString: dialString });
                 if (!dialString) {
                     debug("No contact to dial!");
                     return [2 /*return*/];
                 }
                 debug("Dialing...");
+                debug({ dialString: dialString });
                 return [4 /*yield*/, agi.dialAndGetOutboundChannel(channel, dialString, function (outboundChannel) { return __awaiter(_this, void 0, void 0, function () {
                         var _;
                         return __generator(this, function (_a) {
@@ -136,13 +128,18 @@ scripts[_constants_1.c.dongleCallContext][_constants_1.c.phoneNumber] = function
                             }
                         });
                     }); })];
-            case 5:
+            case 3:
                 failure = _a.sent();
-                if (failure) {
-                    debug("TODO: send 'this contact tried to reach you without leaving a message");
-                }
-                debug("Call ended");
-                return [2 /*return*/];
+                if (!failure) return [3 /*break*/, 5];
+                return [4 /*yield*/, db.semasim.addMessageTowardSip(number, _constants_1.c.strMissedCall, new Date(), { "allUaInstanceOfImei": imei })];
+            case 4:
+                _a.sent();
+                notifyNewSipMessagesToSend();
+                return [3 /*break*/, 6];
+            case 5:
+                debug("...Call ended");
+                _a.label = 6;
+            case 6: return [2 /*return*/];
         }
     });
 }); };

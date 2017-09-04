@@ -74,6 +74,7 @@ var c = (function () {
     c.regExpEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     c.regExpPassword = /^[0-9a-zA-Z]{6,}$/;
     c.regExpFourDigits = /^[0-9]{4}$/;
+    c.strMissedCall = "This correspondent tried to reach you but hanged up before the call could be forwarded.";
     return c;
 }());
 exports.c = c;
