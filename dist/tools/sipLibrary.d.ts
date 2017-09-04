@@ -8,7 +8,7 @@ export declare const parseSdp: (rawSdp: string) => any;
 export declare const stringifySdp: (sdp: any) => string;
 export declare function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any): void;
 export declare function isPlainMessageRequest(sipRequest: sip.Request): boolean;
-export declare const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((chunk: Buffer | string) => void);
+export declare const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((dataAsBinaryString: string) => void);
 export declare class Socket {
     private readonly connection;
     readonly evtPacket: SyncEvent<Packet>;

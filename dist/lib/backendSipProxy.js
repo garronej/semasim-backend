@@ -78,14 +78,17 @@ function extraParamFlowToken(flowToken) {
 exports.extraParamFlowToken = extraParamFlowToken;
 function qualifyContact(contact, timeout) {
     return __awaiter(this, void 0, void 0, function () {
-        var fromTag, callId, cSeqSequenceNumber, flowToken, sipRequest, clientSocket, branch, sipResponse, error_1;
+        var flowToken, clientSocket, fromTag, callId, cSeqSequenceNumber, sipRequest, branch, sipResponse, error_1;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
+                    flowToken = sipContacts_1.Contact.readFlowToken(contact);
+                    clientSocket = clientSockets.get(flowToken);
+                    if (!clientSocket)
+                        return [2 /*return*/, false];
                     fromTag = "794ee9eb-" + Date.now();
                     callId = "138ce538-" + Date.now();
                     cSeqSequenceNumber = Math.floor(Math.random() * 2000);
-                    flowToken = sipContacts_1.Contact.readFlowToken(contact);
                     sipRequest = sip.parse([
                         "OPTIONS " + contact.uri + " SIP/2.0",
                         "From: <sip:" + contact.endpoint + "@semasim.com>;tag=" + fromTag,
@@ -100,11 +103,8 @@ function qualifyContact(contact, timeout) {
                     ].join("\r\n"));
                     //TODO: should be set to [] already :(
                     sipRequest.headers.via = [];
-                    clientSocket = clientSockets.get(flowToken);
-                    if (!clientSocket)
-                        return [2 /*return*/, false];
                     branch = clientSocket.addViaHeader(sipRequest);
-                    console.log("Sending qualify: \n", sip.stringify(sipRequest));
+                    debug("Sending qualify: \n", sip.stringify(sipRequest));
                     clientSocket.write(sipRequest);
                     _a.label = 1;
                 case 1:
@@ -161,19 +161,19 @@ exports.startServer = startServer;
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new sip.Socket(clientSocketRaw);
     clientSocket.disablePong = true;
-    clientSocket.evtPing.attach(function () { return console.log("Client ping!"); });
+    clientSocket.evtPing.attach(function () { return debug("Client ping!"); });
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
-    console.log((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
+    debug((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);
     var boundGatewaySocket = null;
     var imei = "";
     /*
     clientSocket.evtPacket.attach(sipPacket =>
-        console.log("From Client:\n", sip.stringify(sipPacket).yellow, "\n\n")
+        debug("From Client Parsed:\n", sip.stringify(sipPacket).red, "\n\n")
     );
     */
     clientSocket.evtData.attach(function (chunk) {
-        return console.log("From Client:\n", chunk.yellow, "\n\n");
+        return debug("From Client:\n", chunk.yellow, "\n\n");
     });
     clientSocket.evtRequest.attachOnce(function (firstRequest) {
         try {
@@ -181,20 +181,20 @@ function onClientConnection(clientSocketRaw) {
             if (!parsedFromUri.user)
                 throw new Error("no imei");
             imei = parsedFromUri.user;
-            console.log((flowToken + " Client socket, target dongle imei: " + imei).yellow);
+            debug((flowToken + " Client socket, target dongle imei: " + imei).yellow);
             if (!exports.gatewaySockets.get(imei))
                 throw new Error("Gateway socket not found");
             boundGatewaySocket = exports.gatewaySockets.get(imei);
-            console.log((flowToken + " Found path to Gateway ip: " + boundGatewaySocket.remoteAddress).yellow);
+            debug((flowToken + " Found path to Gateway ip: " + boundGatewaySocket.remoteAddress).yellow);
         }
         catch (error) {
-            console.log("Can't route to any gateway: ".red, error.message);
+            debug("Can't route to any gateway: ".red, error.message);
             //Should send 480 temporary unavailable
             clientSocket.destroy();
             return;
         }
         boundGatewaySocket.evtClose.attachOnce(clientSocket, function () {
-            console.log((flowToken + " Gateway Socket bound closed, destroying client socket").yellow);
+            debug((flowToken + " Gateway Socket bound closed, destroying client socket").yellow);
             boundGatewaySocket = null;
             clientSocket.destroy();
         });
@@ -204,24 +204,35 @@ function onClientConnection(clientSocketRaw) {
             clientSocket.destroy();
             return;
         }
-        boundGatewaySocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
-        if (sipRequest.method === "REGISTER") {
-            sip.addOptionTag(sipRequest.headers, "supported", "path");
-            //TODO: shift route
-            boundGatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken(flowToken));
+        try {
+            boundGatewaySocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
+            if (sipRequest.method === "REGISTER") {
+                sip.addOptionTag(sipRequest.headers, "supported", "path");
+                //TODO: See if it fail
+                sipRequest.headers.route = undefined;
+                boundGatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken(flowToken));
+            }
+            else
+                boundGatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
+            boundGatewaySocket.write(sipRequest);
         }
-        else
-            boundGatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
-        boundGatewaySocket.write(sipRequest);
+        catch (error) {
+            handleError("clientSocket.evtRequest", clientSocket, sipRequest, error);
+        }
     });
     clientSocket.evtResponse.attach(function (sipResponse) {
         if (boundGatewaySocket !== exports.gatewaySockets.get(imei)) {
             clientSocket.destroy();
             return;
         }
-        boundGatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
-        sipResponse.headers.via.shift();
-        boundGatewaySocket.write(sipResponse);
+        try {
+            boundGatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
+            sipResponse.headers.via.shift();
+            boundGatewaySocket.write(sipResponse);
+        }
+        catch (error) {
+            handleError("clientSocket.evtResponse", clientSocket, sipResponse, error);
+        }
     });
     clientSocket.evtClose.attachOnce(function () {
         if (!boundGatewaySocket)
@@ -230,34 +241,50 @@ function onClientConnection(clientSocketRaw) {
     });
 }
 function onGatewayConnection(gatewaySocketRaw) {
-    console.log("New Gateway socket !\n\n".grey);
+    debug("New Gateway socket !\n\n".grey);
     var gatewaySocket = new sip.Socket(gatewaySocketRaw);
     gatewaySocket.setKeepAlive(true);
-    gatewaySocket.evtPacket.attach(function (sipPacket) {
-        return console.log("From gateway:\n", sip.stringify(sipPacket).grey, "\n\n");
-    });
     /*
-    gatewaySocket.evtData.attach(chunk =>
-        console.log("From gateway:\n", chunk.grey, "\n\n")
+    gatewaySocket.evtPacket.attach(sipPacket =>
+        debug("From gateway:\n", sip.stringify(sipPacket).grey, "\n\n")
     );
     */
+    gatewaySocket.evtData.attach(function (chunk) {
+        return debug("From gateway:\n", chunk.grey, "\n\n");
+    });
     backendSipApi_1.startListening(gatewaySocket);
     gatewaySocket.evtRequest.attach(function (sipRequest) {
-        var flowToken = sipRequest.headers.via[0].params[_constants_1.c.flowTokenKey];
-        var clientSocket = clientSockets.get(flowToken);
-        if (!clientSocket)
-            return;
-        clientSocket.addViaHeader(sipRequest);
-        clientSocket.shiftRouteAndAddRecordRoute(sipRequest, publicIp);
-        clientSocket.write(sipRequest);
+        try {
+            var flowToken = sipRequest.headers.via[0].params[_constants_1.c.flowTokenKey];
+            var clientSocket = clientSockets.get(flowToken);
+            if (!clientSocket)
+                return;
+            clientSocket.addViaHeader(sipRequest);
+            clientSocket.shiftRouteAndAddRecordRoute(sipRequest, publicIp);
+            clientSocket.write(sipRequest);
+        }
+        catch (error) {
+            handleError("gatewaySocket.evtRequest", gatewaySocket, sipRequest, error);
+        }
     });
     gatewaySocket.evtResponse.attach(function (sipResponse) {
-        var flowToken = sipResponse.headers.via[0].params[_constants_1.c.flowTokenKey];
-        var clientSocket = clientSockets.get(flowToken);
-        if (!clientSocket)
-            return;
-        clientSocket.rewriteRecordRoute(sipResponse, publicIp);
-        sipResponse.headers.via.shift();
-        clientSocket.write(sipResponse);
+        try {
+            var flowToken = sipResponse.headers.via[0].params[_constants_1.c.flowTokenKey];
+            var clientSocket = clientSockets.get(flowToken);
+            if (!clientSocket)
+                return;
+            clientSocket.rewriteRecordRoute(sipResponse, publicIp);
+            sipResponse.headers.via.shift();
+            clientSocket.write(sipResponse);
+        }
+        catch (error) {
+            handleError("gatewaySocket.evtResponse", gatewaySocket, sipResponse, error);
+        }
     });
+}
+function handleError(where, fromSocket, sipPacket, error) {
+    debug("Unexpected error in: " + where);
+    debug(JSON.stringify(sipPacket, null, 2));
+    debug(error.stack);
+    fromSocket.destroy();
 }

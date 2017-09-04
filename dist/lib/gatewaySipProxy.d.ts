@@ -4,8 +4,7 @@ import { Contact } from "./sipContacts";
 import "colors";
 export declare const evtIncomingMessage: SyncEvent<{
     fromContact: Contact;
-    toNumber: string;
-    text: string;
+    sipRequest: sipLibrary.Request;
 }>;
 export declare const evtOutgoingMessage: SyncEvent<{
     sipRequest: sipLibrary.Request;

@@ -227,14 +227,12 @@ function start() {
                                     var headers = _a.headers;
                                     return headers.via[0].params["branch"] === branch;
                                 }, function (sipResponse) { return __awaiter(_this, void 0, void 0, function () {
-                                    var text, toNumber, fromContact;
+                                    var fromContact;
                                     return __generator(this, function (_a) {
                                         switch (_a.label) {
                                             case 0:
                                                 if (sipResponse.status !== 202)
                                                     return [2 /*return*/];
-                                                text = sipRequest.content;
-                                                toNumber = sipLibrary.parseUri(sipRequest.headers.to.uri).user;
                                                 return [4 /*yield*/, sipContacts_1.getContactFromAstSocketSrcPort(asteriskSocket.localPort)];
                                             case 1:
                                                 fromContact = _a.sent();
@@ -243,7 +241,7 @@ function start() {
                                                     debug("Contact not found for incoming message!!!");
                                                     return [2 /*return*/];
                                                 }
-                                                exports.evtIncomingMessage.post({ fromContact: fromContact, toNumber: toNumber, text: text });
+                                                exports.evtIncomingMessage.post({ fromContact: fromContact, sipRequest: sipRequest });
                                                 return [2 /*return*/];
                                         }
                                     });

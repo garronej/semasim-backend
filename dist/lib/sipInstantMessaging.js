@@ -43,12 +43,23 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var ts_events_extended_1 = require("ts-events-extended");
 var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var gatewaySipProxy_1 = require("./gatewaySipProxy");
+var sipLibrary = require("../tools/sipLibrary");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_sipInstantMessaging");
-exports.evtMessage = gatewaySipProxy_1.evtIncomingMessage;
+exports.evtMessage = new ts_events_extended_1.SyncEvent();
+function utf8EncodedDataAsBinaryStringToString(utf8EncodedDataAsBinaryString) {
+    var uft8EncodedData = new Buffer(utf8EncodedDataAsBinaryString, "binary");
+    var text = uft8EncodedData.toString("utf8");
+    var validInput = uft8EncodedData.equals(new Buffer(text, "utf8"));
+    return { validInput: validInput, text: text };
+}
+function stringToUtf8EncodedDataAsBinaryString(text) {
+    return (new Buffer(text, "utf8")).toString("binary");
+}
 function start() {
     return __awaiter(this, void 0, void 0, function () {
         var ami, matchAllExt;
@@ -63,13 +74,20 @@ function start() {
                     return [4 /*yield*/, ami.dialplanExtensionAdd(_constants_1.c.sipMessageContext, matchAllExt, 1, "Hangup")];
                 case 2:
                     _a.sent();
+                    gatewaySipProxy_1.evtIncomingMessage.attach(function (_a) {
+                        var fromContact = _a.fromContact, sipRequest = _a.sipRequest;
+                        var _b = utf8EncodedDataAsBinaryStringToString(sipRequest.content), validInput = _b.validInput, text = _b.text;
+                        if (!validInput)
+                            debug("Sip message content was not a valid UTF-8 string");
+                        var toNumber = sipLibrary.parseUri(sipRequest.headers.to.uri).user;
+                        exports.evtMessage.post({ fromContact: fromContact, toNumber: toNumber, text: text });
+                    });
                     return [2 /*return*/];
             }
         });
     });
 }
 exports.start = start;
-;
 function sendMessage(contact, from_number, headers, text, from_number_sim_name) {
     return new Promise(function (resolve, reject) {
         //debug("sendMessage", { contact, from_number, headers, text, from_number_sim_name });
@@ -87,7 +105,8 @@ function sendMessage(contact, from_number, headers, text, from_number_sim_name) 
             sipRequest.uri = contact.uri;
             sipRequest.headers.to = { "name": undefined, "uri": contact.uri, "params": {} };
             delete sipRequest.headers.contact;
-            sipRequest.content = text;
+            sipRequest.content = stringToUtf8EncodedDataAsBinaryString(text);
+            //TODO: to remove
             sipRequest.headers = __assign({}, sipRequest.headers, headers);
             evtReceived.waitFor(3500).then(function () { return resolve(true); }).catch(function () { return resolve(false); });
         });

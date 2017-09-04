@@ -108,7 +108,7 @@ export function isPlainMessageRequest(sipRequest: sip.Request): boolean {
 
 
 
-export const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((chunk: Buffer | string) => void) = sip.makeStreamParser;
+export const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((dataAsBinaryString: string) => void) = sip.makeStreamParser;
 
 //TODO: make a function to test if message are well formed: have from, to via ect.
 export class Socket {
@@ -145,7 +145,7 @@ export class Socket {
 
         });
 
-        connection.on("data", (chunk: Buffer | string) => {
+        connection.on("data", (data: Buffer) => {
 
             if (timeoutDelay) {
 
@@ -155,12 +155,14 @@ export class Socket {
 
             }
 
+            //TODO: remove once we see that we dont have this error
+            if( typeof data === "string" ) throw new Error("Data should be a buffer");
 
-            let rawStr = (chunk as Buffer).toString("utf8");
+            let dataAsBinaryString= data.toString("binary");
 
-            this.evtData.post(rawStr);
+            this.evtData.post(dataAsBinaryString);
 
-            if (rawStr === "\r\n\r\n") {
+            if (dataAsBinaryString === "\r\n\r\n") {
 
                 this.evtPing.post();
 
@@ -172,7 +174,11 @@ export class Socket {
 
             }
 
-            streamParser(rawStr);
+            //TODO: modify sip.js to have a limit in content length.
+            //TODO: Put a limit to the amount of data buffered if header fail to parse.
+            //As TCP is a reliable connection this should happen only in case of attack
+            //So we can close the connection.
+            streamParser(dataAsBinaryString);
 
         })
             .once("close", had_error => {
@@ -220,7 +226,9 @@ export class Socket {
         if (matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0)
             return false;
 
-        return this.connection.write(stringify(sipPacket));
+        return this.connection.write(
+            new Buffer(stringify(sipPacket), "binary")
+        );
 
     }
 

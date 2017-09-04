@@ -155,21 +155,28 @@ var Socket = (function () {
             else
                 _this.evtResponse.post(sipPacket);
         });
-        connection.on("data", function (chunk) {
+        connection.on("data", function (data) {
             if (timeoutDelay) {
                 clearTimeout(_this.timer);
                 _this.timer = setTimeout(function () { return _this.evtTimeout.post(); }, timeoutDelay);
             }
-            var rawStr = chunk.toString("utf8");
-            _this.evtData.post(rawStr);
-            if (rawStr === "\r\n\r\n") {
+            //TODO: remove once we see that we dont have this error
+            if (typeof data === "string")
+                throw new Error("Data should be a buffer");
+            var dataAsBinaryString = data.toString("binary");
+            _this.evtData.post(dataAsBinaryString);
+            if (dataAsBinaryString === "\r\n\r\n") {
                 _this.evtPing.post();
                 if (_this.disablePong)
                     return;
                 _this.connection.write("\r\n");
                 return;
             }
-            streamParser(rawStr);
+            //TODO: modify sip.js to have a limit in content length.
+            //TODO: Put a limit to the amount of data buffered if header fail to parse.
+            //As TCP is a reliable connection this should happen only in case of attack
+            //So we can close the connection.
+            streamParser(dataAsBinaryString);
         })
             .once("close", function (had_error) {
             if (timeoutDelay)
@@ -200,7 +207,7 @@ var Socket = (function () {
             return false;
         if (matchRequest(sipPacket) && parseInt(sipPacket.headers["max-forwards"]) < 0)
             return false;
-        return this.connection.write(exports.stringify(sipPacket));
+        return this.connection.write(new Buffer(exports.stringify(sipPacket), "binary"));
     };
     Socket.prototype.destroy = function () {
         /*

@@ -22,8 +22,7 @@ const localIp = os.networkInterfaces()["eth0"].filter(({ family }) => family ===
 
 export const evtIncomingMessage = new SyncEvent<{
     fromContact: Contact;
-    toNumber: string;
-    text: string;
+    sipRequest: sipLibrary.Request;
 }>();
 
 export const evtOutgoingMessage = new SyncEvent<{
@@ -141,10 +140,6 @@ export async function start() {
 
                     if (sipResponse.status !== 202) return;
 
-                    let text = sipRequest.content;
-
-                    let toNumber = sipLibrary.parseUri(sipRequest.headers.to.uri).user!;
-
                     let fromContact = await getContactFromAstSocketSrcPort(asteriskSocket!.localPort);
 
                     if (!fromContact) {
@@ -156,7 +151,7 @@ export async function start() {
 
                     }
 
-                    evtIncomingMessage.post({ fromContact, toNumber, text });
+                    evtIncomingMessage.post({ fromContact, sipRequest });
 
                 }
             );
