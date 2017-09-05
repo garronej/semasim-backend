@@ -312,7 +312,7 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                         "    <entry name=\"username\" overwrite=\"true\">" + imei + "</entry>",
                         "    <entry name=\"userid\" overwrite=\"true\">" + imei + "</entry>",
                         "    <entry name=\"passwd\" overwrite=\"true\">" + last_four_digits_of_iccid + "</entry>",
-                        "    <entry name=\"realm\" overwrite=\"true\">semasim</entry>",
+                        //`    <entry name="realm" overwrite="true">semasim</entry>`,//TODO: should be removable
                         "  </section>"
                     ].join("\n");
                 };

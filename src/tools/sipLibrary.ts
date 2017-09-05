@@ -108,7 +108,12 @@ export function isPlainMessageRequest(sipRequest: sip.Request): boolean {
 
 
 
-export const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((dataAsBinaryString: string) => void) = sip.makeStreamParser;
+export const makeStreamParser: (
+    handler: (sipPacket: Packet) => void, 
+    onFlood: ()=> void, 
+    maxBytesHeaders: number, 
+    maxContentLength: number
+) => ((dataAsBinaryString: string) => void) = sip.makeStreamParser;
 
 //TODO: make a function to test if message are well formed: have from, to via ect.
 export class Socket {
@@ -120,30 +125,36 @@ export class Socket {
     public readonly evtClose = new SyncEvent<boolean>();
     public readonly evtError = new SyncEvent<Error>();
     public readonly evtConnect = new VoidSyncEvent();
-    public readonly evtPing = new VoidSyncEvent();
 
     private timer: NodeJS.Timer;
     public readonly evtTimeout = new VoidSyncEvent();
 
     public readonly evtData = new SyncEvent<string>();
 
-    public disablePong = false;
+    private static readonly maxBytesHeaders= 7820;
+    private static readonly maxContentLength= 24624;
+
 
     constructor(
         private readonly connection: net.Socket,
         timeoutDelay?: number
     ) {
 
-        let streamParser = makeStreamParser(sipPacket => {
+        let streamParser = makeStreamParser(
+            sipPacket => {
 
-            this.evtPacket.post(sipPacket);
+                this.evtPacket.post(sipPacket);
 
-            if (matchRequest(sipPacket))
-                this.evtRequest.post(sipPacket);
-            else
-                this.evtResponse.post(sipPacket);
+                if (matchRequest(sipPacket))
+                    this.evtRequest.post(sipPacket);
+                else
+                    this.evtResponse.post(sipPacket);
 
-        });
+            },
+            () => this.destroy(),
+            Socket.maxBytesHeaders,
+            Socket.maxContentLength
+        );
 
         connection.on("data", (data: Buffer) => {
 
@@ -155,29 +166,10 @@ export class Socket {
 
             }
 
-            //TODO: remove once we see that we dont have this error
-            if( typeof data === "string" ) throw new Error("Data should be a buffer");
-
-            let dataAsBinaryString= data.toString("binary");
+            let dataAsBinaryString = data.toString("binary");
 
             this.evtData.post(dataAsBinaryString);
 
-            if (dataAsBinaryString === "\r\n\r\n") {
-
-                this.evtPing.post();
-
-                if (this.disablePong) return;
-
-                this.connection.write("\r\n");
-
-                return;
-
-            }
-
-            //TODO: modify sip.js to have a limit in content length.
-            //TODO: Put a limit to the amount of data buffered if header fail to parse.
-            //As TCP is a reliable connection this should happen only in case of attack
-            //So we can close the connection.
             streamParser(dataAsBinaryString);
 
         })
@@ -326,9 +318,9 @@ export class Socket {
 
 
     public addPathHeader(
-        sipRegisterRequest: Request, 
+        sipRegisterRequest: Request,
         host?: string,
-        extraParams?: Record<string,string>
+        extraParams?: Record<string, string>
     ) {
 
         let parsedUri = createParsedUri();
@@ -350,7 +342,7 @@ export class Socket {
     }
 
 
-    private buildRecordRoute(host: string | undefined): UriWrap2 {
+    private buildRecordRoute(host: string | undefined): AoRWithParsedUri {
 
         let parsedUri = createParsedUri();
 
@@ -412,7 +404,7 @@ export class Store {
 
     constructor() { }
 
-    public add(key: string, socket: Socket ) {
+    public add(key: string, socket: Socket) {
 
         this.record[key] = socket;
 
@@ -471,7 +463,7 @@ export function createParsedUri(): ParsedUri {
     return parseUri(`sip:127.0.0.1`);
 }
 
-export function parsePath(path: string): UriWrap2[]{
+export function parsePath(path: string): AoRWithParsedUri[] {
 
     const message = sip.parse([
         `DUMMY _ SIP/2.0`,
@@ -549,13 +541,13 @@ export interface ParsedUri {
     headers: Record<string, string>;
 }
 
-export type UriWrap1 = {
+export type AoR = {
     name: string | undefined;
     uri: string;
     params: Record<string, string | null>
 };
 
-export type UriWrap2 = {
+export type AoRWithParsedUri = {
     uri: ParsedUri;
     params: Record<string, string | null>
 }
@@ -563,13 +555,13 @@ export type UriWrap2 = {
 
 export type Headers = {
     via: Via[];
-    from: UriWrap1;
-    to: UriWrap1;
+    from: AoR;
+    to: AoR;
     cseq: { seq: number; method: string; }
-    contact?: UriWrap1[];
-    path?: UriWrap2[];
-    route?: UriWrap2[];
-    "record-route"?: UriWrap2[];
+    contact?: AoR[];
+    path?: AoRWithParsedUri[];
+    route?: AoRWithParsedUri[];
+    "record-route"?: AoRWithParsedUri[];
     [key: string]: string | any;
 }
 
@@ -590,5 +582,3 @@ export interface Response extends PacketBase {
 }
 
 export type Packet = Request | Response;
-
-

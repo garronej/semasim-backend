@@ -10,7 +10,7 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs = require("fs");
 var path = require("path");
-var c = (function () {
+var c = /** @class */ (function () {
     function c() {
     }
     Object.defineProperty(c, "dbParamsBackend", {

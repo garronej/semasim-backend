@@ -35,7 +35,7 @@
     "mysql": "^2.13.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "run-exclusive": "garronej/run-exclusive",
-    "sip": "github:kirm/sip.js#41ca893593353a71e8fe256abae9dfa6e646c019",
+    "sip": "github:garronej/sip.js",
     "stun": "^1.0.1",
     "ts-async-agi": "garronej/ts-async-agi",
     "ts-events-extended": "garronej/ts-events-extended"

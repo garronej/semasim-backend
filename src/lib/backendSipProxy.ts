@@ -140,10 +140,6 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sip.Socket(clientSocketRaw);
 
-    clientSocket.disablePong = true;
-
-    clientSocket.evtPing.attach(() => debug("Client ping!"));
-
     let flowToken = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
 
     debug(`${flowToken} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);

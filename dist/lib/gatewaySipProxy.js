@@ -294,8 +294,6 @@ function createAsteriskSocket(flowToken, backendSocket) {
     debug(flowToken + " Creating asterisk socket");
     //let asteriskSocket = new sip.Socket(net.createConnection(5060, "127.0.0.1"));
     var asteriskSocket = new sipLibrary.Socket(net.createConnection(5060, localIp));
-    asteriskSocket.disablePong = true;
-    asteriskSocket.evtPing.attach(function () { return console.log("Asterisk ping!"); });
     asteriskSockets.add(flowToken, asteriskSocket);
     /*
     asteriskSocket.evtPacket.attach(sipPacket =>

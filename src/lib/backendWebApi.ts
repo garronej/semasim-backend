@@ -346,7 +346,6 @@ handlers[_.getUserLinphoneConfig.methodName] = async (req, res) => {
             `    <entry name="username" overwrite="true">${imei}</entry>`,
             `    <entry name="userid" overwrite="true">${imei}</entry>`,
             `    <entry name="passwd" overwrite="true">${last_four_digits_of_iccid}</entry>`,
-            `    <entry name="realm" overwrite="true">semasim</entry>`,//TODO: should be removable
             `  </section>`
         ].join("\n");
 

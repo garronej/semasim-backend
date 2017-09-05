@@ -160,8 +160,6 @@ function startServer() {
 exports.startServer = startServer;
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new sip.Socket(clientSocketRaw);
-    clientSocket.disablePong = true;
-    clientSocket.evtPing.attach(function () { return debug("Client ping!"); });
     var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
     debug((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     clientSockets.add(flowToken, clientSocket);

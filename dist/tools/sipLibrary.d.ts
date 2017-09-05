@@ -8,7 +8,7 @@ export declare const parseSdp: (rawSdp: string) => any;
 export declare const stringifySdp: (sdp: any) => string;
 export declare function overwriteGlobalAndAudioAddrInSdpCandidates(sdp: any): void;
 export declare function isPlainMessageRequest(sipRequest: sip.Request): boolean;
-export declare const makeStreamParser: (handler: (sipPacket: Packet) => void) => ((dataAsBinaryString: string) => void);
+export declare const makeStreamParser: (handler: (sipPacket: Packet) => void, onFlood: () => void, maxBytesHeaders: number, maxContentLength: number) => ((dataAsBinaryString: string) => void);
 export declare class Socket {
     private readonly connection;
     readonly evtPacket: SyncEvent<Packet>;
@@ -17,11 +17,11 @@ export declare class Socket {
     readonly evtClose: SyncEvent<boolean>;
     readonly evtError: SyncEvent<Error>;
     readonly evtConnect: VoidSyncEvent;
-    readonly evtPing: VoidSyncEvent;
     private timer;
     readonly evtTimeout: VoidSyncEvent;
     readonly evtData: SyncEvent<string>;
-    disablePong: boolean;
+    private static readonly maxBytesHeaders;
+    private static readonly maxContentLength;
     constructor(connection: net.Socket, timeoutDelay?: number);
     private __localPort__;
     private __remotePort__;
@@ -59,7 +59,7 @@ export declare const stringifyUri: (parsedUri: ParsedUri) => string;
 export declare const parse: (rawSipPacket: string) => Packet;
 export declare function copyMessage<T extends Packet>(sipPacket: T, deep?: boolean): T;
 export declare function createParsedUri(): ParsedUri;
-export declare function parsePath(path: string): UriWrap2[];
+export declare function parsePath(path: string): AoRWithParsedUri[];
 export declare function parseOptionTags(headerFieldValue: string | undefined): string[];
 export declare function hasOptionTag(headers: Headers, headerField: string, optionTag: string): boolean;
 export declare function addOptionTag(headers: Headers, headerField: string, optionTag: string): void;
@@ -81,27 +81,27 @@ export interface ParsedUri {
     params: Record<string, string | null>;
     headers: Record<string, string>;
 }
-export declare type UriWrap1 = {
+export declare type AoR = {
     name: string | undefined;
     uri: string;
     params: Record<string, string | null>;
 };
-export declare type UriWrap2 = {
+export declare type AoRWithParsedUri = {
     uri: ParsedUri;
     params: Record<string, string | null>;
 };
 export declare type Headers = {
     via: Via[];
-    from: UriWrap1;
-    to: UriWrap1;
+    from: AoR;
+    to: AoR;
     cseq: {
         seq: number;
         method: string;
     };
-    contact?: UriWrap1[];
-    path?: UriWrap2[];
-    route?: UriWrap2[];
-    "record-route"?: UriWrap2[];
+    contact?: AoR[];
+    path?: AoRWithParsedUri[];
+    route?: AoRWithParsedUri[];
+    "record-route"?: AoRWithParsedUri[];
     [key: string]: string | any;
 };
 export interface PacketBase {

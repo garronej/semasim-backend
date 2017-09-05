@@ -123,7 +123,7 @@ function isPlainMessageRequest(sipRequest) {
 exports.isPlainMessageRequest = isPlainMessageRequest;
 exports.makeStreamParser = sip.makeStreamParser;
 //TODO: make a function to test if message are well formed: have from, to via ect.
-var Socket = (function () {
+var Socket = /** @class */ (function () {
     function Socket(connection, timeoutDelay) {
         var _this = this;
         this.connection = connection;
@@ -133,10 +133,8 @@ var Socket = (function () {
         this.evtClose = new ts_events_extended_1.SyncEvent();
         this.evtError = new ts_events_extended_1.SyncEvent();
         this.evtConnect = new ts_events_extended_1.VoidSyncEvent();
-        this.evtPing = new ts_events_extended_1.VoidSyncEvent();
         this.evtTimeout = new ts_events_extended_1.VoidSyncEvent();
         this.evtData = new ts_events_extended_1.SyncEvent();
-        this.disablePong = false;
         this.__localPort__ = NaN;
         this.__remotePort__ = NaN;
         this.__localAddress__ = undefined;
@@ -154,28 +152,14 @@ var Socket = (function () {
                 _this.evtRequest.post(sipPacket);
             else
                 _this.evtResponse.post(sipPacket);
-        });
+        }, function () { return _this.destroy(); }, Socket.maxBytesHeaders, Socket.maxContentLength);
         connection.on("data", function (data) {
             if (timeoutDelay) {
                 clearTimeout(_this.timer);
                 _this.timer = setTimeout(function () { return _this.evtTimeout.post(); }, timeoutDelay);
             }
-            //TODO: remove once we see that we dont have this error
-            if (typeof data === "string")
-                throw new Error("Data should be a buffer");
             var dataAsBinaryString = data.toString("binary");
             _this.evtData.post(dataAsBinaryString);
-            if (dataAsBinaryString === "\r\n\r\n") {
-                _this.evtPing.post();
-                if (_this.disablePong)
-                    return;
-                _this.connection.write("\r\n");
-                return;
-            }
-            //TODO: modify sip.js to have a limit in content length.
-            //TODO: Put a limit to the amount of data buffered if header fail to parse.
-            //As TCP is a reliable connection this should happen only in case of attack
-            //So we can close the connection.
             streamParser(dataAsBinaryString);
         })
             .once("close", function (had_error) {
@@ -333,10 +317,12 @@ var Socket = (function () {
             sipResponse.headers["record-route"] = [];
         sipResponse.headers["record-route"].push(this.buildRecordRoute(host));
     };
+    Socket.maxBytesHeaders = 7820;
+    Socket.maxContentLength = 24624;
     return Socket;
 }());
 exports.Socket = Socket;
-var Store = (function () {
+var Store = /** @class */ (function () {
     function Store() {
         this.record = {};
     }
