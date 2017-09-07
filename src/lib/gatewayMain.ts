@@ -2,7 +2,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 
 import { SyncEvent } from "ts-events-extended";
 import * as runExclusive from "run-exclusive";
-import { DongleExtendedClient, DongleActive } from "chan-dongle-extended-client";
+import { DongleExtendedClient, typesDef as t } from "chan-dongle-extended-client";
 import * as agi from "../tools/agiClient";
 import { 
     wakeUpContact, 
@@ -115,7 +115,7 @@ agi.startServer(scripts);
 
 const dongleClient = DongleExtendedClient.localhost();
 
-async function onNewActiveDongle(dongle: DongleActive) {
+async function onNewActiveDongle(dongle: t.DongleActive) {
 
     debug("onNewActiveDongle", dongle);
 

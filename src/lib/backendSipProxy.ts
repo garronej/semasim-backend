@@ -108,25 +108,25 @@ export async function startServer() {
 
     let options: tls.TlsOptions = c.tlsOptions;
 
-    let s1= net.createServer()
-        .on("error", error => { throw error; })
-        .listen(5060, "0.0.0.0")
-        .on("connection", onClientConnection);
+    let servers: net.Server[]= [];
 
-    let s2= tls.createServer(options)
+
+    //TODO: get 5061 from DNS
+
+    servers[servers.length]= tls.createServer(options)
         .on("error", error => { throw error; })
         .listen(5061, "0.0.0.0")
-        .on("secureConnection", onClientConnection);
+        .on("secureConnection", onClientConnection );
 
-    let s3= tls.createServer(options)
+    servers[servers.length]= tls.createServer(options)
         .on("error", error => { throw error; })
         .listen(c.backendSipProxyListeningPortForGateways, "0.0.0.0")
         .on("secureConnection", onGatewayConnection);
 
     await Promise.all(
-        [s1, s2, s3].map(
-            s => new Promise<void>(
-                resolve => s1.on("listening", () => resolve())
+        servers.map(
+            server => new Promise<void>(
+                resolve => server.on("listening", () => resolve())
             )
         )
     );

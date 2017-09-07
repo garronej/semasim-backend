@@ -38,7 +38,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var md5 = require("md5");
 var dns = require("dns");
 var tls = require("tls");
-var net = require("net");
 var sip = require("../tools/sipLibrary");
 var backendSipApi_1 = require("./backendSipApi");
 var sipContacts_1 = require("./sipContacts");
@@ -128,7 +127,7 @@ exports.qualifyContact = qualifyContact;
 var clientSockets;
 function startServer() {
     return __awaiter(this, void 0, void 0, function () {
-        var options, s1, s2, s3;
+        var options, servers;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, getPublicIp()];
@@ -137,19 +136,17 @@ function startServer() {
                     exports.gatewaySockets = new sip.Store();
                     clientSockets = new sip.Store();
                     options = _constants_1.c.tlsOptions;
-                    s1 = net.createServer()
-                        .on("error", function (error) { throw error; })
-                        .listen(5060, "0.0.0.0")
-                        .on("connection", onClientConnection);
-                    s2 = tls.createServer(options)
+                    servers = [];
+                    //TODO: get 5061 from DNS
+                    servers[servers.length] = tls.createServer(options)
                         .on("error", function (error) { throw error; })
                         .listen(5061, "0.0.0.0")
                         .on("secureConnection", onClientConnection);
-                    s3 = tls.createServer(options)
+                    servers[servers.length] = tls.createServer(options)
                         .on("error", function (error) { throw error; })
                         .listen(_constants_1.c.backendSipProxyListeningPortForGateways, "0.0.0.0")
                         .on("secureConnection", onGatewayConnection);
-                    return [4 /*yield*/, Promise.all([s1, s2, s3].map(function (s) { return new Promise(function (resolve) { return s1.on("listening", function () { return resolve(); }); }); }))];
+                    return [4 /*yield*/, Promise.all(servers.map(function (server) { return new Promise(function (resolve) { return server.on("listening", function () { return resolve(); }); }); }))];
                 case 2:
                     _a.sent();
                     return [2 /*return*/];

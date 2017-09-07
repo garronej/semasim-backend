@@ -1,4 +1,4 @@
-import { LockedDongle, DongleActive,  DongleExtendedClient } from "chan-dongle-extended-client";
+import { DongleExtendedClient, typesDef as t } from "chan-dongle-extended-client";
 import * as sipApiFramework from "../tools/sipApiFramework";
 import * as sipLibrary from "../tools/sipLibrary";
 import { gatewaySockets, qualifyContact } from "./backendSipProxy";
@@ -149,7 +149,7 @@ export namespace unlockDongle {
 
     export type Response = {
         dongleFound: true;
-        pinState: LockedDongle["pinState"];
+        pinState: t.LockedDongle["pinState"];
         tryLeft: number;
     }| {
         dongleFound: false;
@@ -210,7 +210,7 @@ export namespace unlockDongle {
             if (lockedDongle.pinState !== "SIM PIN" || lockedDongle.tryLeft !== 3 || !pin_first_try )
                 return { "dongleFound": true, "pinState": "SIM PIN", "tryLeft": lockedDongle.tryLeft };
 
-            let attemptUnlock = async (pin: string): Promise<LockedDongle | DongleActive> => {
+            let attemptUnlock = async (pin: string): Promise<t.LockedDongle | t.DongleActive> => {
 
                 await dongleClient.unlockDongle(imei, pin_first_try);
 
@@ -221,7 +221,7 @@ export namespace unlockDongle {
 
             };
 
-            let matchLocked = (dongle: LockedDongle | DongleActive): dongle is LockedDongle => dongle["pinState"];
+            let matchLocked = (dongle: t.LockedDongle | t.DongleActive): dongle is t.LockedDongle => dongle["pinState"];
 
             let resultFirstTry = await attemptUnlock(pin_first_try);
 

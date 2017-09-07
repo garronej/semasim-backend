@@ -20,7 +20,6 @@
   "license": "GNU GPLv2",
   "keywords": [],
   "dependencies": {
-    "@types/express-session": "^1.15.3",
     "body-parser": "^1.17.2",
     "chan-dongle-extended-client": "git+https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/chan-dongle-extended-client.git",
     "colors": "^1.1.2",
@@ -41,6 +40,7 @@
     "ts-events-extended": "garronej/ts-events-extended"
   },
   "devDependencies": {
+    "@types/express-session": "^1.15.3",
     "@types/body-parser": "^1.16.5",
     "@types/colors": "^1.1.3",
     "@types/debug": "0.0.29",

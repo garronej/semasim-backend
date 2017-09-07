@@ -278,10 +278,13 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                             "xsi:schemaLocation=\"http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd\">",
                         ].join(""),
                         "  <section name=\"sip\">",
-                        "    <entry name=\"sip_port\" overwrite=\"true\">-1</entry>",
-                        "    <entry name=\"sip_tcp_port\" overwrite=\"true\">5060</entry>",
-                        "    <entry name=\"sip_tls_port\" overwrite=\"true\">5061</entry>",
+                        //`    <entry name="sip_port" overwrite="true">-1</entry>`,
+                        //`    <entry name="sip_tcp_port" overwrite="true">5060</entry>`,
+                        //`    <entry name="sip_tls_port" overwrite="true">5061</entry>`,
                         "    <entry name=\"ping_with_options\" overwrite=\"true\">0</entry>",
+                        "  </section>",
+                        "  <section name=\"net\">",
+                        "    <entry name=\"dns_srv_enabled\" overwrite=\"true\">1</entry>",
                         "  </section>",
                         "  <section name=\"friend_0\">",
                         "    <entry name=\"url\" overwrite=\"true\">\"Joseph Garrone SIM\" &lt;sip:+33636786385@" + _constants_1.c.backendHostname + "&gt;</entry>",
@@ -312,7 +315,6 @@ handlers[_.getUserLinphoneConfig.methodName] = function (req, res) { return __aw
                         "    <entry name=\"username\" overwrite=\"true\">" + imei + "</entry>",
                         "    <entry name=\"userid\" overwrite=\"true\">" + imei + "</entry>",
                         "    <entry name=\"passwd\" overwrite=\"true\">" + last_four_digits_of_iccid + "</entry>",
-                        //`    <entry name="realm" overwrite="true">semasim</entry>`,//TODO: should be removable
                         "  </section>"
                     ].join("\n");
                 };

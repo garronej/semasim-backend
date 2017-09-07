@@ -1,4 +1,4 @@
-import { LockedDongle } from "chan-dongle-extended-client";
+import { typesDef as t } from "chan-dongle-extended-client";
 import * as sipLibrary from "../tools/sipLibrary";
 export declare function startListening(backendSocket: sipLibrary.Socket): void;
 export declare namespace isDongleConnected {
@@ -35,7 +35,7 @@ export declare namespace unlockDongle {
     }
     type Response = {
         dongleFound: true;
-        pinState: LockedDongle["pinState"];
+        pinState: t.LockedDongle["pinState"];
         tryLeft: number;
     } | {
         dongleFound: false;
