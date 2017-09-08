@@ -39,6 +39,4 @@ jspm_packages
 dist/test
 .vscode
 
-res/asterisk/manager.conf
-res/asterisk/dongle.conf
 .sync

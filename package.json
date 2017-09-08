@@ -1,23 +1,18 @@
 {
-  "name": "semasim-daemon",
-  "description": "Semasim daemon running on user devices",
-  "main": "./dist/lib/backendWebApiClient.js",
-  "types": "./dist/lib/backendWebApiClient.d.ts",
-  "version": "0.4.1",
+  "name": "semasim-backend",
+  "description": "Central semasim server",
+  "version": "0.5.0",
   "scripts": {
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
-    "gateway": "DEBUG=_* nodemon ./dist/lib/gatewayMain",
-    "backend": "DEBUG=_* nodemon ./dist/lib/backendMain",
-    "gw": "npm run gateway",
-    "bk": "npm run backend"
+    "start": "DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/lib/main.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/garronej/semasim-daemon.git"
+    "url": "git+https://github.com/garronej/semasim-backend.git"
   },
   "author": "Joseph Garrone",
-  "license": "GNU GPLv2",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": [],
   "dependencies": {
     "body-parser": "^1.17.2",
@@ -28,15 +23,12 @@
     "express": "^4.15.3",
     "express-session": "^1.15.5",
     "firebase-admin": "^5.1.0",
-    "js-base64": "^2.1.9",
     "md5": "^2.2.1",
     "morgan": "^1.8.2",
     "mysql": "^2.13.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "run-exclusive": "garronej/run-exclusive",
-    "sip": "github:garronej/sip.js",
     "stun": "^1.0.1",
-    "ts-async-agi": "garronej/ts-async-agi",
     "ts-events-extended": "garronej/ts-events-extended"
   },
   "devDependencies": {
@@ -47,7 +39,6 @@
     "@types/ejs": "^2.3.33",
     "@types/express": "^4.0.36",
     "@types/jquery": "^3.2.12",
-    "@types/js-base64": "^2.1.5",
     "@types/md5": "^2.1.32",
     "@types/morgan": "^1.7.32",
     "@types/mysql": "0.0.32",

@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var fbAdmin = require("firebase-admin");
-//TODO: change by send push
 var hasInit = false;
 function init(serviceAccount) {
     if (hasInit)

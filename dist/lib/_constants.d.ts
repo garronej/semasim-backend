@@ -1,41 +1,27 @@
 import * as fbAdmin from "firebase-admin";
 export declare class c {
-    static readonly dbParamsGateway: {
+    static readonly shared: {
+        new (): {};
+        readonly backendSipProxyListeningPortForGateways: 50610;
+        readonly flowTokenKey: "flowtoken";
+        readonly backendHostname: "semasim.com";
+        readonly reg_expires: 21601;
+        readonly regExpImei: RegExp;
+        readonly regExpFourDigits: RegExp;
+    };
+    static readonly dbParamsBackend: {
         "host": string;
         "user": string;
         "password": string;
         "database": string;
     };
-    private static __dbParamsBackend__;
-    static readonly dbParamsBackend: {
-        host: string;
-        user: string;
-        password: string;
-        database: string;
-    };
-    static readonly gain: string;
-    static readonly jitterBuffer: {
-        type: string;
-        params: string;
-    };
-    static readonly dongleCallContext: string;
-    static readonly phoneNumber: string;
-    static readonly sipCallContext: string;
-    static readonly sipMessageContext: string;
+    private static __serviceAccount__;
     static readonly serviceAccount: fbAdmin.ServiceAccount;
-    static readonly backendSipProxyListeningPortForGateways: number;
-    static readonly flowTokenKey: string;
-    static readonly backendHostname: string;
     private static __tlsOptions__;
-    static readonly tlsOptions: {
-        key: string;
-        cert: string;
-        ca: string;
-    };
+    static readonly tlsOptions: any;
     static readonly reg_expires: number;
     static readonly regExpImei: RegExp;
     static readonly regExpEmail: RegExp;
     static readonly regExpPassword: RegExp;
     static readonly regExpFourDigits: RegExp;
-    static readonly strMissedCall: string;
 }

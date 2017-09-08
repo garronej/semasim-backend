@@ -1,7 +1,5 @@
 import * as fbAdmin from "firebase-admin";
 
-//TODO: change by send push
-
 let hasInit= false;
 
 export function init(serviceAccount: fbAdmin.ServiceAccount){
