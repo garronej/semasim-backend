@@ -5,7 +5,7 @@
   "scripts": {
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
-    "start": "DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/lib/main.js"
+    "start": "sudo systemctl stop semasim-backend && DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/lib/main.js"
   },
   "repository": {
     "type": "git",
@@ -18,6 +18,7 @@
     "body-parser": "^1.17.2",
     "chan-dongle-extended-client": "git+https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/chan-dongle-extended-client.git",
     "colors": "^1.1.2",
+    "commander": "^2.11.0",
     "debug": "^2.6.8",
     "ejs": "^2.5.7",
     "express": "^4.15.3",
@@ -28,6 +29,7 @@
     "mysql": "^2.13.0",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "run-exclusive": "garronej/run-exclusive",
+    "save": "^2.3.1",
     "stun": "^1.0.1",
     "ts-events-extended": "garronej/ts-events-extended"
   },

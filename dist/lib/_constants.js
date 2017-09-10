@@ -32,6 +32,7 @@ var c = /** @class */ (function () {
         configurable: true
     });
     c.shared = semasim_gateway_1.c;
+    c.serviceName = "semasim-backend";
     c.dbParamsBackend = {
         "host": "127.0.0.1",
         "user": "root",

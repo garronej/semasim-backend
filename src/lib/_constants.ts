@@ -9,6 +9,8 @@ export class c {
 
     public static readonly shared= shared;
 
+    public static readonly serviceName= "semasim-backend";
+
     public static readonly dbParamsBackend = {
         "host": "127.0.0.1",
         "user": "root",

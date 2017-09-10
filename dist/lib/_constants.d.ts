@@ -9,6 +9,7 @@ export declare class c {
         readonly regExpImei: RegExp;
         readonly regExpFourDigits: RegExp;
     };
+    static readonly serviceName: string;
     static readonly dbParamsBackend: {
         "host": string;
         "user": string;
