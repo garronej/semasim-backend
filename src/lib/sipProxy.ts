@@ -2,6 +2,7 @@ import * as md5 from "md5";
 import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
+import * as network from "network";
 import { SyncEvent } from "ts-events-extended";
 import { startListening as apiStartListening } from "./sipApi";
 import { Contact, sipLibrary } from "../semasim-gateway";
@@ -15,18 +16,16 @@ let debug = _debug("_sipProxy");
 
 const informativeHostname= "semasim-backend.invalid";
 
-let publicIp= "";
-
 export async function qualifyContact(
     contact: Contact,
     timeout?: number
 ): Promise<boolean> {
 
-    let flowToken= Contact.readFlowToken(contact);
+    let flowToken = Contact.readFlowToken(contact);
 
-    let clientSocket= clientSockets.get(flowToken);
+    let clientSocket = clientSockets.get(flowToken);
 
-    if( !clientSocket ) return false;
+    if (!clientSocket) return false;
 
     let fromTag = `794ee9eb-${Date.now()}`;
     let callId = `138ce538-${Date.now()}`;
@@ -46,11 +45,11 @@ export async function qualifyContact(
     ].join("\r\n")) as sipLibrary.Request;
 
     //TODO: should be set to [] already :(
-    sipRequest.headers.via= [];
+    sipRequest.headers.via = [];
 
-    let branch= clientSocket.addViaHeader(sipRequest)
+    let branch = clientSocket.addViaHeader(sipRequest)
 
-    debug("Sending qualify: \n", sipLibrary.stringify(sipRequest) );
+    debug("Sending qualify: \n", sipLibrary.stringify(sipRequest));
 
     clientSocket.write(sipRequest);
 
@@ -71,30 +70,36 @@ export async function qualifyContact(
 
 }
 
-
 export let gatewaySockets: sipLibrary.Store;
 let clientSockets: sipLibrary.Store;
 
+let publicIp= "";
+
 export async function startServer() {
 
-    await getPublicIp();
+    let { 
+        interfacePublicIp, 
+        interfaceLocalIp 
+    } = await retrieveIpAddressesOfService();
+
+    publicIp= interfacePublicIp;
 
     gatewaySockets = new sipLibrary.Store();
     clientSockets = new sipLibrary.Store();
 
     let options: tls.TlsOptions = c.tlsOptions;
 
-    let servers: net.Server[]= [];
+    let servers: net.Server[] = [];
 
     //TODO: get 5061 from DNS
-    servers[servers.length]= tls.createServer(options)
+    servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
-        .listen(5061, "0.0.0.0")
-        .on("secureConnection", onClientConnection );
+        .listen((await c.shared.dnsSrv_sips_tcp).port, interfaceLocalIp)
+        .on("secureConnection", onClientConnection);
 
-    servers[servers.length]= tls.createServer(options)
+    servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
-        .listen(c.shared.backendSipProxyListeningPortForGateways, "0.0.0.0")
+        .listen(c.shared.backendSipProxyListeningPortForGateways, interfaceLocalIp)
         .on("secureConnection", onGatewayConnection);
 
     await Promise.all(
@@ -108,8 +113,6 @@ export async function startServer() {
 
 }
 
-
-
 function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sipLibrary.Socket(clientSocketRaw);
@@ -121,7 +124,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
     clientSockets.add(flowToken, clientSocket);
 
     let boundGatewaySocket: sipLibrary.Socket = null as any;
-    let imei= "";
+    let imei = "";
 
     /*
     clientSocket.evtPacket.attach(sipPacket =>
@@ -141,11 +144,11 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             if (!parsedFromUri.user) throw new Error("no imei");
 
-            imei= parsedFromUri.user;
+            imei = parsedFromUri.user;
 
             debug(`${flowToken} Client socket, target dongle imei: ${imei}`.yellow);
 
-            if (! gatewaySockets.get(imei) ) throw new Error("Gateway socket not found");
+            if (!gatewaySockets.get(imei)) throw new Error("Gateway socket not found");
 
             boundGatewaySocket = gatewaySockets.get(imei)!;
 
@@ -192,7 +195,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
                 sipLibrary.addOptionTag(sipRequest.headers, "supported", "path");
 
                 //TODO: See if it fail
-                sipRequest.headers.route= undefined;
+                sipRequest.headers.route = undefined;
 
                 boundGatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken(flowToken));
 
@@ -312,9 +315,9 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 }
 
 function handleError(
-    where: string, 
-    fromGatewaySocket: sipLibrary.Socket, 
-    sipPacket: sipLibrary.Packet, 
+    where: string,
+    fromGatewaySocket: sipLibrary.Socket,
+    sipPacket: sipLibrary.Packet,
     error: Error
 ) {
 
@@ -326,26 +329,70 @@ function handleError(
 
 }
 
-async function getPublicIp(): Promise<string> {
 
-    if (publicIp) return publicIp;
 
-    publicIp= await new Promise<string>(resolve => 
-        dns.resolve4(c.shared.backendHostname, (error, addresses) => {
+async function retrieveIpAddressesOfService(): Promise<{
+    interfaceLocalIp: string;
+    interfacePublicIp: string;
+ }> {
 
-            if (error) throw error;
+    let { name } = await c.shared.dnsSrv_sips_tcp;
+
+    let interfacePublicIp = await new Promise<string>((resolve, reject) =>
+        dns.resolve4(name, (error, addresses) => {
+
+            if (error) {
+                reject(error);
+                return;
+            }
 
             resolve(addresses[0]);
 
         })
     );
 
-    return publicIp;
+    let interfaceLocalIp = await new Promise<string>(
+        (resolve, reject) => network.get_interfaces_list( 
+            async (error, interfaces) => {
+
+                if( error ){
+                    reject(error);
+                    return;
+                }
+
+                for (let currentInterface of interfaces) {
+
+                    let currentInterfaceLocalIp= currentInterface.ip_address;
+
+                    let currentInterfacePublicIp= await new Promise<string | undefined>(
+                        resolve=> network.get_public_ip(
+                            { "localAddress": currentInterfaceLocalIp },
+                            (error, res)=> resolve(error?undefined:res)
+                        )
+                    );
+
+                    if( currentInterfacePublicIp === interfacePublicIp ){
+                        resolve(currentInterfaceLocalIp);
+                        return;
+                    } 
+
+                }
+
+                reject(new Error(`${name}(${interfacePublicIp}) does not point on any local interface`));
+
+            }
+        )
+    );
+
+    return { 
+        interfaceLocalIp, 
+        interfacePublicIp 
+    };
 
 }
 
 function extraParamFlowToken(flowToken: string): Record<string, string> {
-    let extraParams: Record<string,string>={};
-    extraParams[c.shared.flowTokenKey]= flowToken;
+    let extraParams: Record<string, string> = {};
+    extraParams[c.shared.flowTokenKey] = flowToken;
     return extraParams;
 }

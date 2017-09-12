@@ -2,12 +2,16 @@ import * as fbAdmin from "firebase-admin";
 export declare class c {
     static readonly shared: {
         new (): {};
-        readonly backendSipProxyListeningPortForGateways: 50610;
+        readonly backendSipProxyListeningPortForGateways: 80;
         readonly flowTokenKey: "flowtoken";
         readonly backendHostname: "semasim.com";
         readonly reg_expires: 21601;
         readonly regExpImei: RegExp;
         readonly regExpFourDigits: RegExp;
+        readonly dnsSrv_sips_tcp: Promise<{
+            name: string;
+            port: number;
+        }>;
     };
     static readonly serviceName: string;
     static readonly dbParamsBackend: {

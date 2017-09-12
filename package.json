@@ -27,6 +27,7 @@
     "md5": "^2.2.1",
     "morgan": "^1.8.2",
     "mysql": "^2.13.0",
+    "network": "github:garronej/network",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "run-exclusive": "garronej/run-exclusive",
     "save": "^2.3.1",
