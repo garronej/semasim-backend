@@ -2,7 +2,7 @@ import * as md5 from "md5";
 import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
-import * as network from "network";
+import * as networkTools from "../tools/networkTools";
 import { SyncEvent } from "ts-events-extended";
 import { startListening as apiStartListening } from "./sipApi";
 import { Contact, sipLibrary } from "../semasim-gateway";
@@ -80,7 +80,9 @@ export async function startServer() {
     let { 
         interfacePublicIp, 
         interfaceLocalIp 
-    } = await retrieveIpAddressesOfService();
+    } = await networkTools.retrieveIpFromHostname(
+        (await c.shared.dnsSrv_sips_tcp).name
+    );
 
     publicIp= interfacePublicIp;
 
@@ -99,7 +101,7 @@ export async function startServer() {
 
     servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
-        .listen(c.shared.backendSipProxyListeningPortForGateways, interfaceLocalIp)
+        .listen(c.shared.gatewayPort, interfaceLocalIp)
         .on("secureConnection", onGatewayConnection);
 
     await Promise.all(
@@ -236,6 +238,8 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     clientSocket.evtClose.attachOnce(() => {
 
+        debug("Client Socket close");
+
         if (!boundGatewaySocket) return;
 
         boundGatewaySocket.evtClose.detach({ "boundTo": clientSocket });
@@ -326,68 +330,6 @@ function handleError(
     debug(error.stack);
 
     fromGatewaySocket.destroy();
-
-}
-
-
-
-async function retrieveIpAddressesOfService(): Promise<{
-    interfaceLocalIp: string;
-    interfacePublicIp: string;
- }> {
-
-    let { name } = await c.shared.dnsSrv_sips_tcp;
-
-    let interfacePublicIp = await new Promise<string>((resolve, reject) =>
-        dns.resolve4(name, (error, addresses) => {
-
-            if (error) {
-                reject(error);
-                return;
-            }
-
-            resolve(addresses[0]);
-
-        })
-    );
-
-    let interfaceLocalIp = await new Promise<string>(
-        (resolve, reject) => network.get_interfaces_list( 
-            async (error, interfaces) => {
-
-                if( error ){
-                    reject(error);
-                    return;
-                }
-
-                for (let currentInterface of interfaces) {
-
-                    let currentInterfaceLocalIp= currentInterface.ip_address;
-
-                    let currentInterfacePublicIp= await new Promise<string | undefined>(
-                        resolve=> network.get_public_ip(
-                            { "localAddress": currentInterfaceLocalIp },
-                            (error, res)=> resolve(error?undefined:res)
-                        )
-                    );
-
-                    if( currentInterfacePublicIp === interfacePublicIp ){
-                        resolve(currentInterfaceLocalIp);
-                        return;
-                    } 
-
-                }
-
-                reject(new Error(`${name}(${interfacePublicIp}) does not point on any local interface`));
-
-            }
-        )
-    );
-
-    return { 
-        interfaceLocalIp, 
-        interfacePublicIp 
-    };
 
 }
 

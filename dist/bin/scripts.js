@@ -86,15 +86,8 @@ function installService() {
             switch (_a.label) {
                 case 0:
                     node_execpath = process.argv[0];
-                    console.log([
-                        "Now you will be ask to choose the user that will run the service\n",
-                    ].join("").yellow);
-                    return [4 /*yield*/, semasim_gateway_1.commanderFunctions.ask("User? (press enter for root)")];
-                case 1:
-                    user = (_a.sent()) || "root";
-                    return [4 /*yield*/, semasim_gateway_1.commanderFunctions.ask("Group? (press enter for root)")];
-                case 2:
-                    group = (_a.sent()) || "root";
+                    user = "root";
+                    group = "root";
                     service = [
                         "[Unit]",
                         "Description=chan dongle extended service",
@@ -118,10 +111,10 @@ function installService() {
                         ""
                     ].join("\n");
                     return [4 /*yield*/, semasim_gateway_1.commanderFunctions.writeFileAssertSuccess(systemdServicePath, service)];
-                case 3:
+                case 1:
                     _a.sent();
                     return [4 /*yield*/, semasim_gateway_1.commanderFunctions.run("systemctl daemon-reload")];
-                case 4:
+                case 2:
                     _a.sent();
                     console.log([
                         "Service successfully installed!".green,

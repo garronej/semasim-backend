@@ -38,16 +38,19 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 require("rejection-tracker").main(__dirname, "..", "..");
 var https = require("https");
+var http = require("http");
 var express = require("express");
 var session = require("express-session");
+var forceDomain = require("forcedomain");
+var networkTools = require("../tools/networkTools");
 var sipProxy = require("./sipProxy");
 var webApi = require("./webApi");
 var semasim_webclient_1 = require("../semasim-webclient");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_main");
-var port = 4430;
 (function () { return __awaiter(_this, void 0, void 0, function () {
+    var hostname, interfaceLocalIp;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -56,21 +59,41 @@ var port = 4430;
             case 1:
                 _a.sent();
                 debug("..Sip proxy server started !");
+                hostname = "www." + _constants_1.c.shared.domain;
+                return [4 /*yield*/, networkTools.retrieveIpFromHostname(hostname)];
+            case 2:
+                interfaceLocalIp = (_a.sent()).interfaceLocalIp;
                 return [4 /*yield*/, new Promise(function (resolve) {
                         var app = express();
                         app.set("view engine", "ejs");
                         app
                             .use(session({ "secret": semasim_webclient_1.cookieSecret, "resave": false, "saveUninitialized": false }))
                             .use("/" + semasim_webclient_1.webApiClient.webApiPath, webApi.getRouter())
+                            .use(forceDomain({ hostname: hostname }))
                             .use("/", semasim_webclient_1.webRouter);
                         https.createServer(_constants_1.c.tlsOptions)
                             .on("request", app)
-                            .listen(port)
-                            .on("listening", function () { return resolve(); });
+                            .listen(443, interfaceLocalIp)
+                            .once("listening", function () { return resolve(); });
                     })];
-            case 2:
+            case 3:
                 _a.sent();
-                debug("...webserver started on port: " + port);
+                debug("...webserver started");
+                return [4 /*yield*/, new Promise(function (resolve) {
+                        var app = express();
+                        app.use(forceDomain({
+                            hostname: hostname,
+                            "port": 443,
+                            "protocol": "https"
+                        }));
+                        http.createServer()
+                            .on("request", app)
+                            .listen(80, interfaceLocalIp)
+                            .once("listening", function () { return resolve(); });
+                    })];
+            case 4:
+                _a.sent();
+                debug("...https redirect started");
                 return [2 /*return*/];
         }
     });

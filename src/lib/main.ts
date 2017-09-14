@@ -1,10 +1,13 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
 import * as https from "https";
+import * as http from "http";
 import * as express from "express";
 import * as session from "express-session";
 import * as ejs from "ejs";
+import * as forceDomain from "forcedomain";
 
+import * as networkTools from "../tools/networkTools";
 import * as sipProxy from "./sipProxy";
 import * as webApi from "./webApi";
 
@@ -15,8 +18,6 @@ import { c } from "./_constants";
 import * as _debug from "debug";
 let debug = _debug("_main");
 
-const port = 4430;
-
 (async () => {
 
     debug("Starting semasim backend...");
@@ -25,24 +26,52 @@ const port = 4430;
 
     debug("..Sip proxy server started !");
 
-    await new Promise<void>(resolve => {
+    let hostname= `www.${c.shared.domain}`;
 
-        let app = express();
+    let { interfaceLocalIp } = await networkTools.retrieveIpFromHostname(hostname);
 
-        app.set("view engine", "ejs");
+    await new Promise<void>(
+        resolve => {
 
-        app
-        .use(session({"secret": cookieSecret, "resave": false, "saveUninitialized": false })) 
-        .use(`/${webApiClient.webApiPath}`, webApi.getRouter())
-        .use("/", webRouter);
+            let app = express();
 
-        https.createServer(c.tlsOptions)
-            .on("request", app)
-            .listen(port)
-            .on("listening", () => resolve());
+            app.set("view engine", "ejs");
 
-    });
+            app
+                .use(session({ "secret": cookieSecret, "resave": false, "saveUninitialized": false }))
+                .use(`/${webApiClient.webApiPath}`, webApi.getRouter())
+                .use(forceDomain({ hostname }))
+                .use("/", webRouter);
 
-    debug(`...webserver started on port: ${port}`);
+            https.createServer(c.tlsOptions)
+                .on("request", app)
+                .listen(443, interfaceLocalIp)
+                .once("listening", () => resolve());
+
+        }
+    );
+
+    debug(`...webserver started`);
+
+    await new Promise<void>(
+        resolve => {
+
+            let app = express();
+
+            app.use(forceDomain({
+                hostname,
+                "port": 443,
+                "protocol": "https"
+            }));
+
+            http.createServer()
+                .on("request", app)
+                .listen(80, interfaceLocalIp)
+                .once("listening", () => resolve());
+
+        }
+    );
+
+    debug(`...https redirect started`);
 
 })();

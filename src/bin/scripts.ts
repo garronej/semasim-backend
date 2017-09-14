@@ -45,13 +45,9 @@ async function installService() {
 
     const node_execpath = process.argv[0];
 
-    console.log([
-        "Now you will be ask to choose the user that will run the service\n",
-    ].join("").yellow);
+    const user = "root";
 
-    const user = (await _.ask("User? (press enter for root)")) || "root";
-
-    const group = (await _.ask("Group? (press enter for root)")) || "root";
+    const group = "root";
 
     let service = [
         `[Unit]`,

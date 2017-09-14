@@ -1,3 +1,5 @@
+import { typesDef } from "chan-dongle-extended-client";
+import Contact = typesDef.Contact;
 export declare namespace semasim_backend {
     interface EndpointConfig {
         dongle_imei: string;
@@ -11,4 +13,6 @@ export declare namespace semasim_backend {
     function addEndpointConfig(user_id: number, {dongle_imei, sim_iccid, sim_service_provider, sim_number}: EndpointConfig): Promise<boolean>;
     function deleteEndpointConfig(user_id: number, imei: string): Promise<boolean>;
     function getUserEndpointConfigs(user_id: number): Promise<EndpointConfig[]>;
+    function getSimContacts(sim_iccid: string): Promise<Contact[]>;
+    function setSimContacts(sim_iccid: string, contacts: Contact[]): Promise<boolean>;
 }

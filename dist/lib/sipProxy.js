@@ -34,21 +34,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 var md5 = require("md5");
-var dns = require("dns");
 var tls = require("tls");
-var network = require("network");
+var networkTools = require("../tools/networkTools");
 var sipApi_1 = require("./sipApi");
 var semasim_gateway_1 = require("../semasim-gateway");
 var _constants_1 = require("./_constants");
@@ -109,34 +98,37 @@ var clientSockets;
 var publicIp = "";
 function startServer() {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, interfacePublicIp, interfaceLocalIp, options, servers, _b, _c, _d, _e;
-        return __generator(this, function (_f) {
-            switch (_f.label) {
-                case 0: return [4 /*yield*/, retrieveIpAddressesOfService()];
-                case 1:
-                    _a = _f.sent(), interfacePublicIp = _a.interfacePublicIp, interfaceLocalIp = _a.interfaceLocalIp;
+        var _a, interfacePublicIp, interfaceLocalIp, _b, _c, options, servers, _d, _e, _f, _g;
+        return __generator(this, function (_h) {
+            switch (_h.label) {
+                case 0:
+                    _c = (_b = networkTools).retrieveIpFromHostname;
+                    return [4 /*yield*/, _constants_1.c.shared.dnsSrv_sips_tcp];
+                case 1: return [4 /*yield*/, _c.apply(_b, [(_h.sent()).name])];
+                case 2:
+                    _a = _h.sent(), interfacePublicIp = _a.interfacePublicIp, interfaceLocalIp = _a.interfaceLocalIp;
                     publicIp = interfacePublicIp;
                     exports.gatewaySockets = new semasim_gateway_1.sipLibrary.Store();
                     clientSockets = new semasim_gateway_1.sipLibrary.Store();
                     options = _constants_1.c.tlsOptions;
                     servers = [];
                     //TODO: get 5061 from DNS
-                    _b = servers;
-                    _c = servers.length;
-                    _e = (_d = tls.createServer(options)
+                    _d = servers;
+                    _e = servers.length;
+                    _g = (_f = tls.createServer(options)
                         .on("error", function (error) { throw error; })).listen;
                     return [4 /*yield*/, _constants_1.c.shared.dnsSrv_sips_tcp];
-                case 2:
+                case 3:
                     //TODO: get 5061 from DNS
-                    _b[_c] = _e.apply(_d, [(_f.sent()).port, interfaceLocalIp])
+                    _d[_e] = _g.apply(_f, [(_h.sent()).port, interfaceLocalIp])
                         .on("secureConnection", onClientConnection);
                     servers[servers.length] = tls.createServer(options)
                         .on("error", function (error) { throw error; })
-                        .listen(_constants_1.c.shared.backendSipProxyListeningPortForGateways, interfaceLocalIp)
+                        .listen(_constants_1.c.shared.gatewayPort, interfaceLocalIp)
                         .on("secureConnection", onGatewayConnection);
                     return [4 /*yield*/, Promise.all(servers.map(function (server) { return new Promise(function (resolve) { return server.on("listening", function () { return resolve(); }); }); }))];
-                case 3:
-                    _f.sent();
+                case 4:
+                    _h.sent();
                     return [2 /*return*/];
             }
         });
@@ -218,6 +210,7 @@ function onClientConnection(clientSocketRaw) {
         }
     });
     clientSocket.evtClose.attachOnce(function () {
+        debug("Client Socket close");
         if (!boundGatewaySocket)
             return;
         boundGatewaySocket.evtClose.detach({ "boundTo": clientSocket });
@@ -270,96 +263,6 @@ function handleError(where, fromGatewaySocket, sipPacket, error) {
     debug(JSON.stringify(sipPacket, null, 2));
     debug(error.stack);
     fromGatewaySocket.destroy();
-}
-function retrieveIpAddressesOfService() {
-    return __awaiter(this, void 0, void 0, function () {
-        var _this = this;
-        var name, interfacePublicIp, interfaceLocalIp;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, _constants_1.c.shared.dnsSrv_sips_tcp];
-                case 1:
-                    name = (_a.sent()).name;
-                    return [4 /*yield*/, new Promise(function (resolve, reject) {
-                            return dns.resolve4(name, function (error, addresses) {
-                                if (error) {
-                                    reject(error);
-                                    return;
-                                }
-                                resolve(addresses[0]);
-                            });
-                        })];
-                case 2:
-                    interfacePublicIp = _a.sent();
-                    return [4 /*yield*/, new Promise(function (resolve, reject) { return network.get_interfaces_list(function (error, interfaces) { return __awaiter(_this, void 0, void 0, function () {
-                            var _loop_1, interfaces_1, interfaces_1_1, currentInterface, state_1, e_1_1, e_1, _a;
-                            return __generator(this, function (_b) {
-                                switch (_b.label) {
-                                    case 0:
-                                        if (error) {
-                                            reject(error);
-                                            return [2 /*return*/];
-                                        }
-                                        _loop_1 = function (currentInterface) {
-                                            var currentInterfaceLocalIp, currentInterfacePublicIp;
-                                            return __generator(this, function (_a) {
-                                                switch (_a.label) {
-                                                    case 0:
-                                                        currentInterfaceLocalIp = currentInterface.ip_address;
-                                                        return [4 /*yield*/, new Promise(function (resolve) { return network.get_public_ip({ "localAddress": currentInterfaceLocalIp }, function (error, res) { return resolve(error ? undefined : res); }); })];
-                                                    case 1:
-                                                        currentInterfacePublicIp = _a.sent();
-                                                        if (currentInterfacePublicIp === interfacePublicIp) {
-                                                            resolve(currentInterfaceLocalIp);
-                                                            return [2 /*return*/, { value: void 0 }];
-                                                        }
-                                                        return [2 /*return*/];
-                                                }
-                                            });
-                                        };
-                                        _b.label = 1;
-                                    case 1:
-                                        _b.trys.push([1, 6, 7, 8]);
-                                        interfaces_1 = __values(interfaces), interfaces_1_1 = interfaces_1.next();
-                                        _b.label = 2;
-                                    case 2:
-                                        if (!!interfaces_1_1.done) return [3 /*break*/, 5];
-                                        currentInterface = interfaces_1_1.value;
-                                        return [5 /*yield**/, _loop_1(currentInterface)];
-                                    case 3:
-                                        state_1 = _b.sent();
-                                        if (typeof state_1 === "object")
-                                            return [2 /*return*/, state_1.value];
-                                        _b.label = 4;
-                                    case 4:
-                                        interfaces_1_1 = interfaces_1.next();
-                                        return [3 /*break*/, 2];
-                                    case 5: return [3 /*break*/, 8];
-                                    case 6:
-                                        e_1_1 = _b.sent();
-                                        e_1 = { error: e_1_1 };
-                                        return [3 /*break*/, 8];
-                                    case 7:
-                                        try {
-                                            if (interfaces_1_1 && !interfaces_1_1.done && (_a = interfaces_1.return)) _a.call(interfaces_1);
-                                        }
-                                        finally { if (e_1) throw e_1.error; }
-                                        return [7 /*endfinally*/];
-                                    case 8:
-                                        reject(new Error(name + "(" + interfacePublicIp + ") does not point on any local interface"));
-                                        return [2 /*return*/];
-                                }
-                            });
-                        }); }); })];
-                case 3:
-                    interfaceLocalIp = _a.sent();
-                    return [2 /*return*/, {
-                            interfaceLocalIp: interfaceLocalIp,
-                            interfacePublicIp: interfacePublicIp
-                        }];
-            }
-        });
-    });
 }
 function extraParamFlowToken(flowToken) {
     var extraParams = {};
