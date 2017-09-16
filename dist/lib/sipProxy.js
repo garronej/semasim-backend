@@ -81,7 +81,7 @@ function qualifyContact(contact, timeout) {
                     return [4 /*yield*/, clientSocket.evtResponse.waitForExtract(function (_a) {
                             var headers = _a.headers;
                             return headers.via[0].params["branch"] === branch;
-                        }, timeout || 5000)];
+                        }, timeout || 1000)];
                 case 2:
                     sipResponse = _a.sent();
                     return [2 /*return*/, true];

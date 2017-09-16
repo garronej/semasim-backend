@@ -57,7 +57,7 @@ export async function qualifyContact(
 
         let sipResponse = await clientSocket.evtResponse.waitForExtract(
             ({ headers }) => headers.via[0].params["branch"] === branch,
-            timeout || 5000
+            timeout || 1000
         );
 
         return true;
