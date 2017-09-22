@@ -259,7 +259,7 @@ function onGatewayConnection(gatewaySocketRaw) {
     });
 }
 function handleError(where, fromGatewaySocket, sipPacket, error) {
-    debug("Unexpected error in: " + where);
+    debug("====================>Unexpected error in: " + where);
     debug(JSON.stringify(sipPacket, null, 2));
     debug(error.stack);
     fromGatewaySocket.destroy();
