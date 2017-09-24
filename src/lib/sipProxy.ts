@@ -16,6 +16,7 @@ let debug = _debug("_sipProxy");
 
 const informativeHostname= "semasim-backend.invalid";
 
+//TODO: May throw error!
 export async function qualifyContact(
     contact: Contact,
     timeout?: number
@@ -23,7 +24,9 @@ export async function qualifyContact(
 
     let flowToken = Contact.readFlowToken(contact);
 
-    let clientSocket = clientSockets.get(flowToken);
+    let clientSocket = clientSockets.get(
+        parseFlowToken(flowToken).connectionId
+    );
 
     if (!clientSocket) return false;
 
@@ -93,7 +96,6 @@ export async function startServer() {
 
     let servers: net.Server[] = [];
 
-    //TODO: get 5061 from DNS
     servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
         .listen((await c.shared.dnsSrv_sips_tcp).port, interfaceLocalIp)
@@ -112,6 +114,33 @@ export async function startServer() {
         )
     );
 
+}
+
+function buildFlowToken( connectionId: string, imei: string): string {
+    return `${connectionId}-${imei}`;
+}
+
+function parseFlowToken( flowToken: string): { connectionId: string; imei: string; } {
+
+    let split = flowToken.split("-");
+
+    return {
+        "connectionId": split[0],
+        "imei": split[1]
+    };
+
+}
+
+function handleError(
+    where: string,
+    socket: sipLibrary.Socket,
+    sipPacket: sipLibrary.Packet,
+    error: Error
+) {
+
+    debug(`Error in: ${where}`.red);
+    debug(error.message);
+    socket.destroy();
 
 }
 
@@ -119,14 +148,12 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sipLibrary.Socket(clientSocketRaw);
 
-    let flowToken = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+    let connectionId = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
 
-    debug(`${flowToken} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
+    debug(`${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
 
-    clientSockets.add(flowToken, clientSocket);
+    clientSockets.add(connectionId, clientSocket);
 
-    let boundGatewaySocket: sipLibrary.Socket = null as any;
-    let imei = "";
 
     /*
     clientSocket.evtPacket.attach(sipPacket =>
@@ -138,59 +165,31 @@ function onClientConnection(clientSocketRaw: net.Socket) {
         debug("From Client:\n", chunk.yellow, "\n\n")
     );
 
-    clientSocket.evtRequest.attachOnce(firstRequest => {
-
-        try {
-
-            let parsedFromUri = sipLibrary.parseUri(firstRequest.headers.from.uri);
-
-            if (!parsedFromUri.user) throw new Error("no imei");
-
-            imei = parsedFromUri.user;
-
-            debug(`${flowToken} Client socket, target dongle imei: ${imei}`.yellow);
-
-            if (!gatewaySockets.get(imei)) throw new Error("Gateway socket not found");
-
-            boundGatewaySocket = gatewaySockets.get(imei)!;
-
-            debug(`${flowToken} Found path to Gateway ip: ${boundGatewaySocket.remoteAddress}`.yellow);
-
-        } catch (error) {
-
-            debug("Can't route to any gateway: ".red, error.message);
-
-            //Should send 480 temporary unavailable
-
-            clientSocket.destroy();
-
-            return;
-
-        }
-
-        boundGatewaySocket.evtClose.attachOnce(clientSocket, () => {
-
-            debug(`${flowToken} Gateway Socket bound closed, destroying client socket`.yellow);
-
-            boundGatewaySocket = null as any;
-
-            clientSocket.destroy();
-
-        });
-
-
-    });
 
     clientSocket.evtRequest.attach(sipRequest => {
 
-        if (boundGatewaySocket !== gatewaySockets.get(imei)) {
-            clientSocket.destroy();
-            return;
-        }
-
         try {
 
-            boundGatewaySocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
+            let parsedFromUri = sipLibrary.parseUri(sipRequest.headers.from.uri);
+
+            if (!parsedFromUri.user) throw new Error("Request malformed, no IMEI in from header");
+
+            let imei = parsedFromUri.user;
+
+            let gatewaySocket = gatewaySockets.get(imei);
+
+            if (!gatewaySocket) throw new Error("Target Gateway not found");
+
+            gatewaySocket.evtClose.detach({ "boundTo": clientSocket });
+            gatewaySocket.evtClose.attachOnce(clientSocket, ()=> {
+                debug(`Gateway socket closed, closing client socket ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+                clientSocket.destroy()
+            });
+
+            let extraParamFlowToken: Record<string, string>= {};
+            extraParamFlowToken[c.shared.flowTokenKey]= buildFlowToken(connectionId, imei);
+
+            gatewaySocket.addViaHeader(sipRequest, extraParamFlowToken);
 
             if (sipRequest.method === "REGISTER") {
 
@@ -199,11 +198,16 @@ function onClientConnection(clientSocketRaw: net.Socket) {
                 //TODO: See if it fail
                 sipRequest.headers.route = undefined;
 
-                boundGatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken(flowToken));
+                gatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken);
 
-            } else boundGatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
+            } else {
 
-            boundGatewaySocket.write(sipRequest);
+                gatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
+
+            }
+
+            gatewaySocket.write(sipRequest);
+
 
         } catch (error) {
 
@@ -211,38 +215,34 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
         }
 
+
     });
 
     clientSocket.evtResponse.attach(sipResponse => {
 
-        if (boundGatewaySocket !== gatewaySockets.get(imei)) {
-            clientSocket.destroy();
-            return;
-        }
-
         try {
 
-            boundGatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
+            let parsedToUri = sipLibrary.parseUri(sipResponse.headers.to.uri);
+
+            if (!parsedToUri.user) throw new Error("Response malformed, no IMEI in to header");
+
+            let imei = parsedToUri.user;
+
+            let gatewaySocket = gatewaySockets.get(imei);
+
+            if (!gatewaySocket) throw new Error("Target Gateway not found");
+
+            gatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
 
             sipResponse.headers.via.shift();
 
-            boundGatewaySocket.write(sipResponse);
+            gatewaySocket.write(sipResponse);
 
         } catch (error) {
 
             handleError("clientSocket.evtResponse", clientSocket, sipResponse, error);
 
         }
-
-    });
-
-    clientSocket.evtClose.attachOnce(() => {
-
-        debug("Client Socket close");
-
-        if (!boundGatewaySocket) return;
-
-        boundGatewaySocket.evtClose.detach({ "boundTo": clientSocket });
 
     });
 
@@ -272,9 +272,13 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
         try {
 
-            let flowToken = sipRequest.headers.via[0].params[c.shared.flowTokenKey]!;
+            let flowToken = sipRequest.headers.via[0].params[c.shared.flowTokenKey];
 
-            let clientSocket = clientSockets.get(flowToken);
+            if(!flowToken) throw new Error("No flow token in topmost via header");
+
+            let clientSocket = clientSockets.get(
+                parseFlowToken(flowToken).connectionId
+            );
 
             if (!clientSocket) return;
 
@@ -296,9 +300,13 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
         try {
 
-            let flowToken = sipResponse.headers.via[0].params[c.shared.flowTokenKey]!;
+            let flowToken = sipResponse.headers.via[0].params[c.shared.flowTokenKey];
 
-            let clientSocket = clientSockets.get(flowToken);
+            if(!flowToken) throw new Error("No flow token in topmost via header");
+
+            let clientSocket = clientSockets.get(
+                parseFlowToken(flowToken).connectionId
+            );
 
             if (!clientSocket) return;
 
@@ -316,25 +324,4 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
     });
 
-}
-
-function handleError(
-    where: string,
-    fromGatewaySocket: sipLibrary.Socket,
-    sipPacket: sipLibrary.Packet,
-    error: Error
-) {
-
-    debug(`====================>Unexpected error in: ${where}`);
-    debug(JSON.stringify(sipPacket, null, 2));
-    debug(error.stack);
-
-    fromGatewaySocket.destroy();
-
-}
-
-function extraParamFlowToken(flowToken: string): Record<string, string> {
-    let extraParams: Record<string, string> = {};
-    extraParams[c.shared.flowTokenKey] = flowToken;
-    return extraParams;
 }

@@ -45,6 +45,7 @@ require("colors");
 var _debug = require("debug");
 var debug = _debug("_sipProxy");
 var informativeHostname = "semasim-backend.invalid";
+//TODO: May throw error!
 function qualifyContact(contact, timeout) {
     return __awaiter(this, void 0, void 0, function () {
         var flowToken, clientSocket, fromTag, callId, cSeqSequenceNumber, sipRequest, branch, sipResponse, error_1;
@@ -52,7 +53,7 @@ function qualifyContact(contact, timeout) {
             switch (_a.label) {
                 case 0:
                     flowToken = semasim_gateway_1.Contact.readFlowToken(contact);
-                    clientSocket = clientSockets.get(flowToken);
+                    clientSocket = clientSockets.get(parseFlowToken(flowToken).connectionId);
                     if (!clientSocket)
                         return [2 /*return*/, false];
                     fromTag = "794ee9eb-" + Date.now();
@@ -112,14 +113,12 @@ function startServer() {
                     clientSockets = new semasim_gateway_1.sipLibrary.Store();
                     options = _constants_1.c.tlsOptions;
                     servers = [];
-                    //TODO: get 5061 from DNS
                     _d = servers;
                     _e = servers.length;
                     _g = (_f = tls.createServer(options)
                         .on("error", function (error) { throw error; })).listen;
                     return [4 /*yield*/, _constants_1.c.shared.dnsSrv_sips_tcp];
                 case 3:
-                    //TODO: get 5061 from DNS
                     _d[_e] = _g.apply(_f, [(_h.sent()).port, interfaceLocalIp])
                         .on("secureConnection", onClientConnection);
                     servers[servers.length] = tls.createServer(options)
@@ -135,13 +134,26 @@ function startServer() {
     });
 }
 exports.startServer = startServer;
+function buildFlowToken(connectionId, imei) {
+    return connectionId + "-" + imei;
+}
+function parseFlowToken(flowToken) {
+    var split = flowToken.split("-");
+    return {
+        "connectionId": split[0],
+        "imei": split[1]
+    };
+}
+function handleError(where, socket, sipPacket, error) {
+    debug(("Error in: " + where).red);
+    debug(error.message);
+    socket.destroy();
+}
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new semasim_gateway_1.sipLibrary.Socket(clientSocketRaw);
-    var flowToken = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
-    debug((flowToken + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
-    clientSockets.add(flowToken, clientSocket);
-    var boundGatewaySocket = null;
-    var imei = "";
+    var connectionId = md5(clientSocket.remoteAddress + ":" + clientSocket.remotePort);
+    debug((connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
+    clientSockets.add(connectionId, clientSocket);
     /*
     clientSocket.evtPacket.attach(sipPacket =>
         debug("From Client Parsed:\n", sip.stringify(sipPacket).red, "\n\n")
@@ -150,70 +162,54 @@ function onClientConnection(clientSocketRaw) {
     clientSocket.evtData.attach(function (chunk) {
         return debug("From Client:\n", chunk.yellow, "\n\n");
     });
-    clientSocket.evtRequest.attachOnce(function (firstRequest) {
-        try {
-            var parsedFromUri = semasim_gateway_1.sipLibrary.parseUri(firstRequest.headers.from.uri);
-            if (!parsedFromUri.user)
-                throw new Error("no imei");
-            imei = parsedFromUri.user;
-            debug((flowToken + " Client socket, target dongle imei: " + imei).yellow);
-            if (!exports.gatewaySockets.get(imei))
-                throw new Error("Gateway socket not found");
-            boundGatewaySocket = exports.gatewaySockets.get(imei);
-            debug((flowToken + " Found path to Gateway ip: " + boundGatewaySocket.remoteAddress).yellow);
-        }
-        catch (error) {
-            debug("Can't route to any gateway: ".red, error.message);
-            //Should send 480 temporary unavailable
-            clientSocket.destroy();
-            return;
-        }
-        boundGatewaySocket.evtClose.attachOnce(clientSocket, function () {
-            debug((flowToken + " Gateway Socket bound closed, destroying client socket").yellow);
-            boundGatewaySocket = null;
-            clientSocket.destroy();
-        });
-    });
     clientSocket.evtRequest.attach(function (sipRequest) {
-        if (boundGatewaySocket !== exports.gatewaySockets.get(imei)) {
-            clientSocket.destroy();
-            return;
-        }
         try {
-            boundGatewaySocket.addViaHeader(sipRequest, extraParamFlowToken(flowToken));
+            var parsedFromUri = semasim_gateway_1.sipLibrary.parseUri(sipRequest.headers.from.uri);
+            if (!parsedFromUri.user)
+                throw new Error("Request malformed, no IMEI in from header");
+            var imei = parsedFromUri.user;
+            var gatewaySocket = exports.gatewaySockets.get(imei);
+            if (!gatewaySocket)
+                throw new Error("Target Gateway not found");
+            gatewaySocket.evtClose.detach({ "boundTo": clientSocket });
+            gatewaySocket.evtClose.attachOnce(clientSocket, function () {
+                debug("Gateway socket closed, closing client socket " + clientSocket.remoteAddress + ":" + clientSocket.remotePort);
+                clientSocket.destroy();
+            });
+            var extraParamFlowToken = {};
+            extraParamFlowToken[_constants_1.c.shared.flowTokenKey] = buildFlowToken(connectionId, imei);
+            gatewaySocket.addViaHeader(sipRequest, extraParamFlowToken);
             if (sipRequest.method === "REGISTER") {
                 semasim_gateway_1.sipLibrary.addOptionTag(sipRequest.headers, "supported", "path");
                 //TODO: See if it fail
                 sipRequest.headers.route = undefined;
-                boundGatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken(flowToken));
+                gatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken);
             }
-            else
-                boundGatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
-            boundGatewaySocket.write(sipRequest);
+            else {
+                gatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
+            }
+            gatewaySocket.write(sipRequest);
         }
         catch (error) {
             handleError("clientSocket.evtRequest", clientSocket, sipRequest, error);
         }
     });
     clientSocket.evtResponse.attach(function (sipResponse) {
-        if (boundGatewaySocket !== exports.gatewaySockets.get(imei)) {
-            clientSocket.destroy();
-            return;
-        }
         try {
-            boundGatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
+            var parsedToUri = semasim_gateway_1.sipLibrary.parseUri(sipResponse.headers.to.uri);
+            if (!parsedToUri.user)
+                throw new Error("Response malformed, no IMEI in to header");
+            var imei = parsedToUri.user;
+            var gatewaySocket = exports.gatewaySockets.get(imei);
+            if (!gatewaySocket)
+                throw new Error("Target Gateway not found");
+            gatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
             sipResponse.headers.via.shift();
-            boundGatewaySocket.write(sipResponse);
+            gatewaySocket.write(sipResponse);
         }
         catch (error) {
             handleError("clientSocket.evtResponse", clientSocket, sipResponse, error);
         }
-    });
-    clientSocket.evtClose.attachOnce(function () {
-        debug("Client Socket close");
-        if (!boundGatewaySocket)
-            return;
-        boundGatewaySocket.evtClose.detach({ "boundTo": clientSocket });
     });
 }
 function onGatewayConnection(gatewaySocketRaw) {
@@ -232,7 +228,9 @@ function onGatewayConnection(gatewaySocketRaw) {
     gatewaySocket.evtRequest.attach(function (sipRequest) {
         try {
             var flowToken = sipRequest.headers.via[0].params[_constants_1.c.shared.flowTokenKey];
-            var clientSocket = clientSockets.get(flowToken);
+            if (!flowToken)
+                throw new Error("No flow token in topmost via header");
+            var clientSocket = clientSockets.get(parseFlowToken(flowToken).connectionId);
             if (!clientSocket)
                 return;
             clientSocket.addViaHeader(sipRequest);
@@ -246,7 +244,9 @@ function onGatewayConnection(gatewaySocketRaw) {
     gatewaySocket.evtResponse.attach(function (sipResponse) {
         try {
             var flowToken = sipResponse.headers.via[0].params[_constants_1.c.shared.flowTokenKey];
-            var clientSocket = clientSockets.get(flowToken);
+            if (!flowToken)
+                throw new Error("No flow token in topmost via header");
+            var clientSocket = clientSockets.get(parseFlowToken(flowToken).connectionId);
             if (!clientSocket)
                 return;
             clientSocket.rewriteRecordRoute(sipResponse, publicIp);
@@ -257,15 +257,4 @@ function onGatewayConnection(gatewaySocketRaw) {
             handleError("gatewaySocket.evtResponse", gatewaySocket, sipResponse, error);
         }
     });
-}
-function handleError(where, fromGatewaySocket, sipPacket, error) {
-    debug("====================>Unexpected error in: " + where);
-    debug(JSON.stringify(sipPacket, null, 2));
-    debug(error.stack);
-    fromGatewaySocket.destroy();
-}
-function extraParamFlowToken(flowToken) {
-    var extraParams = {};
-    extraParams[_constants_1.c.shared.flowTokenKey] = flowToken;
-    return extraParams;
 }
