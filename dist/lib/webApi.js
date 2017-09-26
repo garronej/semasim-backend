@@ -84,10 +84,12 @@ function getRouter() {
         .use(bodyParser.json())
         .use("/:method", function (req, res) {
         debug("Api call");
-        var handler = handlers[req.params.method];
-        if (!handler)
-            return res.status(404).end();
-        handler(req, res);
+        try {
+            handlers[req.params.method](req, res);
+        }
+        catch (error) {
+            fail(res, semasim_webclient_1.webApiClient.unknownError);
+        }
     });
 }
 exports.getRouter = getRouter;

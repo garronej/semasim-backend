@@ -41,7 +41,8 @@ var c = /** @class */ (function () {
     };
     c.__serviceAccount__ = undefined;
     c.__tlsOptions__ = undefined;
-    c.reg_expires = 21601;
+    //public static readonly reg_expires = 21601;
+    c.reg_expires = 60;
     c.regExpImei = /^[0-9]{15}$/;
     c.regExpEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     c.regExpPassword = /^[0-9a-zA-Z]{6,}$/;

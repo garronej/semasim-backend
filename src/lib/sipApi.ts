@@ -1,7 +1,6 @@
 import {
     sipApiFramework as framework,
     sipLibrary,
-    Contact,
     sipApiClientGateway as sipApiGateway,
     sipApiClientBackend as _
 } from "../semasim-gateway";
@@ -12,7 +11,6 @@ import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_sipApi");
-
 
 export function startListening(gatewaySocket: sipLibrary.Socket) {
 
@@ -68,7 +66,19 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
             return { "isGranted": true };
         }
 
-        let currentResp = await sipApiGateway.isDongleConnected.makeCall(currentGatewaySocket, imei);
+        let currentResp: sipApiGateway.isDongleConnected.Response;
+
+        try{
+
+            currentResp = await sipApiGateway.isDongleConnected.makeCall(currentGatewaySocket, imei);
+
+        }catch(error){
+
+            debug("Gateway did not behave the way it is supposed to");
+
+            return { "isGranted": true };
+
+        }
 
         if (currentResp.isConnected) {
             debug("Attack attempt, we refuse to associate socket to this dongle");
@@ -104,22 +114,16 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
 
         debug(`handle ${methodName}`);
 
-        let { contactOrContactUri } = params;
+        let { contact } = params;
 
-        if (typeof contactOrContactUri !== "string") {
+        let reached = await qualifyContact(contact);
 
-            let contact = contactOrContactUri;
-
-            let reached = await qualifyContact(contact);
-
-            if (reached) {
-                debug("Directly reachable");
-                return { "status": "REACHABLE" };
-            }
-
+        if (reached) {
+            debug("Directly reachable");
+            return { "status": "REACHABLE" };
         }
 
-        let { pushType, pushToken } = Contact.readPushInfos(contactOrContactUri);
+        let { pushType, pushToken } = contact.pushInfos;
 
         switch (pushType) {
             case "google":

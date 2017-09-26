@@ -74,7 +74,7 @@ var handlers = {};
 (function () {
     var methodName = semasim_gateway_1.sipApiClientBackend.claimDongle.methodName;
     handlers[methodName] = function (params, gatewaySocket) { return __awaiter(_this, void 0, void 0, function () {
-        var imei, candidateGatewaySocket, currentGatewaySocket, currentResp, candidateResp;
+        var imei, candidateGatewaySocket, currentGatewaySocket, currentResp, error_2, candidateResp;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -89,15 +89,24 @@ var handlers = {};
                     if (currentGatewaySocket === candidateGatewaySocket) {
                         return [2 /*return*/, { "isGranted": true }];
                     }
-                    return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.isDongleConnected.makeCall(currentGatewaySocket, imei)];
+                    _a.label = 1;
                 case 1:
+                    _a.trys.push([1, 3, , 4]);
+                    return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.isDongleConnected.makeCall(currentGatewaySocket, imei)];
+                case 2:
                     currentResp = _a.sent();
+                    return [3 /*break*/, 4];
+                case 3:
+                    error_2 = _a.sent();
+                    debug("Gateway did not behave the way it is supposed to");
+                    return [2 /*return*/, { "isGranted": true }];
+                case 4:
                     if (currentResp.isConnected) {
                         debug("Attack attempt, we refuse to associate socket to this dongle");
                         return [2 /*return*/, { "isGranted": false }];
                     }
                     return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.isDongleConnected.makeCall(candidateGatewaySocket, imei)];
-                case 2:
+                case 5:
                     candidateResp = _a.sent();
                     if (candidateResp.isConnected) {
                         sipProxy_1.gatewaySockets.add(imei, candidateGatewaySocket);
@@ -115,14 +124,12 @@ var handlers = {};
 (function () {
     var methodName = semasim_gateway_1.sipApiClientBackend.wakeUpUserAgent.methodName;
     handlers[methodName] = function (params, gatewaySocket) { return __awaiter(_this, void 0, void 0, function () {
-        var contactOrContactUri, contact, reached, _a, pushType, pushToken, _b, response, error_2;
+        var contact, reached, _a, pushType, pushToken, _b, response, error_3;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
                     debug("handle " + methodName);
-                    contactOrContactUri = params.contactOrContactUri;
-                    if (!(typeof contactOrContactUri !== "string")) return [3 /*break*/, 2];
-                    contact = contactOrContactUri;
+                    contact = params.contact;
                     return [4 /*yield*/, sipProxy_1.qualifyContact(contact)];
                 case 1:
                     reached = _c.sent();
@@ -130,27 +137,25 @@ var handlers = {};
                         debug("Directly reachable");
                         return [2 /*return*/, { "status": "REACHABLE" }];
                     }
-                    _c.label = 2;
-                case 2:
-                    _a = semasim_gateway_1.Contact.readPushInfos(contactOrContactUri), pushType = _a.pushType, pushToken = _a.pushToken;
+                    _a = contact.pushInfos, pushType = _a.pushType, pushToken = _a.pushToken;
                     _b = pushType;
                     switch (_b) {
-                        case "google": return [3 /*break*/, 3];
-                        case "firebase": return [3 /*break*/, 3];
+                        case "google": return [3 /*break*/, 2];
+                        case "firebase": return [3 /*break*/, 2];
                     }
-                    return [3 /*break*/, 6];
-                case 3:
-                    _c.trys.push([3, 5, , 6]);
+                    return [3 /*break*/, 5];
+                case 2:
+                    _c.trys.push([2, 4, , 5]);
                     return [4 /*yield*/, firebaseFunctions.sendPushNotification(pushToken)];
-                case 4:
+                case 3:
                     response = _c.sent();
                     debug({ response: response });
                     return [2 /*return*/, { "status": "PUSH_NOTIFICATION_SENT" }];
-                case 5:
-                    error_2 = _c.sent();
-                    debug("Error firebase", error_2);
+                case 4:
+                    error_3 = _c.sent();
+                    debug("Error firebase", error_3);
                     return [2 /*return*/, { "status": "UNREACHABLE" }];
-                case 6:
+                case 5:
                     debug("Can't send push notification for this contact");
                     return [2 /*return*/, { "status": "UNREACHABLE" }];
             }

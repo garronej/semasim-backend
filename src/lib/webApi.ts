@@ -30,12 +30,15 @@ export function getRouter(): express.Router {
 
         debug("Api call");
 
-        let handler= handlers[req.params.method];
+        try{
 
-        if (!handler)
-            return res.status(404).end();
+            handlers[req.params.method](req, res);
 
-        handler(req, res);
+        }catch(error){
+
+            fail(res, _.unknownError);
+
+        }
 
     });
 

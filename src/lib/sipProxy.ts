@@ -22,10 +22,8 @@ export async function qualifyContact(
     timeout?: number
 ): Promise<boolean> {
 
-    let flowToken = Contact.readFlowToken(contact);
-
     let clientSocket = clientSockets.get(
-        parseFlowToken(flowToken).connectionId
+        parseFlowToken(contact.flowToken).connectionId
     );
 
     if (!clientSocket) return false;
@@ -35,9 +33,9 @@ export async function qualifyContact(
     let cSeqSequenceNumber = Math.floor(Math.random() * 2000);
 
     let sipRequest = sipLibrary.parse([
-        `OPTIONS ${contact.uri} SIP/2.0`,
-        `From: <sip:${contact.endpoint}@semasim.com>;tag=${fromTag}`,
-        `To: <${contact.uri}>`,
+        `OPTIONS ${contact.ps.uri} SIP/2.0`,
+        `From: <sip:${contact.ps.endpoint}@${c.shared.domain}>;tag=${fromTag}`,
+        `To: <${contact.ps.uri}>`,
         `Call-ID: ${callId}`,
         `CSeq: ${cSeqSequenceNumber} OPTIONS`,
         "Supported: path",
@@ -60,12 +58,14 @@ export async function qualifyContact(
 
         let sipResponse = await clientSocket.evtResponse.waitForExtract(
             ({ headers }) => headers.via[0].params["branch"] === branch,
-            timeout || 1000
+            timeout || 2000
         );
 
         return true;
 
     } catch (error) {
+
+        //clientSocket.destroy();
 
         return false;
 
@@ -144,11 +144,14 @@ function handleError(
 
 }
 
+let connectionCounter= 1;
+
 function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sipLibrary.Socket(clientSocketRaw);
 
-    let connectionId = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+    //let connectionId = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+    let connectionId= `conn${connectionCounter++}`;
 
     debug(`${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
 
@@ -165,7 +168,6 @@ function onClientConnection(clientSocketRaw: net.Socket) {
         debug("From Client:\n", chunk.yellow, "\n\n")
     );
 
-
     clientSocket.evtRequest.attach(sipRequest => {
 
         try {
@@ -180,11 +182,16 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             if (!gatewaySocket) throw new Error("Target Gateway not found");
 
+
             gatewaySocket.evtClose.detach({ "boundTo": clientSocket });
             gatewaySocket.evtClose.attachOnce(clientSocket, ()=> {
                 debug(`Gateway socket closed, closing client socket ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
-                clientSocket.destroy()
+                clientSocket.destroy();
             });
+            clientSocket.evtClose.detach({ "boundTo": gatewaySocket });
+            clientSocket.evtClose.attachOnce(gatewaySocket, ()=> 
+                gatewaySocket!.evtClose.detach({ "boundTo": clientSocket })
+            );
 
             let extraParamFlowToken: Record<string, string>= {};
             extraParamFlowToken[c.shared.flowTokenKey]= buildFlowToken(connectionId, imei);
