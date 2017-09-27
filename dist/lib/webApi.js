@@ -76,6 +76,7 @@ var sipProxy_1 = require("./sipProxy");
 var db = require("./db");
 var semasim_webclient_1 = require("../semasim-webclient");
 var _constants_1 = require("./_constants");
+require("colors");
 var _debug = require("debug");
 var debug = _debug("_backendWebApi");
 function getRouter() {
@@ -94,13 +95,13 @@ function getRouter() {
 }
 exports.getRouter = getRouter;
 function fail(res, statusMessage) {
-    debug("error", statusMessage);
+    debug(("Error: " + statusMessage).red);
     res.statusMessage = statusMessage;
     res.status(400).end();
 }
 function failNoStatus(res, reason) {
     if (reason)
-        debug("error", reason);
+        debug(("Error " + reason).red);
     res.status(400).end();
 }
 var handlers = {};

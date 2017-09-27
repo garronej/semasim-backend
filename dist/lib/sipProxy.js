@@ -44,57 +44,8 @@ require("colors");
 var _debug = require("debug");
 var debug = _debug("_sipProxy");
 var informativeHostname = "semasim-backend.invalid";
-//TODO: May throw error!
-function qualifyContact(contact, timeout) {
-    return __awaiter(this, void 0, void 0, function () {
-        var clientSocket, fromTag, callId, cSeqSequenceNumber, sipRequest, branch, sipResponse, error_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    clientSocket = clientSockets.get(parseFlowToken(contact.flowToken).connectionId);
-                    if (!clientSocket)
-                        return [2 /*return*/, false];
-                    fromTag = "794ee9eb-" + Date.now();
-                    callId = "138ce538-" + Date.now();
-                    cSeqSequenceNumber = Math.floor(Math.random() * 2000);
-                    sipRequest = semasim_gateway_1.sipLibrary.parse([
-                        "OPTIONS " + contact.ps.uri + " SIP/2.0",
-                        "From: <sip:" + contact.ps.endpoint + "@" + _constants_1.c.shared.domain + ">;tag=" + fromTag,
-                        "To: <" + contact.ps.uri + ">",
-                        "Call-ID: " + callId,
-                        "CSeq: " + cSeqSequenceNumber + " OPTIONS",
-                        "Supported: path",
-                        "Max-Forwards: 70",
-                        "User-Agent: Semasim-backend",
-                        "Content-Length:  0",
-                        "\r\n"
-                    ].join("\r\n"));
-                    //TODO: should be set to [] already :(
-                    sipRequest.headers.via = [];
-                    branch = clientSocket.addViaHeader(sipRequest);
-                    debug("Sending qualify: \n", semasim_gateway_1.sipLibrary.stringify(sipRequest));
-                    clientSocket.write(sipRequest);
-                    _a.label = 1;
-                case 1:
-                    _a.trys.push([1, 3, , 4]);
-                    return [4 /*yield*/, clientSocket.evtResponse.waitForExtract(function (_a) {
-                            var headers = _a.headers;
-                            return headers.via[0].params["branch"] === branch;
-                        }, timeout || 2000)];
-                case 2:
-                    sipResponse = _a.sent();
-                    return [2 /*return*/, true];
-                case 3:
-                    error_1 = _a.sent();
-                    //clientSocket.destroy();
-                    return [2 /*return*/, false];
-                case 4: return [2 /*return*/];
-            }
-        });
-    });
-}
-exports.qualifyContact = qualifyContact;
-var clientSockets;
+exports.gatewaySockets = new semasim_gateway_1.sipLibrary.Store();
+exports.clientSockets = new semasim_gateway_1.sipLibrary.Store();
 var publicIp = "";
 function startServer() {
     return __awaiter(this, void 0, void 0, function () {
@@ -108,8 +59,6 @@ function startServer() {
                 case 2:
                     _a = _h.sent(), interfacePublicIp = _a.interfacePublicIp, interfaceLocalIp = _a.interfaceLocalIp;
                     publicIp = interfacePublicIp;
-                    exports.gatewaySockets = new semasim_gateway_1.sipLibrary.Store();
-                    clientSockets = new semasim_gateway_1.sipLibrary.Store();
                     options = _constants_1.c.tlsOptions;
                     servers = [];
                     _d = servers;
@@ -136,6 +85,7 @@ exports.startServer = startServer;
 function buildFlowToken(connectionId, imei) {
     return connectionId + "-" + imei;
 }
+exports.buildFlowToken = buildFlowToken;
 function parseFlowToken(flowToken) {
     var split = flowToken.split("-");
     return {
@@ -143,6 +93,7 @@ function parseFlowToken(flowToken) {
         "imei": split[1]
     };
 }
+exports.parseFlowToken = parseFlowToken;
 function handleError(where, socket, sipPacket, error) {
     debug(("Error in: " + where).red);
     debug(error.message);
@@ -151,24 +102,25 @@ function handleError(where, socket, sipPacket, error) {
 var connectionCounter = 1;
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new semasim_gateway_1.sipLibrary.Socket(clientSocketRaw);
-    //let connectionId = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+    //TODO: replace by Date.now()
     var connectionId = "conn" + connectionCounter++;
     debug((connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
-    clientSockets.add(connectionId, clientSocket);
+    exports.clientSockets.set(connectionId, clientSocket);
     /*
     clientSocket.evtPacket.attach(sipPacket =>
         debug("From Client Parsed:\n", sip.stringify(sipPacket).red, "\n\n")
     );
+    clientSocket.evtData.attach(chunk =>
+        debug("From Client:\n", chunk.yellow, "\n\n")
+    );
     */
-    clientSocket.evtData.attach(function (chunk) {
-        return debug("From Client:\n", chunk.yellow, "\n\n");
-    });
     clientSocket.evtRequest.attach(function (sipRequest) {
         try {
             var parsedFromUri = semasim_gateway_1.sipLibrary.parseUri(sipRequest.headers.from.uri);
             if (!parsedFromUri.user)
                 throw new Error("Request malformed, no IMEI in from header");
             var imei = parsedFromUri.user;
+            debug(("(client " + connectionId + ") " + sipRequest.method + " " + imei).yellow);
             var gatewaySocket_1 = exports.gatewaySockets.get(imei);
             if (!gatewaySocket_1)
                 throw new Error("Target Gateway not found");
@@ -179,7 +131,8 @@ function onClientConnection(clientSocketRaw) {
             });
             clientSocket.evtClose.detach({ "boundTo": gatewaySocket_1 });
             clientSocket.evtClose.attachOnce(gatewaySocket_1, function () {
-                return gatewaySocket_1.evtClose.detach({ "boundTo": clientSocket });
+                debug("Client socket " + connectionId + " closed");
+                gatewaySocket_1.evtClose.detach({ "boundTo": clientSocket });
             });
             var extraParamFlowToken = {};
             extraParamFlowToken[_constants_1.c.shared.flowTokenKey] = buildFlowToken(connectionId, imei);
@@ -201,6 +154,7 @@ function onClientConnection(clientSocketRaw) {
     });
     clientSocket.evtResponse.attach(function (sipResponse) {
         try {
+            debug(("(client " + connectionId + "): " + sipResponse.status + " " + sipResponse.reason).yellow);
             var parsedToUri = semasim_gateway_1.sipLibrary.parseUri(sipResponse.headers.to.uri);
             if (!parsedToUri.user)
                 throw new Error("Response malformed, no IMEI in to header");
@@ -225,17 +179,18 @@ function onGatewayConnection(gatewaySocketRaw) {
     gatewaySocket.evtPacket.attach(sipPacket =>
         debug("From gateway:\n", sip.stringify(sipPacket).grey, "\n\n")
     );
+    gatewaySocket.evtData.attach(chunk =>
+        debug("From gateway:\n", chunk.grey, "\n\n")
+    );
     */
-    gatewaySocket.evtData.attach(function (chunk) {
-        return debug("From gateway:\n", chunk.grey, "\n\n");
-    });
     sipApi_1.startListening(gatewaySocket);
     gatewaySocket.evtRequest.attach(function (sipRequest) {
         try {
+            debug(("(gateway): " + sipRequest.method).grey);
             var flowToken = sipRequest.headers.via[0].params[_constants_1.c.shared.flowTokenKey];
             if (!flowToken)
                 throw new Error("No flow token in topmost via header");
-            var clientSocket = clientSockets.get(parseFlowToken(flowToken).connectionId);
+            var clientSocket = exports.clientSockets.get(parseFlowToken(flowToken).connectionId);
             if (!clientSocket)
                 return;
             clientSocket.addViaHeader(sipRequest);
@@ -248,10 +203,11 @@ function onGatewayConnection(gatewaySocketRaw) {
     });
     gatewaySocket.evtResponse.attach(function (sipResponse) {
         try {
+            debug(("(gateway): " + sipResponse.status + " " + sipResponse.reason).grey);
             var flowToken = sipResponse.headers.via[0].params[_constants_1.c.shared.flowTokenKey];
             if (!flowToken)
                 throw new Error("No flow token in topmost via header");
-            var clientSocket = clientSockets.get(parseFlowToken(flowToken).connectionId);
+            var clientSocket = exports.clientSockets.get(parseFlowToken(flowToken).connectionId);
             if (!clientSocket)
                 return;
             clientSocket.rewriteRecordRoute(sipResponse, publicIp);

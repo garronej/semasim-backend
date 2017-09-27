@@ -1,4 +1,3 @@
-import * as md5 from "md5";
 import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
@@ -14,83 +13,22 @@ import "colors";
 import * as _debug from "debug";
 let debug = _debug("_sipProxy");
 
-const informativeHostname= "semasim-backend.invalid";
+const informativeHostname = "semasim-backend.invalid";
 
-//TODO: May throw error!
-export async function qualifyContact(
-    contact: Contact,
-    timeout?: number
-): Promise<boolean> {
 
-    let clientSocket = clientSockets.get(
-        parseFlowToken(contact.flowToken).connectionId
-    );
+export const gatewaySockets = new sipLibrary.Store();
+export const clientSockets = new sipLibrary.Store();
 
-    if (!clientSocket) return false;
-
-    let fromTag = `794ee9eb-${Date.now()}`;
-    let callId = `138ce538-${Date.now()}`;
-    let cSeqSequenceNumber = Math.floor(Math.random() * 2000);
-
-    let sipRequest = sipLibrary.parse([
-        `OPTIONS ${contact.ps.uri} SIP/2.0`,
-        `From: <sip:${contact.ps.endpoint}@${c.shared.domain}>;tag=${fromTag}`,
-        `To: <${contact.ps.uri}>`,
-        `Call-ID: ${callId}`,
-        `CSeq: ${cSeqSequenceNumber} OPTIONS`,
-        "Supported: path",
-        "Max-Forwards: 70",
-        "User-Agent: Semasim-backend",
-        "Content-Length:  0",
-        "\r\n"
-    ].join("\r\n")) as sipLibrary.Request;
-
-    //TODO: should be set to [] already :(
-    sipRequest.headers.via = [];
-
-    let branch = clientSocket.addViaHeader(sipRequest)
-
-    debug("Sending qualify: \n", sipLibrary.stringify(sipRequest));
-
-    clientSocket.write(sipRequest);
-
-    try {
-
-        let sipResponse = await clientSocket.evtResponse.waitForExtract(
-            ({ headers }) => headers.via[0].params["branch"] === branch,
-            timeout || 2000
-        );
-
-        return true;
-
-    } catch (error) {
-
-        //clientSocket.destroy();
-
-        return false;
-
-    }
-
-}
-
-export let gatewaySockets: sipLibrary.Store;
-let clientSockets: sipLibrary.Store;
-
-let publicIp= "";
+let publicIp = "";
 
 export async function startServer() {
 
-    let { 
-        interfacePublicIp, 
-        interfaceLocalIp 
-    } = await networkTools.retrieveIpFromHostname(
-        (await c.shared.dnsSrv_sips_tcp).name
-    );
+    let {
+        interfacePublicIp,
+        interfaceLocalIp
+    } = await networkTools.retrieveIpFromHostname((await c.shared.dnsSrv_sips_tcp).name);
 
-    publicIp= interfacePublicIp;
-
-    gatewaySockets = new sipLibrary.Store();
-    clientSockets = new sipLibrary.Store();
+    publicIp = interfacePublicIp;
 
     let options: tls.TlsOptions = c.tlsOptions;
 
@@ -116,11 +54,11 @@ export async function startServer() {
 
 }
 
-function buildFlowToken( connectionId: string, imei: string): string {
+export function buildFlowToken(connectionId: string, imei: string): string {
     return `${connectionId}-${imei}`;
 }
 
-function parseFlowToken( flowToken: string): { connectionId: string; imei: string; } {
+export function parseFlowToken(flowToken: string): { connectionId: string; imei: string; } {
 
     let split = flowToken.split("-");
 
@@ -144,29 +82,27 @@ function handleError(
 
 }
 
-let connectionCounter= 1;
+let connectionCounter = 1;
 
 function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sipLibrary.Socket(clientSocketRaw);
 
-    //let connectionId = md5(`${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
-    let connectionId= `conn${connectionCounter++}`;
+    //TODO: replace by Date.now()
+    let connectionId = `conn${connectionCounter++}`;
 
     debug(`${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
 
-    clientSockets.add(connectionId, clientSocket);
-
+    clientSockets.set(connectionId, clientSocket);
 
     /*
     clientSocket.evtPacket.attach(sipPacket =>
         debug("From Client Parsed:\n", sip.stringify(sipPacket).red, "\n\n")
     );
-    */
-
     clientSocket.evtData.attach(chunk =>
         debug("From Client:\n", chunk.yellow, "\n\n")
     );
+    */
 
     clientSocket.evtRequest.attach(sipRequest => {
 
@@ -178,23 +114,25 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             let imei = parsedFromUri.user;
 
+            debug(`(client ${connectionId}) ${sipRequest.method} ${imei}`.yellow);
+
             let gatewaySocket = gatewaySockets.get(imei);
 
             if (!gatewaySocket) throw new Error("Target Gateway not found");
 
-
             gatewaySocket.evtClose.detach({ "boundTo": clientSocket });
-            gatewaySocket.evtClose.attachOnce(clientSocket, ()=> {
+            gatewaySocket.evtClose.attachOnce(clientSocket, () => {
                 debug(`Gateway socket closed, closing client socket ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
                 clientSocket.destroy();
             });
             clientSocket.evtClose.detach({ "boundTo": gatewaySocket });
-            clientSocket.evtClose.attachOnce(gatewaySocket, ()=> 
-                gatewaySocket!.evtClose.detach({ "boundTo": clientSocket })
-            );
+            clientSocket.evtClose.attachOnce(gatewaySocket, () => {
+                debug(`Client socket ${connectionId} closed`);
+                gatewaySocket!.evtClose.detach({ "boundTo": clientSocket });
+            });
 
-            let extraParamFlowToken: Record<string, string>= {};
-            extraParamFlowToken[c.shared.flowTokenKey]= buildFlowToken(connectionId, imei);
+            let extraParamFlowToken: Record<string, string> = {};
+            extraParamFlowToken[c.shared.flowTokenKey] = buildFlowToken(connectionId, imei);
 
             gatewaySocket.addViaHeader(sipRequest, extraParamFlowToken);
 
@@ -228,6 +166,8 @@ function onClientConnection(clientSocketRaw: net.Socket) {
     clientSocket.evtResponse.attach(sipResponse => {
 
         try {
+
+            debug(`(client ${connectionId}): ${sipResponse.status} ${sipResponse.reason}`.yellow);
 
             let parsedToUri = sipLibrary.parseUri(sipResponse.headers.to.uri);
 
@@ -267,11 +207,10 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
     gatewaySocket.evtPacket.attach(sipPacket =>
         debug("From gateway:\n", sip.stringify(sipPacket).grey, "\n\n")
     );
-    */
-
     gatewaySocket.evtData.attach(chunk =>
         debug("From gateway:\n", chunk.grey, "\n\n")
     );
+    */
 
     apiStartListening(gatewaySocket);
 
@@ -279,9 +218,12 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
         try {
 
+            debug(`(gateway): ${sipRequest.method}`.grey);
+
             let flowToken = sipRequest.headers.via[0].params[c.shared.flowTokenKey];
 
-            if(!flowToken) throw new Error("No flow token in topmost via header");
+            if (!flowToken) throw new Error("No flow token in topmost via header");
+
 
             let clientSocket = clientSockets.get(
                 parseFlowToken(flowToken).connectionId
@@ -307,9 +249,11 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
         try {
 
+            debug(`(gateway): ${sipResponse.status} ${sipResponse.reason}`.grey);
+
             let flowToken = sipResponse.headers.via[0].params[c.shared.flowTokenKey];
 
-            if(!flowToken) throw new Error("No flow token in topmost via header");
+            if (!flowToken) throw new Error("No flow token in topmost via header");
 
             let clientSocket = clientSockets.get(
                 parseFlowToken(flowToken).connectionId

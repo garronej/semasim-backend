@@ -17,6 +17,8 @@ import { webApiClient as _ } from "../semasim-webclient";
 
 import { c } from "./_constants";
 
+import "colors";
+
 import * as _debug from "debug";
 let debug = _debug("_backendWebApi");
 
@@ -46,7 +48,7 @@ export function getRouter(): express.Router {
 
 function fail<T extends string>(res: express.Response, statusMessage: T) {
 
-    debug("error", statusMessage);
+    debug(`Error: ${statusMessage}`.red);
 
     res.statusMessage = statusMessage;
 
@@ -56,7 +58,7 @@ function fail<T extends string>(res: express.Response, statusMessage: T) {
 
 function failNoStatus(res: express.Response, reason?: string) {
 
-    if (reason) debug("error", reason);
+    if (reason) debug(`Error ${reason}`.red);
 
     res.status(400).end();
 
