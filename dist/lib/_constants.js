@@ -36,15 +36,16 @@ var c = /** @class */ (function () {
     c.dbParamsBackend = {
         "host": "127.0.0.1",
         "user": "root",
-        "password": fs.readFileSync(path.join(pathToPrivate, "mysql_root_user_password.txt"), "utf8").replace(/\s/g, ""),
-        "database": "semasim_backend"
+        "password": fs.readFileSync(path.join(pathToPrivate, "mysql_root_user_password.txt"), "utf8").replace(/\s/g, "")
     };
     c.__serviceAccount__ = undefined;
     c.__tlsOptions__ = undefined;
     //public static readonly reg_expires = 21601;
     c.reg_expires = 60;
     c.regExpImei = /^[0-9]{15}$/;
+    c.regExpIccid = /^[0-9]{6,22}$/;
     c.regExpEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    //TODO: better regexp
     c.regExpPassword = /^[0-9a-zA-Z]{6,}$/;
     c.regExpFourDigits = /^[0-9]{4}$/;
     return c;

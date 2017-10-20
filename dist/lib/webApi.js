@@ -74,7 +74,7 @@ var entities = new html_entities.XmlEntities;
 var semasim_gateway_1 = require("../semasim-gateway");
 var sipProxy_1 = require("./sipProxy");
 var db = require("./db");
-var semasim_webclient_1 = require("../semasim-webclient");
+var _ = require("./../../frontend/api");
 var _constants_1 = require("./_constants");
 require("colors");
 var _debug = require("debug");
@@ -84,12 +84,11 @@ function getRouter() {
         .use(logger("dev"))
         .use(bodyParser.json())
         .use("/:method", function (req, res) {
-        debug("Api call");
         try {
             handlers[req.params.method](req, res);
         }
         catch (error) {
-            fail(res, semasim_webclient_1.webApiClient.unknownError);
+            fail(res, _.unknownError);
         }
     });
 }
@@ -106,19 +105,19 @@ function failNoStatus(res, reason) {
 }
 var handlers = {};
 (function () {
-    var methodName = semasim_webclient_1.webApiClient.loginUser.methodName;
+    var methodName = _.loginUser.methodName;
     function validateBody(query) {
         try {
             var _a = query, email = _a.email, password = _a.password;
             return (email.match(_constants_1.c.regExpEmail) !== null &&
                 password.match(_constants_1.c.regExpPassword) !== null);
         }
-        catch (error) {
+        catch (_b) {
             return false;
         }
     }
     handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, email, password, user_id;
+        var body, email, password, user;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -128,15 +127,13 @@ var handlers = {};
                     if (!validateBody(body))
                         return [2 /*return*/, failNoStatus(res, "malformed")];
                     email = body.email, password = body.password;
-                    return [4 /*yield*/, db.semasim_backend.getUserIdIfGranted(email, password)];
+                    return [4 /*yield*/, db.authenticateUser(email, password)];
                 case 1:
-                    user_id = _a.sent();
-                    debug("======>", { user_id: user_id });
-                    if (!user_id)
+                    user = _a.sent();
+                    if (!user)
                         return [2 /*return*/, failNoStatus(res, "Auth failed")];
-                    req.session.user_id = user_id;
+                    req.session.user = user;
                     req.session.user_email = email;
-                    debug("User granted " + user_id);
                     res.status(200).end();
                     return [2 /*return*/];
             }
@@ -144,14 +141,14 @@ var handlers = {};
     }); };
 })();
 (function () {
-    var methodName = semasim_webclient_1.webApiClient.registerUser.methodName;
+    var methodName = _.registerUser.methodName;
     function validateBody(query) {
         try {
             var _a = query, email = _a.email, password = _a.password;
             return (email.match(_constants_1.c.regExpEmail) !== null &&
                 password.match(_constants_1.c.regExpPassword) !== null);
         }
-        catch (error) {
+        catch (_b) {
             return false;
         }
     }
@@ -160,14 +157,11 @@ var handlers = {};
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    debug("handle " + methodName);
-                    debug({ "session": req.session });
                     body = req.body;
-                    debug({ body: body });
                     if (!validateBody(body))
                         return [2 /*return*/, failNoStatus(res, "malformed")];
                     email = body.email, password = body.password;
-                    return [4 /*yield*/, db.semasim_backend.addUser(email, password)];
+                    return [4 /*yield*/, db.addUser(email, password)];
                 case 1:
                     isCreated = _a.sent();
                     if (!isCreated)
@@ -179,7 +173,7 @@ var handlers = {};
     }); };
 })();
 (function () {
-    var methodName = semasim_webclient_1.webApiClient.createdUserEndpointConfig.methodName;
+    var methodName = _.createUserEndpoint.methodName;
     function validateBody(query) {
         try {
             var _a = query, imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid, pin_first_try = _a.pin_first_try, pin_second_try = _a.pin_second_try;
@@ -188,13 +182,13 @@ var handlers = {};
                 (pin_first_try === undefined || pin_first_try.match(_constants_1.c.regExpFourDigits) !== null) &&
                 (pin_second_try === undefined || pin_second_try.match(_constants_1.c.regExpFourDigits) !== null));
         }
-        catch (error) {
+        catch (_b) {
             return false;
         }
     }
     ;
     handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, imei, last_four_digits_of_iccid, pin_first_try, pin_second_try, user_id, gatewaySocket, hasSim, unlockResult, phonebook;
+        var body, imei, last_four_digits_of_iccid, pin_first_try, pin_second_try, user, gatewaySocket, unlockResult;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -204,53 +198,36 @@ var handlers = {};
                     if (!validateBody(body))
                         return [2 /*return*/, failNoStatus(res, "malformed")];
                     imei = body.imei, last_four_digits_of_iccid = body.last_four_digits_of_iccid, pin_first_try = body.pin_first_try, pin_second_try = body.pin_second_try;
-                    user_id = req.session.user_id;
-                    if (!user_id)
+                    user = req.session.user;
+                    if (!user)
                         return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
-                    debug({ user_id: user_id });
                     gatewaySocket = sipProxy_1.gatewaySockets.get(imei);
-                    debug("Gateway socket found");
                     if (!gatewaySocket)
                         return [2 /*return*/, fail(res, "DONGLE_NOT_FOUND")];
-                    return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.doesDongleHasSim.makeCall(gatewaySocket, imei, last_four_digits_of_iccid)];
-                case 1:
-                    hasSim = _a.sent();
-                    if (!hasSim)
-                        return [2 /*return*/, fail(res, "ICCID_MISMATCH")];
                     return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.unlockDongle.makeCall(gatewaySocket, {
                             imei: imei,
                             last_four_digits_of_iccid: last_four_digits_of_iccid,
                             pin_first_try: pin_first_try,
                             pin_second_try: pin_second_try
                         })];
-                case 2:
+                case 1:
                     unlockResult = _a.sent();
-                    if (!unlockResult.dongleFound)
-                        return [2 /*return*/, fail(res, "DONGLE_NOT_FOUND")];
-                    if (unlockResult.pinState !== "READY") {
+                    if (unlockResult.status === "STILL LOCKED") {
                         if (!pin_first_try)
                             fail(res, "SIM_PIN_LOCKED_AND_NO_PIN_PROVIDED");
                         else
                             fail(res, "WRONG_PIN");
                         return [2 /*return*/];
                     }
-                    return [4 /*yield*/, db.semasim_backend.addEndpointConfig(user_id, {
-                            "dongle_imei": imei,
-                            "sim_iccid": unlockResult.iccid,
-                            "sim_number": unlockResult.number || null,
-                            "sim_service_provider": unlockResult.serviceProvider || null
-                        })];
-                case 3:
+                    if (unlockResult.status === "ERROR") {
+                        //TODO: No! Some other error may happen
+                        debug("ERROR".red);
+                        debug(unlockResult);
+                        return [2 /*return*/, fail(res, "ICCID_MISMATCH")];
+                    }
+                    return [4 /*yield*/, db.addEndpoint(unlockResult.dongle, user)];
+                case 2:
                     _a.sent();
-                    return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.getSimPhonebook.makeCall(gatewaySocket, unlockResult.iccid)];
-                case 4:
-                    phonebook = _a.sent();
-                    if (!phonebook) return [3 /*break*/, 6];
-                    return [4 /*yield*/, db.semasim_backend.setSimContacts(unlockResult.iccid, phonebook.contacts)];
-                case 5:
-                    _a.sent();
-                    _a.label = 6;
-                case 6:
                     res.status(200).end();
                     return [2 /*return*/];
             }
@@ -258,28 +235,8 @@ var handlers = {};
     }); };
 })();
 (function () {
-    var methodName = semasim_webclient_1.webApiClient.getUserEndpointConfigs.methodName;
-    handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var user_id, configs;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    debug("handle " + methodName);
-                    user_id = req.session.user_id;
-                    if (!user_id)
-                        return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
-                    return [4 /*yield*/, db.semasim_backend.getUserEndpointConfigs(user_id)];
-                case 1:
-                    configs = _a.sent();
-                    res.setHeader("Content-Type", "application/json; charset=utf-8");
-                    res.status(200).send(new Buffer(JSON.stringify(configs), "utf8"));
-                    return [2 /*return*/];
-            }
-        });
-    }); };
-})();
-(function () {
-    var methodName = semasim_webclient_1.webApiClient.getUserLinphoneConfig.methodName;
+    //<string name="semasim_login_url">https://&domain;/api/get-user-linphone-config?email_as_hex=%1$s&amp;password_as_hex=%2$s</string>
+    var methodName = "get-user-linphone-config";
     function validateQueryString(query) {
         try {
             var _a = query, email_as_hex = _a.email_as_hex, password_as_hex = _a.password_as_hex;
@@ -288,7 +245,7 @@ var handlers = {};
             return (email.match(_constants_1.c.regExpEmail) !== null &&
                 password.match(_constants_1.c.regExpPassword) !== null);
         }
-        catch (error) {
+        catch (_b) {
             return false;
         }
     }
@@ -315,9 +272,19 @@ var handlers = {};
             "</config>"
         ]).join("\n");
     }
-    function generateEndpointConfig(id, display_name, imei, last_four_digits_of_iccid, endpointConfigs) {
+    function updateEndpointConfigs(id, dongle, endpointConfigs) {
+        var display_name = (function generateDisplayName(id, sim) {
+            var infos = [];
+            if (sim.number)
+                infos.push("" + sim.number);
+            if (sim.serviceProvider)
+                infos.push("" + sim.serviceProvider);
+            var infosConcat = ": " + infos.join("-");
+            return "Sim" + (id + 1) + infosConcat;
+        })(id, dongle.sim);
         //let reg_identity= `"${display_name}" &lt;sip:${imei}@${domain};transport=tls&gt;`;
-        var reg_identity = entities.encode("\"" + display_name + "\" <sip:" + imei + "@" + domain + ";transport=tls>");
+        var reg_identity = entities.encode("\"" + display_name + "\" <sip:" + dongle.imei + "@" + domain + ";transport=tls>");
+        var last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
         endpointConfigs[endpointConfigs.length] = [
             "  <section name=\"nat_policy_" + id + "\">",
             "    <entry name=\"ref\" " + ov + ">nat_policy_" + id + "</entry>",
@@ -334,13 +301,13 @@ var handlers = {};
             "    <entry name=\"nat_policy_ref\" " + ov + ">nat_policy_" + id + "</entry>",
             "  </section>",
             "  <section name=\"auth_info_" + id + "\">",
-            "    <entry name=\"username\" " + ov + ">" + imei + "</entry>",
-            "    <entry name=\"userid\" " + ov + ">" + imei + "</entry>",
+            "    <entry name=\"username\" " + ov + ">" + dongle.imei + "</entry>",
+            "    <entry name=\"userid\" " + ov + ">" + dongle.imei + "</entry>",
             "    <entry name=\"passwd\" " + ov + ">" + last_four_digits_of_iccid + "</entry>",
             "  </section>"
         ].join("\n");
     }
-    function generatePhonebookConfig(id, contacts, phonebookConfigs) {
+    function updatePhonebookConfigs(id, contacts, phonebookConfigs) {
         var startIndex = phonebookConfigs.length;
         for (var i = 0; i < contacts.length; i++) {
             var contact = contacts[i];
@@ -355,74 +322,55 @@ var handlers = {};
             ].join("\n");
         }
     }
-    function generateDisplayName(id, sim_number, sim_service_provider, last_four_digits_of_iccid) {
-        var infos = [];
-        if (sim_number)
-            infos.push("" + sim_number);
-        if (sim_service_provider)
-            infos.push("" + sim_service_provider);
-        var infosConcat = infos.join("-");
-        if (!infosConcat)
-            infosConcat = "iccid:..." + last_four_digits_of_iccid;
-        return "Sim" + (id + 1) + ":" + infosConcat;
-    }
     handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var query, email_as_hex, password_as_hex, email, password, user_id, endpointConfigs, phonebookConfigs, id, _a, _b, _c, dongle_imei, sim_iccid, sim_number, sim_service_provider, last_four_digits_of_iccid, display_name, _d, _e, e_1_1, xml, e_1, _f;
-        return __generator(this, function (_g) {
-            switch (_g.label) {
+        var query, email_as_hex, password_as_hex, email, password, user, endpointConfigs, phonebookConfigs, id, _a, _b, dongle, e_1_1, xml, e_1, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
                     debug("handle " + methodName);
                     query = req.query;
-                    debug({ query: query });
                     if (!validateQueryString(query))
                         return [2 /*return*/, failNoStatus(res, "malformed")];
                     email_as_hex = query.email_as_hex, password_as_hex = query.password_as_hex;
                     email = (new Buffer(email_as_hex, "hex")).toString("utf8");
                     password = (new Buffer(password_as_hex, "hex")).toString("utf8");
-                    return [4 /*yield*/, db.semasim_backend.getUserIdIfGranted(email, password)];
+                    return [4 /*yield*/, db.authenticateUser(email, password)];
                 case 1:
-                    user_id = _g.sent();
-                    if (!user_id)
+                    user = _d.sent();
+                    if (!user)
                         return [2 /*return*/, failNoStatus(res, "user not found")];
                     endpointConfigs = [];
                     phonebookConfigs = [];
-                    id = -1;
-                    _g.label = 2;
+                    id = 0;
+                    _d.label = 2;
                 case 2:
-                    _g.trys.push([2, 8, 9, 10]);
-                    return [4 /*yield*/, db.semasim_backend.getUserEndpointConfigs(user_id)];
+                    _d.trys.push([2, 7, 8, 9]);
+                    return [4 /*yield*/, db.getEndpoints(user)];
                 case 3:
-                    _a = __values.apply(void 0, [_g.sent()]), _b = _a.next();
-                    _g.label = 4;
+                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                    _d.label = 4;
                 case 4:
-                    if (!!_b.done) return [3 /*break*/, 7];
-                    _c = _b.value, dongle_imei = _c.dongle_imei, sim_iccid = _c.sim_iccid, sim_number = _c.sim_number, sim_service_provider = _c.sim_service_provider;
+                    if (!!_b.done) return [3 /*break*/, 6];
+                    dongle = _b.value;
+                    updateEndpointConfigs(id, dongle, endpointConfigs);
+                    updatePhonebookConfigs(id, dongle.sim.phonebook.contacts, phonebookConfigs);
                     id++;
-                    last_four_digits_of_iccid = sim_iccid.substring(sim_iccid.length - 4);
-                    display_name = generateDisplayName(id, sim_number, sim_service_provider, last_four_digits_of_iccid);
-                    generateEndpointConfig(id, display_name, dongle_imei, last_four_digits_of_iccid, endpointConfigs);
-                    _d = generatePhonebookConfig;
-                    _e = [id];
-                    return [4 /*yield*/, db.semasim_backend.getSimContacts(sim_iccid)];
+                    _d.label = 5;
                 case 5:
-                    _d.apply(void 0, _e.concat([_g.sent(),
-                        phonebookConfigs]));
-                    _g.label = 6;
-                case 6:
                     _b = _a.next();
                     return [3 /*break*/, 4];
-                case 7: return [3 /*break*/, 10];
-                case 8:
-                    e_1_1 = _g.sent();
+                case 6: return [3 /*break*/, 9];
+                case 7:
+                    e_1_1 = _d.sent();
                     e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 10];
-                case 9:
+                    return [3 /*break*/, 9];
+                case 8:
                     try {
-                        if (_b && !_b.done && (_f = _a.return)) _f.call(_a);
+                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
                     finally { if (e_1) throw e_1.error; }
                     return [7 /*endfinally*/];
-                case 10:
+                case 9:
                     xml = generateGlobalConfig(endpointConfigs, phonebookConfigs);
                     debug(xml);
                     res.setHeader("Content-Type", "application/xml; charset=utf-8");
@@ -433,36 +381,34 @@ var handlers = {};
     }); };
 })();
 (function () {
-    var methodName = semasim_webclient_1.webApiClient.deleteUserEndpointConfig.methodName;
+    var methodName = _.deleteUserEndpoint.methodName;
     function validateBody(query) {
         try {
             var imei = query.imei;
-            return (imei.match(_constants_1.c.regExpImei) !== null);
+            return imei.match(_constants_1.c.regExpImei) !== null;
         }
-        catch (error) {
+        catch (_a) {
             return false;
         }
     }
     handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, imei, user_id, isDeleted;
+        var body, imei, user, isDeleted;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     debug("handle " + methodName);
                     body = req.body;
-                    debug({ body: body });
                     if (!validateBody(body))
                         return [2 /*return*/, failNoStatus(res, "malformed")];
                     imei = body.imei;
-                    user_id = req.session.user_id;
-                    if (!user_id)
+                    user = req.session.user;
+                    if (!user)
                         return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
-                    debug({ user_id: user_id });
-                    return [4 /*yield*/, db.semasim_backend.deleteEndpointConfig(user_id, imei)];
+                    return [4 /*yield*/, db.deleteEndpoint(imei, user)];
                 case 1:
                     isDeleted = _a.sent();
                     if (!isDeleted)
-                        return [2 /*return*/, fail(res, "ENDPOINT_CONFIG_NOT_FOUND")];
+                        return [2 /*return*/, fail(res, "ENDPOINT_NOT_FOUND")];
                     res.status(200).end();
                     return [2 /*return*/];
             }

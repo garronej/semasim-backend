@@ -15,9 +15,7 @@ import "colors";
 
 program
     .command("postinstall")
-    .description([
-        "Install the systemd service to launch at boot"
-    ].join(" "))
+    .description( "Install the systemd service to launch at boot")
     .action(async () => {
 
         await installService();
@@ -28,9 +26,7 @@ program
 
 program
     .command("preuninstall")
-    .description([
-        "Remove service from systemd"
-    ].join(" "))
+    .description( "Remove service from systemd")
     .action(async () => {
 
         await removeService();

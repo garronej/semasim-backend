@@ -48,9 +48,7 @@ var fs_1 = require("fs");
 require("colors");
 program
     .command("postinstall")
-    .description([
-    "Install the systemd service to launch at boot"
-].join(" "))
+    .description("Install the systemd service to launch at boot")
     .action(function () { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -64,9 +62,7 @@ program
 }); });
 program
     .command("preuninstall")
-    .description([
-    "Remove service from systemd"
-].join(" "))
+    .description("Remove service from systemd")
     .action(function () { return __awaiter(_this, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {

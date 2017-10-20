@@ -16,8 +16,7 @@ export class c {
         "user": "root",
         "password": fs.readFileSync( 
             path.join(pathToPrivate, "mysql_root_user_password.txt"), "utf8"
-        ).replace(/\s/g, ""),
-        "database": "semasim_backend"
+        ).replace(/\s/g, "")
     };
 
     private static __serviceAccount__: fbAdmin.ServiceAccount | undefined= undefined;
@@ -54,9 +53,12 @@ export class c {
 
     public static readonly regExpImei = /^[0-9]{15}$/;
 
+    public static readonly regExpIccid= /^[0-9]{6,22}$/;
+
     public static readonly regExpEmail =
     /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
+    //TODO: better regexp
     public static readonly regExpPassword = /^[0-9a-zA-Z]{6,}$/;
 
     public static readonly regExpFourDigits = /^[0-9]{4}$/;

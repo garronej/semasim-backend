@@ -11,12 +11,16 @@ import * as networkTools from "../tools/networkTools";
 import * as sipProxy from "./sipProxy";
 import * as webApi from "./webApi";
 
-import { webRouter, cookieSecret, webApiClient } from "../semasim-webclient";
+import { webApiPath } from "./../../frontend/api";
+import { webRouter, cookieSecret } from "./webRouter";
 
 import { c } from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_main");
+
+import * as fs from "fs";
+
 
 (async () => {
 
@@ -39,7 +43,7 @@ let debug = _debug("_main");
 
             app
                 .use(session({ "secret": cookieSecret, "resave": false, "saveUninitialized": false }))
-                .use(`/${webApiClient.webApiPath}`, webApi.getRouter())
+                .use(`/${webApiPath}`, webApi.getRouter())
                 .use(forceDomain({ hostname }))
                 .use("/", webRouter);
 

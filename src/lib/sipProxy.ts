@@ -15,9 +15,28 @@ let debug = _debug("_sipProxy");
 
 const informativeHostname = "semasim-backend.invalid";
 
+let setAutoRemove= function set(key, socket: sipLibrary.Socket){
 
-export const gatewaySockets = new sipLibrary.Store();
-export const clientSockets = new sipLibrary.Store();
+    let self: Map<any, sipLibrary.Socket> = this;
+
+    socket.evtClose.attachOnce(() =>{
+        if( self.get(key) === socket ){
+            self.delete(key);
+        }
+    });
+
+    return Map.prototype.set.call(self, key, socket);
+
+};
+
+
+/** Map connectionId => socket */
+export const clientSockets= new Map<number, sipLibrary.Socket>();
+clientSockets.set= setAutoRemove;
+
+/** Map imei => socket */
+export const gatewaySockets= new Map<string, sipLibrary.Socket>();
+gatewaySockets.set= setAutoRemove;
 
 let publicIp = "";
 
@@ -54,20 +73,6 @@ export async function startServer() {
 
 }
 
-export function buildFlowToken(connectionId: string, imei: string): string {
-    return `${connectionId}-${imei}`;
-}
-
-export function parseFlowToken(flowToken: string): { connectionId: string; imei: string; } {
-
-    let split = flowToken.split("-");
-
-    return {
-        "connectionId": split[0],
-        "imei": split[1]
-    };
-
-}
 
 function handleError(
     where: string,
@@ -82,14 +87,21 @@ function handleError(
 
 }
 
-let connectionCounter = 1;
+
+const uniqNow= (()=>{
+    let last= 0;
+    return ()=> {
+        let now= Date.now();
+        return (now<=last)?(++last):(last=now);
+    };
+})();
 
 function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sipLibrary.Socket(clientSocketRaw);
 
     //TODO: replace by Date.now()
-    let connectionId = `conn${connectionCounter++}`;
+    let connectionId = uniqNow();
 
     debug(`${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
 
@@ -120,30 +132,24 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             if (!gatewaySocket) throw new Error("Target Gateway not found");
 
-            gatewaySocket.evtClose.detach({ "boundTo": clientSocket });
-            gatewaySocket.evtClose.attachOnce(clientSocket, () => {
-                debug(`Gateway socket closed, closing client socket ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
-                clientSocket.destroy();
-            });
-            clientSocket.evtClose.detach({ "boundTo": gatewaySocket });
-            clientSocket.evtClose.attachOnce(gatewaySocket, () => {
-                debug(`Client socket ${connectionId} closed`);
-                gatewaySocket!.evtClose.detach({ "boundTo": clientSocket });
-            });
+            if( !gatewaySocket.evtClose.getHandlers().find( ({ boundTo }) => boundTo === clientSocket ) ){
 
-            let extraParamFlowToken: Record<string, string> = {};
-            extraParamFlowToken[c.shared.flowTokenKey] = buildFlowToken(connectionId, imei);
+                gatewaySocket.evtClose.attachOnce(clientSocket, clientSocket.destroy);
 
-            gatewaySocket.addViaHeader(sipRequest, extraParamFlowToken);
+                clientSocket.evtClose.attachOnce(()=> gatewaySocket!.evtClose.detach(clientSocket) );
+
+            }
+
+
+            gatewaySocket.addViaHeader(sipRequest, { "connection_id": `${connectionId}` });
 
             if (sipRequest.method === "REGISTER") {
 
                 sipLibrary.addOptionTag(sipRequest.headers, "supported", "path");
 
-                //TODO: See if it fail
                 sipRequest.headers.route = undefined;
 
-                gatewaySocket.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken);
+                gatewaySocket.addPathHeader(sipRequest, informativeHostname);
 
             } else {
 
@@ -220,14 +226,11 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             debug(`(gateway): ${sipRequest.method}`.grey);
 
-            let flowToken = sipRequest.headers.via[0].params[c.shared.flowTokenKey];
+            let connectionId = parseInt(sipRequest.headers.via[0].params["connection_id"]!);
 
-            if (!flowToken) throw new Error("No flow token in topmost via header");
+            if (!connectionId ) throw new Error("No connectionId in topmost via header");
 
-
-            let clientSocket = clientSockets.get(
-                parseFlowToken(flowToken).connectionId
-            );
+            let clientSocket = clientSockets.get(connectionId);
 
             if (!clientSocket) return;
 
@@ -251,13 +254,11 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             debug(`(gateway): ${sipResponse.status} ${sipResponse.reason}`.grey);
 
-            let flowToken = sipResponse.headers.via[0].params[c.shared.flowTokenKey];
+            let connectionId= parseInt(sipResponse.headers.via[0].params["connection_id"]!);
 
-            if (!flowToken) throw new Error("No flow token in topmost via header");
+            if (!connectionId) throw new Error("No connectionId in topmost via header");
 
-            let clientSocket = clientSockets.get(
-                parseFlowToken(flowToken).connectionId
-            );
+            let clientSocket = clientSockets.get(connectionId);
 
             if (!clientSocket) return;
 

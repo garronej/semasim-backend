@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>
+        <%= title %>
+    </title>
+    <!-- Mobile specific metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <!-- Force IE9 to render in normal mode -->
+    <!--[if IE]><meta http-equiv="x-ua-compatible" content="IE=9" /><![endif]-->
+    <meta name="author" content="SuggeElson" />
+    <meta name="description" content="AppStart admin template - new premium responsive admin template. This template is designed to help you build the site administration without losing valuable time.Template contains all the important functions which must have one backend system.Build on great twitter boostrap framework"
+    />
+    <meta name="keywords" content="admin, admin template, admin theme, responsive, responsive admin, responsive admin template, responsive theme, themeforest, 960 grid system, grid, grid theme, liquid, jquery, administration, administration template, administration theme, mobile, touch , responsive layout, boostrap, twitter boostrap"
+    />
+    <meta name="application-name" content="AppStart admin template" />
+    <!-- Import google fonts - Heading first/ text second -->
+    <link href='//fonts.googleapis.com/css?family=Roboto:400,300,300italic,400italic,700' rel='stylesheet' type='text/css'>
+    <!-- Css files -->
+    <!-- Icons -->
+    <link href="/assets/css/icons.css" rel="stylesheet" />
+    <!-- Bootstrap stylesheets (included template modifications) -->
+    <link href="/assets/css/bootstrap.css" rel="stylesheet" />
+    <!-- jQueryUI -->
+    <link href="/assets/css/appstart-theme/jquery.ui.all.css" rel="stylesheet" />
+    <!-- Plugins stylesheets (all plugin custom css) -->
+    <link href="/assets/css/plugins.css" rel="stylesheet" />
+    <!-- Main stylesheets (template main css file) -->
+    <link href="/assets/css/main.css" rel="stylesheet" />
+    <!-- Custom stylesheets ( Put your own changes here ) -->
+    <link href="/assets/css/custom.css" rel="stylesheet" />
+    <!-- Fav and touch icons -->
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/assets/img/ico/apple-touch-icon-144-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="/assets/img/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="/assets/img/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="/assets/img/ico/apple-touch-icon-57-precomposed.png">
+    <link rel="icon" href="/assets/img/ico/favicon.ico" type="image/png">
+    <!-- Windows8 touch icon ( http://www.buildmypinnedsite.com/ )-->
+    <meta name="msapplication-TileColor" content="#3399cc" />
+</head>
+
+<body class="ovh">
+    <div id="preloader">
+        <div id="preloader-logo">
+            <img src="/assets/img/preloader-logo.png" alt="Logo">
+        </div>
+        <div id="preloader-icon">
+            <i class="im-spinner icon-spin"></i>
+        </div>
+    </div>
+    <!-- Start #header -->
+    <div id="header">
+        <div class="container-fluid">
+            <div class="navbar">
+                <div class="navbar-header">
+                    <!-- Show navigation toggle on phones -->
+                    <button id="showNav" class="navbar-toggle" type="button">
+                            <span class="sr-only">Toggle navigation</span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </button>
+                    <!-- Show logo for large screens and laptops -->
+                    <a class="navbar-brand visible-lg visible-md" href="index.html">
+                            <img src="/assets/img/logo.png" alt="Jump start">
+                        </a>
+                    <!-- Show logo for small screens -->
+                    <a class="navbar-brand hidden-lg hidden-md hidden-xs" href="index.html">
+                            <img src="/assets/img/logo-sm.png" alt="Jump start">
+                        </a>
+                </div>
+                <nav id="top-nav" class="navbar-no-collapse" role="navigation">
+                    <!-- navbar search form -->
+                    <!-- Navbar nav -->
+                    <ul class="nav navbar-nav pull-right">
+                        <li class="dropdown">
+                            <a href="#" data-toggle="dropdown">
+                                    <span class="avatar-name"><%= email %></span>
+                                    <span class="caret ml5"></span>
+                                </a>
+                            <ul class="dropdown-menu right" role="menu">
+                                <li><a href="logout.ejs"><i class="im-switch"></i> Logout</a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- End #header -->
+    <!-- Start #sidebar -->
+    <aside id="sidebar">
+        <!-- Start .sidebar-inner -->
+        <div class="sidebar-inner">
+            <!-- Start .toggle-sidebar -->
+            <div class="toggle-sidebar">
+                <a href="#"><i class="im-arrow7"></i></a>
+            </div>
+            <!-- End .toggle-sidebar -->
+            <!-- Start .option-buttons -->
+            <div class="option-buttons">
+                <div class="option-buttons-inner">
+                    <form id="search-nav">
+                        <div class="form-group">
+                            <input type="text" class="form-control" placeholder="Find menu item">
+                            <i class="im-search3"></i>
+                        </div>
+                        <button type="submit" class="btn">submit</button>
+                        <a id="close-search-nav" class="close" aria-hidden="true" href="#">&times;</a>
+                    </form>
+                    <a href="#" class="mute-sounds btn btn-default btn-sm tip" title="Mute template sounds"><i class="im-volume-medium"></i></a>
+                    <a href="#" class="reset-layout btn btn-default btn-sm tip" title="Reset panels position"><i class="im-spinner12"></i></a>
+                    <a href="#" class="launch-fullscreen btn btn-default btn-sm tip" title="Launch full screen"><i class="im-expand"></i></a>
+                </div>
+            </div>
+            <!-- End .option-buttons -->
+            <!-- Start .sidebar-scrollarea -->
+            <div class="sidebar-scrollarea">
+                <h5 class="sidebar-title">Navigation</h5>
+                <ul id="sideNav" class="nav nav-pills nav-stacked">
+
+                    <li><a href="manager.ejs"><i class="im-screen"></i> <span class="txt"><%= title %></span></a></li>
+
+                </ul>
+                <div class="clearfix"></div>
+            </div>
+            <!-- End .sidebar-scrollarea -->
+        </div>
+        <!-- End .sidebar-inner -->
+    </aside>
+    <!-- End #sidebar -->
+    <!-- Start #right-sidebar -->
+    <!-- End #right-sidebar -->
+    <!-- Start #content -->
+    <div id="content">
+        <!-- Start .content-wrapper -->
+        <div class="content-wrapper">
+            <div id="page-heading" class="page-header">
+                <h2><i class="icon im-home2"></i>
+                    <%= title %>
+                </h2>
+                <!-- Start .bredcrumb -->
+                <ul id="crumb" class="breadcrumb">
+                </ul>
+                <!-- End .breadcrumb -->
+            </div>
+            <!-- Start .content-inner -->
+            <div class="content-inner">
+
+
+
+
+
+
+                <!-- Start .row -->
+                <div class="row">
+                    <div class="col-md-12 sortable-layout">
+                        <!-- col-md-12 start here -->
+
+                        <% if( userEndpoints.length ) { %>
+
+                            <!-- Start .panel -->
+                            <div class="panel panel-default plain toggle panelMove panelClose">
+                                <div class="panel-heading white-bg">
+                                    <h4 class="panel-title">
+                                        <%= table_panel_title %>
+                                    </h4>
+                                </div>
+                                <div class="panel-body">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <% for( var i=0; i<table_rows.length; i++) {%>
+                                                    <th class="per15">
+                                                        <%=  table_rows[i].title %>
+                                                    </th>
+                                                    <% } %>
+                                                        <th class="per5">
+                                                        </th>
+
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+
+                                            <% for( var i=0; i<userEndpoints.length; i++) {%>
+                                                <tr>
+
+                                                    <% for( var j=0; j<table_rows.length; j++) {%>
+                                                        <td>
+                                                            <%= userEndpoints[i][table_rows[j].key] %>
+                                                        </td>
+                                                        <% } %>
+
+                                                            <th class="per5">
+                                                                <button type="button" data-semasim-imei="<%= userEndpoints[i].dongle_imei %>" class="endpoint_config_delete_btn btn btn-danger btn-xs btn-round mr5 mb10">X</button>
+                                                            </th>
+
+                                                </tr>
+                                                <% } %>
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <!-- End .panel -->
+
+                            <% } %>
+
+                                <!-- Start .panel -->
+                                <div class="panel panel-default plain toggle panelMove panelClose">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">
+                                            <%= form_title %>
+                                        </h4>
+                                    </div>
+                                    <div class="panel-body">
+
+                                        <p>
+                                            <%= form_instructions %>
+                                        </p>
+
+                                        <form class="form-horizontal" role="form" id="new_endpoint_config">
+                                            <div class="form-group">
+                                                <label for="imei" class="col-sm-4 control-label"><%= form_fields.imei.text %>*</label>
+                                                <div class="col-sm-8">
+                                                    <input type="text" pattern="[0-9]{15}" class="form-control" id="imei" placeholder="<%= form_fields.imei.placeholder %>" required>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="last_four_digits_of_iccid" class="col-sm-4 control-label"><%= form_fields.last_four_digits_of_iccid.text %>*</label>
+                                                <div class="col-sm-8">
+                                                    <input type="text" pattern="[0-9]{4}" class="form-control" id="last_four_digits_of_iccid" placeholder="<%= form_fields.last_four_digits_of_iccid.placeholder %>"
+                                                        required>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="pin_first_try" class="col-sm-4 control-label"><%= form_fields.pin_first_try.text %> </label>
+                                                <div class="col-sm-8">
+                                                    <input type="text" pattern="[0-9]{4}" class="form-control" id="pin_first_try" placeholder="<%= form_fields.pin_first_try.placeholder %>">
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="pin_second_try" class="col-sm-4 control-label"><%= form_fields.pin_second_try.text %> </label>
+                                                <div class="col-sm-8">
+                                                    <input type="text" pattern="[0-9]{4}" class="form-control" id="pin_second_try" placeholder="<%= form_fields.pin_second_try.placeholder %>">
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <div class="col-sm-12 text-right">
+                                                    <button type="submit" class="btn btn-default"><%= submit %></button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                                <!-- End .panel -->
+
+                    </div>
+                    <!-- col-lg-12 end here -->
+
+                </div>
+                <!-- End .row -->
+
+            </div>
+            <!-- End .content-inner -->
+
+            <!-- Panel Modal -->
+            <div class="modal fade" id="panelModal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-body p0">
+                            <div class="panel panel-primary mb0">
+                                <!-- Start .panel -->
+                                <div class="panel-heading">
+                                    <h4 class="panel-title"></h4>
+                                    <div class="panel-controls">
+                                        <a href="#" data-dismiss="modal"><i class="im-close"></i></a>
+                                    </div>
+                                </div>
+                                <div class="panel-body">
+                                    <h1></h1>
+                                </div>
+                            </div>
+                            <!-- End .panel -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Panel Modal -->
+
+
+
+        </div>
+        <!-- End .content-wrapper -->
+        <div class="clearfix"></div>
+    </div>
+    <!-- End #content -->
+    <!-- Javascripts -->
+    <!-- Important javascript libs(put in all pages) -->
+    <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script>
+        window.jQuery || document.write('<script src="/assets/js/libs/jquery-2.1.1.min.js">\x3C/script>')
+    </script>
+    <script src="//code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+    <script>
+        window.jQuery || document.write('<script src="/assets/js/libs/jquery-ui-1.10.4.min.js">\x3C/script>')
+    </script>
+    <!--[if lt IE 9]>
+  <script type="text/javascript" src="/assets/js/libs/excanvas.min.js"></script>
+  <script type="text/javascript" src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <script type="text/javascript" src="/assets/js/libs/respond.min.js"></script>
+<![endif]-->
+    <!-- Bootstrap plugins -->
+    <script src="/assets/js/bootstrap/bootstrap.js"></script>
+    <!-- Core plugins ( not remove ) -->
+    <script src="/assets/js/libs/modernizr.custom.js"></script>
+    <!-- Handle responsive view functions -->
+    <script src="/assets/js/jRespond.min.js"></script>
+    <!-- Custom scroll for sidebars,tables and etc. -->
+    <script src="/assets/plugins/core/slimscroll/jquery.slimscroll.min.js"></script>
+    <script src="/assets/plugins/core/slimscroll/jquery.slimscroll.horizontal.min.js"></script>
+    <!-- Highlight code blocks -->
+    <script src="/assets/plugins/misc/highlight/highlight.pack.js"></script>
+    <!-- Handle template sounds -->
+    <script src="/assets/plugins/misc/ion-sound/ion.sound.js"></script>
+    <!-- Proivde quick search for many widgets -->
+    <script src="/assets/plugins/core/quicksearch/jquery.quicksearch.js"></script>
+    <!-- Prompt modal -->
+    <script src="/assets/plugins/ui/bootbox/bootbox.js"></script>
+    <!-- Other plugins ( load only nessesary plugins for every page) -->
+    <script src="/assets/plugins/forms/icheck/jquery.icheck.js"></script>
+
+    <script src="/assets/js/jquery.appStart.js"></script>
+    <script src="/assets/js/app.js"></script>
+
+
+    <script src="/manager/index.js"></script>
+</body>
+</html>

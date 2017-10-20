@@ -45,7 +45,8 @@ var forceDomain = require("forcedomain");
 var networkTools = require("../tools/networkTools");
 var sipProxy = require("./sipProxy");
 var webApi = require("./webApi");
-var semasim_webclient_1 = require("../semasim-webclient");
+var api_1 = require("./../../frontend/api");
+var webRouter_1 = require("./webRouter");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_main");
@@ -67,10 +68,10 @@ var debug = _debug("_main");
                         var app = express();
                         app.set("view engine", "ejs");
                         app
-                            .use(session({ "secret": semasim_webclient_1.cookieSecret, "resave": false, "saveUninitialized": false }))
-                            .use("/" + semasim_webclient_1.webApiClient.webApiPath, webApi.getRouter())
+                            .use(session({ "secret": webRouter_1.cookieSecret, "resave": false, "saveUninitialized": false }))
+                            .use("/" + api_1.webApiPath, webApi.getRouter())
                             .use(forceDomain({ hostname: hostname }))
-                            .use("/", semasim_webclient_1.webRouter);
+                            .use("/", webRouter_1.webRouter);
                         https.createServer(_constants_1.c.tlsOptions)
                             .on("request", app)
                             .listen(443, interfaceLocalIp)

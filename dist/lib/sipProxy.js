@@ -44,8 +44,21 @@ require("colors");
 var _debug = require("debug");
 var debug = _debug("_sipProxy");
 var informativeHostname = "semasim-backend.invalid";
-exports.gatewaySockets = new semasim_gateway_1.sipLibrary.Store();
-exports.clientSockets = new semasim_gateway_1.sipLibrary.Store();
+var setAutoRemove = function set(key, socket) {
+    var self = this;
+    socket.evtClose.attachOnce(function () {
+        if (self.get(key) === socket) {
+            self.delete(key);
+        }
+    });
+    return Map.prototype.set.call(self, key, socket);
+};
+/** Map connectionId => socket */
+exports.clientSockets = new Map();
+exports.clientSockets.set = setAutoRemove;
+/** Map imei => socket */
+exports.gatewaySockets = new Map();
+exports.gatewaySockets.set = setAutoRemove;
 var publicIp = "";
 function startServer() {
     return __awaiter(this, void 0, void 0, function () {
@@ -82,28 +95,22 @@ function startServer() {
     });
 }
 exports.startServer = startServer;
-function buildFlowToken(connectionId, imei) {
-    return connectionId + "-" + imei;
-}
-exports.buildFlowToken = buildFlowToken;
-function parseFlowToken(flowToken) {
-    var split = flowToken.split("-");
-    return {
-        "connectionId": split[0],
-        "imei": split[1]
-    };
-}
-exports.parseFlowToken = parseFlowToken;
 function handleError(where, socket, sipPacket, error) {
     debug(("Error in: " + where).red);
     debug(error.message);
     socket.destroy();
 }
-var connectionCounter = 1;
+var uniqNow = (function () {
+    var last = 0;
+    return function () {
+        var now = Date.now();
+        return (now <= last) ? (++last) : (last = now);
+    };
+})();
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new semasim_gateway_1.sipLibrary.Socket(clientSocketRaw);
     //TODO: replace by Date.now()
-    var connectionId = "conn" + connectionCounter++;
+    var connectionId = uniqNow();
     debug((connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     exports.clientSockets.set(connectionId, clientSocket);
     /*
@@ -124,24 +131,18 @@ function onClientConnection(clientSocketRaw) {
             var gatewaySocket_1 = exports.gatewaySockets.get(imei);
             if (!gatewaySocket_1)
                 throw new Error("Target Gateway not found");
-            gatewaySocket_1.evtClose.detach({ "boundTo": clientSocket });
-            gatewaySocket_1.evtClose.attachOnce(clientSocket, function () {
-                debug("Gateway socket closed, closing client socket " + clientSocket.remoteAddress + ":" + clientSocket.remotePort);
-                clientSocket.destroy();
-            });
-            clientSocket.evtClose.detach({ "boundTo": gatewaySocket_1 });
-            clientSocket.evtClose.attachOnce(gatewaySocket_1, function () {
-                debug("Client socket " + connectionId + " closed");
-                gatewaySocket_1.evtClose.detach({ "boundTo": clientSocket });
-            });
-            var extraParamFlowToken = {};
-            extraParamFlowToken[_constants_1.c.shared.flowTokenKey] = buildFlowToken(connectionId, imei);
-            gatewaySocket_1.addViaHeader(sipRequest, extraParamFlowToken);
+            if (!gatewaySocket_1.evtClose.getHandlers().find(function (_a) {
+                var boundTo = _a.boundTo;
+                return boundTo === clientSocket;
+            })) {
+                gatewaySocket_1.evtClose.attachOnce(clientSocket, clientSocket.destroy);
+                clientSocket.evtClose.attachOnce(function () { return gatewaySocket_1.evtClose.detach(clientSocket); });
+            }
+            gatewaySocket_1.addViaHeader(sipRequest, { "connection_id": "" + connectionId });
             if (sipRequest.method === "REGISTER") {
                 semasim_gateway_1.sipLibrary.addOptionTag(sipRequest.headers, "supported", "path");
-                //TODO: See if it fail
                 sipRequest.headers.route = undefined;
-                gatewaySocket_1.addPathHeader(sipRequest, informativeHostname, extraParamFlowToken);
+                gatewaySocket_1.addPathHeader(sipRequest, informativeHostname);
             }
             else {
                 gatewaySocket_1.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
@@ -187,10 +188,10 @@ function onGatewayConnection(gatewaySocketRaw) {
     gatewaySocket.evtRequest.attach(function (sipRequest) {
         try {
             debug(("(gateway): " + sipRequest.method).grey);
-            var flowToken = sipRequest.headers.via[0].params[_constants_1.c.shared.flowTokenKey];
-            if (!flowToken)
-                throw new Error("No flow token in topmost via header");
-            var clientSocket = exports.clientSockets.get(parseFlowToken(flowToken).connectionId);
+            var connectionId = parseInt(sipRequest.headers.via[0].params["connection_id"]);
+            if (!connectionId)
+                throw new Error("No connectionId in topmost via header");
+            var clientSocket = exports.clientSockets.get(connectionId);
             if (!clientSocket)
                 return;
             clientSocket.addViaHeader(sipRequest);
@@ -204,10 +205,10 @@ function onGatewayConnection(gatewaySocketRaw) {
     gatewaySocket.evtResponse.attach(function (sipResponse) {
         try {
             debug(("(gateway): " + sipResponse.status + " " + sipResponse.reason).grey);
-            var flowToken = sipResponse.headers.via[0].params[_constants_1.c.shared.flowTokenKey];
-            if (!flowToken)
-                throw new Error("No flow token in topmost via header");
-            var clientSocket = exports.clientSockets.get(parseFlowToken(flowToken).connectionId);
+            var connectionId = parseInt(sipResponse.headers.via[0].params["connection_id"]);
+            if (!connectionId)
+                throw new Error("No connectionId in topmost via header");
+            var clientSocket = exports.clientSockets.get(connectionId);
             if (!clientSocket)
                 return;
             clientSocket.rewriteRecordRoute(sipResponse, publicIp);

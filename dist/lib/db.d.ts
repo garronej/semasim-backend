@@ -1,18 +1,11 @@
-import { typesDef } from "chan-dongle-extended-client";
-import Contact = typesDef.Contact;
-export declare namespace semasim_backend {
-    interface EndpointConfig {
-        dongle_imei: string;
-        sim_iccid: string;
-        sim_service_provider: string | null;
-        sim_number: string | null;
-    }
-    function addUser(email: string, password: string): Promise<number>;
-    function deleteUser(user_id: number): Promise<boolean>;
-    function getUserIdIfGranted(email: string, password: string): Promise<number>;
-    function addEndpointConfig(user_id: number, {dongle_imei, sim_iccid, sim_service_provider, sim_number}: EndpointConfig): Promise<boolean>;
-    function deleteEndpointConfig(user_id: number, imei: string): Promise<boolean>;
-    function getUserEndpointConfigs(user_id: number): Promise<EndpointConfig[]>;
-    function getSimContacts(sim_iccid: string): Promise<Contact[]>;
-    function setSimContacts(sim_iccid: string, contacts: Contact[]): Promise<boolean>;
-}
+import { DongleController as Dc } from "chan-dongle-extended-client";
+/** For test purpose only */
+export declare function flush(): Promise<void>;
+/** Return user.id_ or undefined */
+export declare function addUser(email: string, password: string): Promise<number | undefined>;
+/** Return user.id_ or undefined if auth failed */
+export declare function authenticateUser(email: string, password: string): Promise<number | undefined>;
+export declare function addEndpoint(dongle: Dc.ActiveDongle, user: number): Promise<void>;
+export declare function getEndpoints(user: number): Promise<Dc.ActiveDongle[]>;
+export declare function deleteUser(user: number): Promise<boolean>;
+export declare function deleteEndpoint(imei: string, user: number): Promise<boolean>;

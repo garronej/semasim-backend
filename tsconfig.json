@@ -14,7 +14,7 @@
         "newLine": "LF",
         "downlevelIteration": true
     },
-    "filesGlob": [
-        "./src/**/*.ts"
+    "include": [
+        "src/**/*"
     ]
 }

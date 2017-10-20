@@ -8,8 +8,7 @@ import {
 import * as firebaseFunctions from "../tools/firebaseFunctions";
 import { 
     gatewaySockets, 
-    clientSockets, 
-    parseFlowToken 
+    clientSockets
 } from "./sipProxy";
 
 import { c } from "./_constants";
@@ -28,11 +27,11 @@ export function startListening(gatewaySocket: sipLibrary.Socket) {
 
             try {
 
-                debug(`${method}: params: ${JSON.stringify(params)}...`);
+                debug(`${method}: params: ${JSON.stringify(params,null,2)}...`);
 
                 let response = await handlers[method](params, gatewaySocket);
 
-                debug(`...${method}: response: ${JSON.stringify(response)}`);
+                debug(`...${method}: response: ${JSON.stringify(response, null, 2)}`);
 
                 sendResponse(response);
 
@@ -49,9 +48,8 @@ export function startListening(gatewaySocket: sipLibrary.Socket) {
 
 }
 
-type Payload = Record<string, any>;
-
-const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socket) => Promise<Payload>> = {};
+/** Record methodName => handler */
+const handlers: Record<string, (params: any, gatewaySocket: sipLibrary.Socket) => Promise<any>> = {};
 
 (() => {
 
@@ -59,55 +57,62 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
     type Params = _.claimDongle.Params;
     type Response = _.claimDongle.Response;
 
-    handlers[methodName] = async (params: Params, gatewaySocket: sipLibrary.Socket): Promise<Response> => {
+    handlers[methodName] = async function(
+        params: Params, 
+        gatewaySocket: sipLibrary.Socket
+    ): Promise<Response> {
 
         let { imei } = params;
         let candidateGatewaySocket = gatewaySocket;
-
         let currentGatewaySocket = gatewaySockets.get(imei);
 
-        if (!currentGatewaySocket) {
-            gatewaySockets.set(imei, candidateGatewaySocket);
-            return { "isGranted": true };
-        }
+        let grant= ()=> {
 
-        if (currentGatewaySocket === candidateGatewaySocket) {
+            if( candidateGatewaySocket !== currentGatewaySocket ){
+                gatewaySockets.set(imei, candidateGatewaySocket);
+            }
+
             return { "isGranted": true };
+        };
+
+
+        if (!currentGatewaySocket || currentGatewaySocket === candidateGatewaySocket) {
+            return grant();
         }
 
         let currentResp: sipApiGateway.isDongleConnected.Response;
 
         try{
-
             currentResp = await sipApiGateway.isDongleConnected.makeCall(currentGatewaySocket, imei);
-
-        }catch(error){
-
-            debug("Gateway did not behave the way it is supposed to".red);
-
-            return { "isGranted": true };
-
+        }catch{
+            debug("Current gateway did not respond. Grant access to candidate".red);
+            return grant();
         }
 
         if (currentResp.isConnected) {
-            debug("Attack attempt, we refuse to associate socket to this dongle".red);
+            debug("Attempt to claim a dongle already connected elsewhere. Deny access".red);
             return { "isGranted": false };
         }
 
-        let candidateResp = await sipApiGateway.isDongleConnected.makeCall(candidateGatewaySocket, imei);
+        let candidateResp: sipApiGateway.isDongleConnected.Response;
+
+        try{
+            candidateResp = await sipApiGateway.isDongleConnected.makeCall(candidateGatewaySocket, imei);
+        }catch{
+            debug("Candidate gateway did not behave the way it was supposed. Deny access".red);
+            return { "isGranted": false };
+        }
 
         if (candidateResp.isConnected) {
-            gatewaySockets.set(imei, candidateGatewaySocket);
-            return { "isGranted": true };
+            return grant();
         }
 
-
-        if (candidateResp.lastConnectionTimestamp > currentResp.lastConnectionTimestamp) {
-            gatewaySockets.set(imei, candidateGatewaySocket);
-            return { "isGranted": true };
+        if (candidateResp.lastConnection.getTime() > currentResp.lastConnection.getTime()) {
+            return grant();
+        }else{
+            debug("Dongle has been more recently connected to the current socket. Deny access".red);
+            return { "isGranted": false };
         }
-
-        return { "isGranted": false };
 
     };
 
@@ -115,11 +120,14 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
 
 (() => {
 
-    let methodName = _.wakeUpUserAgent.methodName;
-    type Params = _.wakeUpUserAgent.Params;
-    type Response = _.wakeUpUserAgent.Response;
+    let methodName = _.wakeUpContact.methodName;
+    type Params = _.wakeUpContact.Params;
+    type Response = _.wakeUpContact.Response;
 
-    handlers[methodName] = async (params: Params, gatewaySocket: sipLibrary.Socket): Promise<Response> => {
+    handlers[methodName] = async function(
+        params: Params, 
+        gatewaySocket: sipLibrary.Socket
+    ): Promise<Response> {
 
         let { contact } = params;
 
@@ -127,7 +135,7 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
 
         if( reached ) return { "status": "REACHABLE" };
 
-        let isSuccess= await sendPushNotification(contact);
+        let isSuccess= await sendPushNotification(contact.uaEndpoint.ua);
 
         return { "status": isSuccess?"PUSH_NOTIFICATION_SENT":"UNREACHABLE" };
 
@@ -137,15 +145,18 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
 
 (() => {
 
-    let methodName = _.forceReRegister.methodName;
-    type Params = _.forceReRegister.Params;
-    type Response = _.forceReRegister.Response;
+    let methodName = _.sendPushNotification.methodName;
+    type Params = _.sendPushNotification.Params;
+    type Response = _.sendPushNotification.Response;
 
-    handlers[methodName] = async (params: Params, gatewaySocket: sipLibrary.Socket): Promise<Response> => {
+    handlers[methodName] = async function(
+        params: Params, 
+        gatewaySocket: sipLibrary.Socket
+    ): Promise<Response> {
 
-        let { contact } = params;
+        let { ua } = params;
 
-        let isPushNotificationSent= await sendPushNotification(contact);
+        let isPushNotificationSent= await sendPushNotification(ua);
 
         return { isPushNotificationSent };
 
@@ -153,7 +164,8 @@ const handlers: Record<string, (params: Payload, gatewaySocket: sipLibrary.Socke
 
 })();
 
-const qualifyPending = new Map<string, Promise<boolean>>();
+/** Map connectionId => last qualify result */
+const qualifyPending = new Map<number, Promise<boolean>>();
 
 qualifyPending.set = function set(connectionId, promiseResult) {
 
@@ -165,13 +177,11 @@ qualifyPending.set = function set(connectionId, promiseResult) {
 
 }
 
-//TODO: May throw error!
-export function qualifyContact(
-    contact: Contact,
-    timeout = 2000
-): Promise<boolean> {
 
-    let { connectionId } = parseFlowToken(contact.flowToken);
+//TODO: May throw error!
+export function qualifyContact( contact: Contact): Promise<boolean> {
+
+    let connectionId = contact.connectionId;
 
     let promiseResult = qualifyPending.get(connectionId);
 
@@ -190,10 +200,12 @@ export function qualifyContact(
         let callId = `138ce538-${Date.now()}`;
         let cSeqSequenceNumber = Math.floor(Math.random() * 2000);
 
+        let imei= contact.uaEndpoint.endpoint.dongle.imei;
+
         let sipRequest = sipLibrary.parse([
-            `OPTIONS ${contact.ps.uri} SIP/2.0`,
-            `From: <sip:${contact.ps.endpoint}@${c.shared.domain}>;tag=${fromTag}`,
-            `To: <${contact.ps.uri}>`,
+            `OPTIONS ${contact.uri} SIP/2.0`,
+            `From: <sip:${imei}@${c.shared.domain}>;tag=${fromTag}`,
+            `To: <${contact.uri}>`,
             `Call-ID: ${callId}`,
             `CSeq: ${cSeqSequenceNumber} OPTIONS`,
             "Supported: path",
@@ -208,17 +220,17 @@ export function qualifyContact(
 
         let branch = clientSocket.addViaHeader(sipRequest)
 
-        debug(`(backend) ${sipRequest.method} ${contact.ps.endpoint}`.blue);
+        debug(`(backend) ${sipRequest.method} ${imei}`.blue);
         clientSocket.write(sipRequest);
 
         try {
 
-            let sipResponse = await clientSocket.evtResponse.waitForExtract(
+            let sipResponse = await clientSocket.evtResponse.attachOnceExtract(
                 ({ headers }) => headers.via[0].params["branch"] === branch,
-                timeout
+                2500, ()=>{}
             );
 
-            debug(`(client ${connectionId}): ${sipResponse.status} ${sipResponse.reason} for qualify ${contact.ps.endpoint}`.yellow);
+            debug(`(client ${connectionId}): ${sipResponse.status} ${sipResponse.reason} for qualify ${imei}`.yellow);
 
             return true;
 
@@ -237,23 +249,22 @@ export function qualifyContact(
 }
 
 
+/** Map uaInstance => Response to last push */
 const pushPending= new Map<string, Promise<boolean>>();
 
 pushPending.set= function set(key, promiseResult){
 
     let self: typeof pushPending= this;
 
-    setTimeout(()=> self.delete(key), 4000);
+    setTimeout(()=> self.delete(key), 10000);
 
     return Map.prototype.set.call(self, key, promiseResult);
 
 }
 
-function sendPushNotification(contact: Contact): Promise<boolean> {
+function sendPushNotification(ua: Contact.UaEndpoint.Ua): Promise<boolean> {
 
-    let key = JSON.stringify(contact.pushInfos);
-
-    let promiseResult= pushPending.get(key);
+    let promiseResult= pushPending.get(ua.instance);
 
     if ( promiseResult ){ 
         debug("use cache");
@@ -262,15 +273,17 @@ function sendPushNotification(contact: Contact): Promise<boolean> {
 
     promiseResult= (async ()=> {
 
-        let { pushType, pushToken } = contact.pushInfos;
+        if (!ua.pushToken) return false;
 
-        switch (pushType) {
+        let { type, token } = ua.pushToken;
+
+        switch (type) {
             case "google":
             case "firebase":
 
                 try {
 
-                    await firebaseFunctions.sendPushNotification(pushToken!);
+                    await firebaseFunctions.sendPushNotification(token);
 
                     return true;
 
@@ -283,18 +296,14 @@ function sendPushNotification(contact: Contact): Promise<boolean> {
                 }
 
             default:
-                debug(`Can't send push notification for this contact ${contact.pretty}`.red);
+                debug(`Can't send push notification to ua`.red);
                 return false;
         }
-
         
     })();
 
-    pushPending.set(key, promiseResult);
+    pushPending.set(ua.instance, promiseResult);
 
     return promiseResult;
 
 }
-
-
-
