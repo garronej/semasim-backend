@@ -3,7 +3,8 @@
   "description": "Central semasim server",
   "version": "0.6.0",
   "scripts": {
-    "postinstall": "npm run install-frontend",
+    "postinstall": "npm run fetch-web-assets && npm run install-frontend",
+    "fetch-web-assets": "cd res/theme-static/ && git clone https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/web-assets.git assets",
     "install-frontend": "npm run install-api && npm run install-login-page && npm run install-manager-page",
     "install-api": "cd ./frontend/api && npm install",
     "install-login-page": "cd ./frontend/login-page && npm install",
