@@ -1,10 +1,9 @@
-
 -- phpMyAdmin SQL Dump
 -- version 4.2.12deb2+deb8u2
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Jeu 19 Octobre 2017 à 15:23
+-- Généré le :  Sam 21 Octobre 2017 à 17:55
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -20,6 +19,8 @@ SET time_zone = "+00:00";
 --
 -- Base de données :  `semasim`
 --
+CREATE DATABASE IF NOT EXISTS `semasim` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+USE `semasim`;
 
 -- --------------------------------------------------------
 
@@ -88,7 +89,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `email` varchar(150) NOT NULL,
   `salt` varchar(16) NOT NULL,
   `hash` varchar(40) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 
 --
 -- Index pour les tables exportées
@@ -110,7 +111,7 @@ ALTER TABLE `dongle`
 -- Index pour la table `endpoint`
 --
 ALTER TABLE `endpoint`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `dongle_2` (`dongle`,`sim`), ADD KEY `dongle` (`dongle`), ADD KEY `sim` (`sim`), ADD KEY `user` (`user`);
+ ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `dongle_2` (`dongle`,`sim`), ADD UNIQUE KEY `user_2` (`user`,`dongle`), ADD KEY `dongle` (`dongle`), ADD KEY `sim` (`sim`), ADD KEY `user` (`user`);
 
 --
 -- Index pour la table `sim`
@@ -122,7 +123,7 @@ ALTER TABLE `sim`
 -- Index pour la table `user`
 --
 ALTER TABLE `user`
- ADD PRIMARY KEY (`id_`);
+ ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `email` (`email`);
 
 --
 -- AUTO_INCREMENT pour les tables exportées
@@ -152,7 +153,7 @@ MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=2;
 --
 -- Contraintes pour les tables exportées
 --
@@ -174,4 +175,9 @@ ADD CONSTRAINT `endpoint_ibfk_3` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- Create user 'semasim' with passord 'semasim'
+GRANT USAGE ON *.* TO 'semasim'@'localhost' IDENTIFIED BY PASSWORD '*06F17F404CC5FA440043FF7299795394C01AA1DA';
+
+GRANT ALL PRIVILEGES ON `semasim`.* TO 'semasim'@'localhost' WITH GRANT OPTION;
 

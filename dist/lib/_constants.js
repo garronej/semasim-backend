@@ -35,8 +35,9 @@ var c = /** @class */ (function () {
     c.serviceName = "semasim-backend";
     c.dbParamsBackend = {
         "host": "127.0.0.1",
-        "user": "root",
-        "password": fs.readFileSync(path.join(pathToPrivate, "mysql_root_user_password.txt"), "utf8").replace(/\s/g, "")
+        "user": "semasim",
+        "password": "semasim",
+        "database": "semasim"
     };
     c.__serviceAccount__ = undefined;
     c.__tlsOptions__ = undefined;

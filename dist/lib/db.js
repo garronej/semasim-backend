@@ -83,7 +83,7 @@ var debug = _debug("_db");
 var connection = undefined;
 function query(sql, values) {
     if (!connection) {
-        connection = mysql.createConnection(__assign({}, _constants_1.c.dbParamsBackend, { "database": "semasim", "multipleStatements": true }));
+        connection = mysql.createConnection(__assign({}, _constants_1.c.dbParamsBackend, { "multipleStatements": true }));
     }
     return semasim_gateway_1.mySqlFunctions.queryOnConnection(connection, sql, values);
 }

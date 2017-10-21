@@ -76,6 +76,6 @@ import * as fs from "fs";
         }
     );
 
-    debug(`...https redirect started`);
+    debug(`...http redirect to https started`);
 
 })();

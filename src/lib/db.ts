@@ -21,9 +21,7 @@ function query(
 
         connection = mysql.createConnection({
             ...c.dbParamsBackend,
-            "database": "semasim",
             "multipleStatements": true
-
         });
 
     }

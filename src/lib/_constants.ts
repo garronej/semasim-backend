@@ -13,10 +13,9 @@ export class c {
 
     public static readonly dbParamsBackend = {
         "host": "127.0.0.1",
-        "user": "root",
-        "password": fs.readFileSync( 
-            path.join(pathToPrivate, "mysql_root_user_password.txt"), "utf8"
-        ).replace(/\s/g, "")
+        "user": "semasim",
+        "password": "semasim",
+        "database": "semasim"
     };
 
     private static __serviceAccount__: fbAdmin.ServiceAccount | undefined= undefined;

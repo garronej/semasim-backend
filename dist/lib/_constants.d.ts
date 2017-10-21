@@ -4,8 +4,6 @@ export declare class c {
         new (): {};
         readonly gatewayPort: 80;
         readonly domain: "semasim.com";
-        readonly regExpImei: RegExp;
-        readonly regExpFourDigits: RegExp;
         readonly dnsSrv_sips_tcp: Promise<{
             name: string;
             port: number;
@@ -16,6 +14,7 @@ export declare class c {
         "host": string;
         "user": string;
         "password": string;
+        "database": string;
     };
     private static __serviceAccount__;
     static readonly serviceAccount: fbAdmin.ServiceAccount;
