@@ -1,7 +1,5 @@
 # semasim-backend
 
-# semasim-gateway
-
 * Install
 
 ``` bash

@@ -94,7 +94,7 @@ var debug = _debug("_main");
                     })];
             case 4:
                 _a.sent();
-                debug("...https redirect started");
+                debug("...http redirect to https started");
                 return [2 /*return*/];
         }
     });
