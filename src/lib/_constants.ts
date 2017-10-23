@@ -47,8 +47,7 @@ export class c {
 
     }
 
-    //public static readonly reg_expires = 21601;
-    public static readonly reg_expires = 60;
+    public static readonly reg_expires = 21601;
 
     public static readonly regExpImei = /^[0-9]{15}$/;
 
