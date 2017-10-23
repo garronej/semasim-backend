@@ -314,5 +314,3 @@ export async function deleteEndpoint(
     return isDeleted;
 
 }
-
-

@@ -13,8 +13,6 @@ import "colors";
 import * as _debug from "debug";
 let debug = _debug("_sipProxy");
 
-const informativeHostname = "semasim-backend.invalid";
-
 let setAutoRemove= function set(key, socket: sipLibrary.Socket){
 
     let self: Map<any, sipLibrary.Socket> = this;
@@ -87,7 +85,6 @@ function handleError(
 
 }
 
-
 const uniqNow= (()=>{
     let last= 0;
     return ()=> {
@@ -100,7 +97,6 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     let clientSocket = new sipLibrary.Socket(clientSocketRaw);
 
-    //TODO: replace by Date.now()
     let connectionId = uniqNow();
 
     debug(`${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
@@ -109,7 +105,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     /*
     clientSocket.evtPacket.attach(sipPacket =>
-        debug("From Client Parsed:\n", sip.stringify(sipPacket).red, "\n\n")
+        debug("From Client Parsed:\n", sipLibrary.stringify(sipPacket).red, "\n\n")
     );
     clientSocket.evtData.attach(chunk =>
         debug("From Client:\n", chunk.yellow, "\n\n")
@@ -149,11 +145,11 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
                 sipRequest.headers.route = undefined;
 
-                gatewaySocket.addPathHeader(sipRequest, informativeHostname);
+                gatewaySocket.addPathHeader(sipRequest);
 
             } else {
 
-                gatewaySocket.shiftRouteAndAddRecordRoute(sipRequest, informativeHostname);
+                gatewaySocket.shiftRouteAndUnshiftRecordRoute(sipRequest);
 
             }
 
@@ -185,7 +181,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             if (!gatewaySocket) throw new Error("Target Gateway not found");
 
-            gatewaySocket.rewriteRecordRoute(sipResponse, informativeHostname);
+            gatewaySocket.pushRecordRoute(sipResponse, true);
 
             sipResponse.headers.via.shift();
 
@@ -211,7 +207,7 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
     /*
     gatewaySocket.evtPacket.attach(sipPacket =>
-        debug("From gateway:\n", sip.stringify(sipPacket).grey, "\n\n")
+        debug("From gateway:\n", sipLibrary.stringify(sipPacket).grey, "\n\n")
     );
     gatewaySocket.evtData.attach(chunk =>
         debug("From gateway:\n", chunk.grey, "\n\n")
@@ -236,7 +232,7 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             clientSocket.addViaHeader(sipRequest);
 
-            clientSocket.shiftRouteAndAddRecordRoute(sipRequest, publicIp);
+            clientSocket.shiftRouteAndUnshiftRecordRoute(sipRequest, publicIp);
 
             clientSocket.write(sipRequest);
 
@@ -262,7 +258,7 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             if (!clientSocket) return;
 
-            clientSocket.rewriteRecordRoute(sipResponse, publicIp);
+            clientSocket.pushRecordRoute(sipResponse, false, publicIp);
 
             sipResponse.headers.via.shift();
 

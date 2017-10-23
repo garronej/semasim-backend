@@ -11,7 +11,8 @@
     "install-manager-page": "cd ./frontend/manager-page && npm install",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
-    "start": "sudo systemctl stop semasim-backend && sudo DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/lib/main.js"
+    "start": "sudo systemctl stop semasim-backend && sudo DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/lib/main.js",
+    "test": "node ./dist/test/db"
   },
   "repository": {
     "type": "git",
