@@ -2,6 +2,8 @@ import * as https from "https";
 import * as express from "express";
 import * as bodyParser from "body-parser";
 import * as logger from "morgan";
+import * as dns from "dns";
+import * as stun from "stun";
 
 import { DongleController as Dc } from "chan-dongle-extended-client";
 
@@ -269,6 +271,76 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         password_as_hex: string;
     };
 
+    let stunServer = "74.125.140.127:19302";
+
+    let stunServerLastUpdateTime = 0;
+
+    async function updateStunServer(): Promise<string> {
+
+        if (Date.now() - stunServerLastUpdateTime < 3600) {
+            return Promise.resolve(stunServer);
+        }
+
+        stunServerLastUpdateTime = Date.now();
+
+        let dnsSrvRecord = await new Promise<dns.SrvRecord[] | undefined>(
+            resolve => dns.resolveSrv(
+                `_stun._udp.${c.shared.domain}`,
+                (error, addresses) => resolve((error || !addresses.length) ? undefined : addresses)
+            )
+        );
+
+        if (!dnsSrvRecord) return stunServer;
+
+        let tasks: Promise<string>[] = [
+            new Promise(resolve => setTimeout(() => resolve(stunServer), 1000))
+        ];
+
+        for (let { name, port } of dnsSrvRecord) {
+
+            tasks[tasks.length] = (async () => {
+
+                let ip = await new Promise<string>(
+                    resolve => dns.resolve4(name,
+                        (error, addresses) => {
+
+                            if (!error && addresses.length) resolve(addresses[0]);
+
+                        }
+                    )
+                );
+
+                await new Promise<void>(
+                    resolve => {
+
+                        const server = stun.createServer()
+
+                        let timer = setTimeout(() => server.close(), 1000);
+
+                        server.once('bindingResponse', stunMsg => {
+                            clearTimeout(timer);
+                            server.close();
+                            resolve();
+                        })
+
+                        server.send(stun.createMessage(stun.constants.STUN_BINDING_REQUEST), port, ip);
+
+                    }
+                );
+
+                return `${ip}:${port}`;
+
+            })();
+
+        }
+
+        stunServer = await Promise.race(tasks);
+
+        return stunServer;
+
+    }
+
+
     function validateQueryString(query: any): query is Params {
 
         try {
@@ -305,9 +377,6 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
                 `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
             ].join(""),
             `  <section name="sip">`,
-            //`    <entry name="sip_port" overwrite="true">-1</entry>`,
-            //`    <entry name="sip_tcp_port" overwrite="true">5060</entry>`,
-            //`    <entry name="sip_tls_port" overwrite="true">5061</entry>`,
             `    <entry name="ping_with_options" ${ov}>0</entry>`,
             `  </section>`,
             `  <section name="net">`,
@@ -333,11 +402,9 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
             let infos: string[] = [];
 
-            if (sim.number)
-                infos.push(`${sim.number}`);
+            if (sim.number) infos.push(`${sim.number}`);
 
-            if (sim.serviceProvider)
-                infos.push(`${sim.serviceProvider}`);
+            if (sim.serviceProvider) infos.push(`${sim.serviceProvider}`);
 
             let infosConcat = ": " + infos.join("-");
 
@@ -345,7 +412,6 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
         })(id, dongle.sim);
 
-        //let reg_identity= `"${display_name}" &lt;sip:${imei}@${domain};transport=tls&gt;`;
         let reg_identity = entities.encode(`"${display_name}" <sip:${dongle.imei}@${domain};transport=tls>`);
 
         let last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
@@ -353,7 +419,7 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         endpointConfigs[endpointConfigs.length] = [
             `  <section name="nat_policy_${id}">`,
             `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
-            `    <entry name="stun_server" ${ov}>${domain}</entry>`,
+            `    <entry name="stun_server" ${ov}>${stunServer}</entry>`,
             `    <entry name="protocols" ${ov}>stun,ice</entry>`,
             `  </section>`,
             `  <section name="proxy_${id}">`,
@@ -401,15 +467,13 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
     }
 
-
     handlers[methodName] = async (req, res) => {
 
         debug(`handle ${methodName}`);
 
         let query = req.query;
 
-        if (!validateQueryString(query))
-            return failNoStatus(res, "malformed");
+        if (!validateQueryString(query)) return failNoStatus(res, "malformed");
 
         let { email_as_hex, password_as_hex } = query;
 
@@ -418,8 +482,9 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
         let user = await db.authenticateUser(email, password);
 
-        if (!user)
-            return failNoStatus(res, "user not found");
+        if (!user) return failNoStatus(res, "user not found");
+
+        await updateStunServer();
 
         let endpointConfigs: string[] = [];
         let phonebookConfigs: string[] = [];
@@ -428,35 +493,19 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
         for (let dongle of await db.getEndpoints(user)) {
 
-            updateEndpointConfigs(
-                id,
-                dongle,
-                endpointConfigs
-            );
+            updateEndpointConfigs(id, dongle, endpointConfigs);
 
-            updatePhonebookConfigs(
-                id,
-                dongle.sim.phonebook.contacts,
-                phonebookConfigs
-            );
-
+            updatePhonebookConfigs(id, dongle.sim.phonebook.contacts, phonebookConfigs);
 
             id++
 
         }
 
-
-        let xml = generateGlobalConfig(
-            endpointConfigs,
-            phonebookConfigs
-        );
+        let xml = generateGlobalConfig(endpointConfigs, phonebookConfigs);
 
         debug(xml);
 
-        res.setHeader(
-            "Content-Type",
-            "application/xml; charset=utf-8"
-        );
+        res.setHeader("Content-Type", "application/xml; charset=utf-8");
 
         res.status(200).send(new Buffer(xml, "utf8"));
 

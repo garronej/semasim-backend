@@ -1,9 +1,9 @@
 {
   "name": "semasim-backend",
   "description": "Central semasim server",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "scripts": {
-    "postinstall": "npm run fetch-web-assets && npm run install-frontend",
+    "postinstall_": "npm run fetch-web-assets && npm run install-frontend",
     "fetch-web-assets": "cd res/theme-static/ && git clone https://a30f7432b117d8320cc21cc03513817c3f08d4b6:x-oauth-basic@github.com/garronej/web-assets.git assets",
     "install-frontend": "npm run install-api && npm run install-login-page && npm run install-manager-page",
     "install-api": "cd ./frontend/api && npm install",
@@ -42,6 +42,7 @@
     "ripemd160": "^2.0.1",
     "run-exclusive": "garronej/run-exclusive",
     "serve-favicon": "^2.4.5",
+    "stun": "^1.0.2",
     "ts-events-extended": "garronej/ts-events-extended"
   },
   "devDependencies": {

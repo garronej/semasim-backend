@@ -34,6 +34,16 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
 var __read = (this && this.__read) || function (o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
@@ -54,21 +64,13 @@ var __spread = (this && this.__spread) || function () {
     for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
     return ar;
 };
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
 var bodyParser = require("body-parser");
 var logger = require("morgan");
+var dns = require("dns");
+var stun = require("stun");
 var html_entities = require("html-entities");
 var entities = new html_entities.XmlEntities;
 var semasim_gateway_1 = require("../semasim-gateway");
@@ -237,6 +239,76 @@ var handlers = {};
 (function () {
     //<string name="semasim_login_url">https://&domain;/api/get-user-linphone-config?email_as_hex=%1$s&amp;password_as_hex=%2$s</string>
     var methodName = "get-user-linphone-config";
+    var stunServer = "74.125.140.127:19302";
+    var stunServerLastUpdateTime = 0;
+    function updateStunServer() {
+        return __awaiter(this, void 0, void 0, function () {
+            var _this = this;
+            var dnsSrvRecord, tasks, _loop_1, dnsSrvRecord_1, dnsSrvRecord_1_1, _a, name_1, port, e_1, _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        if (Date.now() - stunServerLastUpdateTime < 3600) {
+                            return [2 /*return*/, Promise.resolve(stunServer)];
+                        }
+                        stunServerLastUpdateTime = Date.now();
+                        return [4 /*yield*/, new Promise(function (resolve) { return dns.resolveSrv("_stun._udp." + _constants_1.c.shared.domain, function (error, addresses) { return resolve((error || !addresses.length) ? undefined : addresses); }); })];
+                    case 1:
+                        dnsSrvRecord = _c.sent();
+                        if (!dnsSrvRecord)
+                            return [2 /*return*/, stunServer];
+                        tasks = [
+                            new Promise(function (resolve) { return setTimeout(function () { return resolve(stunServer); }, 1000); })
+                        ];
+                        _loop_1 = function (name_1, port) {
+                            tasks[tasks.length] = (function () { return __awaiter(_this, void 0, void 0, function () {
+                                var ip;
+                                return __generator(this, function (_a) {
+                                    switch (_a.label) {
+                                        case 0: return [4 /*yield*/, new Promise(function (resolve) { return dns.resolve4(name_1, function (error, addresses) {
+                                                if (!error && addresses.length)
+                                                    resolve(addresses[0]);
+                                            }); })];
+                                        case 1:
+                                            ip = _a.sent();
+                                            return [4 /*yield*/, new Promise(function (resolve) {
+                                                    var server = stun.createServer();
+                                                    var timer = setTimeout(function () { return server.close(); }, 1000);
+                                                    server.once('bindingResponse', function (stunMsg) {
+                                                        clearTimeout(timer);
+                                                        server.close();
+                                                        resolve();
+                                                    });
+                                                    server.send(stun.createMessage(stun.constants.STUN_BINDING_REQUEST), port, ip);
+                                                })];
+                                        case 2:
+                                            _a.sent();
+                                            return [2 /*return*/, ip + ":" + port];
+                                    }
+                                });
+                            }); })();
+                        };
+                        try {
+                            for (dnsSrvRecord_1 = __values(dnsSrvRecord), dnsSrvRecord_1_1 = dnsSrvRecord_1.next(); !dnsSrvRecord_1_1.done; dnsSrvRecord_1_1 = dnsSrvRecord_1.next()) {
+                                _a = dnsSrvRecord_1_1.value, name_1 = _a.name, port = _a.port;
+                                _loop_1(name_1, port);
+                            }
+                        }
+                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                        finally {
+                            try {
+                                if (dnsSrvRecord_1_1 && !dnsSrvRecord_1_1.done && (_b = dnsSrvRecord_1.return)) _b.call(dnsSrvRecord_1);
+                            }
+                            finally { if (e_1) throw e_1.error; }
+                        }
+                        return [4 /*yield*/, Promise.race(tasks)];
+                    case 2:
+                        stunServer = _c.sent();
+                        return [2 /*return*/, stunServer];
+                }
+            });
+        });
+    }
     function validateQueryString(query) {
         try {
             var _a = query, email_as_hex = _a.email_as_hex, password_as_hex = _a.password_as_hex;
@@ -260,9 +332,6 @@ var handlers = {};
                 "xsi:schemaLocation=\"http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd\">",
             ].join(""),
             "  <section name=\"sip\">",
-            //`    <entry name="sip_port" overwrite="true">-1</entry>`,
-            //`    <entry name="sip_tcp_port" overwrite="true">5060</entry>`,
-            //`    <entry name="sip_tls_port" overwrite="true">5061</entry>`,
             "    <entry name=\"ping_with_options\" " + ov + ">0</entry>",
             "  </section>",
             "  <section name=\"net\">",
@@ -282,13 +351,12 @@ var handlers = {};
             var infosConcat = ": " + infos.join("-");
             return "Sim" + (id + 1) + infosConcat;
         })(id, dongle.sim);
-        //let reg_identity= `"${display_name}" &lt;sip:${imei}@${domain};transport=tls&gt;`;
         var reg_identity = entities.encode("\"" + display_name + "\" <sip:" + dongle.imei + "@" + domain + ";transport=tls>");
         var last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
         endpointConfigs[endpointConfigs.length] = [
             "  <section name=\"nat_policy_" + id + "\">",
             "    <entry name=\"ref\" " + ov + ">nat_policy_" + id + "</entry>",
-            "    <entry name=\"stun_server\" " + ov + ">" + domain + "</entry>",
+            "    <entry name=\"stun_server\" " + ov + ">" + stunServer + "</entry>",
             "    <entry name=\"protocols\" " + ov + ">stun,ice</entry>",
             "  </section>",
             "  <section name=\"proxy_" + id + "\">",
@@ -323,7 +391,7 @@ var handlers = {};
         }
     }
     handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var query, email_as_hex, password_as_hex, email, password, user, endpointConfigs, phonebookConfigs, id, _a, _b, dongle, e_1_1, xml, e_1, _c;
+        var query, email_as_hex, password_as_hex, email, password, user, endpointConfigs, phonebookConfigs, id, _a, _b, dongle, e_2_1, xml, e_2, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
@@ -339,38 +407,41 @@ var handlers = {};
                     user = _d.sent();
                     if (!user)
                         return [2 /*return*/, failNoStatus(res, "user not found")];
+                    return [4 /*yield*/, updateStunServer()];
+                case 2:
+                    _d.sent();
                     endpointConfigs = [];
                     phonebookConfigs = [];
                     id = 0;
-                    _d.label = 2;
-                case 2:
-                    _d.trys.push([2, 7, 8, 9]);
-                    return [4 /*yield*/, db.getEndpoints(user)];
+                    _d.label = 3;
                 case 3:
-                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                    _d.label = 4;
+                    _d.trys.push([3, 8, 9, 10]);
+                    return [4 /*yield*/, db.getEndpoints(user)];
                 case 4:
-                    if (!!_b.done) return [3 /*break*/, 6];
+                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                    _d.label = 5;
+                case 5:
+                    if (!!_b.done) return [3 /*break*/, 7];
                     dongle = _b.value;
                     updateEndpointConfigs(id, dongle, endpointConfigs);
                     updatePhonebookConfigs(id, dongle.sim.phonebook.contacts, phonebookConfigs);
                     id++;
-                    _d.label = 5;
-                case 5:
+                    _d.label = 6;
+                case 6:
                     _b = _a.next();
-                    return [3 /*break*/, 4];
-                case 6: return [3 /*break*/, 9];
-                case 7:
-                    e_1_1 = _d.sent();
-                    e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 9];
+                    return [3 /*break*/, 5];
+                case 7: return [3 /*break*/, 10];
                 case 8:
+                    e_2_1 = _d.sent();
+                    e_2 = { error: e_2_1 };
+                    return [3 /*break*/, 10];
+                case 9:
                     try {
                         if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
-                    finally { if (e_1) throw e_1.error; }
+                    finally { if (e_2) throw e_2.error; }
                     return [7 /*endfinally*/];
-                case 9:
+                case 10:
                     xml = generateGlobalConfig(endpointConfigs, phonebookConfigs);
                     debug(xml);
                     res.setHeader("Content-Type", "application/xml; charset=utf-8");
