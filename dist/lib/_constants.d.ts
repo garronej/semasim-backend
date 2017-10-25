@@ -4,10 +4,6 @@ export declare class c {
         new (): {};
         readonly gatewayPort: 80;
         readonly domain: "semasim.com";
-        readonly dnsSrv_sips_tcp: Promise<{
-            name: string;
-            port: number;
-        }>;
     };
     static readonly serviceName: string;
     static readonly dbParamsBackend: {

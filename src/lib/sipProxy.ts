@@ -1,10 +1,10 @@
 import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
-import * as networkTools from "../tools/networkTools";
 import { SyncEvent } from "ts-events-extended";
 import { startListening as apiStartListening } from "./sipApi";
 import { Contact, sipLibrary } from "../semasim-gateway";
+import * as networkTools from "../tools/networkTools";
 
 import { c } from "./_constants";
 
@@ -40,12 +40,11 @@ let publicIp = "";
 
 export async function startServer() {
 
-    let {
-        interfacePublicIp,
-        interfaceLocalIp
-    } = await networkTools.retrieveIpFromHostname((await c.shared.dnsSrv_sips_tcp).name);
+    let [ sipSrv ]= await networkTools.resolveSrv(`_sips._tcp.${c.shared.domain}`);
 
-    publicIp = interfacePublicIp;
+    let sipIps= await networkTools.retrieveIpFromHostname(sipSrv.name);
+
+    publicIp= sipIps.publicIp;
 
     let options: tls.TlsOptions = c.tlsOptions;
 
@@ -53,12 +52,12 @@ export async function startServer() {
 
     servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
-        .listen((await c.shared.dnsSrv_sips_tcp).port, interfaceLocalIp)
+        .listen(sipSrv.port, sipIps.interfaceIp)
         .on("secureConnection", onClientConnection);
 
     servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
-        .listen(c.shared.gatewayPort, interfaceLocalIp)
+        .listen(c.shared.gatewayPort, sipIps.interfaceIp)
         .on("secureConnection", onGatewayConnection);
 
     await Promise.all(

@@ -34,11 +34,27 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var tls = require("tls");
-var networkTools = require("../tools/networkTools");
 var sipApi_1 = require("./sipApi");
 var semasim_gateway_1 = require("../semasim-gateway");
+var networkTools = require("../tools/networkTools");
 var _constants_1 = require("./_constants");
 require("colors");
 var _debug = require("debug");
@@ -61,33 +77,29 @@ exports.gatewaySockets.set = setAutoRemove;
 var publicIp = "";
 function startServer() {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, interfacePublicIp, interfaceLocalIp, _b, _c, options, servers, _d, _e, _f, _g;
-        return __generator(this, function (_h) {
-            switch (_h.label) {
-                case 0:
-                    _c = (_b = networkTools).retrieveIpFromHostname;
-                    return [4 /*yield*/, _constants_1.c.shared.dnsSrv_sips_tcp];
-                case 1: return [4 /*yield*/, _c.apply(_b, [(_h.sent()).name])];
+        var _a, sipSrv, sipIps, options, servers;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0: return [4 /*yield*/, networkTools.resolveSrv("_sips._tcp." + _constants_1.c.shared.domain)];
+                case 1:
+                    _a = __read.apply(void 0, [_b.sent(), 1]), sipSrv = _a[0];
+                    return [4 /*yield*/, networkTools.retrieveIpFromHostname(sipSrv.name)];
                 case 2:
-                    _a = _h.sent(), interfacePublicIp = _a.interfacePublicIp, interfaceLocalIp = _a.interfaceLocalIp;
-                    publicIp = interfacePublicIp;
+                    sipIps = _b.sent();
+                    publicIp = sipIps.publicIp;
                     options = _constants_1.c.tlsOptions;
                     servers = [];
-                    _d = servers;
-                    _e = servers.length;
-                    _g = (_f = tls.createServer(options)
-                        .on("error", function (error) { throw error; })).listen;
-                    return [4 /*yield*/, _constants_1.c.shared.dnsSrv_sips_tcp];
-                case 3:
-                    _d[_e] = _g.apply(_f, [(_h.sent()).port, interfaceLocalIp])
+                    servers[servers.length] = tls.createServer(options)
+                        .on("error", function (error) { throw error; })
+                        .listen(sipSrv.port, sipIps.interfaceIp)
                         .on("secureConnection", onClientConnection);
                     servers[servers.length] = tls.createServer(options)
                         .on("error", function (error) { throw error; })
-                        .listen(_constants_1.c.shared.gatewayPort, interfaceLocalIp)
+                        .listen(_constants_1.c.shared.gatewayPort, sipIps.interfaceIp)
                         .on("secureConnection", onGatewayConnection);
                     return [4 /*yield*/, Promise.all(servers.map(function (server) { return new Promise(function (resolve) { return server.on("listening", function () { return resolve(); }); }); }))];
-                case 4:
-                    _h.sent();
+                case 3:
+                    _b.sent();
                     return [2 /*return*/];
             }
         });

@@ -51,7 +51,7 @@ var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_main");
 (function () { return __awaiter(_this, void 0, void 0, function () {
-    var hostname, interfaceLocalIp;
+    var hostnameWeb, interfaceIp;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -60,21 +60,21 @@ var debug = _debug("_main");
             case 1:
                 _a.sent();
                 debug("..Sip proxy server started !");
-                hostname = "www." + _constants_1.c.shared.domain;
-                return [4 /*yield*/, networkTools.retrieveIpFromHostname(hostname)];
+                hostnameWeb = "www." + _constants_1.c.shared.domain;
+                return [4 /*yield*/, networkTools.retrieveIpFromHostname(hostnameWeb)];
             case 2:
-                interfaceLocalIp = (_a.sent()).interfaceLocalIp;
+                interfaceIp = (_a.sent()).interfaceIp;
                 return [4 /*yield*/, new Promise(function (resolve) {
                         var app = express();
                         app.set("view engine", "ejs");
                         app
                             .use(session({ "secret": webRouter_1.cookieSecret, "resave": false, "saveUninitialized": false }))
                             .use("/" + api_1.webApiPath, webApi.getRouter())
-                            .use(forceDomain({ hostname: hostname }))
+                            .use(forceDomain({ hostnameWeb: hostnameWeb }))
                             .use("/", webRouter_1.webRouter);
                         https.createServer(_constants_1.c.tlsOptions)
                             .on("request", app)
-                            .listen(443, interfaceLocalIp)
+                            .listen(443, interfaceIp)
                             .once("listening", function () { return resolve(); });
                     })];
             case 3:
@@ -83,13 +83,13 @@ var debug = _debug("_main");
                 return [4 /*yield*/, new Promise(function (resolve) {
                         var app = express();
                         app.use(forceDomain({
-                            hostname: hostname,
+                            hostnameWeb: hostnameWeb,
                             "port": 443,
                             "protocol": "https"
                         }));
                         http.createServer()
                             .on("request", app)
-                            .listen(80, interfaceLocalIp)
+                            .listen(80, interfaceIp)
                             .once("listening", function () { return resolve(); });
                     })];
             case 4:

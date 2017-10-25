@@ -47,91 +47,263 @@ var __values = (this && this.__values) || function (o) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var dns = require("dns");
 var network = require("network");
+var stun = require("stun");
+var dgram = require("dgram");
+var semasim_gateway_1 = require("../semasim-gateway");
+exports.resolveSrv = semasim_gateway_1.networkTools.resolveSrv;
+function resolve4(hostname) {
+    return new Promise(function (resolve, reject) { return dns.resolve4(hostname, function (error, addresses) {
+        (error || !addresses.length) ? reject(error || new Error("no record")) : resolve(addresses[0]);
+    }); });
+}
+exports.resolve4 = resolve4;
+function stunBindingRequest(stunServer, port, interfaceIp, srcPort) {
+    return new Promise(function (resolve, reject) {
+        var socket = dgram.createSocket("udp4");
+        socket.bind(srcPort, interfaceIp);
+        var server = stun.createServer(socket);
+        var _a = stun.constants, STUN_BINDING_REQUEST = _a.STUN_BINDING_REQUEST, STUN_ATTR_XOR_MAPPED_ADDRESS = _a.STUN_ATTR_XOR_MAPPED_ADDRESS;
+        var timer = setTimeout(function () {
+            server.close();
+            reject(new Error("Stun binding request timeout"));
+        }, 2000);
+        server.once("bindingResponse", function (stunMsg) {
+            clearTimeout(timer);
+            try {
+                var _a = stunMsg.getAttribute(STUN_ATTR_XOR_MAPPED_ADDRESS).value, address = _a.address, port_1 = _a.port;
+                resolve({ "ip": address, port: port_1 });
+            }
+            catch (_b) {
+                reject(new Error("Invalid response"));
+            }
+            socket.close();
+        });
+        server.send(stun.createMessage(STUN_BINDING_REQUEST), port, stunServer);
+    });
+}
+exports.stunBindingRequest = stunBindingRequest;
+function getStunServer() {
+    if (getStunServer.previousResult) {
+        return Promise.resolve(getStunServer.previousResult);
+    }
+    return getStunServer.run();
+}
+exports.getStunServer = getStunServer;
+(function (getStunServer) {
+    getStunServer.domain = undefined;
+    function defineUpdateInterval(delay) {
+        if (delay === void 0) { delay = 3600000; }
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        setInterval(function () { return run(); }, delay);
+                        return [4 /*yield*/, run()];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    }
+    getStunServer.defineUpdateInterval = defineUpdateInterval;
+    getStunServer.previousResult = undefined;
+    // cSpell:disable
+    getStunServer.knownStunServers = [
+        { "name": "stun.l.google.com", "port": 19302 },
+        { "name": "stun1.l.google.com", "port": 19302 },
+        { "name": "stun2.l.google.com", "port": 19302 },
+        { "name": "stun3.l.google.com", "port": 19302 },
+        { "name": "stun4.l.google.com", "port": 19302 },
+        { "name": "numb.viagenie.ca", "port": 3478 }
+    ];
+    /* cSpell:enable */
+    function run() {
+        return __awaiter(this, void 0, void 0, function () {
+            var _this = this;
+            var dnsSrvRecord, _a, tasks, _loop_1, dnsSrvRecord_1, dnsSrvRecord_1_1, _b, name_1, port, e_1, _c;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        _d.trys.push([0, 2, , 3]);
+                        if (!getStunServer.domain)
+                            throw new Error();
+                        return [4 /*yield*/, exports.resolveSrv("_stun._udp." + getStunServer.domain)];
+                    case 1:
+                        dnsSrvRecord = _d.sent();
+                        return [3 /*break*/, 3];
+                    case 2:
+                        _a = _d.sent();
+                        dnsSrvRecord = getStunServer.knownStunServers;
+                        return [3 /*break*/, 3];
+                    case 3:
+                        tasks = [];
+                        _loop_1 = function (name_1, port) {
+                            tasks[tasks.length] = (function () { return __awaiter(_this, void 0, void 0, function () {
+                                var ip, _a;
+                                return __generator(this, function (_b) {
+                                    switch (_b.label) {
+                                        case 0:
+                                            _b.trys.push([0, 3, , 4]);
+                                            return [4 /*yield*/, resolve4(name_1)];
+                                        case 1:
+                                            ip = _b.sent();
+                                            return [4 /*yield*/, stunBindingRequest(ip, port)];
+                                        case 2:
+                                            _b.sent();
+                                            return [2 /*return*/, { ip: ip, port: port }];
+                                        case 3:
+                                            _a = _b.sent();
+                                            return [2 /*return*/, new Promise(function () { })];
+                                        case 4: return [2 /*return*/];
+                                    }
+                                });
+                            }); })();
+                        };
+                        try {
+                            for (dnsSrvRecord_1 = __values(dnsSrvRecord), dnsSrvRecord_1_1 = dnsSrvRecord_1.next(); !dnsSrvRecord_1_1.done; dnsSrvRecord_1_1 = dnsSrvRecord_1.next()) {
+                                _b = dnsSrvRecord_1_1.value, name_1 = _b.name, port = _b.port;
+                                _loop_1(name_1, port);
+                            }
+                        }
+                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                        finally {
+                            try {
+                                if (dnsSrvRecord_1_1 && !dnsSrvRecord_1_1.done && (_c = dnsSrvRecord_1.return)) _c.call(dnsSrvRecord_1);
+                            }
+                            finally { if (e_1) throw e_1.error; }
+                        }
+                        tasks[tasks.length] = new Promise(function (_, reject) { return setTimeout(function () { return reject(new Error("stun resolution timeout")); }, 2000); });
+                        return [4 /*yield*/, Promise.race(tasks)];
+                    case 4:
+                        getStunServer.previousResult = _d.sent();
+                        return [2 /*return*/, getStunServer.previousResult];
+                }
+            });
+        });
+    }
+    getStunServer.run = run;
+})(getStunServer = exports.getStunServer || (exports.getStunServer = {}));
+function getInterfaceIps() {
+    return new Promise(function (resolve, reject) {
+        return network.get_interfaces_list(function (error, list) {
+            if (error || !list.length) {
+                reject(error || new Error("no interface"));
+                return;
+            }
+            resolve(list.map(function (_a) {
+                var ip_address = _a.ip_address;
+                return ip_address;
+            }));
+        });
+    });
+}
+exports.getInterfaceIps = getInterfaceIps;
 function retrieveIpFromHostname(hostname) {
     return __awaiter(this, void 0, void 0, function () {
         var _this = this;
-        var interfacePublicIp, interfaceLocalIp;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, new Promise(function (resolve, reject) {
-                        return dns.resolve4(hostname, function (error, addresses) {
-                            if (error) {
-                                reject(error);
-                                return;
-                            }
-                            resolve(addresses[0]);
-                        });
-                    })];
+        var stunServer, publicIp, tasks, _loop_2, _a, _b, interfaceIp_1, e_2_1, interfaceIp, e_2, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0: return [4 /*yield*/, getStunServer()];
                 case 1:
-                    interfacePublicIp = _a.sent();
-                    return [4 /*yield*/, new Promise(function (resolve, reject) { return network.get_interfaces_list(function (error, interfaces) { return __awaiter(_this, void 0, void 0, function () {
-                            var _loop_1, interfaces_1, interfaces_1_1, currentInterface, state_1, e_1_1, e_1, _a;
+                    stunServer = _d.sent();
+                    return [4 /*yield*/, resolve4(hostname)];
+                case 2:
+                    publicIp = _d.sent();
+                    tasks = [];
+                    _loop_2 = function (interfaceIp_1) {
+                        tasks[tasks.length] = (function () { return __awaiter(_this, void 0, void 0, function () {
+                            var stunResponse, _a;
                             return __generator(this, function (_b) {
                                 switch (_b.label) {
                                     case 0:
-                                        if (error) {
-                                            reject(error);
-                                            return [2 /*return*/];
-                                        }
-                                        _loop_1 = function (currentInterface) {
-                                            var currentInterfaceLocalIp, currentInterfacePublicIp;
-                                            return __generator(this, function (_a) {
-                                                switch (_a.label) {
-                                                    case 0:
-                                                        currentInterfaceLocalIp = currentInterface.ip_address;
-                                                        return [4 /*yield*/, new Promise(function (resolve) { return network.get_public_ip({ "localAddress": currentInterfaceLocalIp }, function (error, res) { return resolve(error ? undefined : res); }); })];
-                                                    case 1:
-                                                        currentInterfacePublicIp = _a.sent();
-                                                        if (currentInterfacePublicIp === interfacePublicIp) {
-                                                            resolve(currentInterfaceLocalIp);
-                                                            return [2 /*return*/, { value: void 0 }];
-                                                        }
-                                                        return [2 /*return*/];
-                                                }
-                                            });
-                                        };
-                                        _b.label = 1;
+                                        _b.trys.push([0, 2, , 3]);
+                                        return [4 /*yield*/, stunBindingRequest(stunServer.ip, stunServer.port, interfaceIp_1)];
                                     case 1:
-                                        _b.trys.push([1, 6, 7, 8]);
-                                        interfaces_1 = __values(interfaces), interfaces_1_1 = interfaces_1.next();
-                                        _b.label = 2;
-                                    case 2:
-                                        if (!!interfaces_1_1.done) return [3 /*break*/, 5];
-                                        currentInterface = interfaces_1_1.value;
-                                        return [5 /*yield**/, _loop_1(currentInterface)];
-                                    case 3:
-                                        state_1 = _b.sent();
-                                        if (typeof state_1 === "object")
-                                            return [2 /*return*/, state_1.value];
-                                        _b.label = 4;
-                                    case 4:
-                                        interfaces_1_1 = interfaces_1.next();
-                                        return [3 /*break*/, 2];
-                                    case 5: return [3 /*break*/, 8];
-                                    case 6:
-                                        e_1_1 = _b.sent();
-                                        e_1 = { error: e_1_1 };
-                                        return [3 /*break*/, 8];
-                                    case 7:
-                                        try {
-                                            if (interfaces_1_1 && !interfaces_1_1.done && (_a = interfaces_1.return)) _a.call(interfaces_1);
+                                        stunResponse = _b.sent();
+                                        if (stunResponse.ip !== publicIp) {
+                                            throw new Error();
                                         }
-                                        finally { if (e_1) throw e_1.error; }
-                                        return [7 /*endfinally*/];
-                                    case 8:
-                                        reject(new Error(hostname + "(" + interfacePublicIp + ") does not point on any local interface"));
-                                        return [2 /*return*/];
+                                        return [2 /*return*/, interfaceIp_1];
+                                    case 2:
+                                        _a = _b.sent();
+                                        return [2 /*return*/, new Promise(function () { })];
+                                    case 3: return [2 /*return*/];
                                 }
                             });
-                        }); }); })];
-                case 2:
-                    interfaceLocalIp = _a.sent();
-                    return [2 /*return*/, {
-                            interfaceLocalIp: interfaceLocalIp,
-                            interfacePublicIp: interfacePublicIp
-                        }];
+                        }); })();
+                    };
+                    _d.label = 3;
+                case 3:
+                    _d.trys.push([3, 8, 9, 10]);
+                    return [4 /*yield*/, getInterfaceIps()];
+                case 4:
+                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
+                    _d.label = 5;
+                case 5:
+                    if (!!_b.done) return [3 /*break*/, 7];
+                    interfaceIp_1 = _b.value;
+                    _loop_2(interfaceIp_1);
+                    _d.label = 6;
+                case 6:
+                    _b = _a.next();
+                    return [3 /*break*/, 5];
+                case 7: return [3 /*break*/, 10];
+                case 8:
+                    e_2_1 = _d.sent();
+                    e_2 = { error: e_2_1 };
+                    return [3 /*break*/, 10];
+                case 9:
+                    try {
+                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                    }
+                    finally { if (e_2) throw e_2.error; }
+                    return [7 /*endfinally*/];
+                case 10:
+                    tasks[tasks.length] = new Promise(function (_, reject) { return setTimeout(function () { return reject(new Error("Service does not point to this host")); }, 3000); });
+                    return [4 /*yield*/, Promise.race(tasks)];
+                case 11:
+                    interfaceIp = _d.sent();
+                    return [2 /*return*/, { publicIp: publicIp, interfaceIp: interfaceIp }];
             }
         });
     });
 }
 exports.retrieveIpFromHostname = retrieveIpFromHostname;
+/*
+
+async function startStunProxy(){
+
+    networkTools.getStunServer.domain= "semasim.com";
+
+    await networkTools.getStunServer.defineUpdateInterval();
+
+    const socket = dgram.createSocket("udp4");
+    socket.bind(3478, "127.0.0.1");
+    const server = stun.createServer(socket);
+
+    const { STUN_BINDING_RESPONSE, STUN_ATTR_XOR_MAPPED_ADDRESS, STUN_ATTR_SOFTWARE } = stun.constants;
+    const userAgent = `node/${process.version} stun/v1.0.0`;
+
+    server.on("bindingRequest", async (req, rinfo) => {
+
+        let stunServer= networkTools.getStunServer.previousResult!;
+
+        let stunResponse= await networkTools.stunBindingRequest(stunServer.ip, stunServer.port, undefined, rinfo.port + 1);
+
+        let msg = stun.createMessage(STUN_BINDING_RESPONSE)
+        msg.addAttribute(STUN_ATTR_XOR_MAPPED_ADDRESS, stunResponse.ip, stunResponse.port);
+        msg.addAttribute(STUN_ATTR_SOFTWARE, userAgent);
+
+        server.send(msg, rinfo.port, rinfo.address);
+
+    })
+
+    await new Promise<void>(
+        resolve => socket.on("listening", ()=> resolve() )
+    );
+
+}
+
+*/ 

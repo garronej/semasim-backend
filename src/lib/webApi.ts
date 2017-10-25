@@ -4,6 +4,7 @@ import * as bodyParser from "body-parser";
 import * as logger from "morgan";
 import * as dns from "dns";
 import * as stun from "stun";
+import * as networkTools from "../tools/networkTools";
 
 import { DongleController as Dc } from "chan-dongle-extended-client";
 
@@ -271,74 +272,7 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         password_as_hex: string;
     };
 
-    let stunServer = "74.125.140.127:19302";
 
-    let stunServerLastUpdateTime = 0;
-
-    async function updateStunServer(): Promise<string> {
-
-        if (Date.now() - stunServerLastUpdateTime < 3600) {
-            return Promise.resolve(stunServer);
-        }
-
-        stunServerLastUpdateTime = Date.now();
-
-        let dnsSrvRecord = await new Promise<dns.SrvRecord[] | undefined>(
-            resolve => dns.resolveSrv(
-                `_stun._udp.${c.shared.domain}`,
-                (error, addresses) => resolve((error || !addresses.length) ? undefined : addresses)
-            )
-        );
-
-        if (!dnsSrvRecord) return stunServer;
-
-        let tasks: Promise<string>[] = [
-            new Promise(resolve => setTimeout(() => resolve(stunServer), 1000))
-        ];
-
-        for (let { name, port } of dnsSrvRecord) {
-
-            tasks[tasks.length] = (async () => {
-
-                let ip = await new Promise<string>(
-                    resolve => dns.resolve4(name,
-                        (error, addresses) => {
-
-                            if (!error && addresses.length) resolve(addresses[0]);
-
-                        }
-                    )
-                );
-
-                await new Promise<void>(
-                    resolve => {
-
-                        const server = stun.createServer()
-
-                        let timer = setTimeout(() => server.close(), 1000);
-
-                        server.once('bindingResponse', stunMsg => {
-                            clearTimeout(timer);
-                            server.close();
-                            resolve();
-                        })
-
-                        server.send(stun.createMessage(stun.constants.STUN_BINDING_REQUEST), port, ip);
-
-                    }
-                );
-
-                return `${ip}:${port}`;
-
-            })();
-
-        }
-
-        stunServer = await Promise.race(tasks);
-
-        return stunServer;
-
-    }
 
 
     function validateQueryString(query: any): query is Params {
@@ -416,10 +350,12 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
         let last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
 
+        let stunServer= networkTools.getStunServer.previousResult!;
+
         endpointConfigs[endpointConfigs.length] = [
             `  <section name="nat_policy_${id}">`,
             `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
-            `    <entry name="stun_server" ${ov}>${stunServer}</entry>`,
+            `    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
             `    <entry name="protocols" ${ov}>stun,ice</entry>`,
             `  </section>`,
             `  <section name="proxy_${id}">`,
@@ -446,6 +382,7 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         phonebookConfigs: string[]
     ) {
 
+
         let startIndex = phonebookConfigs.length;
 
         for (let i = 0; i < contacts.length; i++) {
@@ -467,9 +404,15 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
     }
 
+    networkTools.getStunServer.domain = c.shared.domain;
+
+    let prGetStun= networkTools.getStunServer.defineUpdateInterval();
+
     handlers[methodName] = async (req, res) => {
 
         debug(`handle ${methodName}`);
+
+        if( !networkTools.getStunServer.previousResult ) await prGetStun;
 
         let query = req.query;
 
@@ -483,8 +426,6 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         let user = await db.authenticateUser(email, password);
 
         if (!user) return failNoStatus(res, "user not found");
-
-        await updateStunServer();
 
         let endpointConfigs: string[] = [];
         let phonebookConfigs: string[] = [];
