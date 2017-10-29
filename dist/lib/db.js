@@ -1,12 +1,4 @@
 "use strict";
-var __assign = (this && this.__assign) || Object.assign || function(t) {
-    for (var s, i = 1, n = arguments.length; i < n; i++) {
-        s = arguments[i];
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-            t[p] = s[p];
-    }
-    return t;
-};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -73,7 +65,6 @@ var __values = (this && this.__values) || function (o) {
     };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var mysql = require("mysql");
 var RIPEMD160 = require("ripemd160");
 var crypto = require("crypto");
 var semasim_gateway_1 = require("../semasim-gateway");
@@ -81,18 +72,13 @@ var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_db");
 var connection = undefined;
-function query(sql, values) {
-    if (!connection) {
-        connection = mysql.createConnection(__assign({}, _constants_1.c.dbParamsBackend, { "multipleStatements": true }));
-    }
-    return semasim_gateway_1.mySqlFunctions.queryOnConnection(connection, sql, values);
-}
+exports.query = semasim_gateway_1.mySqlFunctions.buildQueryFunction(_constants_1.c.dbParamsBackend);
 /** For test purpose only */
 function flush() {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, query([
+                case 0: return [4 /*yield*/, exports.query([
                         "DELETE FROM sim;",
                         "DELETE FROM dongle;",
                         "DELETE FROM user;"
@@ -124,7 +110,7 @@ function addUser(email, password) {
                     _c.label = 2;
                 case 2:
                     _c.trys.push([2, 4, , 5]);
-                    return [4 /*yield*/, query(sql, values)];
+                    return [4 /*yield*/, exports.query(sql, values)];
                 case 3:
                     insertId = (_c.sent()).insertId;
                     return [2 /*return*/, insertId];
@@ -150,7 +136,7 @@ function authenticateUser(email, password) {
                         "WHERE email=?"
                     ].join("\n");
                     values = [email.toLowerCase()];
-                    return [4 /*yield*/, query(sql, values)];
+                    return [4 /*yield*/, exports.query(sql, values)];
                 case 1:
                     rows = _c.sent();
                     if (!rows.length)
@@ -236,7 +222,7 @@ function addEndpoint(dongle, user) {
                         }
                         finally { if (e_1) throw e_1.error; }
                     }
-                    return [4 /*yield*/, query(sql, values)];
+                    return [4 /*yield*/, exports.query(sql, values)];
                 case 1:
                     _e.sent();
                     return [2 /*return*/];
@@ -275,7 +261,7 @@ function getEndpoints(user) {
                         "ORDER BY endpoint.id_"
                     ].join("\n");
                     values = [user];
-                    return [4 /*yield*/, query(sql, values)];
+                    return [4 /*yield*/, exports.query(sql, values)];
                 case 1:
                     rows = _a.sent();
                     dongles = [];
@@ -326,7 +312,7 @@ function deleteUser(user) {
         var affectedRows, isDeleted;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, query("DELETE FROM user WHERE id = ?", [user])];
+                case 0: return [4 /*yield*/, exports.query("DELETE FROM user WHERE id = ?", [user])];
                 case 1:
                     affectedRows = (_a.sent()).affectedRows;
                     isDeleted = affectedRows !== 0;
@@ -350,7 +336,7 @@ function deleteEndpoint(imei, user) {
                         "WHERE dongle.imei= ? AND endpoint.user= ?"
                     ].join("\n");
                     values = [imei, user];
-                    return [4 /*yield*/, query(sql, values)];
+                    return [4 /*yield*/, exports.query(sql, values)];
                 case 1:
                     affectedRows = (_a.sent()).affectedRows;
                     isDeleted = affectedRows ? true : false;

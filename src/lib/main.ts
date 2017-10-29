@@ -30,9 +30,9 @@ import * as fs from "fs";
 
     debug("..Sip proxy server started !");
 
-    let hostnameWeb= `www.${c.shared.domain}`;
+    let hostname= `www.${c.shared.domain}`;
 
-    let { interfaceIp } = await networkTools.retrieveIpFromHostname(hostnameWeb);
+    let { interfaceIp } = await networkTools.retrieveIpFromHostname(hostname);
 
     await new Promise<void>(
         resolve => {
@@ -42,9 +42,9 @@ import * as fs from "fs";
             app.set("view engine", "ejs");
 
             app
+                .use(forceDomain({ hostname }))
                 .use(session({ "secret": cookieSecret, "resave": false, "saveUninitialized": false }))
                 .use(`/${webApiPath}`, webApi.getRouter())
-                .use(forceDomain({ hostnameWeb }))
                 .use("/", webRouter);
 
             https.createServer(c.tlsOptions)
@@ -63,7 +63,7 @@ import * as fs from "fs";
             let app = express();
 
             app.use(forceDomain({
-                hostnameWeb,
+                hostname,
                 "port": 443,
                 "protocol": "https"
             }));

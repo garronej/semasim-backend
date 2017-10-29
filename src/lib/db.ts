@@ -12,23 +12,7 @@ let debug = _debug("_db");
 
 let connection: mysql.IConnection | undefined = undefined;
 
-function query(
-    sql: string,
-    values?: (string | number | null)[]
-): Promise<any> {
-
-    if (!connection) {
-
-        connection = mysql.createConnection({
-            ...c.dbParamsBackend,
-            "multipleStatements": true
-        });
-
-    }
-
-    return f.queryOnConnection(connection, sql, values);
-
-}
+export const query= f.buildQueryFunction(c.dbParamsBackend);
 
 /** For test purpose only */
 export async function flush() {

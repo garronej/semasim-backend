@@ -263,30 +263,33 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
 (() => {
 
-    //<string name="semasim_login_url">https://&domain;/api/get-user-linphone-config?email_as_hex=%1$s&amp;password_as_hex=%2$s</string>
+    /*
+    <string name="semasim_login_url"> https://www.&domain;/api/get-user-linphone-config
+    ?email_as_hex=%1$s&amp;password_as_hex=%2$s&amp;instance_id_as_hex=%3$s</string>
+    */
 
     let methodName = "get-user-linphone-config";
 
     type Params = {
         email_as_hex: string;
         password_as_hex: string;
+        instance_id_as_hex: string;
     };
-
-
-
 
     function validateQueryString(query: any): query is Params {
 
         try {
 
-            let { email_as_hex, password_as_hex } = query as Params;
+            let { email_as_hex, password_as_hex, instance_id_as_hex } = query as Params;
 
             let email = (new Buffer(email_as_hex, "hex")).toString("utf8");
             let password = (new Buffer(password_as_hex, "hex")).toString("utf8");
+            let instanceId= (new Buffer(instance_id_as_hex, "hex")).toString("utf8");
 
             return (
                 email.match(c.regExpEmail) !== null &&
-                password.match(c.regExpPassword) !== null
+                password.match(c.regExpPassword) !== null &&
+                !!instanceId
             );
 
         } catch {
@@ -350,12 +353,13 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
         let last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
 
-        let stunServer= networkTools.getStunServer.previousResult!;
+        //let stunServer= networkTools.getStunServer.previousResult!;
 
         endpointConfigs[endpointConfigs.length] = [
             `  <section name="nat_policy_${id}">`,
             `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
-            `    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
+            //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
+            `    <entry name="stun_server" ${ov}>${c.shared.domain}</entry>`,
             `    <entry name="protocols" ${ov}>stun,ice</entry>`,
             `  </section>`,
             `  <section name="proxy_${id}">`,
@@ -373,6 +377,37 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
             `    <entry name="passwd" ${ov}>${last_four_digits_of_iccid}</entry>`,
             `  </section>`
         ].join("\n");
+
+
+        /*
+        endpointConfigs[endpointConfigs.length] = [
+            `  <section name="nat_policy_${id}">`,
+            `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
+            `    <entry name="stun_server" ${ov}>${c.shared.domain}</entry>`,
+            `    <entry name="protocols" ${ov}>stun,turn,ice</entry>`,
+            `    <entry name="stun_server_username" ${ov}>ad9c087a-bb61-11e7-afe4-f71e2efec7c1</entry>`,
+            `  </section>`,
+            `  <section name="proxy_${id}">`,
+            `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=tls</entry>`,
+            `    <entry name="reg_route" ${ov}>sip:${domain};transport=tls;lr</entry>`,
+            `    <entry name="reg_expires" ${ov}>${c.reg_expires}</entry>`,
+            `    <entry name="reg_identity" ${ov}>${reg_identity}</entry>`,
+            `    <entry name="reg_sendregister" ${ov}>1</entry>`,
+            `    <entry name="publish" ${ov}>0</entry>`,
+            `    <entry name="nat_policy_ref" ${ov}>nat_policy_${id}</entry>`,
+            `  </section>`,
+            `  <section name="auth_info_${id}">`,
+            `    <entry name="username" ${ov}>${dongle.imei}</entry>`,
+            `    <entry name="userid" ${ov}>${dongle.imei}</entry>`,
+            `    <entry name="passwd" ${ov}>${last_four_digits_of_iccid}</entry>`,
+            `  </section>`,
+            `  <section name="auth_info_${id+1}">`,
+            `    <entry name="username" ${ov}>ad9c087a-bb61-11e7-afe4-f71e2efec7c1</entry>`,
+            `    <entry name="userid" ${ov}>ad9c0906-bb61-11e7-9878-e8a34e885e55</entry>`,
+            `    <entry name="passwd" ${ov}>ad9c0906-bb61-11e7-9878-e8a34e885e55</entry>`,
+            `  </section>`
+        ].join("\n");
+        */
 
     }
 
@@ -404,24 +439,26 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
 
     }
 
+    /*
     networkTools.getStunServer.domain = c.shared.domain;
-
     let prGetStun= networkTools.getStunServer.defineUpdateInterval();
+    */
 
     handlers[methodName] = async (req, res) => {
 
         debug(`handle ${methodName}`);
 
-        if( !networkTools.getStunServer.previousResult ) await prGetStun;
+        //if( !networkTools.getStunServer.previousResult ) await prGetStun;
 
         let query = req.query;
 
         if (!validateQueryString(query)) return failNoStatus(res, "malformed");
 
-        let { email_as_hex, password_as_hex } = query;
+        let { email_as_hex, password_as_hex, instance_id_as_hex } = query;
 
         let email = (new Buffer(email_as_hex, "hex")).toString("utf8");
         let password = (new Buffer(password_as_hex, "hex")).toString("utf8");
+        let instanceId= (new Buffer(instance_id_as_hex, "hex")).toString("utf8");
 
         let user = await db.authenticateUser(email, password);
 
@@ -445,6 +482,8 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         let xml = generateGlobalConfig(endpointConfigs, phonebookConfigs);
 
         debug(xml);
+
+        console.log({ instanceId });
 
         res.setHeader("Content-Type", "application/xml; charset=utf-8");
 

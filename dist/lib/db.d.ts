@@ -1,4 +1,5 @@
 import { DongleController as Dc } from "chan-dongle-extended-client";
+export declare const query: (sql: string, values?: (string | number | null)[] | undefined) => Promise<any>;
 /** For test purpose only */
 export declare function flush(): Promise<void>;
 /** Return user.id_ or undefined */

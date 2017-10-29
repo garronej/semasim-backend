@@ -51,7 +51,7 @@ var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_main");
 (function () { return __awaiter(_this, void 0, void 0, function () {
-    var hostnameWeb, interfaceIp;
+    var hostname, interfaceIp;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -60,17 +60,17 @@ var debug = _debug("_main");
             case 1:
                 _a.sent();
                 debug("..Sip proxy server started !");
-                hostnameWeb = "www." + _constants_1.c.shared.domain;
-                return [4 /*yield*/, networkTools.retrieveIpFromHostname(hostnameWeb)];
+                hostname = "www." + _constants_1.c.shared.domain;
+                return [4 /*yield*/, networkTools.retrieveIpFromHostname(hostname)];
             case 2:
                 interfaceIp = (_a.sent()).interfaceIp;
                 return [4 /*yield*/, new Promise(function (resolve) {
                         var app = express();
                         app.set("view engine", "ejs");
                         app
+                            .use(forceDomain({ hostname: hostname }))
                             .use(session({ "secret": webRouter_1.cookieSecret, "resave": false, "saveUninitialized": false }))
                             .use("/" + api_1.webApiPath, webApi.getRouter())
-                            .use(forceDomain({ hostnameWeb: hostnameWeb }))
                             .use("/", webRouter_1.webRouter);
                         https.createServer(_constants_1.c.tlsOptions)
                             .on("request", app)
@@ -83,7 +83,7 @@ var debug = _debug("_main");
                 return [4 /*yield*/, new Promise(function (resolve) {
                         var app = express();
                         app.use(forceDomain({
-                            hostnameWeb: hostnameWeb,
+                            hostname: hostname,
                             "port": 443,
                             "protocol": "https"
                         }));

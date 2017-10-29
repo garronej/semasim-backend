@@ -69,7 +69,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
 var bodyParser = require("body-parser");
 var logger = require("morgan");
-var networkTools = require("../tools/networkTools");
 var html_entities = require("html-entities");
 var entities = new html_entities.XmlEntities;
 var semasim_gateway_1 = require("../semasim-gateway");
@@ -236,15 +235,20 @@ var handlers = {};
     }); };
 })();
 (function () {
-    //<string name="semasim_login_url">https://&domain;/api/get-user-linphone-config?email_as_hex=%1$s&amp;password_as_hex=%2$s</string>
+    /*
+    <string name="semasim_login_url"> https://www.&domain;/api/get-user-linphone-config
+    ?email_as_hex=%1$s&amp;password_as_hex=%2$s&amp;instance_id_as_hex=%3$s</string>
+    */
     var methodName = "get-user-linphone-config";
     function validateQueryString(query) {
         try {
-            var _a = query, email_as_hex = _a.email_as_hex, password_as_hex = _a.password_as_hex;
+            var _a = query, email_as_hex = _a.email_as_hex, password_as_hex = _a.password_as_hex, instance_id_as_hex = _a.instance_id_as_hex;
             var email = (new Buffer(email_as_hex, "hex")).toString("utf8");
             var password = (new Buffer(password_as_hex, "hex")).toString("utf8");
+            var instanceId = (new Buffer(instance_id_as_hex, "hex")).toString("utf8");
             return (email.match(_constants_1.c.regExpEmail) !== null &&
-                password.match(_constants_1.c.regExpPassword) !== null);
+                password.match(_constants_1.c.regExpPassword) !== null &&
+                !!instanceId);
         }
         catch (_b) {
             return false;
@@ -282,11 +286,12 @@ var handlers = {};
         })(id, dongle.sim);
         var reg_identity = entities.encode("\"" + display_name + "\" <sip:" + dongle.imei + "@" + domain + ";transport=tls>");
         var last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
-        var stunServer = networkTools.getStunServer.previousResult;
+        //let stunServer= networkTools.getStunServer.previousResult!;
         endpointConfigs[endpointConfigs.length] = [
             "  <section name=\"nat_policy_" + id + "\">",
             "    <entry name=\"ref\" " + ov + ">nat_policy_" + id + "</entry>",
-            "    <entry name=\"stun_server\" " + ov + ">" + stunServer.ip + ":" + stunServer.port + "</entry>",
+            //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
+            "    <entry name=\"stun_server\" " + ov + ">" + _constants_1.c.shared.domain + "</entry>",
             "    <entry name=\"protocols\" " + ov + ">stun,ice</entry>",
             "  </section>",
             "  <section name=\"proxy_" + id + "\">",
@@ -304,6 +309,35 @@ var handlers = {};
             "    <entry name=\"passwd\" " + ov + ">" + last_four_digits_of_iccid + "</entry>",
             "  </section>"
         ].join("\n");
+        /*
+        endpointConfigs[endpointConfigs.length] = [
+            `  <section name="nat_policy_${id}">`,
+            `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
+            `    <entry name="stun_server" ${ov}>${c.shared.domain}</entry>`,
+            `    <entry name="protocols" ${ov}>stun,turn,ice</entry>`,
+            `    <entry name="stun_server_username" ${ov}>ad9c087a-bb61-11e7-afe4-f71e2efec7c1</entry>`,
+            `  </section>`,
+            `  <section name="proxy_${id}">`,
+            `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=tls</entry>`,
+            `    <entry name="reg_route" ${ov}>sip:${domain};transport=tls;lr</entry>`,
+            `    <entry name="reg_expires" ${ov}>${c.reg_expires}</entry>`,
+            `    <entry name="reg_identity" ${ov}>${reg_identity}</entry>`,
+            `    <entry name="reg_sendregister" ${ov}>1</entry>`,
+            `    <entry name="publish" ${ov}>0</entry>`,
+            `    <entry name="nat_policy_ref" ${ov}>nat_policy_${id}</entry>`,
+            `  </section>`,
+            `  <section name="auth_info_${id}">`,
+            `    <entry name="username" ${ov}>${dongle.imei}</entry>`,
+            `    <entry name="userid" ${ov}>${dongle.imei}</entry>`,
+            `    <entry name="passwd" ${ov}>${last_four_digits_of_iccid}</entry>`,
+            `  </section>`,
+            `  <section name="auth_info_${id+1}">`,
+            `    <entry name="username" ${ov}>ad9c087a-bb61-11e7-afe4-f71e2efec7c1</entry>`,
+            `    <entry name="userid" ${ov}>ad9c0906-bb61-11e7-9878-e8a34e885e55</entry>`,
+            `    <entry name="passwd" ${ov}>ad9c0906-bb61-11e7-9878-e8a34e885e55</entry>`,
+            `  </section>`
+        ].join("\n");
+        */
     }
     function updatePhonebookConfigs(id, contacts, phonebookConfigs) {
         var startIndex = phonebookConfigs.length;
@@ -320,65 +354,63 @@ var handlers = {};
             ].join("\n");
         }
     }
-    networkTools.getStunServer.domain = _constants_1.c.shared.domain;
-    var prGetStun = networkTools.getStunServer.defineUpdateInterval();
+    /*
+    networkTools.getStunServer.domain = c.shared.domain;
+    let prGetStun= networkTools.getStunServer.defineUpdateInterval();
+    */
     handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var query, email_as_hex, password_as_hex, email, password, user, endpointConfigs, phonebookConfigs, id, _a, _b, dongle, e_1_1, xml, e_1, _c;
+        var query, email_as_hex, password_as_hex, instance_id_as_hex, email, password, instanceId, user, endpointConfigs, phonebookConfigs, id, _a, _b, dongle, e_1_1, xml, e_1, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
                     debug("handle " + methodName);
-                    if (!!networkTools.getStunServer.previousResult) return [3 /*break*/, 2];
-                    return [4 /*yield*/, prGetStun];
-                case 1:
-                    _d.sent();
-                    _d.label = 2;
-                case 2:
                     query = req.query;
                     if (!validateQueryString(query))
                         return [2 /*return*/, failNoStatus(res, "malformed")];
-                    email_as_hex = query.email_as_hex, password_as_hex = query.password_as_hex;
+                    email_as_hex = query.email_as_hex, password_as_hex = query.password_as_hex, instance_id_as_hex = query.instance_id_as_hex;
                     email = (new Buffer(email_as_hex, "hex")).toString("utf8");
                     password = (new Buffer(password_as_hex, "hex")).toString("utf8");
+                    instanceId = (new Buffer(instance_id_as_hex, "hex")).toString("utf8");
                     return [4 /*yield*/, db.authenticateUser(email, password)];
-                case 3:
+                case 1:
                     user = _d.sent();
                     if (!user)
                         return [2 /*return*/, failNoStatus(res, "user not found")];
                     endpointConfigs = [];
                     phonebookConfigs = [];
                     id = 0;
+                    _d.label = 2;
+                case 2:
+                    _d.trys.push([2, 7, 8, 9]);
+                    return [4 /*yield*/, db.getEndpoints(user)];
+                case 3:
+                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
                     _d.label = 4;
                 case 4:
-                    _d.trys.push([4, 9, 10, 11]);
-                    return [4 /*yield*/, db.getEndpoints(user)];
-                case 5:
-                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                    _d.label = 6;
-                case 6:
-                    if (!!_b.done) return [3 /*break*/, 8];
+                    if (!!_b.done) return [3 /*break*/, 6];
                     dongle = _b.value;
                     updateEndpointConfigs(id, dongle, endpointConfigs);
                     updatePhonebookConfigs(id, dongle.sim.phonebook.contacts, phonebookConfigs);
                     id++;
-                    _d.label = 7;
-                case 7:
+                    _d.label = 5;
+                case 5:
                     _b = _a.next();
-                    return [3 /*break*/, 6];
-                case 8: return [3 /*break*/, 11];
-                case 9:
+                    return [3 /*break*/, 4];
+                case 6: return [3 /*break*/, 9];
+                case 7:
                     e_1_1 = _d.sent();
                     e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 11];
-                case 10:
+                    return [3 /*break*/, 9];
+                case 8:
                     try {
                         if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                     }
                     finally { if (e_1) throw e_1.error; }
                     return [7 /*endfinally*/];
-                case 11:
+                case 9:
                     xml = generateGlobalConfig(endpointConfigs, phonebookConfigs);
                     debug(xml);
+                    console.log({ instanceId: instanceId });
                     res.setHeader("Content-Type", "application/xml; charset=utf-8");
                     res.status(200).send(new Buffer(xml, "utf8"));
                     return [2 /*return*/];
