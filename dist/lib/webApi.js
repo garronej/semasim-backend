@@ -257,19 +257,32 @@ var handlers = {};
     var ov = " overwrite=\"true\" ";
     var domain = _constants_1.c.shared.domain;
     function generateGlobalConfig(endpointConfigs, phonebookConfigs) {
+        /*
+        return [
+            `<?xml version="1.0" encoding="UTF-8"?>`,
+            [
+                `<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" `,
+                `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" `,
+                `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
+            ].join(""),
+            `  <section name="sip">`,
+            `    <entry name="ping_with_options" ${ov}>0</entry>`,
+            `  </section>`,
+            `  <section name="net">`,
+            `    <entry name="dns_srv_enabled" ${ov}>1</entry>`,
+            `  </section>`,
+            ...endpointConfigs,
+            ...phonebookConfigs,
+            `</config>`
+        ].join("\n");
+        */
         return __spread([
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
             [
                 "<config xmlns=\"http://www.linphone.org/xsds/lpconfig.xsd\" ",
                 "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" ",
                 "xsi:schemaLocation=\"http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd\">",
-            ].join(""),
-            "  <section name=\"sip\">",
-            "    <entry name=\"ping_with_options\" " + ov + ">0</entry>",
-            "  </section>",
-            "  <section name=\"net\">",
-            "    <entry name=\"dns_srv_enabled\" " + ov + ">1</entry>",
-            "  </section>"
+            ].join("")
         ], endpointConfigs, phonebookConfigs, [
             "</config>"
         ]).join("\n");
@@ -287,10 +300,10 @@ var handlers = {};
         var reg_identity = entities.encode("\"" + display_name + "\" <sip:" + dongle.imei + "@" + domain + ";transport=tls>");
         var last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
         //let stunServer= networkTools.getStunServer.previousResult!;
+        //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
         endpointConfigs[endpointConfigs.length] = [
             "  <section name=\"nat_policy_" + id + "\">",
             "    <entry name=\"ref\" " + ov + ">nat_policy_" + id + "</entry>",
-            //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
             "    <entry name=\"stun_server\" " + ov + ">" + _constants_1.c.shared.domain + "</entry>",
             "    <entry name=\"protocols\" " + ov + ">stun,ice</entry>",
             "  </section>",

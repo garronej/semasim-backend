@@ -306,6 +306,7 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         phonebookConfigs: string[]
     ): string {
 
+        /*
         return [
             `<?xml version="1.0" encoding="UTF-8"?>`,
             [
@@ -319,6 +320,19 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
             `  <section name="net">`,
             `    <entry name="dns_srv_enabled" ${ov}>1</entry>`,
             `  </section>`,
+            ...endpointConfigs,
+            ...phonebookConfigs,
+            `</config>`
+        ].join("\n");
+        */
+
+        return [
+            `<?xml version="1.0" encoding="UTF-8"?>`,
+            [
+                `<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" `,
+                `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" `,
+                `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
+            ].join(""),
             ...endpointConfigs,
             ...phonebookConfigs,
             `</config>`
@@ -354,11 +368,11 @@ const handlers: Record<string, (req: express.Request, res: express.Response) => 
         let last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
 
         //let stunServer= networkTools.getStunServer.previousResult!;
+        //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
 
         endpointConfigs[endpointConfigs.length] = [
             `  <section name="nat_policy_${id}">`,
             `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
-            //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
             `    <entry name="stun_server" ${ov}>${c.shared.domain}</entry>`,
             `    <entry name="protocols" ${ov}>stun,ice</entry>`,
             `  </section>`,
