@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { c as shared } from "../semasim-gateway";
+import { PushNotificationCredentials } from "../tools/pushSender";
 
 const pathToPrivate = path.join(__dirname, "..", "..", "..", "private");
 
@@ -17,17 +18,15 @@ export class c {
         "database": "semasim"
     };
 
-    public static pushNotificationCredentials= {
+    public static pushNotificationCredentials: PushNotificationCredentials = {
         "android": {
             "pathToServiceAccount": path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json")
         },
-        "apple": {
-            "token": {
-                "key": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
-                "keyId": "Y84XM8SSNL",
-                "teamId": "TW9WZG49Q3"
-            },
-            "appId": "com.semasim.semasim.voip"
+        "iOS": {
+            "pathToKey": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
+            "keyId": "Y84XM8SSNL",
+            "teamId": "TW9WZG49Q3",
+            "appId": "com.semasim.semasim"
         }
     };
 
@@ -53,10 +52,10 @@ export class c {
 
     public static readonly regExpImei = /^[0-9]{15}$/;
 
-    public static readonly regExpIccid= /^[0-9]{6,22}$/;
+    public static readonly regExpIccid = /^[0-9]{6,22}$/;
 
     public static readonly regExpEmail =
-    /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
     //TODO: better regexp
     public static readonly regExpPassword = /^[0-9a-zA-Z]{6,}$/;

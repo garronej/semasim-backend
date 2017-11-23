@@ -98,7 +98,7 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     let connectionId = uniqNow();
 
-    debug(`${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
+    debug(`=======>${connectionId} New client socket, ${clientSocket.remoteAddress}:${clientSocket.remotePort}\n\n`.yellow);
 
     clientSockets.set(connectionId, clientSocket);
 

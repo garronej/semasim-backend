@@ -5,8 +5,7 @@ import {
     sipApiClientBackend as _,
     Contact
 } from "../semasim-gateway";
-import * as firebaseFunctions from "../tools/firebaseFunctions";
-import * as applePushKitFunctions from "../tools/applePushKitFunctions";
+import * as pushSender from "../tools/pushSender";
 import { 
     gatewaySockets, 
     clientSockets
@@ -21,12 +20,6 @@ let debug = _debug("_sipApi");
 
 
 export function startListening(gatewaySocket: sipLibrary.Socket) {
-
-    let { android, apple }= c.pushNotificationCredentials;
-
-    firebaseFunctions.init(android.pathToServiceAccount);
-
-    applePushKitFunctions.init({ "token": apple.token });
 
     framework.startListening(gatewaySocket).attach(
         async ({ method, params, sendResponse }) => {
@@ -131,35 +124,110 @@ const handlers: Record<string, (params: any, gatewaySocket: sipLibrary.Socket) =
     type Response = _.wakeUpContact.Response;
 
     handlers[methodName] = async function (
-        params: Params,
-        gatewaySocket: sipLibrary.Socket
+        params: Params
     ): Promise<Response> {
 
         let { contact } = params;
 
-        if (contact.uaEndpoint.ua.pushToken && contact.uaEndpoint.ua.pushToken.type === "apple") {
+        let platform= figureOutPushPlatform(contact.uaEndpoint.ua.pushToken);
 
-            let prReached = qualifyContact(contact, 10000);
+        if( !platform ){
 
-            //TODO await just a little bit to prevent sending push if socket is active.
+            debug("no platform");
 
-            let isSuccess = await sendPushNotification(contact.uaEndpoint.ua);
+            let isReachable = await qualifyContact(contact);
 
-            if (await prReached) return { "status": "REACHABLE" };
-
-            return { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" };
-
-        } else {
-
-            let reached = await qualifyContact(contact);
-
-            if (reached) return { "status": "REACHABLE" };
-
-            let isSuccess = await sendPushNotification(contact.uaEndpoint.ua);
-
-            return { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" };
+            return { "status": isReachable ? "REACHABLE" : "UNREACHABLE" };
 
         }
+
+        let pushToken = contact.uaEndpoint.ua.pushToken!;
+
+        switch (platform) {
+            case "iOS":
+
+                debug("platform iOS...");
+
+                let prReached = qualifyContact(contact);
+
+                let reachableWithoutPush = await Promise.race([
+                    new Promise<false>(resolve => setTimeout(() => resolve(false), 750)),
+                    prReached
+                ]);
+
+                if (reachableWithoutPush) {
+
+                    debug("...reachable without push");
+
+                    return { "status": "REACHABLE" };
+
+                }
+
+                let prIsSendPushSuccess = sendPushNotification(pushToken);
+
+                let reachable = await prReached;
+
+                if (reachable) {
+
+                    debug("...reachable with push");
+
+                    return { "status": "REACHABLE" };
+
+                } else {
+
+                    debug("... push notification sent");
+
+                    return { "status": (await prIsSendPushSuccess) ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" };
+
+                }
+
+            case "android":
+
+                let reached = await qualifyContact(contact);
+
+                if (reached) return { "status": "REACHABLE" };
+
+                let isSendPushSuccess = await sendPushNotification(pushToken);
+
+                return { "status": isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" };
+        }
+
+
+    };
+
+})();
+
+(()=>{
+
+    let methodName = _.forceContactToReRegister.methodName;
+    type Params = _.forceContactToReRegister.Params;
+    type Response = _.forceContactToReRegister.Response;
+
+    handlers[methodName] = async function (
+        params: Params
+    ): Promise<Response> {
+
+        let { contact } = params;
+
+        let pushToken= contact.uaEndpoint.ua.pushToken;
+
+        let platform = figureOutPushPlatform(pushToken);
+
+        if( platform !== "android" ){
+
+            let clientSocket= clientSockets.get(contact.connectionId);
+
+            if( clientSocket ){
+
+                clientSocket.destroy();
+
+            }
+
+        }
+
+        let isPushNotificationSent = await sendPushNotification(pushToken);
+
+        return { isPushNotificationSent };
 
     };
 
@@ -172,13 +240,12 @@ const handlers: Record<string, (params: any, gatewaySocket: sipLibrary.Socket) =
     type Response = _.sendPushNotification.Response;
 
     handlers[methodName] = async function (
-        params: Params,
-        gatewaySocket: sipLibrary.Socket
+        params: Params
     ): Promise<Response> {
 
         let { ua } = params;
 
-        let isPushNotificationSent = await sendPushNotification(ua);
+        let isPushNotificationSent = await sendPushNotification(ua.pushToken);
 
         return { isPushNotificationSent };
 
@@ -199,27 +266,36 @@ qualifyPending.set = function set(connectionId, promiseResult) {
 
 }
 
-
 //TODO: May throw error!
 export function qualifyContact(
     contact: Contact,
     timeout = 2500
-): Promise<boolean> {
+): Promise<boolean> | false {
+
+    debug("qualify contact...");
 
     let connectionId = contact.connectionId;
 
+    let clientSocket = clientSockets.get(connectionId);
+
+    if (!clientSocket){
+
+        debug("...No client connection qualify failed");
+
+        return false;
+    }
+
     let promiseResult = qualifyPending.get(connectionId);
 
-    if (promiseResult) return promiseResult;
+    if (promiseResult){
+
+        debug("...qualify pending for this contact");
+
+        return promiseResult;
+
+    }
 
     promiseResult = (async () => {
-
-        let clientSocket = clientSockets.get(connectionId);
-
-        if (!clientSocket) {
-            debug("no client socket to qualify");
-            return false;
-        }
 
         let fromTag = `794ee9eb-${Date.now()}`;
         let callId = `138ce538-${Date.now()}`;
@@ -243,23 +319,38 @@ export function qualifyContact(
         //TODO: should be set to [] already :(
         sipRequest.headers.via = [];
 
-        let branch = clientSocket.addViaHeader(sipRequest)
+        let branch = clientSocket.addViaHeader(sipRequest);
 
         debug(`(backend) ${sipRequest.method} ${imei}`.blue);
         clientSocket.write(sipRequest);
 
         try {
 
-            let sipResponse = await clientSocket.evtResponse.attachOnceExtract(
-                ({ headers }) => headers.via[0].params["branch"] === branch,
-                timeout, () => { }
-            );
+            let sipResponse = await Promise.race([
+                new Promise<never>((_, reject) =>
+                    clientSocket!.evtClose.attachOnce(sipRequest, () =>
+                        reject(new Error("Socket disconnected before receiving response to qualify"))
+                    )
+                ),
+                clientSocket.evtResponse.attachOnceExtract(
+                    ({ headers }) => headers.via[0].params["branch"] === branch,
+                    timeout, () => clientSocket!.evtClose.detach(sipRequest)
+                )
+            ]);
+
+            debug("...qualify success");
 
             debug(`(client ${connectionId}): ${sipResponse.status} ${sipResponse.reason} for qualify ${imei}`.yellow);
 
             return true;
 
         } catch (error) {
+
+            debug(`...qualify failed ${error.message}`);
+
+            if (!clientSocket.evtClose.postCount) {
+                clientSocket.destroy();
+            }
 
             return false;
 
@@ -274,75 +365,90 @@ export function qualifyContact(
 }
 
 
-/** Map uaInstance => Response to last push */
-const pushPending = new Map<string, Promise<boolean>>();
 
-pushPending.set = function set(key, promiseResult) {
+function figureOutPushPlatform(
+    pushToken: Contact.UaEndpoint.Ua.PushToken | undefined
+): pushSender.Platform | undefined | null {
 
-    let self: typeof pushPending = this;
+    if (!pushToken) return null;
 
-    setTimeout(() => self.delete(key), 10000);
+    let { type } = pushToken;
 
-    return Map.prototype.set.call(self, key, promiseResult);
+    switch (pushToken.type) {
+        case "google":
+        case "firebase":
+            return "android";
+        case "apple":
+            return "iOS";
+        default:
+            return undefined;
+    }
 
 }
 
-function sendPushNotification(ua: Contact.UaEndpoint.Ua): Promise<boolean> {
+namespace pushPending {
 
-    let promiseResult = pushPending.get(ua.instance);
+    const map = new Map<string, Promise<boolean>>();
 
-    if (promiseResult) {
-        debug("use cache");
-        return promiseResult;
+    export function get(
+        pushToken: Contact.UaEndpoint.Ua.PushToken
+    ) {
+        return map.get(pushToken.token);
     }
 
-    promiseResult = (async () => {
+    export function set(
+        pushToken: Contact.UaEndpoint.Ua.PushToken,
+        prIsSent: Promise<boolean>
+    ) {
 
-        if (!ua.pushToken) return false;
+        let { token } = pushToken;
 
-        let { type, token } = ua.pushToken;
-
-        switch (type) {
-            case "google":
-            case "firebase":
-
-                try {
-
-                    await firebaseFunctions.sendPushNotification(token);
-
-                    return true;
-
-                } catch (error) {
-
-                    debug(`Error firebase ${error.message}`.red);
-
-                    return false;
-
-                }
-            case "apple":
-
-                try {
-
-                    await applePushKitFunctions.sendPushNotification(token, c.pushNotificationCredentials.apple.appId);
-
-                    return true;
-
-                } catch (error) {
-
-                    debug(`Error apple push kit ${error.message}`.red);
-
-                    return false;
-
-                }
-            default:
-                debug(`Can't send push notification to ua`.red);
-                return false;
+        switch (figureOutPushPlatform(pushToken)!) {
+            case "android":
+                setTimeout(() => map.delete(token), 10000);
+                break;
+            case "iOS":
+                prIsSent.then(() => map.delete(token));
+                break;
         }
+
+        map.set(token, prIsSent);
+
+    }
+
+}
+
+function sendPushNotification(
+    pushToken: Contact.UaEndpoint.Ua.PushToken | undefined
+): Promise<boolean> {
+
+    let platform = figureOutPushPlatform(pushToken);
+
+    if (!platform) return Promise.resolve(false);
+
+    let prIsSent = pushPending.get(pushToken!);
+
+    if (prIsSent) return prIsSent;
+
+    prIsSent = (async () => {
+
+        try {
+
+            await pushSender.send(platform, pushToken!.token);
+
+        } catch{
+
+            return false;
+
+        }
+
+        return true;
 
     })();
 
-    pushPending.set(ua.instance, promiseResult);
+    pushPending.set(pushToken!, prIsSent);
 
-    return promiseResult;
+    return prIsSent;
 
 }
+

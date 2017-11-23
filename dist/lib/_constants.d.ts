@@ -1,3 +1,4 @@
+import { PushNotificationCredentials } from "../tools/pushSender";
 export declare class c {
     static readonly shared: {
         new (): {};
@@ -11,19 +12,7 @@ export declare class c {
         "password": string;
         "database": string;
     };
-    static pushNotificationCredentials: {
-        "android": {
-            "pathToServiceAccount": string;
-        };
-        "apple": {
-            "token": {
-                "key": string;
-                "keyId": string;
-                "teamId": string;
-            };
-            "appId": string;
-        };
-    };
+    static pushNotificationCredentials: PushNotificationCredentials;
     private static __tlsOptions__;
     static readonly tlsOptions: any;
     static readonly reg_expires: number;

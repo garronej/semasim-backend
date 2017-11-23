@@ -121,7 +121,7 @@ var uniqNow = (function () {
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new semasim_gateway_1.sipLibrary.Socket(clientSocketRaw);
     var connectionId = uniqNow();
-    debug((connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
+    debug(("=======>" + connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     exports.clientSockets.set(connectionId, clientSocket);
     /*
     clientSocket.evtPacket.attach(sipPacket =>
@@ -146,7 +146,11 @@ function onClientConnection(clientSocketRaw) {
                 return boundTo === clientSocket;
             })) {
                 gatewaySocket_1.evtClose.attachOnce(clientSocket, clientSocket.destroy);
-                clientSocket.evtClose.attachOnce(function () { return gatewaySocket_1.evtClose.detach(clientSocket); });
+                //clientSocket.evtClose.attachOnce(()=> gatewaySocket!.evtClose.detach(clientSocket) );
+                clientSocket.evtClose.attachOnce(function () {
+                    debug("===> client socket closed!!");
+                    gatewaySocket_1.evtClose.detach(clientSocket);
+                });
             }
             gatewaySocket_1.addViaHeader(sipRequest, { "connection_id": "" + connectionId });
             if (sipRequest.method === "REGISTER") {

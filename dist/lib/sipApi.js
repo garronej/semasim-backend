@@ -36,8 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var semasim_gateway_1 = require("../semasim-gateway");
-var firebaseFunctions = require("../tools/firebaseFunctions");
-var applePushKitFunctions = require("../tools/applePushKitFunctions");
+var pushSender = require("../tools/pushSender");
 var sipProxy_1 = require("./sipProxy");
 var _constants_1 = require("./_constants");
 require("colors");
@@ -45,9 +44,6 @@ var _debug = require("debug");
 var debug = _debug("_sipApi");
 function startListening(gatewaySocket) {
     var _this = this;
-    var _a = _constants_1.c.pushNotificationCredentials, android = _a.android, apple = _a.apple;
-    firebaseFunctions.init(android.pathToServiceAccount);
-    applePushKitFunctions.init({ "token": apple.token });
     semasim_gateway_1.sipApiFramework.startListening(gatewaySocket).attach(function (_a) {
         var method = _a.method, params = _a.params, sendResponse = _a.sendResponse;
         return __awaiter(_this, void 0, void 0, function () {
@@ -143,32 +139,90 @@ var handlers = {};
 })();
 (function () {
     var methodName = semasim_gateway_1.sipApiClientBackend.wakeUpContact.methodName;
-    handlers[methodName] = function (params, gatewaySocket) {
+    handlers[methodName] = function (params) {
         return __awaiter(this, void 0, void 0, function () {
-            var contact, prReached, isSuccess, reached, isSuccess;
+            var contact, platform, isReachable, pushToken, _a, prReached, reachableWithoutPush, prIsSendPushSuccess, reachable, _b, _c, reached, isSendPushSuccess;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        contact = params.contact;
+                        platform = figureOutPushPlatform(contact.uaEndpoint.ua.pushToken);
+                        if (!!platform) return [3 /*break*/, 2];
+                        debug("no platform");
+                        return [4 /*yield*/, qualifyContact(contact)];
+                    case 1:
+                        isReachable = _d.sent();
+                        return [2 /*return*/, { "status": isReachable ? "REACHABLE" : "UNREACHABLE" }];
+                    case 2:
+                        pushToken = contact.uaEndpoint.ua.pushToken;
+                        _a = platform;
+                        switch (_a) {
+                            case "iOS": return [3 /*break*/, 3];
+                            case "android": return [3 /*break*/, 8];
+                        }
+                        return [3 /*break*/, 11];
+                    case 3:
+                        debug("platform iOS...");
+                        prReached = qualifyContact(contact);
+                        return [4 /*yield*/, Promise.race([
+                                new Promise(function (resolve) { return setTimeout(function () { return resolve(false); }, 750); }),
+                                prReached
+                            ])];
+                    case 4:
+                        reachableWithoutPush = _d.sent();
+                        if (reachableWithoutPush) {
+                            debug("...reachable without push");
+                            return [2 /*return*/, { "status": "REACHABLE" }];
+                        }
+                        prIsSendPushSuccess = sendPushNotification(pushToken);
+                        return [4 /*yield*/, prReached];
+                    case 5:
+                        reachable = _d.sent();
+                        if (!reachable) return [3 /*break*/, 6];
+                        debug("...reachable with push");
+                        return [2 /*return*/, { "status": "REACHABLE" }];
+                    case 6:
+                        debug("... push notification sent");
+                        _b = {};
+                        _c = "status";
+                        return [4 /*yield*/, prIsSendPushSuccess];
+                    case 7: return [2 /*return*/, (_b[_c] = (_d.sent()) ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE", _b)];
+                    case 8: return [4 /*yield*/, qualifyContact(contact)];
+                    case 9:
+                        reached = _d.sent();
+                        if (reached)
+                            return [2 /*return*/, { "status": "REACHABLE" }];
+                        return [4 /*yield*/, sendPushNotification(pushToken)];
+                    case 10:
+                        isSendPushSuccess = _d.sent();
+                        return [2 /*return*/, { "status": isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" }];
+                    case 11: return [2 /*return*/];
+                }
+            });
+        });
+    };
+})();
+(function () {
+    var methodName = semasim_gateway_1.sipApiClientBackend.forceContactToReRegister.methodName;
+    handlers[methodName] = function (params) {
+        return __awaiter(this, void 0, void 0, function () {
+            var contact, pushToken, platform, clientSocket, isPushNotificationSent;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         contact = params.contact;
-                        if (!(contact.uaEndpoint.ua.pushToken && contact.uaEndpoint.ua.pushToken.type === "apple")) return [3 /*break*/, 3];
-                        prReached = qualifyContact(contact, 10000);
-                        return [4 /*yield*/, sendPushNotification(contact.uaEndpoint.ua)];
+                        pushToken = contact.uaEndpoint.ua.pushToken;
+                        platform = figureOutPushPlatform(pushToken);
+                        if (platform !== "android") {
+                            clientSocket = sipProxy_1.clientSockets.get(contact.connectionId);
+                            if (clientSocket) {
+                                clientSocket.destroy();
+                            }
+                        }
+                        return [4 /*yield*/, sendPushNotification(pushToken)];
                     case 1:
-                        isSuccess = _a.sent();
-                        return [4 /*yield*/, prReached];
-                    case 2:
-                        if (_a.sent())
-                            return [2 /*return*/, { "status": "REACHABLE" }];
-                        return [2 /*return*/, { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" }];
-                    case 3: return [4 /*yield*/, qualifyContact(contact)];
-                    case 4:
-                        reached = _a.sent();
-                        if (reached)
-                            return [2 /*return*/, { "status": "REACHABLE" }];
-                        return [4 /*yield*/, sendPushNotification(contact.uaEndpoint.ua)];
-                    case 5:
-                        isSuccess = _a.sent();
-                        return [2 /*return*/, { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" }];
+                        isPushNotificationSent = _a.sent();
+                        return [2 /*return*/, { isPushNotificationSent: isPushNotificationSent }];
                 }
             });
         });
@@ -176,14 +230,14 @@ var handlers = {};
 })();
 (function () {
     var methodName = semasim_gateway_1.sipApiClientBackend.sendPushNotification.methodName;
-    handlers[methodName] = function (params, gatewaySocket) {
+    handlers[methodName] = function (params) {
         return __awaiter(this, void 0, void 0, function () {
             var ua, isPushNotificationSent;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         ua = params.ua;
-                        return [4 /*yield*/, sendPushNotification(ua)];
+                        return [4 /*yield*/, sendPushNotification(ua.pushToken)];
                     case 1:
                         isPushNotificationSent = _a.sent();
                         return [2 /*return*/, { isPushNotificationSent: isPushNotificationSent }];
@@ -203,20 +257,23 @@ qualifyPending.set = function set(connectionId, promiseResult) {
 function qualifyContact(contact, timeout) {
     var _this = this;
     if (timeout === void 0) { timeout = 2500; }
+    debug("qualify contact...");
     var connectionId = contact.connectionId;
+    var clientSocket = sipProxy_1.clientSockets.get(connectionId);
+    if (!clientSocket) {
+        debug("...No client connection qualify failed");
+        return false;
+    }
     var promiseResult = qualifyPending.get(connectionId);
-    if (promiseResult)
+    if (promiseResult) {
+        debug("...qualify pending for this contact");
         return promiseResult;
+    }
     promiseResult = (function () { return __awaiter(_this, void 0, void 0, function () {
-        var clientSocket, fromTag, callId, cSeqSequenceNumber, imei, sipRequest, branch, sipResponse, error_2;
+        var fromTag, callId, cSeqSequenceNumber, imei, sipRequest, branch, sipResponse, error_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    clientSocket = sipProxy_1.clientSockets.get(connectionId);
-                    if (!clientSocket) {
-                        debug("no client socket to qualify");
-                        return [2 /*return*/, false];
-                    }
                     fromTag = "794ee9eb-" + Date.now();
                     callId = "138ce538-" + Date.now();
                     cSeqSequenceNumber = Math.floor(Math.random() * 2000);
@@ -241,16 +298,28 @@ function qualifyContact(contact, timeout) {
                     _a.label = 1;
                 case 1:
                     _a.trys.push([1, 3, , 4]);
-                    return [4 /*yield*/, clientSocket.evtResponse.attachOnceExtract(function (_a) {
-                            var headers = _a.headers;
-                            return headers.via[0].params["branch"] === branch;
-                        }, timeout, function () { })];
+                    return [4 /*yield*/, Promise.race([
+                            new Promise(function (_, reject) {
+                                return clientSocket.evtClose.attachOnce(sipRequest, function () {
+                                    return reject(new Error("Socket disconnected before receiving response to qualify"));
+                                });
+                            }),
+                            clientSocket.evtResponse.attachOnceExtract(function (_a) {
+                                var headers = _a.headers;
+                                return headers.via[0].params["branch"] === branch;
+                            }, timeout, function () { return clientSocket.evtClose.detach(sipRequest); })
+                        ])];
                 case 2:
                     sipResponse = _a.sent();
+                    debug("...qualify success");
                     debug(("(client " + connectionId + "): " + sipResponse.status + " " + sipResponse.reason + " for qualify " + imei).yellow);
                     return [2 /*return*/, true];
                 case 3:
                     error_2 = _a.sent();
+                    debug("...qualify failed " + error_2.message);
+                    if (!clientSocket.evtClose.postCount) {
+                        clientSocket.destroy();
+                    }
                     return [2 /*return*/, false];
                 case 4: return [2 /*return*/];
             }
@@ -260,61 +329,66 @@ function qualifyContact(contact, timeout) {
     return promiseResult;
 }
 exports.qualifyContact = qualifyContact;
-/** Map uaInstance => Response to last push */
-var pushPending = new Map();
-pushPending.set = function set(key, promiseResult) {
-    var self = this;
-    setTimeout(function () { return self.delete(key); }, 10000);
-    return Map.prototype.set.call(self, key, promiseResult);
-};
-function sendPushNotification(ua) {
-    var _this = this;
-    var promiseResult = pushPending.get(ua.instance);
-    if (promiseResult) {
-        debug("use cache");
-        return promiseResult;
+function figureOutPushPlatform(pushToken) {
+    if (!pushToken)
+        return null;
+    var type = pushToken.type;
+    switch (pushToken.type) {
+        case "google":
+        case "firebase":
+            return "android";
+        case "apple":
+            return "iOS";
+        default:
+            return undefined;
     }
-    promiseResult = (function () { return __awaiter(_this, void 0, void 0, function () {
-        var _a, type, token, _b, error_3, error_4;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+}
+var pushPending;
+(function (pushPending) {
+    var map = new Map();
+    function get(pushToken) {
+        return map.get(pushToken.token);
+    }
+    pushPending.get = get;
+    function set(pushToken, prIsSent) {
+        var token = pushToken.token;
+        switch (figureOutPushPlatform(pushToken)) {
+            case "android":
+                setTimeout(function () { return map.delete(token); }, 10000);
+                break;
+            case "iOS":
+                prIsSent.then(function () { return map.delete(token); });
+                break;
+        }
+        map.set(token, prIsSent);
+    }
+    pushPending.set = set;
+})(pushPending || (pushPending = {}));
+function sendPushNotification(pushToken) {
+    var _this = this;
+    var platform = figureOutPushPlatform(pushToken);
+    if (!platform)
+        return Promise.resolve(false);
+    var prIsSent = pushPending.get(pushToken);
+    if (prIsSent)
+        return prIsSent;
+    prIsSent = (function () { return __awaiter(_this, void 0, void 0, function () {
+        var _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    if (!ua.pushToken)
-                        return [2 /*return*/, false];
-                    _a = ua.pushToken, type = _a.type, token = _a.token;
-                    _b = type;
-                    switch (_b) {
-                        case "google": return [3 /*break*/, 1];
-                        case "firebase": return [3 /*break*/, 1];
-                        case "apple": return [3 /*break*/, 4];
-                    }
-                    return [3 /*break*/, 7];
+                    _b.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, pushSender.send(platform, pushToken.token)];
                 case 1:
-                    _c.trys.push([1, 3, , 4]);
-                    return [4 /*yield*/, firebaseFunctions.sendPushNotification(token)];
+                    _b.sent();
+                    return [3 /*break*/, 3];
                 case 2:
-                    _c.sent();
-                    return [2 /*return*/, true];
-                case 3:
-                    error_3 = _c.sent();
-                    debug(("Error firebase " + error_3.message).red);
+                    _a = _b.sent();
                     return [2 /*return*/, false];
-                case 4:
-                    _c.trys.push([4, 6, , 7]);
-                    return [4 /*yield*/, applePushKitFunctions.sendPushNotification(token, _constants_1.c.pushNotificationCredentials.apple.appId)];
-                case 5:
-                    _c.sent();
-                    return [2 /*return*/, true];
-                case 6:
-                    error_4 = _c.sent();
-                    debug(("Error apple push kit " + error_4.message).red);
-                    return [2 /*return*/, false];
-                case 7:
-                    debug("Can't send push notification to ua".red);
-                    return [2 /*return*/, false];
+                case 3: return [2 /*return*/, true];
             }
         });
     }); })();
-    pushPending.set(ua.instance, promiseResult);
-    return promiseResult;
+    pushPending.set(pushToken, prIsSent);
+    return prIsSent;
 }

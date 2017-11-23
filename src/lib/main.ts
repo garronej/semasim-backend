@@ -21,10 +21,14 @@ let debug = _debug("_main");
 
 import * as fs from "fs";
 
+import * as pushSender from "../tools/pushSender";
+
 
 (async () => {
 
     debug("Starting semasim backend...");
+
+    pushSender.init(c.pushNotificationCredentials);
 
     await sipProxy.startServer();
 

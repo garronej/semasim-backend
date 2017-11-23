@@ -50,12 +50,14 @@ var webRouter_1 = require("./webRouter");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_main");
+var pushSender = require("../tools/pushSender");
 (function () { return __awaiter(_this, void 0, void 0, function () {
     var hostname, interfaceIp;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 debug("Starting semasim backend...");
+                pushSender.init(_constants_1.c.pushNotificationCredentials);
                 return [4 /*yield*/, sipProxy.startServer()];
             case 1:
                 _a.sent();

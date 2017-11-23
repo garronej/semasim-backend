@@ -33,13 +33,11 @@ var c = /** @class */ (function () {
         "android": {
             "pathToServiceAccount": path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json")
         },
-        "apple": {
-            "token": {
-                "key": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
-                "keyId": "Y84XM8SSNL",
-                "teamId": "TW9WZG49Q3"
-            },
-            "appId": "com.semasim.semasim.voip"
+        "iOS": {
+            "pathToKey": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
+            "keyId": "Y84XM8SSNL",
+            "teamId": "TW9WZG49Q3",
+            "appId": "com.semasim.semasim"
         }
     };
     c.__tlsOptions__ = undefined;
