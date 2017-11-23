@@ -1,4 +1,3 @@
-import * as fbAdmin from "firebase-admin";
 export declare class c {
     static readonly shared: {
         new (): {};
@@ -12,8 +11,19 @@ export declare class c {
         "password": string;
         "database": string;
     };
-    private static __serviceAccount__;
-    static readonly serviceAccount: fbAdmin.ServiceAccount;
+    static pushNotificationCredentials: {
+        "android": {
+            "pathToServiceAccount": string;
+        };
+        "apple": {
+            "token": {
+                "key": string;
+                "keyId": string;
+                "teamId": string;
+            };
+            "appId": string;
+        };
+    };
     private static __tlsOptions__;
     static readonly tlsOptions: any;
     static readonly reg_expires: number;

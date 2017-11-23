@@ -1,4 +1,3 @@
-import * as fbAdmin from "firebase-admin";
 import * as fs from "fs";
 import * as path from "path";
 import { c as shared } from "../semasim-gateway";
@@ -18,16 +17,19 @@ export class c {
         "database": "semasim"
     };
 
-    private static __serviceAccount__: fbAdmin.ServiceAccount | undefined= undefined;
-
-    public static get serviceAccount(): fbAdmin.ServiceAccount {
-
-        if( this.__serviceAccount__ ) return this.__serviceAccount__;
-
-        this.__serviceAccount__= require( path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json"));
-
-        return this.serviceAccount;
-    }
+    public static pushNotificationCredentials= {
+        "android": {
+            "pathToServiceAccount": path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json")
+        },
+        "apple": {
+            "token": {
+                "key": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
+                "keyId": "Y84XM8SSNL",
+                "teamId": "TW9WZG49Q3"
+            },
+            "appId": "com.semasim.semasim.voip"
+        }
+    };
 
     private static __tlsOptions__: { key: string; cert: string; ca: string; } | undefined = undefined;
 

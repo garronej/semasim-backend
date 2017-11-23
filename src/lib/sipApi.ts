@@ -6,6 +6,7 @@ import {
     Contact
 } from "../semasim-gateway";
 import * as firebaseFunctions from "../tools/firebaseFunctions";
+import * as applePushKitFunctions from "../tools/applePushKitFunctions";
 import { 
     gatewaySockets, 
     clientSockets
@@ -18,9 +19,14 @@ import "colors";
 import * as _debug from "debug";
 let debug = _debug("_sipApi");
 
+
 export function startListening(gatewaySocket: sipLibrary.Socket) {
 
-    firebaseFunctions.init(c.serviceAccount);
+    let { android, apple }= c.pushNotificationCredentials;
+
+    firebaseFunctions.init(android.pathToServiceAccount);
+
+    applePushKitFunctions.init({ "token": apple.token });
 
     framework.startListening(gatewaySocket).attach(
         async ({ method, params, sendResponse }) => {
@@ -124,20 +130,36 @@ const handlers: Record<string, (params: any, gatewaySocket: sipLibrary.Socket) =
     type Params = _.wakeUpContact.Params;
     type Response = _.wakeUpContact.Response;
 
-    handlers[methodName] = async function(
-        params: Params, 
+    handlers[methodName] = async function (
+        params: Params,
         gatewaySocket: sipLibrary.Socket
     ): Promise<Response> {
 
         let { contact } = params;
 
-        let reached = await qualifyContact(contact);
+        if (contact.uaEndpoint.ua.pushToken && contact.uaEndpoint.ua.pushToken.type === "apple") {
 
-        if( reached ) return { "status": "REACHABLE" };
+            let prReached = qualifyContact(contact, 10000);
 
-        let isSuccess= await sendPushNotification(contact.uaEndpoint.ua);
+            //TODO await just a little bit to prevent sending push if socket is active.
 
-        return { "status": isSuccess?"PUSH_NOTIFICATION_SENT":"UNREACHABLE" };
+            let isSuccess = await sendPushNotification(contact.uaEndpoint.ua);
+
+            if (await prReached) return { "status": "REACHABLE" };
+
+            return { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" };
+
+        } else {
+
+            let reached = await qualifyContact(contact);
+
+            if (reached) return { "status": "REACHABLE" };
+
+            let isSuccess = await sendPushNotification(contact.uaEndpoint.ua);
+
+            return { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" };
+
+        }
 
     };
 
@@ -149,14 +171,14 @@ const handlers: Record<string, (params: any, gatewaySocket: sipLibrary.Socket) =
     type Params = _.sendPushNotification.Params;
     type Response = _.sendPushNotification.Response;
 
-    handlers[methodName] = async function(
-        params: Params, 
+    handlers[methodName] = async function (
+        params: Params,
         gatewaySocket: sipLibrary.Socket
     ): Promise<Response> {
 
         let { ua } = params;
 
-        let isPushNotificationSent= await sendPushNotification(ua);
+        let isPushNotificationSent = await sendPushNotification(ua);
 
         return { isPushNotificationSent };
 
@@ -179,7 +201,10 @@ qualifyPending.set = function set(connectionId, promiseResult) {
 
 
 //TODO: May throw error!
-export function qualifyContact( contact: Contact): Promise<boolean> {
+export function qualifyContact(
+    contact: Contact,
+    timeout = 2500
+): Promise<boolean> {
 
     let connectionId = contact.connectionId;
 
@@ -200,7 +225,7 @@ export function qualifyContact( contact: Contact): Promise<boolean> {
         let callId = `138ce538-${Date.now()}`;
         let cSeqSequenceNumber = Math.floor(Math.random() * 2000);
 
-        let imei= contact.uaEndpoint.endpoint.dongle.imei;
+        let imei = contact.uaEndpoint.endpoint.dongle.imei;
 
         let sipRequest = sipLibrary.parse([
             `OPTIONS ${contact.uri} SIP/2.0`,
@@ -227,7 +252,7 @@ export function qualifyContact( contact: Contact): Promise<boolean> {
 
             let sipResponse = await clientSocket.evtResponse.attachOnceExtract(
                 ({ headers }) => headers.via[0].params["branch"] === branch,
-                2500, ()=>{}
+                timeout, () => { }
             );
 
             debug(`(client ${connectionId}): ${sipResponse.status} ${sipResponse.reason} for qualify ${imei}`.yellow);
@@ -250,13 +275,13 @@ export function qualifyContact( contact: Contact): Promise<boolean> {
 
 
 /** Map uaInstance => Response to last push */
-const pushPending= new Map<string, Promise<boolean>>();
+const pushPending = new Map<string, Promise<boolean>>();
 
-pushPending.set= function set(key, promiseResult){
+pushPending.set = function set(key, promiseResult) {
 
-    let self: typeof pushPending= this;
+    let self: typeof pushPending = this;
 
-    setTimeout(()=> self.delete(key), 10000);
+    setTimeout(() => self.delete(key), 10000);
 
     return Map.prototype.set.call(self, key, promiseResult);
 
@@ -264,14 +289,14 @@ pushPending.set= function set(key, promiseResult){
 
 function sendPushNotification(ua: Contact.UaEndpoint.Ua): Promise<boolean> {
 
-    let promiseResult= pushPending.get(ua.instance);
+    let promiseResult = pushPending.get(ua.instance);
 
-    if ( promiseResult ){ 
+    if (promiseResult) {
         debug("use cache");
         return promiseResult;
     }
 
-    promiseResult= (async ()=> {
+    promiseResult = (async () => {
 
         if (!ua.pushToken) return false;
 
@@ -294,12 +319,26 @@ function sendPushNotification(ua: Contact.UaEndpoint.Ua): Promise<boolean> {
                     return false;
 
                 }
+            case "apple":
 
+                try {
+
+                    await applePushKitFunctions.sendPushNotification(token, c.pushNotificationCredentials.apple.appId);
+
+                    return true;
+
+                } catch (error) {
+
+                    debug(`Error apple push kit ${error.message}`.red);
+
+                    return false;
+
+                }
             default:
                 debug(`Can't send push notification to ua`.red);
                 return false;
         }
-        
+
     })();
 
     pushPending.set(ua.instance, promiseResult);

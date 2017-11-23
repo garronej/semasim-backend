@@ -2,9 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var fbAdmin = require("firebase-admin");
 var hasInit = false;
-function init(serviceAccount) {
+function init(pathToFirebaseAdminAccount) {
     if (hasInit)
         return;
+    var serviceAccount = require(pathToFirebaseAdminAccount);
     fbAdmin.initializeApp({
         "credential": fbAdmin.credential.cert(serviceAccount)
     });

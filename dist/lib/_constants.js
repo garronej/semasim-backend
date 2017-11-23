@@ -7,16 +7,6 @@ var pathToPrivate = path.join(__dirname, "..", "..", "..", "private");
 var c = /** @class */ (function () {
     function c() {
     }
-    Object.defineProperty(c, "serviceAccount", {
-        get: function () {
-            if (this.__serviceAccount__)
-                return this.__serviceAccount__;
-            this.__serviceAccount__ = require(path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json"));
-            return this.serviceAccount;
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(c, "tlsOptions", {
         get: function () {
             if (this.__tlsOptions__)
@@ -39,7 +29,19 @@ var c = /** @class */ (function () {
         "password": "semasim",
         "database": "semasim"
     };
-    c.__serviceAccount__ = undefined;
+    c.pushNotificationCredentials = {
+        "android": {
+            "pathToServiceAccount": path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json")
+        },
+        "apple": {
+            "token": {
+                "key": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
+                "keyId": "Y84XM8SSNL",
+                "teamId": "TW9WZG49Q3"
+            },
+            "appId": "com.semasim.semasim.voip"
+        }
+    };
     c.__tlsOptions__ = undefined;
     c.reg_expires = 21601;
     c.regExpImei = /^[0-9]{15}$/;

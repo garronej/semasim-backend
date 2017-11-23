@@ -37,6 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var semasim_gateway_1 = require("../semasim-gateway");
 var firebaseFunctions = require("../tools/firebaseFunctions");
+var applePushKitFunctions = require("../tools/applePushKitFunctions");
 var sipProxy_1 = require("./sipProxy");
 var _constants_1 = require("./_constants");
 require("colors");
@@ -44,24 +45,26 @@ var _debug = require("debug");
 var debug = _debug("_sipApi");
 function startListening(gatewaySocket) {
     var _this = this;
-    firebaseFunctions.init(_constants_1.c.serviceAccount);
+    var _a = _constants_1.c.pushNotificationCredentials, android = _a.android, apple = _a.apple;
+    firebaseFunctions.init(android.pathToServiceAccount);
+    applePushKitFunctions.init({ "token": apple.token });
     semasim_gateway_1.sipApiFramework.startListening(gatewaySocket).attach(function (_a) {
         var method = _a.method, params = _a.params, sendResponse = _a.sendResponse;
         return __awaiter(_this, void 0, void 0, function () {
             var response, error_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
-                        _a.trys.push([0, 2, , 3]);
+                        _b.trys.push([0, 2, , 3]);
                         debug(method + ": params: " + JSON.stringify(params, null, 2) + "...");
                         return [4 /*yield*/, handlers[method](params, gatewaySocket)];
                     case 1:
-                        response = _a.sent();
+                        response = _b.sent();
                         debug("..." + method + ": response: " + JSON.stringify(response, null, 2));
                         sendResponse(response);
                         return [3 /*break*/, 3];
                     case 2:
-                        error_1 = _a.sent();
+                        error_1 = _b.sent();
                         debug(("Unexpected error: " + error_1.message).red);
                         gatewaySocket.destroy();
                         return [3 /*break*/, 3];
@@ -142,18 +145,28 @@ var handlers = {};
     var methodName = semasim_gateway_1.sipApiClientBackend.wakeUpContact.methodName;
     handlers[methodName] = function (params, gatewaySocket) {
         return __awaiter(this, void 0, void 0, function () {
-            var contact, reached, isSuccess;
+            var contact, prReached, isSuccess, reached, isSuccess;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         contact = params.contact;
-                        return [4 /*yield*/, qualifyContact(contact)];
+                        if (!(contact.uaEndpoint.ua.pushToken && contact.uaEndpoint.ua.pushToken.type === "apple")) return [3 /*break*/, 3];
+                        prReached = qualifyContact(contact, 10000);
+                        return [4 /*yield*/, sendPushNotification(contact.uaEndpoint.ua)];
                     case 1:
+                        isSuccess = _a.sent();
+                        return [4 /*yield*/, prReached];
+                    case 2:
+                        if (_a.sent())
+                            return [2 /*return*/, { "status": "REACHABLE" }];
+                        return [2 /*return*/, { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" }];
+                    case 3: return [4 /*yield*/, qualifyContact(contact)];
+                    case 4:
                         reached = _a.sent();
                         if (reached)
                             return [2 /*return*/, { "status": "REACHABLE" }];
                         return [4 /*yield*/, sendPushNotification(contact.uaEndpoint.ua)];
-                    case 2:
+                    case 5:
                         isSuccess = _a.sent();
                         return [2 /*return*/, { "status": isSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE" }];
                 }
@@ -187,8 +200,9 @@ qualifyPending.set = function set(connectionId, promiseResult) {
     return Map.prototype.set.call(self, connectionId, promiseResult);
 };
 //TODO: May throw error!
-function qualifyContact(contact) {
+function qualifyContact(contact, timeout) {
     var _this = this;
+    if (timeout === void 0) { timeout = 2500; }
     var connectionId = contact.connectionId;
     var promiseResult = qualifyPending.get(connectionId);
     if (promiseResult)
@@ -230,7 +244,7 @@ function qualifyContact(contact) {
                     return [4 /*yield*/, clientSocket.evtResponse.attachOnceExtract(function (_a) {
                             var headers = _a.headers;
                             return headers.via[0].params["branch"] === branch;
-                        }, 2500, function () { })];
+                        }, timeout, function () { })];
                 case 2:
                     sipResponse = _a.sent();
                     debug(("(client " + connectionId + "): " + sipResponse.status + " " + sipResponse.reason + " for qualify " + imei).yellow);
@@ -261,7 +275,7 @@ function sendPushNotification(ua) {
         return promiseResult;
     }
     promiseResult = (function () { return __awaiter(_this, void 0, void 0, function () {
-        var _a, type, token, _b, error_3;
+        var _a, type, token, _b, error_3, error_4;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
@@ -272,8 +286,9 @@ function sendPushNotification(ua) {
                     switch (_b) {
                         case "google": return [3 /*break*/, 1];
                         case "firebase": return [3 /*break*/, 1];
+                        case "apple": return [3 /*break*/, 4];
                     }
-                    return [3 /*break*/, 4];
+                    return [3 /*break*/, 7];
                 case 1:
                     _c.trys.push([1, 3, , 4]);
                     return [4 /*yield*/, firebaseFunctions.sendPushNotification(token)];
@@ -285,6 +300,16 @@ function sendPushNotification(ua) {
                     debug(("Error firebase " + error_3.message).red);
                     return [2 /*return*/, false];
                 case 4:
+                    _c.trys.push([4, 6, , 7]);
+                    return [4 /*yield*/, applePushKitFunctions.sendPushNotification(token, _constants_1.c.pushNotificationCredentials.apple.appId)];
+                case 5:
+                    _c.sent();
+                    return [2 /*return*/, true];
+                case 6:
+                    error_4 = _c.sent();
+                    debug(("Error apple push kit " + error_4.message).red);
+                    return [2 /*return*/, false];
+                case 7:
                     debug("Can't send push notification to ua".red);
                     return [2 /*return*/, false];
             }

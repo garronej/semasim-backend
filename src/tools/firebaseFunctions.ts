@@ -2,9 +2,11 @@ import * as fbAdmin from "firebase-admin";
 
 let hasInit= false;
 
-export function init(serviceAccount: fbAdmin.ServiceAccount){
+export function init(pathToFirebaseAdminAccount: string){
 
     if( hasInit ) return;
+
+    let serviceAccount: fbAdmin.ServiceAccount= require( pathToFirebaseAdminAccount );
 
     fbAdmin.initializeApp({
         "credential": fbAdmin.credential.cert(serviceAccount)
