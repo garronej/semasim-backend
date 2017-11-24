@@ -121,7 +121,7 @@ var uniqNow = (function () {
 function onClientConnection(clientSocketRaw) {
     var clientSocket = new semasim_gateway_1.sipLibrary.Socket(clientSocketRaw);
     var connectionId = uniqNow();
-    debug(("=======>" + connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
+    debug((connectionId + " New client socket, " + clientSocket.remoteAddress + ":" + clientSocket.remotePort + "\n\n").yellow);
     exports.clientSockets.set(connectionId, clientSocket);
     /*
     clientSocket.evtPacket.attach(sipPacket =>
