@@ -146,13 +146,12 @@ function onClientConnection(clientSocketRaw) {
                 return boundTo === clientSocket;
             })) {
                 gatewaySocket_1.evtClose.attachOnce(clientSocket, clientSocket.destroy);
-                //clientSocket.evtClose.attachOnce(()=> gatewaySocket!.evtClose.detach(clientSocket) );
-                clientSocket.evtClose.attachOnce(function () {
-                    debug("===> client socket closed!!");
-                    gatewaySocket_1.evtClose.detach(clientSocket);
-                });
+                clientSocket.evtClose.attachOnce(function () { return gatewaySocket_1.evtClose.detach(clientSocket); });
             }
-            gatewaySocket_1.addViaHeader(sipRequest, { "connection_id": "" + connectionId });
+            gatewaySocket_1.addViaHeader(sipRequest, {
+                "connection_id": "" + connectionId,
+                "received": clientSocket.remoteAddress
+            });
             if (sipRequest.method === "REGISTER") {
                 semasim_gateway_1.sipLibrary.addOptionTag(sipRequest.headers, "supported", "path");
                 sipRequest.headers.route = undefined;
