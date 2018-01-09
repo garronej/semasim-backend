@@ -1,85 +1,26 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
-import * as https from "https";
-import * as http from "http";
-import * as express from "express";
-import * as session from "express-session";
-import * as ejs from "ejs";
-import * as forceDomain from "forcedomain";
-
-import * as networkTools from "../tools/networkTools";
 import * as sipProxy from "./sipProxy";
-import * as webApi from "./webApi";
-
-import { webApiPath } from "./../../frontend/api";
-import { webRouter, cookieSecret } from "./webRouter";
-
-import { c } from "./_constants";
+import * as webServer from "./mainWeb";
 
 import * as _debug from "debug";
 let debug = _debug("_main");
-
-import * as fs from "fs";
-
-import * as pushSender from "../tools/pushSender";
-
 
 (async () => {
 
     debug("Starting semasim backend...");
 
-    pushSender.init(c.pushNotificationCredentials);
+    debug("Starting sip proxy server...");
 
-    await sipProxy.startServer();
+    await sipProxy.start();
 
-    debug("..Sip proxy server started !");
+    debug("..sip proxy server started !");
 
-    let hostname= `www.${c.shared.domain}`;
+    debug("Starting web server...");
 
-    let { interfaceIp } = await networkTools.retrieveIpFromHostname(hostname);
+    await webServer.start();
 
-    await new Promise<void>(
-        resolve => {
+    debug("...web server started !");
 
-            let app = express();
-
-            app.set("view engine", "ejs");
-
-            app
-                .use(forceDomain({ hostname }))
-                .use(session({ "secret": cookieSecret, "resave": false, "saveUninitialized": false }))
-                .use(`/${webApiPath}`, webApi.getRouter())
-                .use("/", webRouter);
-
-            https.createServer(c.tlsOptions)
-                .on("request", app)
-                .listen(443, interfaceIp)
-                .once("listening", () => resolve());
-
-        }
-    );
-
-    debug(`...webserver started`);
-
-    await new Promise<void>(
-        resolve => {
-
-            let app = express();
-
-            app.use(forceDomain({
-                hostname,
-                "port": 443,
-                "protocol": "https"
-            }));
-
-            http.createServer()
-                .on("request", app)
-                .listen(80, interfaceIp)
-                .once("listening", () => resolve());
-
-        }
-    );
-
-    debug(`...http redirect to https started`);
 
 })();

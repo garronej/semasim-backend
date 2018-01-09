@@ -42,12 +42,12 @@ var c = /** @class */ (function () {
     };
     c.__tlsOptions__ = undefined;
     c.reg_expires = 21601;
-    c.regExpImei = /^[0-9]{15}$/;
+    //TODO: put in dongle extended client
+    c.regExpImeiImsi = /^[0-9]{15}$/;
     c.regExpIccid = /^[0-9]{6,22}$/;
     c.regExpEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     //TODO: better regexp
     c.regExpPassword = /^[0-9a-zA-Z]{6,}$/;
-    c.regExpFourDigits = /^[0-9]{4}$/;
     return c;
 }());
 exports.c = c;

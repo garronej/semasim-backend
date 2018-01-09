@@ -50,7 +50,8 @@ export class c {
 
     public static readonly reg_expires = 21601;
 
-    public static readonly regExpImei = /^[0-9]{15}$/;
+    //TODO: put in dongle extended client
+    public static readonly regExpImeiImsi = /^[0-9]{15}$/;
 
     public static readonly regExpIccid = /^[0-9]{6,22}$/;
 
@@ -59,8 +60,5 @@ export class c {
 
     //TODO: better regexp
     public static readonly regExpPassword = /^[0-9a-zA-Z]{6,}$/;
-
-    public static readonly regExpFourDigits = /^[0-9]{4}$/;
-
 
 }

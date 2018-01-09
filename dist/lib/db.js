@@ -50,10 +50,6 @@ var __read = (this && this.__read) || function (o, n) {
     }
     return ar;
 };
-var __spread = (this && this.__spread) || function () {
-    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
-    return ar;
-};
 var __values = (this && this.__values) || function (o) {
     var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
     if (m) return m.call(o);
@@ -64,6 +60,10 @@ var __values = (this && this.__values) || function (o) {
         }
     };
 };
+var __spread = (this && this.__spread) || function () {
+    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+    return ar;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var RIPEMD160 = require("ripemd160");
 var crypto = require("crypto");
@@ -71,18 +71,14 @@ var semasim_gateway_1 = require("../semasim-gateway");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
 var debug = _debug("_db");
-var connection = undefined;
+/** Exported only for tests */
 exports.query = semasim_gateway_1.mySqlFunctions.buildQueryFunction(_constants_1.c.dbParamsBackend);
 /** For test purpose only */
 function flush() {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, exports.query([
-                        "DELETE FROM sim;",
-                        "DELETE FROM dongle;",
-                        "DELETE FROM user;"
-                    ].join("\n"))];
+                case 0: return [4 /*yield*/, exports.query("DELETE FROM user;")];
                 case 1:
                     _a.sent();
                     return [2 /*return*/];
@@ -92,257 +88,845 @@ function flush() {
 }
 exports.flush = flush;
 /** Return user.id_ or undefined */
-function addUser(email, password) {
+function createUserAccount(email, password) {
     return __awaiter(this, void 0, void 0, function () {
-        var salt, hash, _a, sql, values, insertId, _b;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
-                case 0: return [4 /*yield*/, new Promise(function (resolve) { return crypto.randomBytes(8, function (_, buffer) {
-                        return resolve(buffer.toString("hex"));
-                    }); })];
-                case 1:
-                    salt = _c.sent();
+        var salt, hash, sql, insertId;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    salt = crypto.randomBytes(8).toString("hex");
                     hash = (new RIPEMD160()).update("" + password + salt).digest("hex");
-                    _a = __read(semasim_gateway_1.mySqlFunctions.buildInsertQuery("user", {
-                        "email": email.toLowerCase(),
-                        salt: salt, hash: hash
-                    }), 2), sql = _a[0], values = _a[1];
-                    _c.label = 2;
-                case 2:
-                    _c.trys.push([2, 4, , 5]);
-                    return [4 /*yield*/, exports.query(sql, values)];
-                case 3:
-                    insertId = (_c.sent()).insertId;
-                    return [2 /*return*/, insertId];
-                case 4:
-                    _b = _c.sent();
-                    return [2 /*return*/, undefined];
-                case 5: return [2 /*return*/];
+                    email = email.toLowerCase();
+                    sql = [
+                        "INSERT INTO user",
+                        "   ( email, salt, hash )",
+                        "VALUES",
+                        "   ( " + semasim_gateway_1.mySqlFunctions.esc(email) + ", " + semasim_gateway_1.mySqlFunctions.esc(salt) + ", " + semasim_gateway_1.mySqlFunctions.esc(hash) + ")",
+                        "ON DUPLICATE KEY UPDATE",
+                        "   salt= IF(@update_record:= salt = '', VALUES(salt), salt),",
+                        "   hash= IF(@update_record, VALUES(hash), hash)"
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    insertId = (_a.sent()).insertId;
+                    return [2 /*return*/, (insertId !== 0) ? insertId : undefined];
             }
         });
     });
 }
-exports.addUser = addUser;
+exports.createUserAccount = createUserAccount;
 /** Return user.id_ or undefined if auth failed */
 function authenticateUser(email, password) {
     return __awaiter(this, void 0, void 0, function () {
-        var sql, values, rows, _a, _b, id_, salt, hash;
+        var rows, _a, _b, id_, salt, hash;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
-                    sql = [
-                        "SELECT id_, salt, hash",
-                        "FROM user",
-                        "WHERE email=?"
-                    ].join("\n");
-                    values = [email.toLowerCase()];
-                    return [4 /*yield*/, exports.query(sql, values)];
+                    email = email.toLowerCase();
+                    return [4 /*yield*/, exports.query("SELECT * FROM user WHERE email= " + semasim_gateway_1.mySqlFunctions.esc(email))];
                 case 1:
                     rows = _c.sent();
-                    if (!rows.length)
+                    if (!rows.length) {
                         return [2 /*return*/, undefined];
+                    }
                     _a = __read(rows, 1), _b = _a[0], id_ = _b.id_, salt = _b.salt, hash = _b.hash;
-                    return [2 /*return*/, ((new RIPEMD160()).update("" + password + salt).digest("hex") === hash) ? id_ : undefined];
+                    if (salt === "") {
+                        return [2 /*return*/, undefined];
+                    }
+                    return [2 /*return*/, ((new RIPEMD160()).update("" + password + salt).digest("hex") === hash) ?
+                            id_ : undefined];
             }
         });
     });
 }
 exports.authenticateUser = authenticateUser;
-function addEndpoint(dongle, user) {
-    return __awaiter(this, void 0, void 0, function () {
-        var sql, values, dongle_ref, sim_ref, _a, _b, contact, _c, sql_, values_, e_1, _d;
-        return __generator(this, function (_e) {
-            switch (_e.label) {
-                case 0:
-                    sql = "";
-                    values = [];
-                    dongle_ref = "A";
-                    (function () {
-                        var _a = __read(semasim_gateway_1.mySqlFunctions.buildInsertOrUpdateQuery("dongle", {
-                            "imei": dongle.imei,
-                            "is_voice_enabled": semasim_gateway_1.mySqlFunctions.booleanOrUndefinedToSmallIntOrNull(dongle.isVoiceEnabled)
-                        }), 2), sql_ = _a[0], values_ = _a[1];
-                        sql += sql_ + [
-                            "SELECT @" + dongle_ref + ":= id_",
-                            "FROM dongle",
-                            "WHERE imei= ?",
-                            ";",
-                            ""
-                        ].join("\n");
-                        values = __spread(values, values_, [dongle.imei]);
-                    })();
-                    sim_ref = "B";
-                    (function () {
-                        var sim = dongle.sim;
-                        var _a = __read(semasim_gateway_1.mySqlFunctions.buildInsertOrUpdateQuery("sim", {
-                            "iccid": sim.iccid,
-                            "imsi": sim.imsi,
-                            "service_provider": sim.serviceProvider || null,
-                            "number": sim.number || null,
-                            "contact_name_max_length": sim.phonebook.infos.contactNameMaxLength,
-                            "number_max_length": sim.phonebook.infos.numberMaxLength,
-                            "storage_left": sim.phonebook.infos.storageLeft
-                        }), 2), sql_ = _a[0], values_ = _a[1];
-                        sql += sql_ + [
-                            "SELECT @" + sim_ref + ":= id_",
-                            "FROM sim",
-                            "WHERE sim.iccid= ?",
-                            ";",
-                            ""
-                        ].join("\n");
-                        values = __spread(values, values_, [sim.iccid]);
-                    })();
-                    (function () {
-                        //TODO: transaction if user delete...
-                        var _a = __read(semasim_gateway_1.mySqlFunctions.buildInsertOrUpdateQuery("endpoint", {
-                            "dongle": { "@": dongle_ref },
-                            "sim": { "@": sim_ref },
-                            "user": user
-                        }), 2), sql_ = _a[0], values_ = _a[1];
-                        sql += sql_;
-                        values = __spread(values, values_);
-                    })();
-                    try {
-                        for (_a = __values(dongle.sim.phonebook.contacts), _b = _a.next(); !_b.done; _b = _a.next()) {
-                            contact = _b.value;
-                            _c = __read(semasim_gateway_1.mySqlFunctions.buildInsertOrUpdateQuery("contact", {
-                                "sim": { "@": sim_ref },
-                                "number": contact.number,
-                                "base64_name": (new Buffer(contact.name, "utf8")).toString("base64"),
-                                "mem_index": contact.index
-                            }), 2), sql_ = _c[0], values_ = _c[1];
-                            sql += sql_;
-                            values = __spread(values, values_);
-                        }
-                    }
-                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                    finally {
-                        try {
-                            if (_b && !_b.done && (_d = _a.return)) _d.call(_a);
-                        }
-                        finally { if (e_1) throw e_1.error; }
-                    }
-                    return [4 /*yield*/, exports.query(sql, values)];
-                case 1:
-                    _e.sent();
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-exports.addEndpoint = addEndpoint;
-function getEndpoints(user) {
-    return __awaiter(this, void 0, void 0, function () {
-        var sql, values, rows, dongles, i, row, dongle, contacts, endpointId_, row_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    sql = [
-                        "SELECT",
-                        "endpoint.id_,",
-                        "dongle.imei,",
-                        "dongle.is_voice_enabled,",
-                        "sim.iccid,",
-                        "sim.imsi,",
-                        "sim.service_provider,",
-                        "sim.number AS sim_number,",
-                        "sim.contact_name_max_length,",
-                        "sim.number_max_length,",
-                        "sim.storage_left,",
-                        "contact.number,",
-                        "contact.base64_name,",
-                        "contact.mem_index",
-                        "FROM endpoint",
-                        "INNER JOIN dongle ON dongle.id_= endpoint.dongle",
-                        "INNER JOIN sim ON sim.id_= endpoint.sim",
-                        "INNER JOIN user ON user.id_= endpoint.user",
-                        "LEFT JOIN contact ON contact.sim= sim.id_",
-                        "WHERE user.id_= ?",
-                        "ORDER BY endpoint.id_"
-                    ].join("\n");
-                    values = [user];
-                    return [4 /*yield*/, exports.query(sql, values)];
-                case 1:
-                    rows = _a.sent();
-                    dongles = [];
-                    for (i = 0; i < rows.length;) {
-                        row = rows[i];
-                        dongle = {
-                            "imei": row["imei"],
-                            "isVoiceEnabled": semasim_gateway_1.mySqlFunctions.smallIntOrNullToBooleanOrUndefined(row["is_voice_enabled"]),
-                            "sim": {
-                                "iccid": row["iccid"],
-                                "imsi": row["imsi"],
-                                "number": row["sim_number"] || undefined,
-                                "serviceProvider": row["service_provider"] || undefined,
-                                "phonebook": {
-                                    "infos": {
-                                        "contactNameMaxLength": row["contact_name_max_length"],
-                                        "numberMaxLength": row["number_max_length"],
-                                        "storageLeft": row["storage_left"]
-                                    },
-                                    "contacts": []
-                                }
-                            }
-                        };
-                        dongles.push(dongle);
-                        if (row["mem_index"] === null) {
-                            i++;
-                            continue;
-                        }
-                        contacts = dongle.sim.phonebook.contacts;
-                        endpointId_ = row["id_"];
-                        for (; i < rows.length && rows[i]["id_"] === endpointId_; i++) {
-                            row_1 = rows[i];
-                            contacts.push({
-                                "index": row_1["mem_index"],
-                                "name": (new Buffer(row_1["base64_name"], "base64")).toString("utf8"),
-                                "number": row_1["number"]
-                            });
-                        }
-                    }
-                    return [2 /*return*/, dongles];
-            }
-        });
-    });
-}
-exports.getEndpoints = getEndpoints;
 function deleteUser(user) {
     return __awaiter(this, void 0, void 0, function () {
         var affectedRows, isDeleted;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, exports.query("DELETE FROM user WHERE id = ?", [user])];
+                case 0: return [4 /*yield*/, exports.query("DELETE FROM user WHERE id_ = " + semasim_gateway_1.mySqlFunctions.esc(user))];
                 case 1:
                     affectedRows = (_a.sent()).affectedRows;
                     isDeleted = affectedRows !== 0;
-                    console.log({ isDeleted: isDeleted });
                     return [2 /*return*/, isDeleted];
             }
         });
     });
 }
 exports.deleteUser = deleteUser;
-function deleteEndpoint(imei, user) {
+//TODO: test
+function filterDongleWithRegistrableSim(dongles) {
     return __awaiter(this, void 0, void 0, function () {
-        var sql, values, affectedRows, isDeleted;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var registrableDongles, dongleWithReadableIccid, dongles_1, dongles_1_1, dongle, registeredIccidArr, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    sql = [
-                        "DELETE endpoint.*",
-                        "FROM endpoint",
-                        "INNER JOIN dongle ON dongle.id_= endpoint.dongle",
-                        "WHERE dongle.imei= ? AND endpoint.user= ?"
-                    ].join("\n");
-                    values = [imei, user];
-                    return [4 /*yield*/, exports.query(sql, values)];
+                    registrableDongles = [];
+                    dongleWithReadableIccid = [];
+                    try {
+                        for (dongles_1 = __values(dongles), dongles_1_1 = dongles_1.next(); !dongles_1_1.done; dongles_1_1 = dongles_1.next()) {
+                            dongle = dongles_1_1.value;
+                            if (!dongle.sim.iccid) {
+                                registrableDongles.push(dongle);
+                            }
+                            else {
+                                dongleWithReadableIccid.push(dongle);
+                            }
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (dongles_1_1 && !dongles_1_1.done && (_a = dongles_1.return)) _a.call(dongles_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    if (!dongleWithReadableIccid.length) {
+                        return [2 /*return*/, registrableDongles];
+                    }
+                    return [4 /*yield*/, exports.query([
+                            "SELECT iccid",
+                            "FROM sim",
+                            "WHERE",
+                            dongleWithReadableIccid.map(function (_a) {
+                                var sim = _a.sim;
+                                return "iccid= " + semasim_gateway_1.mySqlFunctions.esc(sim.iccid);
+                            }).join(" OR ")
+                        ].join("\n"))];
                 case 1:
-                    affectedRows = (_a.sent()).affectedRows;
-                    isDeleted = affectedRows ? true : false;
-                    return [2 /*return*/, isDeleted];
+                    registeredIccidArr = (_b.sent()).map(function (_a) {
+                        var iccid = _a.iccid;
+                        return iccid;
+                    });
+                    registrableDongles = __spread(registrableDongles, dongleWithReadableIccid.filter(function (_a) {
+                        var sim = _a.sim;
+                        return registeredIccidArr.indexOf(sim.iccid) < 0;
+                    }));
+                    return [2 /*return*/, registrableDongles];
             }
         });
     });
 }
-exports.deleteEndpoint = deleteEndpoint;
+exports.filterDongleWithRegistrableSim = filterDongleWithRegistrableSim;
+/** return user UAs */
+function registerSim(sim, password, user, friendlyName, isVoiceEnabled) {
+    return __awaiter(this, void 0, void 0, function () {
+        var sql, _a, _b, contact, queryResults, userUas, _c, _d, row, e_2, _e, e_3, _f;
+        return __generator(this, function (_g) {
+            switch (_g.label) {
+                case 0:
+                    sql = semasim_gateway_1.mySqlFunctions.buildInsertQuery("sim", {
+                        "imsi": sim.imsi,
+                        "iccid": sim.iccid,
+                        "number": sim.storage.number || null,
+                        "base64_service_provider_from_imsi": semasim_gateway_1.mySqlFunctions.b64.enc(sim.serviceProvider.fromImsi),
+                        "base64_service_provider_from_network": semasim_gateway_1.mySqlFunctions.b64.enc(sim.serviceProvider.fromNetwork),
+                        "contact_name_max_length": sim.storage.infos.contactNameMaxLength,
+                        "number_max_length": sim.storage.infos.numberMaxLength,
+                        "storage_left": sim.storage.infos.storageLeft,
+                        "storage_digest": sim.storage.digest,
+                        user: user,
+                        password: password,
+                        "need_password_renewal": 0,
+                        "base64_friendly_name": semasim_gateway_1.mySqlFunctions.b64.enc(friendlyName),
+                        "is_voice_enabled": semasim_gateway_1.mySqlFunctions.booleanOrUndefinedToSmallIntOrNull(isVoiceEnabled),
+                        "is_online": 1
+                    }, "THROW ERROR");
+                    sql += [
+                        "SELECT @sim_ref:= id_",
+                        "FROM sim",
+                        "WHERE imsi= " + semasim_gateway_1.mySqlFunctions.esc(sim.imsi),
+                        ";",
+                        ""
+                    ].join("\n");
+                    try {
+                        for (_a = __values(sim.storage.contacts), _b = _a.next(); !_b.done; _b = _a.next()) {
+                            contact = _b.value;
+                            sql += semasim_gateway_1.mySqlFunctions.buildInsertQuery("contact", {
+                                "sim": { "@": "sim_ref" },
+                                "mem_index": contact.index,
+                                "number_as_stored": contact.number.asStored,
+                                "number_local_format": contact.number.localFormat,
+                                "base64_name_as_stored": semasim_gateway_1.mySqlFunctions.b64.enc(contact.name.asStored),
+                                "base64_name_full": semasim_gateway_1.mySqlFunctions.b64.enc(contact.name.full)
+                            }, "THROW ERROR");
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (_b && !_b.done && (_e = _a.return)) _e.call(_a);
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    sql += [
+                        "SELECT ua.*, user.email",
+                        "FROM ua",
+                        "INNER JOIN user ON user.id_= ua.user",
+                        "WHERE user.id_= " + semasim_gateway_1.mySqlFunctions.esc(user)
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    queryResults = _g.sent();
+                    userUas = [];
+                    try {
+                        for (_c = __values(queryResults.pop()), _d = _c.next(); !_d.done; _d = _c.next()) {
+                            row = _d.value;
+                            userUas.push({
+                                "instance": row["instance"],
+                                "userEmail": row["email"],
+                                "platform": row["platform"],
+                                "pushToken": row["push_token"],
+                                "software": row["software"]
+                            });
+                        }
+                    }
+                    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                    finally {
+                        try {
+                            if (_d && !_d.done && (_f = _c.return)) _f.call(_c);
+                        }
+                        finally { if (e_3) throw e_3.error; }
+                    }
+                    return [2 /*return*/, userUas];
+            }
+        });
+    });
+}
+exports.registerSim = registerSim;
+function getUserSims(user) {
+    return __awaiter(this, void 0, void 0, function () {
+        var sql, _a, rowsSimOwned, rowsContactSimOwned, rowsSharedWith, rowsSimShared, rowsContactSimShared, sharedWithBySim, rowsSharedWith_1, rowsSharedWith_1_1, row, imsi, contactsBySim, _b, _c, row, imsi, userSims, _loop_1, _d, _e, row, e_4, _f, e_5, _g, e_6, _h;
+        return __generator(this, function (_j) {
+            switch (_j.label) {
+                case 0:
+                    sql = [
+                        "SELECT",
+                        "   sim.*",
+                        "FROM sim",
+                        "WHERE sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        ";",
+                        "SELECT",
+                        "   sim.imsi,",
+                        "   contact.*",
+                        "FROM contact",
+                        "INNER JOIN sim ON sim.id_= contact.sim",
+                        "WHERE sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        ";",
+                        "SELECT",
+                        "   sim.imsi,",
+                        "   user.email,",
+                        "   user_sim.base64_friendly_name IS NOT NULL AS is_confirmed",
+                        "FROM sim",
+                        "INNER JOIN user_sim ON user_sim.sim= sim.id_",
+                        "INNER JOIN user ON user.id_= user_sim.user",
+                        "WHERE sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        ";",
+                        "SELECT",
+                        "   sim.*,",
+                        "   user_sim.base64_friendly_name AS base64_user_friendly_name,",
+                        "   user_sim.base64_sharing_request_message,",
+                        "   user.email",
+                        "FROM sim",
+                        "INNER JOIN user ON user.id_= sim.user",
+                        "INNER JOIN user_sim ON user_sim.sim= sim.id_",
+                        "WHERE user_sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        ";",
+                        "SELECT",
+                        "   sim.imsi,",
+                        "   contact.*",
+                        "FROM contact",
+                        "INNER JOIN sim ON sim.id_= contact.sim",
+                        "INNER JOIN user_sim ON user_sim.sim= sim.id_",
+                        "WHERE user_sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    _a = __read.apply(void 0, [_j.sent(), 5]), rowsSimOwned = _a[0], rowsContactSimOwned = _a[1], rowsSharedWith = _a[2], rowsSimShared = _a[3], rowsContactSimShared = _a[4];
+                    sharedWithBySim = {};
+                    try {
+                        for (rowsSharedWith_1 = __values(rowsSharedWith), rowsSharedWith_1_1 = rowsSharedWith_1.next(); !rowsSharedWith_1_1.done; rowsSharedWith_1_1 = rowsSharedWith_1.next()) {
+                            row = rowsSharedWith_1_1.value;
+                            imsi = row["imsi"];
+                            if (!sharedWithBySim[imsi]) {
+                                sharedWithBySim[imsi] = {
+                                    "confirmed": [],
+                                    "notConfirmed": []
+                                };
+                            }
+                            sharedWithBySim[imsi][row["is_confirmed"] ? "confirmed" : "notConfirmed"].push(row["email"]);
+                        }
+                    }
+                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+                    finally {
+                        try {
+                            if (rowsSharedWith_1_1 && !rowsSharedWith_1_1.done && (_f = rowsSharedWith_1.return)) _f.call(rowsSharedWith_1);
+                        }
+                        finally { if (e_4) throw e_4.error; }
+                    }
+                    contactsBySim = {};
+                    try {
+                        for (_b = __values(__spread(rowsContactSimOwned, rowsContactSimShared)), _c = _b.next(); !_c.done; _c = _b.next()) {
+                            row = _c.value;
+                            imsi = row["imsi"];
+                            if (!contactsBySim[imsi]) {
+                                contactsBySim[imsi] = [];
+                            }
+                            contactsBySim[imsi].push({
+                                "index": parseInt(row["mem_index"]),
+                                "name": {
+                                    "asStored": semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_name_as_stored"]),
+                                    "full": semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_name_full"])
+                                },
+                                "number": {
+                                    "asStored": row["number_as_stored"],
+                                    "localFormat": row["number_local_format"]
+                                }
+                            });
+                        }
+                    }
+                    catch (e_5_1) { e_5 = { error: e_5_1 }; }
+                    finally {
+                        try {
+                            if (_c && !_c.done && (_g = _b.return)) _g.call(_b);
+                        }
+                        finally { if (e_5) throw e_5.error; }
+                    }
+                    userSims = [];
+                    _loop_1 = function (row) {
+                        var sim = {
+                            "iccid": row["iccid"],
+                            "imsi": row["imsi"],
+                            "serviceProvider": {
+                                "fromImsi": semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_service_provider_from_imsi"]),
+                                "fromNetwork": semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_service_provider_from_network"])
+                            },
+                            "storage": {
+                                "number": (row["number"] === null) ? undefined : row["number"],
+                                "infos": {
+                                    "contactNameMaxLength": parseInt(row["contact_name_max_length"]),
+                                    "numberMaxLength": parseInt(row["number_max_length"]),
+                                    "storageLeft": parseInt(row["storage_left"]),
+                                },
+                                "contacts": contactsBySim[row["imsi"]] || [],
+                                "digest": row["storage_digest"]
+                            }
+                        };
+                        var _a = __read((function () {
+                            var ownerEmail = row["email"];
+                            var ownerFriendlyName = semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_friendly_name"]);
+                            if (ownerEmail === undefined) {
+                                return [
+                                    ownerFriendlyName,
+                                    {
+                                        "status": "OWNED",
+                                        "sharedWith": sharedWithBySim[sim.imsi] || {
+                                            "confirmed": [],
+                                            "notConfirmed": []
+                                        }
+                                    }
+                                ];
+                            }
+                            else {
+                                var friendlyName_1 = semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_user_friendly_name"]);
+                                if (friendlyName_1 === undefined) {
+                                    //TODO: Security hotFix
+                                    row["password"] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+                                    return [
+                                        ownerFriendlyName,
+                                        {
+                                            "status": "SHARED NOT CONFIRMED",
+                                            ownerEmail: ownerEmail,
+                                            "sharingRequestMessage": semasim_gateway_1.mySqlFunctions.b64.dec(row["base64_sharing_request_message"])
+                                        }
+                                    ];
+                                }
+                                else {
+                                    return [
+                                        friendlyName_1,
+                                        { "status": "SHARED CONFIRMED", ownerEmail: ownerEmail }
+                                    ];
+                                }
+                            }
+                        })(), 2), friendlyName = _a[0], ownership = _a[1];
+                        userSims.push({
+                            sim: sim,
+                            friendlyName: friendlyName,
+                            ownership: ownership,
+                            "password": row["password"],
+                            "isVoiceEnabled": semasim_gateway_1.mySqlFunctions.smallIntOrNullToBooleanOrUndefined(row["is_voice_enabled"]),
+                            "isOnline": row["is_online"] === 1
+                        });
+                    };
+                    try {
+                        for (_d = __values(__spread(rowsSimOwned, rowsSimShared)), _e = _d.next(); !_e.done; _e = _d.next()) {
+                            row = _e.value;
+                            _loop_1(row);
+                        }
+                    }
+                    catch (e_6_1) { e_6 = { error: e_6_1 }; }
+                    finally {
+                        try {
+                            if (_e && !_e.done && (_h = _d.return)) _h.call(_d);
+                        }
+                        finally { if (e_6) throw e_6.error; }
+                    }
+                    /*
+                    let userSimsConfirmed =
+                        userSims
+                            .filter(({ ownership }) => ownership.status !== "SHARED NOT CONFIRMED")
+                            .map(({ friendlyName }) => friendlyName)
+                        ;
+                
+                    for (
+                        let userSimNotConfirmed
+                        of
+                        userSims.filter(({ ownership }) => ownership.status === "SHARED NOT CONFIRMED")
+                    ) {
+                
+                        let ownerFriendlyName = userSimNotConfirmed.friendlyName;
+                
+                        let i = 1;
+                
+                        while (userSimsConfirmed.indexOf(userSimNotConfirmed.friendlyName) >= 0) {
+                
+                            userSimNotConfirmed.friendlyName = `${ownerFriendlyName}-${i++}`;
+                
+                        }
+                
+                    }
+                    */
+                    return [2 /*return*/, userSims];
+            }
+        });
+    });
+}
+exports.getUserSims = getUserSims;
+function addOrUpdateUa(ua) {
+    return __awaiter(this, void 0, void 0, function () {
+        var sql;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    sql = [
+                        "INSERT INTO ua",
+                        "   (instance, user, platform, push_token, software)",
+                        "SELECT",
+                        [
+                            semasim_gateway_1.mySqlFunctions.esc(ua.instance),
+                            "id_",
+                            semasim_gateway_1.mySqlFunctions.esc(ua.platform),
+                            semasim_gateway_1.mySqlFunctions.esc(ua.pushToken),
+                            semasim_gateway_1.mySqlFunctions.esc(ua.software)
+                        ].join(", "),
+                        "FROM user WHERE email= " + semasim_gateway_1.mySqlFunctions.esc(ua.userEmail),
+                        "ON DUPLICATE KEY UPDATE",
+                        "   platform= VALUES(platform),",
+                        "   push_token= VALUES(push_token),",
+                        "   software= VALUES(software)"
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.addOrUpdateUa = addOrUpdateUa;
+function setSimOnline(imsi, password, isVoiceEnabled) {
+    return __awaiter(this, void 0, void 0, function () {
+        var is_voice_enabled, queryResults, uasRegisteredToSim, _a, _b, row, e_7, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0:
+                    is_voice_enabled = semasim_gateway_1.mySqlFunctions.booleanOrUndefinedToSmallIntOrNull(isVoiceEnabled);
+                    return [4 /*yield*/, exports.query([
+                            "SELECT",
+                            "@sim_ref:= id_,",
+                            "storage_digest,",
+                            [
+                                "@password_status:= ",
+                                "IF(password= " + semasim_gateway_1.mySqlFunctions.esc(password) + ", ",
+                                "IF(need_password_renewal, 'NEED RENEWAL', 'UNCHANGED'), ",
+                                "'RENEWED') AS password_status"
+                            ].join(""),
+                            "FROM sim",
+                            "WHERE imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi),
+                            ";",
+                            "UPDATE sim",
+                            "SET",
+                            "   is_online= 1,",
+                            "   password= " + semasim_gateway_1.mySqlFunctions.esc(password) + ",",
+                            "   need_password_renewal= (@password_status= 'NEED RENEWAL'),",
+                            "   is_voice_enabled= " + semasim_gateway_1.mySqlFunctions.esc(is_voice_enabled),
+                            "WHERE id_= @sim_ref",
+                            ";",
+                            "SELECT",
+                            "   ua.*, user.email",
+                            "FROM ua",
+                            "INNER JOIN user ON user.id_= ua.user",
+                            "INNER JOIN sim ON sim.user= user.id_",
+                            "WHERE sim.id_= @sim_ref",
+                            ";",
+                            "SELECT",
+                            "   ua.*, user.email",
+                            "FROM ua",
+                            "INNER JOIN user ON user.id_= ua.user",
+                            "INNER JOIN user_sim ON user_sim.user= user.id_",
+                            "INNER JOIN sim ON sim.id_= user_sim.sim",
+                            "WHERE sim.id_= @sim_ref AND user_sim.base64_friendly_name IS NOT NULL"
+                        ].join("\n"))];
+                case 1:
+                    queryResults = _d.sent();
+                    if (queryResults[0].length === 0) {
+                        return [2 /*return*/, { "isSimRegistered": false }];
+                    }
+                    else {
+                        uasRegisteredToSim = [];
+                        try {
+                            for (_a = __values(__spread(queryResults.pop(), queryResults.pop())), _b = _a.next(); !_b.done; _b = _a.next()) {
+                                row = _b.value;
+                                uasRegisteredToSim.push({
+                                    "instance": row["instance"],
+                                    "userEmail": row["email"],
+                                    "platform": row["platform"],
+                                    "pushToken": row["push_token"],
+                                    "software": row["software"]
+                                });
+                            }
+                        }
+                        catch (e_7_1) { e_7 = { error: e_7_1 }; }
+                        finally {
+                            try {
+                                if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                            }
+                            finally { if (e_7) throw e_7.error; }
+                        }
+                        return [2 /*return*/, {
+                                "isSimRegistered": true,
+                                "passwordStatus": queryResults[0][0]["password_status"],
+                                "storageDigest": queryResults[0][0]["storage_digest"],
+                                uasRegisteredToSim: uasRegisteredToSim
+                            }];
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.setSimOnline = setSimOnline;
+function setSimOffline(imsi) {
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, exports.query("UPDATE sim SET is_online= 0 WHERE imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi))];
+                case 1:
+                    _a.sent();
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.setSimOffline = setSimOffline;
+/** Return UAs that no longer use sim */
+function unregisterSim(user, imsi) {
+    return __awaiter(this, void 0, void 0, function () {
+        var queryResults, affectedUas, _a, _b, row, e_8, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0: return [4 /*yield*/, exports.query([
+                        "SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        "FROM sim",
+                        "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
+                        "WHERE",
+                        "sim.imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi) + " AND ( sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user) + " OR user_sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user) + ")",
+                        "GROUP BY sim.id_",
+                        ";",
+                        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
+                        ";",
+                        "SELECT",
+                        "   ua.*, user.email",
+                        "FROM ua",
+                        "   INNER JOIN user ON user.id_= ua.user",
+                        "   INNER JOIN sim ON sim.user= user.id_",
+                        "WHERE sim.id_= @sim_ref AND @is_sim_owned",
+                        ";",
+                        "SELECT",
+                        "   ua.*, user.email",
+                        "FROM ua",
+                        "INNER JOIN user ON user.id_= ua.user",
+                        "INNER JOIN user_sim ON user_sim.user= user.id_",
+                        "WHERE",
+                        "   user_sim.sim= @sim_ref",
+                        "   AND user_sim.base64_friendly_name IS NOT NULL",
+                        "   AND ( @is_sim_owned OR user.id_= " + semasim_gateway_1.mySqlFunctions.esc(user) + ")",
+                        ";",
+                        "DELETE FROM sim WHERE id_= @sim_ref AND @is_sim_owned",
+                        ";",
+                        "DELETE FROM user_sim",
+                        "WHERE sim= @sim_ref AND user= " + semasim_gateway_1.mySqlFunctions.esc(user) + " AND NOT @is_sim_owned"
+                    ].join("\n"))];
+                case 1:
+                    queryResults = _d.sent();
+                    affectedUas = [];
+                    try {
+                        for (_a = __values(__spread(queryResults[2], queryResults[3])), _b = _a.next(); !_b.done; _b = _a.next()) {
+                            row = _b.value;
+                            affectedUas.push({
+                                "instance": row["instance"],
+                                "userEmail": row["email"],
+                                "platform": row["platform"],
+                                "pushToken": row["push_token"],
+                                "software": row["software"]
+                            });
+                        }
+                    }
+                    catch (e_8_1) { e_8 = { error: e_8_1 }; }
+                    finally {
+                        try {
+                            if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                        }
+                        finally { if (e_8) throw e_8.error; }
+                    }
+                    return [2 /*return*/, affectedUas];
+            }
+        });
+    });
+}
+exports.unregisterSim = unregisterSim;
+//TODO: useless to return UA as sharing request must be accepted first
+/** Return assert emails not empty */
+function shareSim(auth, imsi, emails, sharingRequestMessage) {
+    return __awaiter(this, void 0, void 0, function () {
+        var sql, queryResults, userRows, affectedUsers, userRows_1, userRows_1_1, row, email, e_9, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    emails = emails
+                        .map(function (email) { return email.toLowerCase(); })
+                        .filter(function (email) { return email !== auth.email; });
+                    sql = [
+                        "SELECT @sim_ref:= id_",
+                        "FROM sim",
+                        "WHERE imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi) + " AND user= " + semasim_gateway_1.mySqlFunctions.esc(auth.user),
+                        ";",
+                        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own sim')",
+                        ";",
+                        "INSERT IGNORE INTO user",
+                        "   (email, salt, hash)",
+                        "VALUES",
+                        emails.map(function (email) { return "   ( " + semasim_gateway_1.mySqlFunctions.esc(email) + ", '', '')"; }).join(",\n"),
+                        ";",
+                        "DROP TABLE IF EXISTS _user",
+                        ";",
+                        "CREATE TEMPORARY TABLE _user AS (",
+                        "   SELECT user.id_, user.email, user.salt<> '' AS is_registered",
+                        "   FROM user",
+                        "   LEFT JOIN user_sim ON user_sim.user= user.id_",
+                        "   WHERE " + emails.map(function (email) { return "user.email= " + semasim_gateway_1.mySqlFunctions.esc(email); }).join(" OR "),
+                        "   GROUP BY user.id_",
+                        "   HAVING COUNT(user_sim.id_)=0 OR SUM(user_sim.sim= @sim_ref)=0",
+                        ")",
+                        ";",
+                        "INSERT INTO user_sim",
+                        "   (user, sim, base64_friendly_name, base64_sharing_request_message)",
+                        "SELECT",
+                        "   id_, @sim_ref, NULL, " + semasim_gateway_1.mySqlFunctions.esc(semasim_gateway_1.mySqlFunctions.b64.enc(sharingRequestMessage)),
+                        "FROM _user",
+                        ";",
+                        "SELECT * from _user"
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    queryResults = _b.sent();
+                    userRows = queryResults.pop();
+                    affectedUsers = {
+                        "registered": [],
+                        "notRegistered": []
+                    };
+                    try {
+                        for (userRows_1 = __values(userRows), userRows_1_1 = userRows_1.next(); !userRows_1_1.done; userRows_1_1 = userRows_1.next()) {
+                            row = userRows_1_1.value;
+                            email = row["email"];
+                            if (row["is_registered"] === 1) {
+                                affectedUsers.registered.push(email);
+                            }
+                            else {
+                                affectedUsers.notRegistered.push(email);
+                            }
+                        }
+                    }
+                    catch (e_9_1) { e_9 = { error: e_9_1 }; }
+                    finally {
+                        try {
+                            if (userRows_1_1 && !userRows_1_1.done && (_a = userRows_1.return)) _a.call(userRows_1);
+                        }
+                        finally { if (e_9) throw e_9.error; }
+                    }
+                    return [2 /*return*/, affectedUsers];
+            }
+        });
+    });
+}
+exports.shareSim = shareSim;
+/** Return no longer registered UAs, assert email list not empty*/
+function stopSharingSim(user, imsi, emails) {
+    return __awaiter(this, void 0, void 0, function () {
+        var sql, queryResults, uaRows, noLongerRegisteredUas, uaRows_1, uaRows_1_1, row, e_10, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    emails = emails.map(function (email) { return email.toLowerCase(); });
+                    sql = [
+                        "SELECT @sim_ref:= id_",
+                        "FROM sim",
+                        "WHERE imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi) + " AND user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        ";",
+                        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own SIM')",
+                        ";",
+                        "DROP TABLE IF EXISTS _user_sim",
+                        ";",
+                        "CREATE TEMPORARY TABLE _user_sim AS (",
+                        "   SELECT",
+                        "       user_sim.id_,",
+                        "       user_sim.user,",
+                        "       user.email,",
+                        "       user_sim.base64_friendly_name IS NOT NULL as is_confirmed",
+                        "   FROM user_sim",
+                        "   INNER JOIN user ON user.id_= user_sim.user",
+                        "   WHERE user_sim.sim= @sim_ref AND (" + emails.map(function (email) { return "user.email= " + semasim_gateway_1.mySqlFunctions.esc(email); }).join(" OR ") + ")",
+                        ")",
+                        ";",
+                        "SELECT ua.*, _user_sim.email, @ua_found:= 1",
+                        "FROM ua",
+                        "INNER JOIN _user_sim ON _user_sim.user= ua.user",
+                        "WHERE _user_sim.is_confirmed",
+                        ";",
+                        "UPDATE sim",
+                        "SET need_password_renewal= 1",
+                        "WHERE id_= @sim_ref AND @ua_found",
+                        ";",
+                        "DELETE user_sim.*",
+                        "FROM user_sim",
+                        "INNER JOIN _user_sim ON _user_sim.id_= user_sim.id_"
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    queryResults = _b.sent();
+                    uaRows = queryResults[4];
+                    noLongerRegisteredUas = [];
+                    try {
+                        for (uaRows_1 = __values(uaRows), uaRows_1_1 = uaRows_1.next(); !uaRows_1_1.done; uaRows_1_1 = uaRows_1.next()) {
+                            row = uaRows_1_1.value;
+                            noLongerRegisteredUas.push({
+                                "instance": row["instance"],
+                                "userEmail": row["email"],
+                                "platform": row["platform"],
+                                "pushToken": row["push_token"],
+                                "software": row["software"]
+                            });
+                        }
+                    }
+                    catch (e_10_1) { e_10 = { error: e_10_1 }; }
+                    finally {
+                        try {
+                            if (uaRows_1_1 && !uaRows_1_1.done && (_a = uaRows_1.return)) _a.call(uaRows_1);
+                        }
+                        finally { if (e_10) throw e_10.error; }
+                    }
+                    return [2 /*return*/, noLongerRegisteredUas];
+            }
+        });
+    });
+}
+exports.stopSharingSim = stopSharingSim;
+/** Return user UAs */
+function setSimFriendlyName(user, imsi, friendlyName) {
+    return __awaiter(this, void 0, void 0, function () {
+        var b64FriendlyName, sql, queryResults, uaRows, userUas, uaRows_2, uaRows_2_1, row, e_11, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    b64FriendlyName = semasim_gateway_1.mySqlFunctions.b64.enc(friendlyName);
+                    sql = [
+                        "SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user),
+                        "FROM sim",
+                        "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
+                        "WHERE sim.imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi) + " AND ( sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user) + " OR user_sim.user= " + semasim_gateway_1.mySqlFunctions.esc(user) + ")",
+                        "GROUP BY sim.id_",
+                        ";",
+                        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
+                        ";",
+                        "UPDATE sim",
+                        "SET base64_friendly_name= " + semasim_gateway_1.mySqlFunctions.esc(b64FriendlyName),
+                        "WHERE id_= @sim_ref AND @is_sim_owned",
+                        ";",
+                        "UPDATE user_sim",
+                        "SET base64_friendly_name= " + semasim_gateway_1.mySqlFunctions.esc(b64FriendlyName) + ", base64_sharing_request_message= NULL",
+                        "WHERE sim= @sim_ref AND user= " + semasim_gateway_1.mySqlFunctions.esc(user) + " AND NOT @is_sim_owned",
+                        ";",
+                        "SELECT ua.*, user.email",
+                        "FROM ua",
+                        "INNER JOIN user ON user.id_= ua.user",
+                        "WHERE user= " + semasim_gateway_1.mySqlFunctions.esc(user)
+                    ].join("\n");
+                    return [4 /*yield*/, exports.query(sql)];
+                case 1:
+                    queryResults = _b.sent();
+                    uaRows = queryResults.pop();
+                    userUas = [];
+                    try {
+                        for (uaRows_2 = __values(uaRows), uaRows_2_1 = uaRows_2.next(); !uaRows_2_1.done; uaRows_2_1 = uaRows_2.next()) {
+                            row = uaRows_2_1.value;
+                            userUas.push({
+                                "instance": row["instance"],
+                                "userEmail": row["email"],
+                                "platform": row["platform"],
+                                "pushToken": row["push_token"],
+                                "software": row["software"]
+                            });
+                        }
+                    }
+                    catch (e_11_1) { e_11 = { error: e_11_1 }; }
+                    finally {
+                        try {
+                            if (uaRows_2_1 && !uaRows_2_1.done && (_a = uaRows_2.return)) _a.call(uaRows_2);
+                        }
+                        finally { if (e_11) throw e_11.error; }
+                    }
+                    return [2 /*return*/, userUas];
+            }
+        });
+    });
+}
+exports.setSimFriendlyName = setSimFriendlyName;
+function getSimOwner(imsi) {
+    return __awaiter(this, void 0, void 0, function () {
+        var rows;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, exports.query([
+                        "SELECT user.*",
+                        "FROM user",
+                        "INNER JOIN sim ON sim.user= user.id_",
+                        "WHERE sim.imsi= " + semasim_gateway_1.mySqlFunctions.esc(imsi)
+                    ].join("\n"))];
+                case 1:
+                    rows = _a.sent();
+                    if (!rows.length) {
+                        return [2 /*return*/, undefined];
+                    }
+                    else {
+                        return [2 /*return*/, {
+                                "user": rows[0]["id_"],
+                                "email": rows[0]["email"]
+                            }];
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.getSimOwner = getSimOwner;

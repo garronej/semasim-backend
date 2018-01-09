@@ -1,6 +1,5 @@
 import * as apn from "apn";
 import * as fbAdmin from "firebase-admin";
-import * as path from "path";
 
 export type PushNotificationCredentials = {
   android: {
@@ -19,7 +18,7 @@ export type Platform = "android" | "iOS";
 export let send: (platform: Platform, token: string) => Promise<void> =
   () => { throw new Error("PushSender not initialized") };
 
-export function init(
+export function initialize(
   credentials: PushNotificationCredentials
 ) {
 
@@ -33,6 +32,7 @@ export function init(
     },
     "production": false
   });
+
 
   let serviceAccount: fbAdmin.ServiceAccount = require(android.pathToServiceAccount);
 
@@ -73,7 +73,6 @@ export function init(
   };
 
   send = (platform, token) => sendByPlatform[platform](token);
-
 
 }
 

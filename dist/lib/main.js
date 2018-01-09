@@ -37,66 +37,25 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 require("rejection-tracker").main(__dirname, "..", "..");
-var https = require("https");
-var http = require("http");
-var express = require("express");
-var session = require("express-session");
-var forceDomain = require("forcedomain");
-var networkTools = require("../tools/networkTools");
 var sipProxy = require("./sipProxy");
-var webApi = require("./webApi");
-var api_1 = require("./../../frontend/api");
-var webRouter_1 = require("./webRouter");
-var _constants_1 = require("./_constants");
+var webServer = require("./mainWeb");
 var _debug = require("debug");
 var debug = _debug("_main");
-var pushSender = require("../tools/pushSender");
 (function () { return __awaiter(_this, void 0, void 0, function () {
-    var hostname, interfaceIp;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 debug("Starting semasim backend...");
-                pushSender.init(_constants_1.c.pushNotificationCredentials);
-                return [4 /*yield*/, sipProxy.startServer()];
+                debug("Starting sip proxy server...");
+                return [4 /*yield*/, sipProxy.start()];
             case 1:
                 _a.sent();
-                debug("..Sip proxy server started !");
-                hostname = "www." + _constants_1.c.shared.domain;
-                return [4 /*yield*/, networkTools.retrieveIpFromHostname(hostname)];
+                debug("..sip proxy server started !");
+                debug("Starting web server...");
+                return [4 /*yield*/, webServer.start()];
             case 2:
-                interfaceIp = (_a.sent()).interfaceIp;
-                return [4 /*yield*/, new Promise(function (resolve) {
-                        var app = express();
-                        app.set("view engine", "ejs");
-                        app
-                            .use(forceDomain({ hostname: hostname }))
-                            .use(session({ "secret": webRouter_1.cookieSecret, "resave": false, "saveUninitialized": false }))
-                            .use("/" + api_1.webApiPath, webApi.getRouter())
-                            .use("/", webRouter_1.webRouter);
-                        https.createServer(_constants_1.c.tlsOptions)
-                            .on("request", app)
-                            .listen(443, interfaceIp)
-                            .once("listening", function () { return resolve(); });
-                    })];
-            case 3:
                 _a.sent();
-                debug("...webserver started");
-                return [4 /*yield*/, new Promise(function (resolve) {
-                        var app = express();
-                        app.use(forceDomain({
-                            hostname: hostname,
-                            "port": 443,
-                            "protocol": "https"
-                        }));
-                        http.createServer()
-                            .on("request", app)
-                            .listen(80, interfaceIp)
-                            .once("listening", function () { return resolve(); });
-                    })];
-            case 4:
-                _a.sent();
-                debug("...http redirect to https started");
+                debug("...web server started !");
                 return [2 /*return*/];
         }
     });

@@ -1,136 +1,133 @@
-import * as webApi from "../../api";
+import { client as api } from "../../api";
 
 $(document).ready(() => {
 
-        $("#login-form").on("submit", function (event) {
+    $("#login-form").on("submit", async function (event) {
 
-                event.preventDefault();
+        event.preventDefault();
 
-                if (!$(this).valid()) return;
+        if (!$(this).valid()) return;
 
-                webApi.loginUser.makeCall(
-                        $,
-                        { "email": $("#emailLogin").val(), "password": $("#passwordLogin").val() },
-                        success => {
+        let isSuccess= await api.loginUser(
+            $("#emailLogin").val(),
+            $("#passwordLogin").val()
+        );
 
-                                if (!success) alert("Authentication failed, please retry");
-                                else location.reload();
-                        }
-                );
+        if( !isSuccess ){
+            alert("Authentication failed, please retry");
+        }else{
+            location.reload();
+        }
 
-        });
+    });
 
-        $("#register-form").on("submit", function (event) {
+    $("#register-form").on("submit", async function (event) {
 
-                event.preventDefault();
+        event.preventDefault();
 
-                if (!$(this).valid()) return;
+        if (!$(this).valid()) return;
 
-                webApi.registerUser.makeCall(
-                        $,
-                        { 
-                                "email": $("#emailRegister").val(), 
-                                "password": $("#passwordRegister").val() 
-                        },
-                        status => {
+        let email= $("#emailRegister").val();
+        let password= $("#passwordRegister").val();
 
-                                if (status !== "CREATED") {
+        let regStatus= await api.registerUser( email, password );
 
-                                        alert(`Error: ${status.toLowerCase().replace(/_/g, " ")}`);
-                                        $("#emailRegister").val("");
-                                        return;
+        switch( regStatus ){
+            case "EMAIL NOT AVAILABLE":
 
-                                }
+                alert("Email already used by an other account");
 
-                                $("#myTab a:first").tab("show");
+                $("#emailRegister").val("");
 
-                                $("#emailLogin").val(
-                                        $("#emailRegister").val()!
-                                );
+                break;
 
-                                $("#passwordLogin").val(
-                                        $("#passwordRegister").val()!
-                                );
+            case "CREATED": 
 
-                                setTimeout(() => $("#btnLogin").trigger("click"), 500);
+                $("#myTab a:first").tab("show");
 
-                        }
-                );
+                $("#emailLogin").val( email);
 
-        });
+                $("#passwordLogin").val( password);
 
-        //activate tabs
-        $(`#myTab a:${(window.location.pathname === "/register.ejs") ? "last" : "first"}`)
-                .tab('show');
+                setTimeout(() => $("#btnLogin").trigger("click"), 500);
+                
+                break;
+        }
 
-        //for custom checkboxes
-        $('input').not('.noStyle').iCheck({
-                "checkboxClass": 'icheckbox_minimal-teal'
-        });
+    });
 
-        //validate login form 
-        $("#login-form").validate({
-                "ignore": 'input[type="hidden"]',
-                "errorPlacement": (error, element) => {
+    //activate tabs
+    $(`#myTab a:${(window.location.pathname === "/register.ejs") ? "last" : "first"}`)
+        .tab('show');
 
-                        let wrap = element.parent();
-                        let wrap1 = wrap.parent();
-                        if (wrap1.hasClass('checkbox')) {
-                                error.insertAfter(wrap1);
-                        } else {
-                                if (element.attr('type') == 'file') {
-                                        error.insertAfter(element.next());
-                                } else {
-                                        error.insertAfter(element);
-                                }
-                        }
+    //for custom checkboxes
+    $('input').not('.noStyle').iCheck({
+        "checkboxClass": 'icheckbox_minimal-teal'
+    });
 
-                },
-                "errorClass": 'help-block',
-                "rules": {
-                        "email": {
-                                "required": true,
-                                "email": true
-                        },
-                        "password": {
-                                "required": true,
-                                "minlength": 6
-                        }
-                },
-                "messages": {
-                        "password": {
-                                "required": "Please provide a password",
-                                "minlength": "Your password must be at least 6 characters long"
-                        },
-                        "email": "Please type your email",
-                },
-                "highlight": element => {
+    //validate login form 
+    $("#login-form").validate({
+        "ignore": 'input[type="hidden"]',
+        "errorPlacement": (error, element) => {
 
-                        if ($(element).offsetParent().parent().hasClass("form-group")) {
-                                $(element).offsetParent().parent().removeClass("has-success").addClass("has-error");
-                        } else {
-                                if ($(element).attr("type") == "file") {
-                                        $(element).parent().parent().removeClass("has-success").addClass("has-error");
-                                }
-                                $(element).offsetParent().parent().parent().parent().removeClass("has-success").addClass("has-error");
-
-                        }
-                },
-                "unhighlight": (element, errorClass) => {
-
-                        if ($(element).offsetParent().parent().hasClass("form-group")) {
-                                $(element).offsetParent().parent().removeClass("has-error").addClass("has-success");
-                                $(element["form"]).find(`label[for=${element.id}]`).removeClass(errorClass);
-                        } else if ($(element).offsetParent().parent().hasClass('checkbox')) {
-                                $(element).offsetParent().parent().parent().parent().removeClass("has-error").addClass("has-success");
-                                $(element["form"]).find(`label[for=${element.id}]`).removeClass(errorClass);
-                        } else if ($(element).next().hasClass("bootstrap-filestyle")) {
-                                $(element).parent().parent().removeClass("has-error").addClass("has-success");
-                        }
-                        else {
-                                $(element).offsetParent().parent().parent().removeClass("has-error").addClass("has-success");
-                        }
+            let wrap = element.parent();
+            let wrap1 = wrap.parent();
+            if (wrap1.hasClass('checkbox')) {
+                error.insertAfter(wrap1);
+            } else {
+                if (element.attr('type') == 'file') {
+                    error.insertAfter(element.next());
+                } else {
+                    error.insertAfter(element);
                 }
-        });
+            }
+
+        },
+        "errorClass": 'help-block',
+        "rules": {
+            "email": {
+                "required": true,
+                "email": true
+            },
+            "password": {
+                "required": true,
+                "minlength": 6
+            }
+        },
+        "messages": {
+            "password": {
+                "required": "Please provide a password",
+                "minlength": "Your password must be at least 6 characters long"
+            },
+            "email": "Please type your email",
+        },
+        "highlight": element => {
+
+            if ($(element).offsetParent().parent().hasClass("form-group")) {
+                $(element).offsetParent().parent().removeClass("has-success").addClass("has-error");
+            } else {
+                if ($(element).attr("type") == "file") {
+                    $(element).parent().parent().removeClass("has-success").addClass("has-error");
+                }
+                $(element).offsetParent().parent().parent().parent().removeClass("has-success").addClass("has-error");
+
+            }
+        },
+        "unhighlight": (element, errorClass) => {
+
+            if ($(element).offsetParent().parent().hasClass("form-group")) {
+                $(element).offsetParent().parent().removeClass("has-error").addClass("has-success");
+                $(element["form"]).find(`label[for=${element.id}]`).removeClass(errorClass);
+            } else if ($(element).offsetParent().parent().hasClass('checkbox')) {
+                $(element).offsetParent().parent().parent().parent().removeClass("has-error").addClass("has-success");
+                $(element["form"]).find(`label[for=${element.id}]`).removeClass(errorClass);
+            } else if ($(element).next().hasClass("bootstrap-filestyle")) {
+                $(element).parent().parent().removeClass("has-error").addClass("has-success");
+            }
+            else {
+                $(element).offsetParent().parent().parent().removeClass("has-error").addClass("has-success");
+            }
+        }
+    });
 
 });

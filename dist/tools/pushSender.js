@@ -38,7 +38,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var apn = require("apn");
 var fbAdmin = require("firebase-admin");
 exports.send = function () { throw new Error("PushSender not initialized"); };
-function init(credentials) {
+function initialize(credentials) {
     var _this = this;
     var android = credentials.android, iOS = credentials.iOS;
     var apnProvider = new apn.Provider({
@@ -93,4 +93,4 @@ function init(credentials) {
     };
     exports.send = function (platform, token) { return sendByPlatform[platform](token); };
 }
-exports.init = init;
+exports.initialize = initialize;

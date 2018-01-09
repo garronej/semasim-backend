@@ -11,4 +11,4 @@ export declare type PushNotificationCredentials = {
 };
 export declare type Platform = "android" | "iOS";
 export declare let send: (platform: Platform, token: string) => Promise<void>;
-export declare function init(credentials: PushNotificationCredentials): void;
+export declare function initialize(credentials: PushNotificationCredentials): void;

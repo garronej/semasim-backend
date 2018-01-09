@@ -34,435 +34,89 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
-var __spread = (this && this.__spread) || function () {
-    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
-    return ar;
-};
-var __values = (this && this.__values) || function (o) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
-    if (m) return m.call(o);
-    return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-};
-var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
 var bodyParser = require("body-parser");
 var logger = require("morgan");
-var html_entities = require("html-entities");
-var entities = new html_entities.XmlEntities;
-var semasim_gateway_1 = require("../semasim-gateway");
-var sipProxy_1 = require("./sipProxy");
-var db = require("./db");
-var _ = require("./../../frontend/api");
-var _constants_1 = require("./_constants");
+var frontend_1 = require("../frontend");
+var apiPath = frontend_1.webApiDeclaration.apiPath;
+var JSON_ = frontend_1.webApiDeclaration.JSON;
+var webApiImplementation_1 = require("./webApiImplementation");
 require("colors");
 var _debug = require("debug");
-var debug = _debug("_backendWebApi");
-function getRouter() {
-    return express.Router()
+var debug = _debug("_webApiRouter");
+var httpCodes = {
+    "ok": 200,
+    "badRequest": 400,
+    "unauthorized": 401,
+    "internalServerError": 500,
+};
+function start(app) {
+    var _this = this;
+    var router = express.Router();
+    app.use("/" + apiPath, router);
+    router
         .use(logger("dev"))
         .use(bodyParser.json())
-        .use("/:method", function (req, res) {
-        try {
-            handlers[req.params.method](req, res);
-        }
-        catch (error) {
-            fail(res, _.unknownError);
-        }
-    });
-}
-exports.getRouter = getRouter;
-function fail(res, statusMessage) {
-    debug(("Error: " + statusMessage).red);
-    res.statusMessage = statusMessage;
-    res.status(400).end();
-}
-function failNoStatus(res, reason) {
-    if (reason)
-        debug(("Error " + reason).red);
-    res.status(400).end();
-}
-var handlers = {};
-(function () {
-    var methodName = _.loginUser.methodName;
-    function validateBody(query) {
-        try {
-            var _a = query, email = _a.email, password = _a.password;
-            return (email.match(_constants_1.c.regExpEmail) !== null &&
-                password.match(_constants_1.c.regExpPassword) !== null);
-        }
-        catch (_b) {
-            return false;
-        }
-    }
-    handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, email, password, user;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        .use("/:methodName", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+        var badRequest, methodName, _a, handler, sanityChecks, needAuth, contentType, session, params, response, error_1, rawResponse;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    debug("handle " + methodName);
-                    body = req.body;
-                    debug({ body: body });
-                    if (!validateBody(body))
-                        return [2 /*return*/, failNoStatus(res, "malformed")];
-                    email = body.email, password = body.password;
-                    return [4 /*yield*/, db.authenticateUser(email, password)];
-                case 1:
-                    user = _a.sent();
-                    if (!user)
-                        return [2 /*return*/, failNoStatus(res, "Auth failed")];
-                    req.session.user = user;
-                    req.session.user_email = email;
-                    res.status(200).end();
-                    return [2 /*return*/];
-            }
-        });
-    }); };
-})();
-(function () {
-    var methodName = _.registerUser.methodName;
-    function validateBody(query) {
-        try {
-            var _a = query, email = _a.email, password = _a.password;
-            return (email.match(_constants_1.c.regExpEmail) !== null &&
-                password.match(_constants_1.c.regExpPassword) !== null);
-        }
-        catch (_b) {
-            return false;
-        }
-    }
-    handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, email, password, isCreated;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    body = req.body;
-                    if (!validateBody(body))
-                        return [2 /*return*/, failNoStatus(res, "malformed")];
-                    email = body.email, password = body.password;
-                    return [4 /*yield*/, db.addUser(email, password)];
-                case 1:
-                    isCreated = _a.sent();
-                    if (!isCreated)
-                        return [2 /*return*/, fail(res, "EMAIL_NOT_AVAILABLE")];
-                    res.status(200).end();
-                    return [2 /*return*/];
-            }
-        });
-    }); };
-})();
-(function () {
-    var methodName = _.createUserEndpoint.methodName;
-    function validateBody(query) {
-        try {
-            var _a = query, imei = _a.imei, last_four_digits_of_iccid = _a.last_four_digits_of_iccid, pin_first_try = _a.pin_first_try, pin_second_try = _a.pin_second_try;
-            return (imei.match(_constants_1.c.regExpImei) !== null &&
-                last_four_digits_of_iccid.match(_constants_1.c.regExpFourDigits) !== null &&
-                (pin_first_try === undefined || pin_first_try.match(_constants_1.c.regExpFourDigits) !== null) &&
-                (pin_second_try === undefined || pin_second_try.match(_constants_1.c.regExpFourDigits) !== null));
-        }
-        catch (_b) {
-            return false;
-        }
-    }
-    ;
-    handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, imei, last_four_digits_of_iccid, pin_first_try, pin_second_try, user, gatewaySocket, unlockResult;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    debug("handle " + methodName);
-                    body = req.body;
-                    debug({ body: body });
-                    if (!validateBody(body))
-                        return [2 /*return*/, failNoStatus(res, "malformed")];
-                    imei = body.imei, last_four_digits_of_iccid = body.last_four_digits_of_iccid, pin_first_try = body.pin_first_try, pin_second_try = body.pin_second_try;
-                    user = req.session.user;
-                    if (!user)
-                        return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
-                    gatewaySocket = sipProxy_1.gatewaySockets.get(imei);
-                    if (!gatewaySocket)
-                        return [2 /*return*/, fail(res, "DONGLE_NOT_FOUND")];
-                    return [4 /*yield*/, semasim_gateway_1.sipApiClientGateway.unlockDongle.makeCall(gatewaySocket, {
-                            imei: imei,
-                            last_four_digits_of_iccid: last_four_digits_of_iccid,
-                            pin_first_try: pin_first_try,
-                            pin_second_try: pin_second_try
-                        })];
-                case 1:
-                    unlockResult = _a.sent();
-                    if (unlockResult.status === "STILL LOCKED") {
-                        if (!pin_first_try)
-                            fail(res, "SIM_PIN_LOCKED_AND_NO_PIN_PROVIDED");
-                        else
-                            fail(res, "WRONG_PIN");
+                    badRequest = function () {
+                        req.session.auth = undefined;
+                        res.status(httpCodes.badRequest).end();
+                    };
+                    methodName = req.params.methodName;
+                    if (!webApiImplementation_1.handlers[methodName]) {
+                        badRequest();
                         return [2 /*return*/];
                     }
-                    if (unlockResult.status === "ERROR") {
-                        //TODO: No! Some other error may happen
-                        debug("ERROR".red);
-                        debug(unlockResult);
-                        return [2 /*return*/, fail(res, "ICCID_MISMATCH")];
+                    _a = webApiImplementation_1.handlers[methodName], handler = _a.handler, sanityChecks = _a.sanityChecks, needAuth = _a.needAuth, contentType = _a.contentType;
+                    session = req.session;
+                    if (needAuth && !session.auth) {
+                        res.status(httpCodes.unauthorized).end();
+                        return [2 /*return*/];
                     }
-                    return [4 /*yield*/, db.addEndpoint(unlockResult.dongle, user)];
-                case 2:
-                    _a.sent();
-                    res.status(200).end();
-                    return [2 /*return*/];
-            }
-        });
-    }); };
-})();
-(function () {
-    /*
-    <string name="semasim_login_url"> https://www.&domain;/api/get-user-linphone-config
-    ?email_as_hex=%1$s&amp;password_as_hex=%2$s&amp;instance_id_as_hex=%3$s</string>
-    */
-    var methodName = "get-user-linphone-config";
-    function validateQueryString(query) {
-        try {
-            var _a = query, email_as_hex = _a.email_as_hex, password_as_hex = _a.password_as_hex, instance_id_as_hex = _a.instance_id_as_hex;
-            var email = (new Buffer(email_as_hex, "hex")).toString("utf8");
-            var password = (new Buffer(password_as_hex, "hex")).toString("utf8");
-            var instanceId = (new Buffer(instance_id_as_hex, "hex")).toString("utf8");
-            return (email.match(_constants_1.c.regExpEmail) !== null &&
-                password.match(_constants_1.c.regExpPassword) !== null &&
-                !!instanceId);
-        }
-        catch (_b) {
-            return false;
-        }
-    }
-    var ov = " overwrite=\"true\" ";
-    var domain = _constants_1.c.shared.domain;
-    function generateGlobalConfig(endpointConfigs, phonebookConfigs) {
-        /*
-        return [
-            `<?xml version="1.0" encoding="UTF-8"?>`,
-            [
-                `<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" `,
-                `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" `,
-                `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
-            ].join(""),
-            `  <section name="sip">`,
-            `    <entry name="ping_with_options" ${ov}>0</entry>`,
-            `  </section>`,
-            `  <section name="net">`,
-            `    <entry name="dns_srv_enabled" ${ov}>1</entry>`,
-            `  </section>`,
-            ...endpointConfigs,
-            ...phonebookConfigs,
-            `</config>`
-        ].join("\n");
-        */
-        return __spread([
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-            [
-                "<config xmlns=\"http://www.linphone.org/xsds/lpconfig.xsd\" ",
-                "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" ",
-                "xsi:schemaLocation=\"http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd\">",
-            ].join("")
-        ], endpointConfigs, phonebookConfigs, [
-            "</config>"
-        ]).join("\n");
-    }
-    function updateEndpointConfigs(id, dongle, endpointConfigs) {
-        var display_name = (function generateDisplayName(id, sim) {
-            var infos = [];
-            if (sim.number)
-                infos.push("" + sim.number);
-            if (sim.serviceProvider)
-                infos.push("" + sim.serviceProvider);
-            var infosConcat = ": " + infos.join("-");
-            return "Sim" + (id + 1) + infosConcat;
-        })(id, dongle.sim);
-        var reg_identity = entities.encode("\"" + display_name + "\" <sip:" + dongle.imei + "@" + domain + ";transport=tls>");
-        var last_four_digits_of_iccid = dongle.sim.iccid.substring(dongle.sim.iccid.length - 4);
-        //let stunServer= networkTools.getStunServer.previousResult!;
-        //`    <entry name="stun_server" ${ov}>${stunServer.ip}:${stunServer.port}</entry>`,
-        endpointConfigs[endpointConfigs.length] = [
-            "  <section name=\"nat_policy_" + id + "\">",
-            "    <entry name=\"ref\" " + ov + ">nat_policy_" + id + "</entry>",
-            "    <entry name=\"stun_server\" " + ov + ">" + _constants_1.c.shared.domain + "</entry>",
-            "    <entry name=\"protocols\" " + ov + ">stun,ice</entry>",
-            "  </section>",
-            "  <section name=\"proxy_" + id + "\">",
-            "    <entry name=\"reg_proxy\" " + ov + ">sip:" + domain + ";transport=tls</entry>",
-            "    <entry name=\"reg_route\" " + ov + ">sip:" + domain + ";transport=tls;lr</entry>",
-            "    <entry name=\"reg_expires\" " + ov + ">" + _constants_1.c.reg_expires + "</entry>",
-            "    <entry name=\"reg_identity\" " + ov + ">" + reg_identity + "</entry>",
-            "    <entry name=\"reg_sendregister\" " + ov + ">1</entry>",
-            "    <entry name=\"publish\" " + ov + ">0</entry>",
-            "    <entry name=\"nat_policy_ref\" " + ov + ">nat_policy_" + id + "</entry>",
-            "  </section>",
-            "  <section name=\"auth_info_" + id + "\">",
-            "    <entry name=\"username\" " + ov + ">" + dongle.imei + "</entry>",
-            "    <entry name=\"userid\" " + ov + ">" + dongle.imei + "</entry>",
-            "    <entry name=\"passwd\" " + ov + ">" + last_four_digits_of_iccid + "</entry>",
-            "  </section>"
-        ].join("\n");
-        /*
-        endpointConfigs[endpointConfigs.length] = [
-            `  <section name="nat_policy_${id}">`,
-            `    <entry name="ref" ${ov}>nat_policy_${id}</entry>`,
-            `    <entry name="stun_server" ${ov}>${c.shared.domain}</entry>`,
-            `    <entry name="protocols" ${ov}>stun,turn,ice</entry>`,
-            `    <entry name="stun_server_username" ${ov}>ad9c087a-bb61-11e7-afe4-f71e2efec7c1</entry>`,
-            `  </section>`,
-            `  <section name="proxy_${id}">`,
-            `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=tls</entry>`,
-            `    <entry name="reg_route" ${ov}>sip:${domain};transport=tls;lr</entry>`,
-            `    <entry name="reg_expires" ${ov}>${c.reg_expires}</entry>`,
-            `    <entry name="reg_identity" ${ov}>${reg_identity}</entry>`,
-            `    <entry name="reg_sendregister" ${ov}>1</entry>`,
-            `    <entry name="publish" ${ov}>0</entry>`,
-            `    <entry name="nat_policy_ref" ${ov}>nat_policy_${id}</entry>`,
-            `  </section>`,
-            `  <section name="auth_info_${id}">`,
-            `    <entry name="username" ${ov}>${dongle.imei}</entry>`,
-            `    <entry name="userid" ${ov}>${dongle.imei}</entry>`,
-            `    <entry name="passwd" ${ov}>${last_four_digits_of_iccid}</entry>`,
-            `  </section>`,
-            `  <section name="auth_info_${id+1}">`,
-            `    <entry name="username" ${ov}>ad9c087a-bb61-11e7-afe4-f71e2efec7c1</entry>`,
-            `    <entry name="userid" ${ov}>ad9c0906-bb61-11e7-9878-e8a34e885e55</entry>`,
-            `    <entry name="passwd" ${ov}>ad9c0906-bb61-11e7-9878-e8a34e885e55</entry>`,
-            `  </section>`
-        ].join("\n");
-        */
-    }
-    function updatePhonebookConfigs(id, contacts, phonebookConfigs) {
-        var startIndex = phonebookConfigs.length;
-        for (var i = 0; i < contacts.length; i++) {
-            var contact = contacts[i];
-            //TODO: Test with special characters, see if it break linephone
-            var url = entities.encode("\"" + contact.name + " (Sim" + (id + 1) + ")\" <sip:" + contact.number + "@" + domain + ">");
-            phonebookConfigs[phonebookConfigs.length] = [
-                "  <section name=\"friend_" + (startIndex + i) + "\">",
-                "    <entry name=\"url\" " + ov + ">" + url + "</entry>",
-                "    <entry name=\"pol\" " + ov + ">accept</entry>",
-                "    <entry name=\"subscribe\" " + ov + ">0</entry>",
-                "  </section>",
-            ].join("\n");
-        }
-    }
-    /*
-    networkTools.getStunServer.domain = c.shared.domain;
-    let prGetStun= networkTools.getStunServer.defineUpdateInterval();
-    */
-    handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var query, email_as_hex, password_as_hex, instance_id_as_hex, email, password, instanceId, user, endpointConfigs, phonebookConfigs, id, _a, _b, dongle, e_1_1, xml, e_1, _c;
-        return __generator(this, function (_d) {
-            switch (_d.label) {
-                case 0:
-                    debug("handle " + methodName);
-                    query = req.query;
-                    if (!validateQueryString(query))
-                        return [2 /*return*/, failNoStatus(res, "malformed")];
-                    email_as_hex = query.email_as_hex, password_as_hex = query.password_as_hex, instance_id_as_hex = query.instance_id_as_hex;
-                    email = (new Buffer(email_as_hex, "hex")).toString("utf8");
-                    password = (new Buffer(password_as_hex, "hex")).toString("utf8");
-                    instanceId = (new Buffer(instance_id_as_hex, "hex")).toString("utf8");
-                    return [4 /*yield*/, db.authenticateUser(email, password)];
+                    switch (req.method) {
+                        case "GET":
+                            params = req.query;
+                            break;
+                        case "POST":
+                            params = req.body;
+                            break;
+                        default:
+                            badRequest();
+                            return [2 /*return*/];
+                    }
+                    if (sanityChecks && !sanityChecks(params)) {
+                        badRequest();
+                        return [2 /*return*/];
+                    }
+                    _b.label = 1;
                 case 1:
-                    user = _d.sent();
-                    if (!user)
-                        return [2 /*return*/, failNoStatus(res, "user not found")];
-                    endpointConfigs = [];
-                    phonebookConfigs = [];
-                    id = 0;
-                    _d.label = 2;
+                    _b.trys.push([1, 3, , 4]);
+                    return [4 /*yield*/, handler(params, session, req.connection.remoteAddress)];
                 case 2:
-                    _d.trys.push([2, 7, 8, 9]);
-                    return [4 /*yield*/, db.getEndpoints(user)];
-                case 3:
-                    _a = __values.apply(void 0, [_d.sent()]), _b = _a.next();
-                    _d.label = 4;
-                case 4:
-                    if (!!_b.done) return [3 /*break*/, 6];
-                    dongle = _b.value;
-                    updateEndpointConfigs(id, dongle, endpointConfigs);
-                    updatePhonebookConfigs(id, dongle.sim.phonebook.contacts, phonebookConfigs);
-                    id++;
-                    _d.label = 5;
-                case 5:
-                    _b = _a.next();
+                    response = _b.sent();
                     return [3 /*break*/, 4];
-                case 6: return [3 /*break*/, 9];
-                case 7:
-                    e_1_1 = _d.sent();
-                    e_1 = { error: e_1_1 };
-                    return [3 /*break*/, 9];
-                case 8:
-                    try {
-                        if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
+                case 3:
+                    error_1 = _b.sent();
+                    res.status(httpCodes.internalServerError).end();
+                    return [2 /*return*/];
+                case 4:
+                    res.setHeader("Content-Type", contentType + "; charset=utf-8");
+                    res.status(httpCodes.ok);
+                    if (contentType === "application/json") {
+                        rawResponse = JSON_.stringify(response);
                     }
-                    finally { if (e_1) throw e_1.error; }
-                    return [7 /*endfinally*/];
-                case 9:
-                    xml = generateGlobalConfig(endpointConfigs, phonebookConfigs);
-                    debug(xml);
-                    console.log({ instanceId: instanceId });
-                    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-                    res.status(200).send(new Buffer(xml, "utf8"));
+                    else {
+                        rawResponse = response;
+                    }
+                    res.send(new Buffer(rawResponse, "utf8"));
                     return [2 /*return*/];
             }
         });
-    }); };
-})();
-(function () {
-    var methodName = _.deleteUserEndpoint.methodName;
-    function validateBody(query) {
-        try {
-            var imei = query.imei;
-            return imei.match(_constants_1.c.regExpImei) !== null;
-        }
-        catch (_a) {
-            return false;
-        }
-    }
-    handlers[methodName] = function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var body, imei, user, isDeleted;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    debug("handle " + methodName);
-                    body = req.body;
-                    if (!validateBody(body))
-                        return [2 /*return*/, failNoStatus(res, "malformed")];
-                    imei = body.imei;
-                    user = req.session.user;
-                    if (!user)
-                        return [2 /*return*/, fail(res, "USER_NOT_LOGGED")];
-                    return [4 /*yield*/, db.deleteEndpoint(imei, user)];
-                case 1:
-                    isDeleted = _a.sent();
-                    if (!isDeleted)
-                        return [2 /*return*/, fail(res, "ENDPOINT_NOT_FOUND")];
-                    res.status(200).end();
-                    return [2 /*return*/];
-            }
-        });
-    }); };
-})();
+    }); });
+}
+exports.start = start;

@@ -2,9 +2,11 @@ import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
 import { SyncEvent } from "ts-events-extended";
-import { startListening as apiStartListening } from "./sipApi";
 import { Contact, sipLibrary } from "../semasim-gateway";
 import * as networkTools from "../tools/networkTools";
+import * as sipApiServer from "./sipApiBackendServerImplementation";
+import * as sipApiGateway from "./sipApiGatewayClientImplementation";
+import * as utils from "./utils";
 
 import { c } from "./_constants";
 
@@ -13,38 +15,70 @@ import "colors";
 import * as _debug from "debug";
 let debug = _debug("_sipProxy");
 
-let setAutoRemove= function set(key, socket: sipLibrary.Socket){
-
-    let self: Map<any, sipLibrary.Socket> = this;
-
-    socket.evtClose.attachOnce(() =>{
-        if( self.get(key) === socket ){
-            self.delete(key);
-        }
-    });
-
-    return Map.prototype.set.call(self, key, socket);
-
-};
-
-
 /** Map connectionId => socket */
-export const clientSockets= new Map<number, sipLibrary.Socket>();
-clientSockets.set= setAutoRemove;
+export const clientSockets= utils.createSelfMaintainedSocketMap<number>();
 
-/** Map imei => socket */
-export const gatewaySockets= new Map<string, sipLibrary.Socket>();
-gatewaySockets.set= setAutoRemove;
+/** Map imsi => gatewaySocket */
+export namespace gatewaySockets {
+
+    /** Map imsi => socket */
+    const bySim= utils.createSelfMaintainedSocketMap<string>();
+
+    /** Map gateway ip => socket */
+    const byIp= new Map<string, Set<sipLibrary.Socket>>();
+
+    export function add(gwSocket: sipLibrary.Socket){
+
+        let ip= gwSocket.remoteAddress;
+
+        if (!byIp.has(ip)) {
+            byIp.set(ip, new Set());
+        }
+
+        byIp.get(ip)!.add(gwSocket);
+
+        gwSocket.evtClose.attachOnce(
+            () => byIp.get(ip)!.delete(gwSocket)
+        );
+
+    }
+
+    export function getConnectedFrom(
+        remoteAddress: string
+    ): Set<sipLibrary.Socket> {
+        return byIp.get(remoteAddress) || new Set();
+    }
+
+    export function setSimRoute(
+        gatewaySocket: sipLibrary.Socket,
+        imsi: string
+    ) {
+        bySim.set(imsi, gatewaySocket);
+    }
+
+    export function removeSimRoute(
+        imsi: string
+    ) {
+        bySim.delete(imsi);
+    }
+
+    export function getSimRoute(
+        imsi: string
+    ): sipLibrary.Socket |  undefined {
+        return bySim.get(imsi);
+    }
+
+}
 
 let publicIp = "";
 
-export async function startServer() {
+export async function start() {
 
-    let [ sipSrv ]= await networkTools.resolveSrv(`_sips._tcp.${c.shared.domain}`);
+    let [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${c.shared.domain}`);
 
-    let sipIps= await networkTools.retrieveIpFromHostname(sipSrv.name);
+    let sipIps = await networkTools.retrieveIpFromHostname(sipSrv.name);
 
-    publicIp= sipIps.publicIp;
+    publicIp = sipIps.publicIp;
 
     let options: tls.TlsOptions = c.tlsOptions;
 
@@ -53,12 +87,14 @@ export async function startServer() {
     servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
         .listen(sipSrv.port, sipIps.interfaceIp)
-        .on("secureConnection", onClientConnection);
+        .on("secureConnection", onClientConnection)
+        ;
 
     servers[servers.length] = tls.createServer(options)
         .on("error", error => { throw error; })
         .listen(c.shared.gatewayPort, sipIps.interfaceIp)
-        .on("secureConnection", onGatewayConnection);
+        .on("secureConnection", onGatewayConnection)
+        ;
 
     await Promise.all(
         servers.map(
@@ -68,9 +104,10 @@ export async function startServer() {
         )
     );
 
+
 }
 
-
+//TODO: ip that trigger those error should be ban
 function handleError(
     where: string,
     socket: sipLibrary.Socket,
@@ -84,11 +121,11 @@ function handleError(
 
 }
 
-const uniqNow= (()=>{
-    let last= 0;
-    return ()=> {
-        let now= Date.now();
-        return (now<=last)?(++last):(last=now);
+const uniqNow = (() => {
+    let last = 0;
+    return () => {
+        let now = Date.now();
+        return (now <= last) ? (++last) : (last = now);
     };
 })();
 
@@ -117,25 +154,39 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             let parsedFromUri = sipLibrary.parseUri(sipRequest.headers.from.uri);
 
-            if (!parsedFromUri.user) throw new Error("Request malformed, no IMEI in from header");
+            if (!parsedFromUri.user) {
 
-            let imei = parsedFromUri.user;
-
-            debug(`(client ${connectionId}) ${sipRequest.method} ${imei}`.yellow);
-
-            let gatewaySocket = gatewaySockets.get(imei);
-
-            if (!gatewaySocket) throw new Error("Target Gateway not found");
-
-            if( !gatewaySocket.evtClose.getHandlers().find( ({ boundTo }) => boundTo === clientSocket ) ){
-
-                gatewaySocket.evtClose.attachOnce(clientSocket, clientSocket.destroy);
-
-                clientSocket.evtClose.attachOnce(()=> gatewaySocket!.evtClose.detach(clientSocket) );
+                throw new Error("Request malformed, no IMSI in from header");
 
             }
 
-            gatewaySocket.addViaHeader(sipRequest, { 
+            let imsi = parsedFromUri.user;
+
+            debug(`(client ${connectionId}) ${sipRequest.method} ${imsi}`.yellow);
+
+            let gatewaySocket = gatewaySockets.getSimRoute(imsi);
+
+            if (!gatewaySocket) {
+
+                debug(`(client ${connectionId}) no route to SIM: ${imsi}`.yellow);
+
+                clientSocket.destroy();
+
+                return;
+
+            }
+
+            /** Way of saying: "if it's the first message that this gw socket receive from this client" */
+            if (!gatewaySocket.evtClose.getHandlers().find(({ boundTo }) => boundTo === clientSocket)) {
+
+                //** when gw socket close then close client socket */
+                gatewaySocket.evtClose.attachOnce(clientSocket, clientSocket.destroy);
+
+                clientSocket.evtClose.attachOnce(() => gatewaySocket!.evtClose.detach(clientSocket));
+
+            }
+
+            gatewaySocket.addViaHeader(sipRequest, {
                 "connection_id": `${connectionId}`,
                 "received": clientSocket.remoteAddress
             });
@@ -174,13 +225,23 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
             let parsedToUri = sipLibrary.parseUri(sipResponse.headers.to.uri);
 
-            if (!parsedToUri.user) throw new Error("Response malformed, no IMEI in to header");
+            if (!parsedToUri.user) {
+                throw new Error("Client response malformed, no IMSI in to header");
+            }
 
-            let imei = parsedToUri.user;
+            let imsi = parsedToUri.user;
 
-            let gatewaySocket = gatewaySockets.get(imei);
+            let gatewaySocket = gatewaySockets.getSimRoute(imsi);
 
-            if (!gatewaySocket) throw new Error("Target Gateway not found");
+            if (!gatewaySocket) {
+
+                debug(`(client ${connectionId}) no route to SIM: ${imsi}`.yellow);
+
+                clientSocket.destroy();
+
+                return;
+
+            }
 
             gatewaySocket.pushRecordRoute(sipResponse, true);
 
@@ -206,6 +267,10 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
     gatewaySocket.setKeepAlive(true);
 
+    sipApiServer.startListening(gatewaySocket);
+
+    sipApiGateway.init(gatewaySocket);
+
     /*
     gatewaySocket.evtPacket.attach(sipPacket =>
         debug("From gateway:\n", sipLibrary.stringify(sipPacket).grey, "\n\n")
@@ -215,8 +280,6 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
     );
     */
 
-    apiStartListening(gatewaySocket);
-
     gatewaySocket.evtRequest.attach(sipRequest => {
 
         try {
@@ -225,11 +288,19 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             let connectionId = parseInt(sipRequest.headers.via[0].params["connection_id"]!);
 
-            if (!connectionId ) throw new Error("No connectionId in topmost via header");
+            if (!connectionId) {
+                throw new Error("Malformed, No connectionId in topmost via header");
+            }
 
             let clientSocket = clientSockets.get(connectionId);
 
-            if (!clientSocket) return;
+            if (!clientSocket) {
+
+                debug(`(gateway) no route to client`.grey);
+
+                return;
+
+            }
 
             clientSocket.addViaHeader(sipRequest);
 
@@ -251,13 +322,21 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             debug(`(gateway): ${sipResponse.status} ${sipResponse.reason}`.grey);
 
-            let connectionId= parseInt(sipResponse.headers.via[0].params["connection_id"]!);
+            let connectionId = parseInt(sipResponse.headers.via[0].params["connection_id"]!);
 
-            if (!connectionId) throw new Error("No connectionId in topmost via header");
+            if (!connectionId) {
+                throw new Error("Malformed, No connectionId in topmost via header");
+            }
 
             let clientSocket = clientSockets.get(connectionId);
 
-            if (!clientSocket) return;
+            if (!clientSocket) {
+
+                debug(`(gateway) no route to client`.grey);
+
+                return;
+
+            }
 
             clientSocket.pushRecordRoute(sipResponse, false, publicIp);
 
