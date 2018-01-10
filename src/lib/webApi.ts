@@ -1,5 +1,4 @@
 import * as express from "express";
-import * as bodyParser from "body-parser";
 import * as logger from "morgan";
 import { Session } from "./mainWeb";
 import { webApiDeclaration } from "../frontend";
@@ -30,7 +29,33 @@ const httpCodes = {
     "internalServerError": 500,
 };
 
+export async function bodyParser(req: express.Request): Promise<any> {
 
+    let rawBody = "";
+
+    let timer = setTimeout(() => {
+        rawBody = "!";
+        req.emit("end");
+    }, 1000);
+
+    req.on("data", (buff: Buffer) => rawBody += buff.toString("utf8"));
+
+    await new Promise<void>(resolve => {
+        clearTimeout(timer);
+        req.once("end", () => resolve());
+    });
+
+    try {
+
+        return JSON_.parse(rawBody);
+
+    } catch{
+
+        throw new Error("Bad request");
+
+    }
+
+}
 
 export function start(app: express.Express) {
 
@@ -40,13 +65,12 @@ export function start(app: express.Express) {
 
     router
         .use(logger("dev"))
-        //.use(bodyParser.json())
         .use("/:methodName", async (req, res) => {
 
             console.log("ON est là");
 
-            let badRequest= ()=> {
-                (req.session! as Session).auth= undefined;
+            let badRequest = () => {
+                (req.session! as Session).auth = undefined;
                 res.status(httpCodes.badRequest).end();
             };
 
@@ -68,41 +92,15 @@ export function start(app: express.Express) {
 
             let params: any;
 
-            /*
             switch (req.method) {
                 case "GET": params = req.query; break;
-                case "POST": params = req.body; break;
-                default: badRequest(); return;
-            }
-            */
-
-            switch (req.method) {
-                case "GET": params = req.query; break;
-                case "POST":
-
-                    let rawBody = "";
-
-                    req.on("data", (buff: Buffer) => {
-
-                        console.log(buff.toString("utf8"));
-
-                        rawBody += buff.toString("utf8");
-
-                    });
-
-                    await new Promise<void>(resolve => req.once("end", () => resolve()));
-
-                    try {
-
-                        params = JSON_.parse(rawBody);
-
-                    } catch{
-
-                        console.log("hhhhhhhhhhhhhhhhhhhhhhhhh");
+                case "POST": 
+                    try{
+                        params= await bodyParser(req);
+                    }catch{
                         badRequest();
                         return;
                     }
-
                     break;
                 default: badRequest(); return;
             }

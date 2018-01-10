@@ -50,6 +50,36 @@ var httpCodes = {
     "unauthorized": 401,
     "internalServerError": 500,
 };
+function bodyParser(req) {
+    return __awaiter(this, void 0, void 0, function () {
+        var rawBody, timer;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    rawBody = "";
+                    timer = setTimeout(function () {
+                        rawBody = "!";
+                        req.emit("end");
+                    }, 1000);
+                    req.on("data", function (buff) { return rawBody += buff.toString("utf8"); });
+                    return [4 /*yield*/, new Promise(function (resolve) {
+                            clearTimeout(timer);
+                            req.once("end", function () { return resolve(); });
+                        })];
+                case 1:
+                    _a.sent();
+                    try {
+                        return [2 /*return*/, JSON_.parse(rawBody)];
+                    }
+                    catch (_b) {
+                        throw new Error("Bad request");
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.bodyParser = bodyParser;
 function start(app) {
     var _this = this;
     var router = express.Router();
@@ -57,9 +87,9 @@ function start(app) {
     router
         .use(logger("dev"))
         .use("/:methodName", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-        var badRequest, methodName, _a, handler, sanityChecks, needAuth, contentType, session, params, _b, rawBody_1, response, error_1, rawResponse;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var badRequest, methodName, _a, handler, sanityChecks, needAuth, contentType, session, params, _b, _c, response, error_1, rawResponse;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
                     console.log("ON est là");
                     badRequest = function () {
@@ -82,48 +112,41 @@ function start(app) {
                         case "GET": return [3 /*break*/, 1];
                         case "POST": return [3 /*break*/, 2];
                     }
-                    return [3 /*break*/, 4];
+                    return [3 /*break*/, 6];
                 case 1:
                     params = req.query;
-                    return [3 /*break*/, 5];
+                    return [3 /*break*/, 7];
                 case 2:
-                    rawBody_1 = "";
-                    req.on("data", function (buff) {
-                        console.log(buff.toString("utf8"));
-                        rawBody_1 += buff.toString("utf8");
-                    });
-                    return [4 /*yield*/, new Promise(function (resolve) { return req.once("end", function () { return resolve(); }); })];
+                    _d.trys.push([2, 4, , 5]);
+                    return [4 /*yield*/, bodyParser(req)];
                 case 3:
-                    _c.sent();
-                    try {
-                        params = JSON_.parse(rawBody_1);
-                    }
-                    catch (_d) {
-                        console.log("hhhhhhhhhhhhhhhhhhhhhhhhh");
-                        badRequest();
-                        return [2 /*return*/];
-                    }
+                    params = _d.sent();
                     return [3 /*break*/, 5];
                 case 4:
+                    _c = _d.sent();
                     badRequest();
                     return [2 /*return*/];
-                case 5:
+                case 5: return [3 /*break*/, 7];
+                case 6:
+                    badRequest();
+                    return [2 /*return*/];
+                case 7:
                     if (sanityChecks && !sanityChecks(params)) {
                         badRequest();
                         return [2 /*return*/];
                     }
-                    _c.label = 6;
-                case 6:
-                    _c.trys.push([6, 8, , 9]);
-                    return [4 /*yield*/, handler(params, session, req.connection.remoteAddress)];
-                case 7:
-                    response = _c.sent();
-                    return [3 /*break*/, 9];
+                    _d.label = 8;
                 case 8:
-                    error_1 = _c.sent();
+                    _d.trys.push([8, 10, , 11]);
+                    return [4 /*yield*/, handler(params, session, req.connection.remoteAddress)];
+                case 9:
+                    response = _d.sent();
+                    return [3 /*break*/, 11];
+                case 10:
+                    error_1 = _d.sent();
                     res.status(httpCodes.internalServerError).end();
                     return [2 /*return*/];
-                case 9:
+                case 11:
                     res.setHeader("Content-Type", contentType + "; charset=utf-8");
                     res.status(httpCodes.ok);
                     if (contentType === "application/json") {

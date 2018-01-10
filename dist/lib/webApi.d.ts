@@ -11,4 +11,5 @@ export declare type Handler<Params, Response> = {
 export declare type Handlers = {
     [methodName: string]: Handler<any, any>;
 };
+export declare function bodyParser(req: express.Request): Promise<any>;
 export declare function start(app: express.Express): void;

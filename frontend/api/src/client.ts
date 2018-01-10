@@ -5,7 +5,6 @@ import "es6-promise/auto";
 async function makeRequest<Params, Response>(
     methodName, params: Params
 ): Promise<Response> {
-
     return new Promise<Response>(
         resolve => (window["$"] as JQueryStatic).ajax({
             "url": `/${declaration.apiPath}/${methodName}`,
@@ -22,7 +21,6 @@ async function makeRequest<Params, Response>(
             }
         })
     );
-
 }
 
 export function registerUser(
