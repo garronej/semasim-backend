@@ -29,7 +29,11 @@ export namespace gatewaySockets {
 
     export function add(gwSocket: sipLibrary.Socket){
 
+        debug("Add socket");
+
         let ip= gwSocket.remoteAddress;
+
+        debug({ ip });
 
         if (!byIp.has(ip)) {
             byIp.set(ip, new Set());
@@ -264,6 +268,8 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
     debug("New Gateway socket !\n\n".grey);
 
     let gatewaySocket = new sipLibrary.Socket(gatewaySocketRaw);
+
+    gatewaySockets.add(gatewaySocket);
 
     gatewaySocket.setKeepAlive(true);
 

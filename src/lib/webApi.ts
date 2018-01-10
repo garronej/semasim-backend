@@ -64,10 +64,8 @@ export function start(app: express.Express) {
     app.use(`/${apiPath}`, router);
 
     router
-        .use(logger("dev"))
+        //.use(logger("dev"))
         .use("/:methodName", async (req, res) => {
-
-            console.log("ON est là");
 
             let badRequest = () => {
                 (req.session! as Session).auth = undefined;

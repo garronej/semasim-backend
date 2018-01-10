@@ -63,6 +63,7 @@ sanityChecks[apiDeclaration.getDongles.methodName] =
             for (var response_1 = __values(response), response_1_1 = response_1.next(); !response_1_1.done; response_1_1 = response_1.next()) {
                 var dongle = response_1_1.value;
                 if (!chan_dongle_extended_client_1.DongleController.Dongle.sanityCheck(dongle)) {
+                    console.log("sanity check get dongles failed");
                     return false;
                 }
             }
@@ -93,6 +94,7 @@ function getDongles(gatewaySocket) {
                 case 2: return [2 /*return*/, _b.sent()];
                 case 3:
                     _a = _b.sent();
+                    console.log("error get dongles");
                     return [2 /*return*/, []];
                 case 4: return [2 /*return*/];
             }

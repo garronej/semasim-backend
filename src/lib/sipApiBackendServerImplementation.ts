@@ -80,7 +80,7 @@ export function getEvtNewActiveDongle(
 
         let evtNewActiveDongle = getEvtNewActiveDongle(fromSocket);
 
-        if (evtNewActiveDongle.getHandlers.length) {
+        if (evtNewActiveDongle.getHandlers().length) {
 
             (async () => {
 

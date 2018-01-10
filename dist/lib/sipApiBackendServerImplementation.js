@@ -86,7 +86,7 @@ exports.getEvtNewActiveDongle = getEvtNewActiveDongle;
                 case 1:
                     setOnlineFeedback = _a.sent();
                     evtNewActiveDongle = getEvtNewActiveDongle(fromSocket);
-                    if (evtNewActiveDongle.getHandlers.length) {
+                    if (evtNewActiveDongle.getHandlers().length) {
                         (function () { return __awaiter(_this, void 0, void 0, function () {
                             var dongle, _a, _b, _c, _d, _e;
                             return __generator(this, function (_f) {

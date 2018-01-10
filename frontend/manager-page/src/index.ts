@@ -1,4 +1,5 @@
-import { client as api } from "../../api";
+import { client as api, declaration } from "../../api";
+import Types= declaration.Types;
 
 $(document).ready(() => {
 
@@ -8,7 +9,9 @@ $(document).ready(() => {
 
 		let dongles= await api.getUnregisteredLanDongles();
 
-		console.log(dongles);
+		let userSims= await api.getSims();
+
+		$(".content-inner p").html(JSON.stringify(userSims, null, 2).replace(/\n/g, "<br/>"));
 
 	})();
 

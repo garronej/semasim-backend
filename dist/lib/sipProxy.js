@@ -71,7 +71,9 @@ var gatewaySockets;
     /** Map gateway ip => socket */
     var byIp = new Map();
     function add(gwSocket) {
+        debug("Add socket");
         var ip = gwSocket.remoteAddress;
+        debug({ ip: ip });
         if (!byIp.has(ip)) {
             byIp.set(ip, new Set());
         }
@@ -221,6 +223,7 @@ function onClientConnection(clientSocketRaw) {
 function onGatewayConnection(gatewaySocketRaw) {
     debug("New Gateway socket !\n\n".grey);
     var gatewaySocket = new semasim_gateway_1.sipLibrary.Socket(gatewaySocketRaw);
+    gatewaySockets.add(gatewaySocket);
     gatewaySocket.setKeepAlive(true);
     sipApiServer.startListening(gatewaySocket);
     sipApiGateway.init(gatewaySocket);

@@ -33,11 +33,11 @@ export declare namespace unlockSim {
         pin: string;
     };
     type Response = {
-        unlockResult: Types.UnlockResult.Success;
+        wasPinValid: true;
         isSimRegisterable: true;
-        dongle: Types.ActiveDongle["sim"];
+        dongle: Types.ActiveDongle;
     } | {
-        unlockResult: Types.UnlockResult.Success;
+        wasPinValid: true;
         isSimRegisterable: false;
         simRegisteredBy: {
             who: "MYSELF";
@@ -46,7 +46,9 @@ export declare namespace unlockSim {
             email: string;
         };
     } | {
-        unlockResult: Types.UnlockResult.Failed;
+        wasPinValid: false;
+        pinState: Types.LockedPinState;
+        tryLeft: number;
     };
 }
 export declare namespace registerSim {
@@ -121,17 +123,6 @@ export declare namespace Types {
         digest: string;
     };
     type LockedPinState = "SIM PIN" | "SIM PUK" | "SIM PIN2" | "SIM PUK2";
-    type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
-    namespace UnlockResult {
-        type Success = {
-            success: true;
-        };
-        type Failed = {
-            success: false;
-            pinState: LockedPinState;
-            tryLeft: number;
-        };
-    }
     interface LockedDongle {
         imei: string;
         sim: {

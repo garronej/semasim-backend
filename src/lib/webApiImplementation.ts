@@ -11,8 +11,10 @@ import * as utils from "./utils";
 import { c } from "./_constants";
 
 import * as html_entities from "html-entities";
-import { sipApi } from "../semasim-gateway";
 const entities= new html_entities.XmlEntities;
+
+import * as _debug from "debug";
+let debug = _debug("_webApiImplementation");
 
 export const handlers: Handlers= {};
 
@@ -32,7 +34,7 @@ export const handlers: Handlers= {};
             typeof params.password === "string" &&
             params.password.match(c.regExpPassword) !== null
         ),
-        "handler": async params => {
+        "handler": async (params): Promise<Response> => {
 
             let { email, password } = params;
 
@@ -61,7 +63,7 @@ export const handlers: Handlers= {};
             typeof params.password === "string" &&
             params.password.match(c.regExpPassword) !== null
         ),
-        "handler": async (params, session) => {
+        "handler": async (params, session): Promise<Response> => {
 
             let { email, password } = params;
 
@@ -93,7 +95,7 @@ export const handlers: Handlers= {};
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": (params, session) => db.getUserSims(session.auth!.user)
+        "handler": (params, session): Promise<Response> => db.getUserSims(session.auth!.user)
     } as Handler<Params, Response>;
 
 })();
@@ -108,7 +110,7 @@ export const handlers: Handlers= {};
         "needAuth": true, //To see ho is messing with the API
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": async (params, session, remoteAddress) => 
+        "handler": async (params, session, remoteAddress): Promise<Response> => 
             db.filterDongleWithRegistrableSim(
                 Array.from(
                     (await utils.getDonglesConnectedFrom(remoteAddress)).keys()
@@ -133,7 +135,7 @@ export const handlers: Handlers= {};
             typeof params.imei === "string" &&
             typeof params.pin === "string" //TODO: regexp pin
         ),
-        "handler": async (params, session, remoteAddress) => {
+        "handler": async (params, session, remoteAddress): Promise<Response> => {
 
             let { imei, pin } = params;
 
@@ -152,7 +154,11 @@ export const handlers: Handlers= {};
             if (!unlockResult) throw new Error("assert");
 
             if (!unlockResult.success) {
-                return { "unlockResult": unlockResult };
+                return {
+                    "wasPinValid": false,
+                    "pinState": unlockResult.pinState,
+                    "tryLeft": unlockResult.tryLeft
+                };
             }
 
             let { dongle, simOwner } = await sipApiServer.getEvtNewActiveDongle(gwSocket)
@@ -161,7 +167,7 @@ export const handlers: Handlers= {};
             if (!simOwner) {
 
                 return {
-                    unlockResult,
+                    "wasPinValid": true,
                     "isSimRegisterable": true,
                     dongle
                 };
@@ -169,7 +175,7 @@ export const handlers: Handlers= {};
             } else {
 
                 return {
-                    unlockResult,
+                    "wasPinValid": true,
                     "isSimRegisterable": false,
                     "simRegisteredBy": (simOwner.user === session.auth!.user) ?
                         ({ "who": "MYSELF" }) :
@@ -197,11 +203,11 @@ export const handlers: Handlers= {};
             typeof params.imsi === "string" &&
             typeof params.friendlyName === "string"
         ),
-        "handler": async (params, session, remoteAddress) => {
+        "handler": async (params, session, remoteAddress): Promise<Response> => {
 
             let { imsi, friendlyName } = params;
 
-            let donglePathMap = await utils.getDonglesConnectedFrom( remoteAddress);
+            let donglePathMap = await utils.getDonglesConnectedFrom(remoteAddress);
 
             let dongle = Array.from(donglePathMap.keys()).find(
                 dongle => Dc.ActiveDongle.match(dongle) && dongle.sim.imsi === imsi
@@ -209,11 +215,11 @@ export const handlers: Handlers= {};
 
             if (!dongle) throw new Error("assert");
 
-            let password= utils.simPassword.read( donglePathMap.get(dongle)!, imsi);
+            let password = utils.simPassword.read(donglePathMap.get(dongle)!, imsi);
 
             if (!password) throw new Error("assert");
 
-            let userUas= await db.registerSim(
+            let userUas = await db.registerSim(
                 dongle.sim,
                 password,
                 session.auth!.user,
@@ -221,7 +227,7 @@ export const handlers: Handlers= {};
                 dongle.isVoiceEnabled
             );
 
-            await utils.sendPushNotification.toUas( userUas, "RELOAD CONFIG");
+            await utils.sendPushNotification.toUas(userUas, "RELOAD CONFIG");
 
             return undefined;
 
@@ -244,7 +250,7 @@ export const handlers: Handlers= {};
             params instanceof Object &&
             typeof params.imsi === "string"
         ),
-        "handler": async (params, session) => {
+        "handler": async (params, session): Promise<Response> => {
 
             let { imsi } = params;
 
@@ -295,7 +301,7 @@ export const handlers: Handlers= {};
             ) === undefined &&
             typeof params.message === "string"
         ),
-        "handler": async (params, session) => {
+        "handler": async (params, session): Promise<Response>=> {
 
             let { imsi, emails, message } = params;
 
@@ -336,7 +342,7 @@ export const handlers: Handlers= {};
                 )
             ) === undefined
         ),
-        "handler": async (params, session) => {
+        "handler": async (params, session): Promise<Response> => {
 
             let { imsi, emails } = params;
 
@@ -385,7 +391,7 @@ export const handlers: Handlers= {};
             typeof params.imsi === "string" &&
             typeof params.friendlyName === "string"
         ),
-        "handler": async (params, session) => {
+        "handler": async (params, session): Promise<Response> => {
 
             let { imsi, friendlyName } = params;
 
@@ -435,7 +441,7 @@ export const handlers: Handlers= {};
                 return false;
             }
         },
-        "handler": async params => {
+        "handler": async (params): Promise<Response> => {
 
             let email = hexToUtf8(params.email_as_hex).toLocaleLowerCase();
             let password = hexToUtf8(params.password_as_hex);

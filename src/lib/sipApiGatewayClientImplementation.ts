@@ -24,6 +24,9 @@ sanityChecks[apiDeclaration.getDongles.methodName] =
         for (let dongle of response) {
 
             if (!Dc.Dongle.sanityCheck(dongle)) {
+
+                console.log("sanity check get dongles failed");
+
                 return false;
             }
 
@@ -47,6 +50,8 @@ export async function getDongles(
             .sendRequest(methodName, params, 3000);
 
     } catch{
+
+        console.log("error get dongles");
 
         return [];
 

@@ -76,6 +76,8 @@ var utils = require("./utils");
 var _constants_1 = require("./_constants");
 var html_entities = require("html-entities");
 var entities = new html_entities.XmlEntities;
+var _debug = require("debug");
+var debug = _debug("_webApiImplementation");
 exports.handlers = {};
 (function () {
     var methodName = frontend_1.webApiDeclaration.registerUser.methodName;
@@ -191,7 +193,11 @@ exports.handlers = {};
                         if (!unlockResult)
                             throw new Error("assert");
                         if (!unlockResult.success) {
-                            return [2 /*return*/, { "unlockResult": unlockResult }];
+                            return [2 /*return*/, {
+                                    "wasPinValid": false,
+                                    "pinState": unlockResult.pinState,
+                                    "tryLeft": unlockResult.tryLeft
+                                }];
                         }
                         return [4 /*yield*/, sipApiServer.getEvtNewActiveDongle(gwSocket)
                                 .waitFor(function (_a) {
@@ -202,14 +208,14 @@ exports.handlers = {};
                         _a = _b.sent(), dongle = _a.dongle, simOwner = _a.simOwner;
                         if (!simOwner) {
                             return [2 /*return*/, {
-                                    unlockResult: unlockResult,
+                                    "wasPinValid": true,
                                     "isSimRegisterable": true,
                                     dongle: dongle
                                 }];
                         }
                         else {
                             return [2 /*return*/, {
-                                    unlockResult: unlockResult,
+                                    "wasPinValid": true,
                                     "isSimRegisterable": false,
                                     "simRegisteredBy": (simOwner.user === session.auth.user) ?
                                         ({ "who": "MYSELF" }) :

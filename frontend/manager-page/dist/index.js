@@ -40,13 +40,16 @@ var api_1 = require("../../api");
 $(document).ready(function () {
     console.log("touch");
     (function () { return __awaiter(_this, void 0, void 0, function () {
-        var dongles;
+        var dongles, userSims;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, api_1.client.getUnregisteredLanDongles()];
                 case 1:
                     dongles = _a.sent();
-                    console.log(dongles);
+                    return [4 /*yield*/, api_1.client.getSims()];
+                case 2:
+                    userSims = _a.sent();
+                    $(".content-inner p").html(JSON.stringify(userSims, null, 2).replace(/\n/g, "<br/>"));
                     return [2 /*return*/];
             }
         });

@@ -322,7 +322,7 @@ export async function getDonglesConnectedFrom(
 
     }
 
-    await tasks;
+    await Promise.all(tasks);
 
     return map;
 

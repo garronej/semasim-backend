@@ -61,17 +61,19 @@ export namespace unlockSim {
 
     export type Response = 
     {
-        unlockResult: Types.UnlockResult.Success;
+        wasPinValid: true;
         isSimRegisterable: true;
-        dongle: Types.ActiveDongle["sim"];
+        dongle: Types.ActiveDongle;
     } | {
-        unlockResult: Types.UnlockResult.Success;
+        wasPinValid: true;
         isSimRegisterable: false;
-        simRegisteredBy: 
-        { who: "MYSELF" } | { who: "OTHER USER"; email: string; };
+        simRegisteredBy: { who: "MYSELF" } | { who: "OTHER USER"; email: string; };
     } | {
-        unlockResult: Types.UnlockResult.Failed;
+        wasPinValid: false;
+        pinState: Types.LockedPinState;
+        tryLeft: number;
     };
+
 
 }
 
@@ -186,15 +188,6 @@ export namespace Types {
     };
 
     export type LockedPinState = "SIM PIN" | "SIM PUK" | "SIM PIN2" | "SIM PUK2";
-
-    export type UnlockResult = UnlockResult.Success | UnlockResult.Failed;
-
-    export namespace UnlockResult {
-
-        export type Success = { success: true; };
-        export type Failed = { success: false; pinState: LockedPinState; tryLeft: number; };
-
-    }
 
     export interface LockedDongle {
         imei: string;

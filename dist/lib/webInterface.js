@@ -36,7 +36,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
-var logger = require("morgan");
 var favicon = require("serve-favicon");
 var path = require("path");
 require("ejs"); //TODO: test if ok
@@ -54,15 +53,11 @@ function start(app) {
         express.static(path.join(__frontend_root, "login-page", "static")),
         express.static(path.join(__frontend_root, "manager-page", "static"))
     ])
-        .get(/^\/assets\//, function (req, res) {
-        debug("asset not found!");
-        renderNotFound(req, res);
-    })
-        .use(logger("dev"))
+        .get(/^\/assets\//, renderNotFound)
         .get(["/login.ejs", "/register.ejs"], function (req, res) {
         var session = req.session;
         if (session.auth) {
-            debug("Already logged in redirect to root");
+            //debug("Already logged in redirect to root");
             res.redirect("/");
         }
         else {
@@ -72,7 +67,7 @@ function start(app) {
         .use(function (req, res, next) {
         var session = req.session;
         if (!session.auth) {
-            debug("Redirect to login page!");
+            //debug("Redirect to login page!");
             res.redirect("/login.ejs");
         }
         else {
@@ -81,23 +76,23 @@ function start(app) {
     })
         .get("/", function (req, res) {
         //TODO chose the page we redirect to depending of user config
-        debug("...root, redirect to manager");
+        //debug("...root, redirect to manager");
         res.redirect("/manager.ejs");
     })
         .get("/logout.ejs", function (req, res) {
-        debug("...logout user");
+        //debug("...logout user");
         var session = req.session;
         session.auth = undefined;
         res.redirect("/login.ejs");
     })
         .get("/manager.ejs", renderManager)
-        .use(function (req, res) { return renderNotFound; });
+        .use(renderNotFound);
 }
 exports.start = start;
 function renderNotFound(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            debug("... " + req.url + " not found 404");
+            //debug(`... ${req.url} not found 404`);
             res.status(404).end();
             return [2 /*return*/];
         });

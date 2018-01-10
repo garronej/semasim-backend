@@ -323,7 +323,7 @@ function getDonglesConnectedFrom(remoteAddress) {
                         }
                         finally { if (e_2) throw e_2.error; }
                     }
-                    return [4 /*yield*/, tasks];
+                    return [4 /*yield*/, Promise.all(tasks)];
                 case 2:
                     _b.sent();
                     return [2 /*return*/, map];

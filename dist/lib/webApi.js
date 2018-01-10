@@ -36,7 +36,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var express = require("express");
-var logger = require("morgan");
 var frontend_1 = require("../frontend");
 var apiPath = frontend_1.webApiDeclaration.apiPath;
 var JSON_ = frontend_1.webApiDeclaration.JSON;
@@ -85,13 +84,11 @@ function start(app) {
     var router = express.Router();
     app.use("/" + apiPath, router);
     router
-        .use(logger("dev"))
         .use("/:methodName", function (req, res) { return __awaiter(_this, void 0, void 0, function () {
         var badRequest, methodName, _a, handler, sanityChecks, needAuth, contentType, session, params, _b, _c, response, error_1, rawResponse;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
-                    console.log("ON est là");
                     badRequest = function () {
                         req.session.auth = undefined;
                         res.status(httpCodes.badRequest).end();

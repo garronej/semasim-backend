@@ -25,21 +25,15 @@ export function start(app: express.Express) {
             express.static(path.join(__frontend_root, "login-page", "static")),
             express.static(path.join(__frontend_root, "manager-page", "static"))
         ])
-        .get(/^\/assets\//, (req, res) => {
-
-            debug("asset not found!");
-
-            renderNotFound(req, res);
-
-        })
-        .use(logger("dev"))
+        .get(/^\/assets\//, renderNotFound)
+        //.use(logger("dev"))
         .get(["/login.ejs", "/register.ejs"], (req, res) => {
 
             let session: Session= req.session!;
 
             if ( session.auth ) {
 
-                debug("Already logged in redirect to root");
+                //debug("Already logged in redirect to root");
                 res.redirect("/");
 
             } else {
@@ -55,7 +49,7 @@ export function start(app: express.Express) {
 
             if (!session.auth) {
 
-                debug("Redirect to login page!");
+                //debug("Redirect to login page!");
                 res.redirect("/login.ejs");
 
             } else {
@@ -68,14 +62,14 @@ export function start(app: express.Express) {
         .get("/", (req, res) => {
 
             //TODO chose the page we redirect to depending of user config
-            debug("...root, redirect to manager");
+            //debug("...root, redirect to manager");
 
             res.redirect("/manager.ejs");
 
         })
         .get("/logout.ejs", (req, res) => {
 
-            debug("...logout user");
+            //debug("...logout user");
 
             let session: Session= req.session!;
 
@@ -85,7 +79,7 @@ export function start(app: express.Express) {
 
         })
         .get("/manager.ejs", renderManager)
-        .use((req, res) => renderNotFound)
+        .use(renderNotFound)
         ;
 
 
@@ -94,7 +88,7 @@ export function start(app: express.Express) {
 
 async function renderNotFound(req: express.Request, res: express.Response) {
 
-    debug(`... ${req.url} not found 404`);
+    //debug(`... ${req.url} not found 404`);
 
     res.status(404).end();
 
