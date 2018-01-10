@@ -1,10 +1,11 @@
 import * as declaration from "./declaration";
-//TODO: import in webpage as jQuerry so we do not have to host it, it can be cached ext...
+//TODO: import in webpage as we do for jQuerry so we do not have to host it, it can be cached ext...
 import "es6-promise/auto";
 
 async function makeRequest<Params, Response>(
     methodName, params: Params
 ): Promise<Response> {
+
     return new Promise<Response>(
         resolve => (window["$"] as JQueryStatic).ajax({
             "url": `/${declaration.apiPath}/${methodName}`,
@@ -21,6 +22,7 @@ async function makeRequest<Params, Response>(
             }
         })
     );
+
 }
 
 export function registerUser(

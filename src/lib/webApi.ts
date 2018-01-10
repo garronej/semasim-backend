@@ -40,8 +40,10 @@ export function start(app: express.Express) {
 
     router
         .use(logger("dev"))
-        .use(bodyParser.json())
+        //.use(bodyParser.json())
         .use("/:methodName", async (req, res) => {
+
+            console.log("ON est là");
 
             let badRequest= ()=> {
                 (req.session! as Session).auth= undefined;
@@ -66,9 +68,42 @@ export function start(app: express.Express) {
 
             let params: any;
 
+            /*
             switch (req.method) {
                 case "GET": params = req.query; break;
                 case "POST": params = req.body; break;
+                default: badRequest(); return;
+            }
+            */
+
+            switch (req.method) {
+                case "GET": params = req.query; break;
+                case "POST":
+
+                    let rawBody = "";
+
+                    req.on("data", (buff: Buffer) => {
+
+                        console.log(buff.toString("utf8"));
+
+                        rawBody += buff.toString("utf8");
+
+                    });
+
+                    await new Promise<void>(resolve => req.once("end", () => resolve()));
+
+                    try {
+
+                        params = JSON_.parse(rawBody);
+
+                    } catch{
+
+                        console.log("hhhhhhhhhhhhhhhhhhhhhhhhh");
+                        badRequest();
+                        return;
+                    }
+
+                    break;
                 default: badRequest(); return;
             }
 
@@ -82,8 +117,8 @@ export function start(app: express.Express) {
             try {
 
                 response = await handler(
-                    params, 
-                    session, 
+                    params,
+                    session,
                     req.connection.remoteAddress
                 );
 

@@ -61,7 +61,7 @@ function start(app) {
         .use(logger("dev"))
         .get(["/login.ejs", "/register.ejs"], function (req, res) {
         var session = req.session;
-        if (!session.auth) {
+        if (session.auth) {
             debug("Already logged in redirect to root");
             res.redirect("/");
         }
@@ -116,7 +116,10 @@ function renderManager(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
             debug("...renderManager!");
-            res.render(path.join(__frontend_root, "manager-page", "index.ejs"), { "email": req.session.auth.email });
+            res.render(path.join(__frontend_root, "manager-page", "index.ejs"), {
+                "title": "My SIMs",
+                "email": req.session.auth.email
+            });
             return [2 /*return*/];
         });
     });

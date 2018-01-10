@@ -36,7 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 exports.__esModule = true;
 var declaration = require("./declaration");
-//TODO: import in webpage as jQuerry so we do not have to host it, it can be cached ext...
+//TODO: import in webpage as we do for jQuerry so we do not have to host it, it can be cached ext...
 require("es6-promise/auto");
 function makeRequest(methodName, params) {
     return __awaiter(this, void 0, void 0, function () {

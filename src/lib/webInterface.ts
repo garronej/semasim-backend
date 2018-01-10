@@ -37,7 +37,7 @@ export function start(app: express.Express) {
 
             let session: Session= req.session!;
 
-            if ( !session.auth ) {
+            if ( session.auth ) {
 
                 debug("Already logged in redirect to root");
                 res.redirect("/");
@@ -114,7 +114,10 @@ async function renderManager(req: express.Request, res: express.Response) {
 
     res.render(
         path.join(__frontend_root, "manager-page", "index.ejs"),
-        { "email": (req.session! as Session).auth!.email }
+        { 
+            "title": "My SIMs",
+            "email": (req.session! as Session).auth!.email 
+        }
     );
 
 }
