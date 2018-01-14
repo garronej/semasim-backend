@@ -12,7 +12,11 @@ export declare function createUserAccount(email: string, password: string): Prom
 /** Return user.id_ or undefined if auth failed */
 export declare function authenticateUser(email: string, password: string): Promise<number | undefined>;
 export declare function deleteUser(user: number): Promise<boolean>;
-export declare function filterDongleWithRegistrableSim(dongles: Dc.Dongle[]): Promise<Dc.Dongle[]>;
+/** returns locked dongles with unreadable SIM iccid,
+ *  locked dongles with readable iccid registered by user
+ *  active dongles not registered
+ */
+export declare function filterDongleWithRegistrableSim(user: number, dongles: Dc.Dongle[]): Promise<Dc.Dongle[]>;
 /** return user UAs */
 export declare function registerSim(sim: Dc.ActiveDongle["sim"], password: string, user: number, friendlyName: string, isVoiceEnabled: boolean | undefined): Promise<Contact.UaSim.Ua[]>;
 export declare function getUserSims(user: number): Promise<Types.UserSim[]>;

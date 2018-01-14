@@ -67,6 +67,7 @@ var __spread = (this && this.__spread) || function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var RIPEMD160 = require("ripemd160");
 var crypto = require("crypto");
+var chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 var semasim_gateway_1 = require("../semasim-gateway");
 var _constants_1 = require("./_constants");
 var _debug = require("debug");
@@ -155,12 +156,15 @@ function deleteUser(user) {
     });
 }
 exports.deleteUser = deleteUser;
-//TODO: test
-function filterDongleWithRegistrableSim(dongles) {
+/** returns locked dongles with unreadable SIM iccid,
+ *  locked dongles with readable iccid registered by user
+ *  active dongles not registered
+ */
+function filterDongleWithRegistrableSim(user, dongles) {
     return __awaiter(this, void 0, void 0, function () {
-        var registrableDongles, dongleWithReadableIccid, dongles_1, dongles_1_1, dongle, registeredIccidArr, e_1, _a;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
+        var registrableDongles, dongleWithReadableIccid, dongles_1, dongles_1_1, dongle, rows, userByIccid, rows_1, rows_1_1, _a, iccid, user_1, e_1, _b, e_2, _c;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
                     registrableDongles = [];
                     dongleWithReadableIccid = [];
@@ -178,7 +182,7 @@ function filterDongleWithRegistrableSim(dongles) {
                     catch (e_1_1) { e_1 = { error: e_1_1 }; }
                     finally {
                         try {
-                            if (dongles_1_1 && !dongles_1_1.done && (_a = dongles_1.return)) _a.call(dongles_1);
+                            if (dongles_1_1 && !dongles_1_1.done && (_b = dongles_1.return)) _b.call(dongles_1);
                         }
                         finally { if (e_1) throw e_1.error; }
                     }
@@ -186,7 +190,7 @@ function filterDongleWithRegistrableSim(dongles) {
                         return [2 /*return*/, registrableDongles];
                     }
                     return [4 /*yield*/, exports.query([
-                            "SELECT iccid",
+                            "SELECT iccid, user",
                             "FROM sim",
                             "WHERE",
                             dongleWithReadableIccid.map(function (_a) {
@@ -195,13 +199,29 @@ function filterDongleWithRegistrableSim(dongles) {
                             }).join(" OR ")
                         ].join("\n"))];
                 case 1:
-                    registeredIccidArr = (_b.sent()).map(function (_a) {
-                        var iccid = _a.iccid;
-                        return iccid;
-                    });
-                    registrableDongles = __spread(registrableDongles, dongleWithReadableIccid.filter(function (_a) {
-                        var sim = _a.sim;
-                        return registeredIccidArr.indexOf(sim.iccid) < 0;
+                    rows = _d.sent();
+                    userByIccid = {};
+                    try {
+                        for (rows_1 = __values(rows), rows_1_1 = rows_1.next(); !rows_1_1.done; rows_1_1 = rows_1.next()) {
+                            _a = rows_1_1.value, iccid = _a.iccid, user_1 = _a.user;
+                            userByIccid[iccid] = user_1;
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (rows_1_1 && !rows_1_1.done && (_c = rows_1.return)) _c.call(rows_1);
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    registrableDongles = __spread(registrableDongles, dongleWithReadableIccid.filter(function (dongle) {
+                        var registeredBy = userByIccid[dongle.sim.iccid];
+                        if (!registeredBy) {
+                            return true;
+                        }
+                        else {
+                            return (registeredBy === user) && chan_dongle_extended_client_1.DongleController.LockedDongle.match(dongle);
+                        }
                     }));
                     return [2 /*return*/, registrableDongles];
             }
@@ -212,7 +232,7 @@ exports.filterDongleWithRegistrableSim = filterDongleWithRegistrableSim;
 /** return user UAs */
 function registerSim(sim, password, user, friendlyName, isVoiceEnabled) {
     return __awaiter(this, void 0, void 0, function () {
-        var sql, _a, _b, contact, queryResults, userUas, _c, _d, row, e_2, _e, e_3, _f;
+        var sql, _a, _b, contact, queryResults, userUas, _c, _d, row, e_3, _e, e_4, _f;
         return __generator(this, function (_g) {
             switch (_g.label) {
                 case 0:
@@ -253,12 +273,12 @@ function registerSim(sim, password, user, friendlyName, isVoiceEnabled) {
                             }, "THROW ERROR");
                         }
                     }
-                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    catch (e_3_1) { e_3 = { error: e_3_1 }; }
                     finally {
                         try {
                             if (_b && !_b.done && (_e = _a.return)) _e.call(_a);
                         }
-                        finally { if (e_2) throw e_2.error; }
+                        finally { if (e_3) throw e_3.error; }
                     }
                     sql += [
                         "SELECT ua.*, user.email",
@@ -282,12 +302,12 @@ function registerSim(sim, password, user, friendlyName, isVoiceEnabled) {
                             });
                         }
                     }
-                    catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
                     finally {
                         try {
                             if (_d && !_d.done && (_f = _c.return)) _f.call(_c);
                         }
-                        finally { if (e_3) throw e_3.error; }
+                        finally { if (e_4) throw e_4.error; }
                     }
                     return [2 /*return*/, userUas];
             }
@@ -297,7 +317,7 @@ function registerSim(sim, password, user, friendlyName, isVoiceEnabled) {
 exports.registerSim = registerSim;
 function getUserSims(user) {
     return __awaiter(this, void 0, void 0, function () {
-        var sql, _a, rowsSimOwned, rowsContactSimOwned, rowsSharedWith, rowsSimShared, rowsContactSimShared, sharedWithBySim, rowsSharedWith_1, rowsSharedWith_1_1, row, imsi, contactsBySim, _b, _c, row, imsi, userSims, _loop_1, _d, _e, row, e_4, _f, e_5, _g, e_6, _h;
+        var sql, _a, rowsSimOwned, rowsContactSimOwned, rowsSharedWith, rowsSimShared, rowsContactSimShared, sharedWithBySim, rowsSharedWith_1, rowsSharedWith_1_1, row, imsi, contactsBySim, _b, _c, row, imsi, userSims, _loop_1, _d, _e, row, e_5, _f, e_6, _g, e_7, _h;
         return __generator(this, function (_j) {
             switch (_j.label) {
                 case 0:
@@ -358,12 +378,12 @@ function getUserSims(user) {
                             sharedWithBySim[imsi][row["is_confirmed"] ? "confirmed" : "notConfirmed"].push(row["email"]);
                         }
                     }
-                    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+                    catch (e_5_1) { e_5 = { error: e_5_1 }; }
                     finally {
                         try {
                             if (rowsSharedWith_1_1 && !rowsSharedWith_1_1.done && (_f = rowsSharedWith_1.return)) _f.call(rowsSharedWith_1);
                         }
-                        finally { if (e_4) throw e_4.error; }
+                        finally { if (e_5) throw e_5.error; }
                     }
                     contactsBySim = {};
                     try {
@@ -386,12 +406,12 @@ function getUserSims(user) {
                             });
                         }
                     }
-                    catch (e_5_1) { e_5 = { error: e_5_1 }; }
+                    catch (e_6_1) { e_6 = { error: e_6_1 }; }
                     finally {
                         try {
                             if (_c && !_c.done && (_g = _b.return)) _g.call(_b);
                         }
-                        finally { if (e_5) throw e_5.error; }
+                        finally { if (e_6) throw e_6.error; }
                     }
                     userSims = [];
                     _loop_1 = function (row) {
@@ -450,14 +470,15 @@ function getUserSims(user) {
                                 }
                             }
                         })(), 2), friendlyName = _a[0], ownership = _a[1];
-                        userSims.push({
+                        var userSim = {
                             sim: sim,
                             friendlyName: friendlyName,
                             ownership: ownership,
                             "password": row["password"],
                             "isVoiceEnabled": semasim_gateway_1.mySqlFunctions.smallIntOrNullToBooleanOrUndefined(row["is_voice_enabled"]),
                             "isOnline": row["is_online"] === 1
-                        });
+                        };
+                        userSims.push(userSim);
                     };
                     try {
                         for (_d = __values(__spread(rowsSimOwned, rowsSimShared)), _e = _d.next(); !_e.done; _e = _d.next()) {
@@ -465,38 +486,13 @@ function getUserSims(user) {
                             _loop_1(row);
                         }
                     }
-                    catch (e_6_1) { e_6 = { error: e_6_1 }; }
+                    catch (e_7_1) { e_7 = { error: e_7_1 }; }
                     finally {
                         try {
                             if (_e && !_e.done && (_h = _d.return)) _h.call(_d);
                         }
-                        finally { if (e_6) throw e_6.error; }
+                        finally { if (e_7) throw e_7.error; }
                     }
-                    /*
-                    let userSimsConfirmed =
-                        userSims
-                            .filter(({ ownership }) => ownership.status !== "SHARED NOT CONFIRMED")
-                            .map(({ friendlyName }) => friendlyName)
-                        ;
-                
-                    for (
-                        let userSimNotConfirmed
-                        of
-                        userSims.filter(({ ownership }) => ownership.status === "SHARED NOT CONFIRMED")
-                    ) {
-                
-                        let ownerFriendlyName = userSimNotConfirmed.friendlyName;
-                
-                        let i = 1;
-                
-                        while (userSimsConfirmed.indexOf(userSimNotConfirmed.friendlyName) >= 0) {
-                
-                            userSimNotConfirmed.friendlyName = `${ownerFriendlyName}-${i++}`;
-                
-                        }
-                
-                    }
-                    */
                     return [2 /*return*/, userSims];
             }
         });
@@ -537,7 +533,7 @@ function addOrUpdateUa(ua) {
 exports.addOrUpdateUa = addOrUpdateUa;
 function setSimOnline(imsi, password, isVoiceEnabled) {
     return __awaiter(this, void 0, void 0, function () {
-        var is_voice_enabled, queryResults, uasRegisteredToSim, _a, _b, row, e_7, _c;
+        var is_voice_enabled, queryResults, uasRegisteredToSim, _a, _b, row, e_8, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
@@ -597,12 +593,12 @@ function setSimOnline(imsi, password, isVoiceEnabled) {
                                 });
                             }
                         }
-                        catch (e_7_1) { e_7 = { error: e_7_1 }; }
+                        catch (e_8_1) { e_8 = { error: e_8_1 }; }
                         finally {
                             try {
                                 if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                             }
-                            finally { if (e_7) throw e_7.error; }
+                            finally { if (e_8) throw e_8.error; }
                         }
                         return [2 /*return*/, {
                                 "isSimRegistered": true,
@@ -633,7 +629,7 @@ exports.setSimOffline = setSimOffline;
 /** Return UAs that no longer use sim */
 function unregisterSim(user, imsi) {
     return __awaiter(this, void 0, void 0, function () {
-        var queryResults, affectedUas, _a, _b, row, e_8, _c;
+        var queryResults, affectedUas, _a, _b, row, e_9, _c;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0: return [4 /*yield*/, exports.query([
@@ -683,12 +679,12 @@ function unregisterSim(user, imsi) {
                             });
                         }
                     }
-                    catch (e_8_1) { e_8 = { error: e_8_1 }; }
+                    catch (e_9_1) { e_9 = { error: e_9_1 }; }
                     finally {
                         try {
                             if (_b && !_b.done && (_c = _a.return)) _c.call(_a);
                         }
-                        finally { if (e_8) throw e_8.error; }
+                        finally { if (e_9) throw e_9.error; }
                     }
                     return [2 /*return*/, affectedUas];
             }
@@ -700,7 +696,7 @@ exports.unregisterSim = unregisterSim;
 /** Return assert emails not empty */
 function shareSim(auth, imsi, emails, sharingRequestMessage) {
     return __awaiter(this, void 0, void 0, function () {
-        var sql, queryResults, userRows, affectedUsers, userRows_1, userRows_1_1, row, email, e_9, _a;
+        var sql, queryResults, userRows, affectedUsers, userRows_1, userRows_1_1, row, email, e_10, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -758,12 +754,12 @@ function shareSim(auth, imsi, emails, sharingRequestMessage) {
                             }
                         }
                     }
-                    catch (e_9_1) { e_9 = { error: e_9_1 }; }
+                    catch (e_10_1) { e_10 = { error: e_10_1 }; }
                     finally {
                         try {
                             if (userRows_1_1 && !userRows_1_1.done && (_a = userRows_1.return)) _a.call(userRows_1);
                         }
-                        finally { if (e_9) throw e_9.error; }
+                        finally { if (e_10) throw e_10.error; }
                     }
                     return [2 /*return*/, affectedUsers];
             }
@@ -774,7 +770,7 @@ exports.shareSim = shareSim;
 /** Return no longer registered UAs, assert email list not empty*/
 function stopSharingSim(user, imsi, emails) {
     return __awaiter(this, void 0, void 0, function () {
-        var sql, queryResults, uaRows, noLongerRegisteredUas, uaRows_1, uaRows_1_1, row, e_10, _a;
+        var sql, queryResults, uaRows, noLongerRegisteredUas, uaRows_1, uaRows_1_1, row, e_11, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -829,12 +825,12 @@ function stopSharingSim(user, imsi, emails) {
                             });
                         }
                     }
-                    catch (e_10_1) { e_10 = { error: e_10_1 }; }
+                    catch (e_11_1) { e_11 = { error: e_11_1 }; }
                     finally {
                         try {
                             if (uaRows_1_1 && !uaRows_1_1.done && (_a = uaRows_1.return)) _a.call(uaRows_1);
                         }
-                        finally { if (e_10) throw e_10.error; }
+                        finally { if (e_11) throw e_11.error; }
                     }
                     return [2 /*return*/, noLongerRegisteredUas];
             }
@@ -845,7 +841,7 @@ exports.stopSharingSim = stopSharingSim;
 /** Return user UAs */
 function setSimFriendlyName(user, imsi, friendlyName) {
     return __awaiter(this, void 0, void 0, function () {
-        var b64FriendlyName, sql, queryResults, uaRows, userUas, uaRows_2, uaRows_2_1, row, e_11, _a;
+        var b64FriendlyName, sql, queryResults, uaRows, userUas, uaRows_2, uaRows_2_1, row, e_12, _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -889,12 +885,12 @@ function setSimFriendlyName(user, imsi, friendlyName) {
                             });
                         }
                     }
-                    catch (e_11_1) { e_11 = { error: e_11_1 }; }
+                    catch (e_12_1) { e_12 = { error: e_12_1 }; }
                     finally {
                         try {
                             if (uaRows_2_1 && !uaRows_2_1.done && (_a = uaRows_2.return)) _a.call(uaRows_2);
                         }
-                        finally { if (e_11) throw e_11.error; }
+                        finally { if (e_12) throw e_12.error; }
                     }
                     return [2 /*return*/, userUas];
             }

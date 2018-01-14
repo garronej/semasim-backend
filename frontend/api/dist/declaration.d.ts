@@ -32,24 +32,7 @@ export declare namespace unlockSim {
         imei: string;
         pin: string;
     };
-    type Response = {
-        wasPinValid: true;
-        isSimRegisterable: true;
-        dongle: Types.ActiveDongle;
-    } | {
-        wasPinValid: true;
-        isSimRegisterable: false;
-        simRegisteredBy: {
-            who: "MYSELF";
-        } | {
-            who: "OTHER USER";
-            email: string;
-        };
-    } | {
-        wasPinValid: false;
-        pinState: Types.LockedPinState;
-        tryLeft: number;
-    };
+    type Response = Types.UnlockResult;
 }
 export declare namespace registerSim {
     const methodName = "register-sim";
@@ -151,42 +134,89 @@ export declare namespace Types {
         function match(dongle: Dongle): dongle is ActiveDongle;
     }
     type Dongle = LockedDongle | ActiveDongle;
-    type UserSim = {
-        sim: ActiveDongle["sim"];
-        friendlyName: string;
-        ownership: UserSim.Ownership;
-        password: string;
-        isVoiceEnabled: boolean | undefined;
-        isOnline: boolean;
-    };
-    namespace UserSim {
-        type Ownership = Ownership.Owner | Ownership.Shared;
-        namespace Ownership {
-            type Owner = {
-                status: "OWNED";
-                sharedWith: {
-                    confirmed: string[];
-                    notConfirmed: string[];
-                };
+    type SimOwnership = SimOwnership.Owned | SimOwnership.Shared;
+    namespace SimOwnership {
+        type Owned = {
+            status: "OWNED";
+            sharedWith: {
+                confirmed: string[];
+                notConfirmed: string[];
             };
-            type Shared = Shared.Confirmed | Shared.NotConfirmed;
-            namespace Shared {
-                type Confirmed = {
-                    status: "SHARED CONFIRMED";
-                    ownerEmail: string;
-                };
-                type NotConfirmed = {
-                    status: "SHARED NOT CONFIRMED";
-                    ownerEmail: string;
-                    sharingRequestMessage: string | undefined;
-                };
+        };
+        type Shared = Shared.Confirmed | Shared.NotConfirmed;
+        namespace Shared {
+            type Confirmed = {
+                status: "SHARED CONFIRMED";
+                ownerEmail: string;
+            };
+            type NotConfirmed = {
+                status: "SHARED NOT CONFIRMED";
+                ownerEmail: string;
+                sharingRequestMessage: string | undefined;
+            };
+        }
+    }
+    type UserSim = UserSim.Base<SimOwnership>;
+    namespace UserSim {
+        type Base<T extends SimOwnership> = {
+            sim: ActiveDongle["sim"];
+            friendlyName: string;
+            password: string;
+            isVoiceEnabled: boolean | undefined;
+            isOnline: boolean;
+            ownership: T;
+        };
+        type Owned = Base<SimOwnership.Owned>;
+        namespace Owned {
+            function match(userSim: UserSim): userSim is Owned;
+        }
+        type Shared = Base<SimOwnership.Shared>;
+        namespace Shared {
+            function match(userSim: UserSim): userSim is Shared;
+            type Confirmed = Base<SimOwnership.Shared.Confirmed>;
+            namespace Confirmed {
+                function match(userSim: UserSim): userSim is Confirmed;
             }
+            type NotConfirmed = Base<SimOwnership.Shared.NotConfirmed>;
+            namespace NotConfirmed {
+                function match(userSim: UserSim): userSim is NotConfirmed;
+            }
+        }
+        type Usable = Base<SimOwnership.Owned | SimOwnership.Shared.Confirmed>;
+        namespace Usable {
+            function match(userSim: UserSim): userSim is Usable;
         }
     }
     type AffectedUsers = {
         registered: string[];
         notRegistered: string[];
     };
+    type UnlockResult = UnlockResult.WrongPin | UnlockResult.ValidPin;
+    namespace UnlockResult {
+        type WrongPin = {
+            wasPinValid: false;
+            pinState: Types.LockedPinState;
+            tryLeft: number;
+        };
+        type ValidPin = ValidPin.Registerable | ValidPin.NotRegisterable;
+        namespace ValidPin {
+            type Registerable = {
+                wasPinValid: true;
+                isSimRegisterable: true;
+                dongle: Types.ActiveDongle;
+            };
+            type NotRegisterable = {
+                wasPinValid: true;
+                isSimRegisterable: false;
+                simRegisteredBy: {
+                    who: "MYSELF";
+                } | {
+                    who: "OTHER USER";
+                    email: string;
+                };
+            };
+        }
+    }
 }
 export declare namespace JSON {
     function stringify(obj: any): string;

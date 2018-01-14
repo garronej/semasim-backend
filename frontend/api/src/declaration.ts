@@ -59,21 +59,7 @@ export namespace unlockSim {
         pin: string;
     };
 
-    export type Response = 
-    {
-        wasPinValid: true;
-        isSimRegisterable: true;
-        dongle: Types.ActiveDongle;
-    } | {
-        wasPinValid: true;
-        isSimRegisterable: false;
-        simRegisteredBy: { who: "MYSELF" } | { who: "OTHER USER"; email: string; };
-    } | {
-        wasPinValid: false;
-        pinState: Types.LockedPinState;
-        tryLeft: number;
-    };
-
+    export type Response = Types.UnlockResult;
 
 }
 
@@ -232,56 +218,128 @@ export namespace Types {
 
     //End Imported
 
+    export type SimOwnership = SimOwnership.Owned | SimOwnership.Shared;
 
-    //TODO: do not share the password if not confirmed
-    export type UserSim = {
-        sim: ActiveDongle["sim"];
-        friendlyName: string;
-        ownership: UserSim.Ownership;
-        password: string;
-        isVoiceEnabled: boolean | undefined;
-        isOnline: boolean;
-    };
+    export namespace SimOwnership {
 
-    export namespace UserSim {
+        export type Owned = {
+            status: "OWNED";
+            sharedWith: {
+                confirmed: string[];
+                notConfirmed: string[];
+            };
+        };
 
-        export type Ownership = Ownership.Owner | Ownership.Shared;
+        export type Shared = Shared.Confirmed | Shared.NotConfirmed;
 
-        export namespace Ownership {
+        export namespace Shared {
 
-            export type Owner = {
-                status: "OWNED";
-                sharedWith: {
-                    confirmed: string[];
-                    notConfirmed: string[];
-                };
+            export type Confirmed = {
+                status: "SHARED CONFIRMED";
+                ownerEmail: string
             };
 
-            export type Shared = Shared.Confirmed | Shared.NotConfirmed;
-
-            export namespace Shared {
-
-                export type Confirmed = {
-                    status: "SHARED CONFIRMED";
-                    ownerEmail: string
-                };
-
-                export type NotConfirmed = {
-                    status: "SHARED NOT CONFIRMED";
-                    ownerEmail: string;
-                    sharingRequestMessage: string | undefined;
-                };
-
-            }
+            export type NotConfirmed = {
+                status: "SHARED NOT CONFIRMED";
+                ownerEmail: string;
+                sharingRequestMessage: string | undefined;
+            };
 
         }
 
     }
 
-    export type AffectedUsers= {
+    export type UserSim = UserSim.Base<SimOwnership>;
+
+    export namespace UserSim {
+
+        export type Base<T extends SimOwnership> = {
+            sim: ActiveDongle["sim"];
+            friendlyName: string;
+            password: string;
+            isVoiceEnabled: boolean | undefined;
+            isOnline: boolean;
+            ownership: T;
+        };
+
+        export type Owned= Base<SimOwnership.Owned>;
+
+        export namespace Owned {
+            export function match(userSim: UserSim): userSim is Owned {
+                return userSim.ownership.status === "OWNED";
+            }
+        }
+
+        export type Shared= Base<SimOwnership.Shared>;
+
+        export namespace Shared {
+
+            export function match(userSim: UserSim): userSim is Shared {
+                return Confirmed.match(userSim) || NotConfirmed.match(userSim);
+            }
+
+            export type Confirmed= Base<SimOwnership.Shared.Confirmed>;
+
+            export namespace Confirmed {
+                export function match(userSim: UserSim): userSim is Confirmed {
+                    return userSim.ownership.status === "SHARED CONFIRMED";
+                }
+            }
+
+            export type NotConfirmed= Base<SimOwnership.Shared.NotConfirmed>;
+
+            export namespace NotConfirmed {
+                export function match( userSim: UserSim): userSim is NotConfirmed {
+                    return userSim.ownership.status === "SHARED NOT CONFIRMED";
+                }
+            }
+
+        }
+
+        export type Usable= Base<SimOwnership.Owned | SimOwnership.Shared.Confirmed>;
+
+        export namespace Usable {
+            export function match(userSim: UserSim): userSim is Usable {
+                return Owned.match(userSim) || Shared.Confirmed.match(userSim);
+            }
+        }
+
+    }
+
+    export type AffectedUsers = {
         registered: string[];
         notRegistered: string[];
     };
+
+    export type UnlockResult = UnlockResult.WrongPin | UnlockResult.ValidPin;
+
+    export namespace UnlockResult {
+
+        export type WrongPin = {
+            wasPinValid: false;
+            pinState: Types.LockedPinState;
+            tryLeft: number;
+        };
+
+        export type ValidPin = ValidPin.Registerable | ValidPin.NotRegisterable;
+
+        export namespace ValidPin {
+
+            export type Registerable = {
+                wasPinValid: true;
+                isSimRegisterable: true;
+                dongle: Types.ActiveDongle;
+            };
+
+            export type NotRegisterable = {
+                wasPinValid: true;
+                isSimRegisterable: false;
+                simRegisteredBy: { who: "MYSELF" } | { who: "OTHER USER"; email: string; };
+            };
+
+        }
+
+    }
 
 }
 

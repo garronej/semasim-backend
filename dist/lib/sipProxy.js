@@ -57,6 +57,7 @@ var networkTools = require("../tools/networkTools");
 var sipApiServer = require("./sipApiBackendServerImplementation");
 var sipApiGateway = require("./sipApiGatewayClientImplementation");
 var utils = require("./utils");
+var db = require("./db");
 var _constants_1 = require("./_constants");
 require("colors");
 var _debug = require("debug");
@@ -67,11 +68,11 @@ exports.clientSockets = utils.createSelfMaintainedSocketMap();
 var gatewaySockets;
 (function (gatewaySockets) {
     /** Map imsi => socket */
-    var bySim = utils.createSelfMaintainedSocketMap();
+    var byImsi = utils.createSelfMaintainedSocketMap();
     /** Map gateway ip => socket */
     var byIp = new Map();
     function add(gwSocket) {
-        debug("Add socket");
+        debug("Add GW socket");
         var ip = gwSocket.remoteAddress;
         debug({ ip: ip });
         if (!byIp.has(ip)) {
@@ -86,15 +87,18 @@ var gatewaySockets;
     }
     gatewaySockets.getConnectedFrom = getConnectedFrom;
     function setSimRoute(gatewaySocket, imsi) {
-        bySim.set(imsi, gatewaySocket);
+        byImsi.set(imsi, gatewaySocket);
+        gatewaySocket.evtClose.attachOnce(function () {
+            return db.setSimOffline(imsi);
+        });
     }
     gatewaySockets.setSimRoute = setSimRoute;
     function removeSimRoute(imsi) {
-        bySim.delete(imsi);
+        byImsi.delete(imsi);
     }
     gatewaySockets.removeSimRoute = removeSimRoute;
     function getSimRoute(imsi) {
-        return bySim.get(imsi);
+        return byImsi.get(imsi);
     }
     gatewaySockets.getSimRoute = getSimRoute;
 })(gatewaySockets = exports.gatewaySockets || (exports.gatewaySockets = {}));

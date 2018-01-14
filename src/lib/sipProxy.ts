@@ -7,6 +7,7 @@ import * as networkTools from "../tools/networkTools";
 import * as sipApiServer from "./sipApiBackendServerImplementation";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import * as utils from "./utils";
+import * as db from "./db";
 
 import { c } from "./_constants";
 
@@ -22,14 +23,14 @@ export const clientSockets= utils.createSelfMaintainedSocketMap<number>();
 export namespace gatewaySockets {
 
     /** Map imsi => socket */
-    const bySim= utils.createSelfMaintainedSocketMap<string>();
+    const byImsi= utils.createSelfMaintainedSocketMap<string>();
 
     /** Map gateway ip => socket */
     const byIp= new Map<string, Set<sipLibrary.Socket>>();
 
     export function add(gwSocket: sipLibrary.Socket){
 
-        debug("Add socket");
+        debug("Add GW socket");
 
         let ip= gwSocket.remoteAddress;
 
@@ -57,19 +58,23 @@ export namespace gatewaySockets {
         gatewaySocket: sipLibrary.Socket,
         imsi: string
     ) {
-        bySim.set(imsi, gatewaySocket);
+        byImsi.set(imsi, gatewaySocket);
+
+        gatewaySocket.evtClose.attachOnce(() =>
+            db.setSimOffline(imsi)
+        );
     }
 
     export function removeSimRoute(
         imsi: string
     ) {
-        bySim.delete(imsi);
+        byImsi.delete(imsi);
     }
 
     export function getSimRoute(
         imsi: string
-    ): sipLibrary.Socket |  undefined {
-        return bySim.get(imsi);
+    ): sipLibrary.Socket | undefined {
+        return byImsi.get(imsi);
     }
 
 }

@@ -152,14 +152,15 @@ exports.handlers = {};
         "contentType": "application/json",
         "sanityChecks": function (params) { return params === undefined; },
         "handler": function (params, session, remoteAddress) { return __awaiter(_this, void 0, void 0, function () {
-            var _a, _b, _c, _d;
-            return __generator(this, function (_e) {
-                switch (_e.label) {
+            var _a, _b, _c, _d, _e;
+            return __generator(this, function (_f) {
+                switch (_f.label) {
                     case 0:
                         _b = (_a = db).filterDongleWithRegistrableSim;
-                        _d = (_c = Array).from;
+                        _c = [session.auth.user];
+                        _e = (_d = Array).from;
                         return [4 /*yield*/, utils.getDonglesConnectedFrom(remoteAddress)];
-                    case 1: return [2 /*return*/, _b.apply(_a, [_d.apply(_c, [(_e.sent()).keys()])])];
+                    case 1: return [2 /*return*/, _b.apply(_a, _c.concat([_e.apply(_d, [(_f.sent()).keys()])]))];
                 }
             });
         }); }

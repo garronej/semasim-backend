@@ -107,11 +107,12 @@ export const handlers: Handlers= {};
     type Response = apiDeclaration.getUnregisteredLanDongles.Response;
 
     handlers[methodName] = {
-        "needAuth": true, //To see ho is messing with the API
+        "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
         "handler": async (params, session, remoteAddress): Promise<Response> => 
             db.filterDongleWithRegistrableSim(
+                session.auth!.user,
                 Array.from(
                     (await utils.getDonglesConnectedFrom(remoteAddress)).keys()
                 )

@@ -26,7 +26,7 @@ import Types = webApiDeclaration.Types;
 
 function createUserSimProxy(
     userSim: Types.UserSim,
-    ownership: Types.UserSim.Ownership.Shared.NotConfirmed
+    ownership: Types.SimOwnership.Shared.NotConfirmed
 ) {
     let userSimProxy: Types.UserSim = { ownership } as any;
 
@@ -61,6 +61,7 @@ function createUserSimProxy(
 
 }
 
+//TODO: test unregister not confirmed shared sim
 async function testMain() {
 
     await db.flush();
@@ -136,7 +137,7 @@ async function testMain() {
 
     }
 
-    (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
         .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
 
     let sharingRequestMessage = f.genUtf8Str(50);
@@ -154,7 +155,7 @@ async function testMain() {
     await db.shareSim(
         { "user": alice.user, "email": alice.email },
         alice.userSims[0].sim.imsi,
-        (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner).sharedWith.notConfirmed,
+        (alice.userSims[0].ownership as Types.SimOwnership.Owned).sharedWith.notConfirmed,
         sharingRequestMessage
     );
 
@@ -173,11 +174,11 @@ async function testMain() {
             "ownerEmail": alice.email
         };
 
-        (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+        (alice.userSims[0].ownership as Types.SimOwnership.Owned)
             .sharedWith.notConfirmed = (() => {
 
                 let set = new Set(
-                    (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+                    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
                         .sharedWith.notConfirmed
                 );
 
@@ -187,7 +188,7 @@ async function testMain() {
 
             })();
 
-        (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+        (alice.userSims[0].ownership as Types.SimOwnership.Owned)
             .sharedWith.confirmed.push(user.email);
 
         uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
@@ -298,11 +299,11 @@ async function testMain() {
     bob.userSims.pop();
     carol.userSims.pop();
 
-    (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
         .sharedWith.confirmed = (() => {
 
             let set = new Set(
-                (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+                (alice.userSims[0].ownership as Types.SimOwnership.Owned)
                     .sharedWith.confirmed
             );
 
@@ -362,7 +363,7 @@ async function testMain() {
 
     dave.userSims.pop();
 
-    (alice.userSims[0].ownership as Types.UserSim.Ownership.Owner)
+    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
         .sharedWith.confirmed = [];
 
     f.assertSame(
@@ -437,7 +438,10 @@ async function testMain() {
     ];
 
     f.assertSame(
-        await db.filterDongleWithRegistrableSim(dongles),
+        await db.filterDongleWithRegistrableSim(
+            alice.user, 
+            dongles
+        ),
         [dongles[0]]
     );
 

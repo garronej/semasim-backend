@@ -34,24 +34,179 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var _this = this;
+var __values = (this && this.__values) || function (o) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator], i = 0;
+    if (m) return m.call(o);
+    return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+};
 exports.__esModule = true;
 var api_1 = require("../../api");
-$(document).ready(function () {
-    console.log("touch");
-    (function () { return __awaiter(_this, void 0, void 0, function () {
-        var dongles, userSims;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, api_1.client.getUnregisteredLanDongles()];
+var Types = api_1.declaration.Types;
+var ButtonBar_1 = require("./ButtonBar");
+var SimRow_1 = require("./SimRow");
+var registeringProcess = require("./registeringProcess");
+var validateSharingRequestProcess = require("./validateSharingRequestProcess");
+var bootbox = global["bootbox"];
+$(document).ready(function main() {
+    return __awaiter(this, void 0, void 0, function () {
+        var _this = this;
+        var useableUserSims, structure, buttonBar, simRows, _loop_1, useableUserSims_1, useableUserSims_1_1, userSim, e_1, _a;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    console.log("touch!!!!");
+                    return [4 /*yield*/, registeringProcess.start()];
                 case 1:
-                    dongles = _a.sent();
-                    return [4 /*yield*/, api_1.client.getSims()];
+                    _b.sent();
+                    return [4 /*yield*/, validateSharingRequestProcess.start()];
                 case 2:
-                    userSims = _a.sent();
-                    $(".content-inner p").html(JSON.stringify(userSims, null, 2).replace(/\n/g, "<br/>"));
+                    useableUserSims = _b.sent();
+                    structure = $(require("../templates/index.html"));
+                    $("div.content-inner").html("").append(structure);
+                    buttonBar = new ButtonBar_1.ButtonBar();
+                    structure.find("#_1").append(buttonBar.structure);
+                    simRows = [];
+                    _loop_1 = function (userSim) {
+                        var simRow = new SimRow_1.SimRow(userSim);
+                        structure.find("#_1").append(simRow.structure);
+                        simRows.push(simRow);
+                        simRow.evtSelected.attach(function () {
+                            if (buttonBar.state.isSimRowSelected) {
+                                simRows.find(function (simRow_) { return (simRow_ !== simRow &&
+                                    simRow_.isSelected); }).unselect();
+                            }
+                            buttonBar.setState({
+                                "isSimRowSelected": true,
+                                "isSimSharable": Types.UserSim.Owned.match(userSim)
+                            });
+                        });
+                    };
+                    try {
+                        for (useableUserSims_1 = __values(useableUserSims), useableUserSims_1_1 = useableUserSims_1.next(); !useableUserSims_1_1.done; useableUserSims_1_1 = useableUserSims_1.next()) {
+                            userSim = useableUserSims_1_1.value;
+                            _loop_1(userSim);
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (useableUserSims_1_1 && !useableUserSims_1_1.done && (_a = useableUserSims_1["return"])) _a.call(useableUserSims_1);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    buttonBar.evtClickDetail.attach(function () {
+                        try {
+                            for (var simRows_1 = __values(simRows), simRows_1_1 = simRows_1.next(); !simRows_1_1.done; simRows_1_1 = simRows_1.next()) {
+                                var simRow = simRows_1_1.value;
+                                if (simRow.isSelected) {
+                                    simRow.setDetailsVisibility("SHOWN");
+                                }
+                                else {
+                                    simRow.setVisibility("HIDDEN");
+                                }
+                            }
+                        }
+                        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                        finally {
+                            try {
+                                if (simRows_1_1 && !simRows_1_1.done && (_a = simRows_1["return"])) _a.call(simRows_1);
+                            }
+                            finally { if (e_2) throw e_2.error; }
+                        }
+                        var e_2, _a;
+                    });
+                    buttonBar.evtClickBack.attach(function () {
+                        try {
+                            for (var simRows_2 = __values(simRows), simRows_2_1 = simRows_2.next(); !simRows_2_1.done; simRows_2_1 = simRows_2.next()) {
+                                var simRow = simRows_2_1.value;
+                                if (simRow.isSelected) {
+                                    simRow.setDetailsVisibility("HIDDEN");
+                                }
+                                else {
+                                    simRow.setVisibility("SHOWN");
+                                }
+                            }
+                        }
+                        catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                        finally {
+                            try {
+                                if (simRows_2_1 && !simRows_2_1.done && (_a = simRows_2["return"])) _a.call(simRows_2);
+                            }
+                            finally { if (e_3) throw e_3.error; }
+                        }
+                        var e_3, _a;
+                    });
+                    buttonBar.evtClickDelete.attach(function () { return __awaiter(_this, void 0, void 0, function () {
+                        var userSim, shouldProceed;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    userSim = simRows.find(function (_a) {
+                                        var isSelected = _a.isSelected;
+                                        return isSelected;
+                                    }).userSim;
+                                    return [4 /*yield*/, new Promise(function (resolve) { return bootbox.confirm({
+                                            "title": "Unregister SIM",
+                                            "message": "Do you really want to unregister " + userSim.friendlyName + "?",
+                                            callback: function (result) { return resolve(result); }
+                                        }); })];
+                                case 1:
+                                    shouldProceed = _a.sent();
+                                    if (!shouldProceed) return [3 /*break*/, 3];
+                                    return [4 /*yield*/, api_1.client.unregisterSim(userSim.sim.imsi)];
+                                case 2:
+                                    _a.sent();
+                                    buttonBar.evtClickRefresh.post();
+                                    _a.label = 3;
+                                case 3: return [2 /*return*/];
+                            }
+                        });
+                    }); });
+                    buttonBar.evtClickRename.attach(function () { return __awaiter(_this, void 0, void 0, function () {
+                        var userSim, friendlyNameSubmitted;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    userSim = simRows.find(function (_a) {
+                                        var isSelected = _a.isSelected;
+                                        return isSelected;
+                                    }).userSim;
+                                    return [4 /*yield*/, new Promise(function (resolve) { return bootbox.prompt({
+                                            "title": "Friendly name for this sim?",
+                                            "value": userSim.friendlyName,
+                                            "callback": function (result) { return resolve(result); }
+                                        }); })];
+                                case 1:
+                                    friendlyNameSubmitted = _a.sent();
+                                    if (!friendlyNameSubmitted) return [3 /*break*/, 3];
+                                    return [4 /*yield*/, api_1.client.setSimFriendlyName(userSim.sim.imsi, friendlyNameSubmitted)];
+                                case 2:
+                                    _a.sent();
+                                    buttonBar.evtClickRefresh.post();
+                                    _a.label = 3;
+                                case 3: return [2 /*return*/];
+                            }
+                        });
+                    }); });
+                    buttonBar.evtClickRefresh.attach(function () { return __awaiter(_this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    structure.remove();
+                                    return [4 /*yield*/, main()];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    }); });
                     return [2 /*return*/];
             }
         });
-    }); })();
+    });
 });

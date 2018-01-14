@@ -90,8 +90,12 @@ export async function deleteUser(
 
 }
 
-//TODO: test
+/** returns locked dongles with unreadable SIM iccid,
+ *  locked dongles with readable iccid registered by user
+ *  active dongles not registered
+ */
 export async function filterDongleWithRegistrableSim(
+    user: number,
     dongles: Dc.Dongle[]
 ): Promise<Dc.Dongle[]> {
 
@@ -112,17 +116,33 @@ export async function filterDongleWithRegistrableSim(
         return registrableDongles;
     }
 
-    let registeredIccidArr: string[] = (await query([
-        "SELECT iccid",
+    let rows= await query([
+        "SELECT iccid, user",
         "FROM sim",
         "WHERE",
         dongleWithReadableIccid.map(({ sim }) => `iccid= ${f.esc(sim.iccid!)}`).join(" OR ")
-    ].join("\n"))).map(({ iccid }) => iccid);
+    ].join("\n"));
+
+    let userByIccid: { [iccid: string]: number }= {};
+
+    for( let { iccid, user } of rows ){
+        userByIccid[iccid]= user;
+    }
 
     registrableDongles = [
         ...registrableDongles,
         ...dongleWithReadableIccid.filter(
-            ({ sim }) => registeredIccidArr.indexOf(sim.iccid!) < 0
+            dongle => {
+
+                let registeredBy= userByIccid[dongle.sim.iccid!];
+
+                if( !registeredBy ){
+                    return true;
+                }else{
+                    return ( registeredBy === user ) && Dc.LockedDongle.match(dongle);
+                }
+
+            }
         )
     ];
 
@@ -261,7 +281,7 @@ export async function getUserSims(
     ] = await query(sql);
 
     let sharedWithBySim: {
-        [imsi: string]: Types.UserSim.Ownership.Owner["sharedWith"]
+        [imsi: string]: Types.SimOwnership.Owned["sharedWith"]
     } = {};
 
     for (let row of rowsSharedWith) {
@@ -328,7 +348,7 @@ export async function getUserSims(
             }
         };
 
-        let [friendlyName, ownership] = ((): [string, Types.UserSim.Ownership] => {
+        let [friendlyName, ownership] = ((): [string, Types.SimOwnership] => {
 
             let ownerEmail = row["email"];
 
@@ -378,42 +398,19 @@ export async function getUserSims(
 
         })();
 
-        userSims.push({
+        let userSim: Types.UserSim= {
             sim,
             friendlyName,
             ownership,
             "password": row["password"],
             "isVoiceEnabled": f.smallIntOrNullToBooleanOrUndefined(row["is_voice_enabled"]),
             "isOnline": row["is_online"] === 1
-        });
+        };
+
+        userSims.push(userSim);
 
     }
 
-    /*
-    let userSimsConfirmed =
-        userSims
-            .filter(({ ownership }) => ownership.status !== "SHARED NOT CONFIRMED")
-            .map(({ friendlyName }) => friendlyName)
-        ;
-
-    for (
-        let userSimNotConfirmed
-        of
-        userSims.filter(({ ownership }) => ownership.status === "SHARED NOT CONFIRMED")
-    ) {
-
-        let ownerFriendlyName = userSimNotConfirmed.friendlyName;
-
-        let i = 1;
-
-        while (userSimsConfirmed.indexOf(userSimNotConfirmed.friendlyName) >= 0) {
-
-            userSimNotConfirmed.friendlyName = `${ownerFriendlyName}-${i++}`;
-
-        }
-
-    }
-    */
 
     return userSims;
 
