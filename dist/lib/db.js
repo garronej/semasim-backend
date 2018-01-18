@@ -156,6 +156,32 @@ function deleteUser(user) {
     });
 }
 exports.deleteUser = deleteUser;
+function getUserHash(email) {
+    return __awaiter(this, void 0, void 0, function () {
+        var rows, _a, hash;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    email = email.toLowerCase();
+                    return [4 /*yield*/, exports.query("SELECT hash FROM user WHERE email= " + semasim_gateway_1.mySqlFunctions.esc(email))];
+                case 1:
+                    rows = _b.sent();
+                    if (!rows.length) {
+                        return [2 /*return*/, undefined];
+                    }
+                    _a = __read(rows, 1), hash = _a[0].hash;
+                    if (hash === "") {
+                        return [2 /*return*/, undefined];
+                    }
+                    else {
+                        return [2 /*return*/, hash];
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.getUserHash = getUserHash;
 /** returns locked dongles with unreadable SIM iccid,
  *  locked dongles with readable iccid registered by user
  *  active dongles not registered

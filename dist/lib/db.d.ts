@@ -12,6 +12,7 @@ export declare function createUserAccount(email: string, password: string): Prom
 /** Return user.id_ or undefined if auth failed */
 export declare function authenticateUser(email: string, password: string): Promise<number | undefined>;
 export declare function deleteUser(user: number): Promise<boolean>;
+export declare function getUserHash(email: string): Promise<string | undefined>;
 /** returns locked dongles with unreadable SIM iccid,
  *  locked dongles with readable iccid registered by user
  *  active dongles not registered

@@ -29,6 +29,31 @@ export namespace loginUser {
 
 }
 
+//TODO: implement
+export namespace logoutUser {
+
+    export const methodName= "logout-user";
+
+    export type Params = undefined;
+
+    export type Response = undefined;
+
+}
+
+//TODO: implement
+export namespace sendRenewPasswordEmail {
+
+    export const methodName= "send-renew-password-email";
+
+    export type Params = {
+        email: string;
+    };
+
+    /** true if email exist */
+    export type Response= boolean;
+
+}
+
 
 export namespace getSims {
 

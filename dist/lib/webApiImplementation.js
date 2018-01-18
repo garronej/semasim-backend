@@ -137,6 +137,44 @@ exports.handlers = {};
     };
 })();
 (function () {
+    var methodName = frontend_1.webApiDeclaration.logoutUser.methodName;
+    exports.handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": function (params) { return params === undefined; },
+        "handler": function (params, session) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                session.auth = undefined;
+                return [2 /*return*/];
+            });
+        }); }
+    };
+})();
+(function () {
+    var methodName = frontend_1.webApiDeclaration.sendRenewPasswordEmail.methodName;
+    exports.handlers[methodName] = {
+        "needAuth": false,
+        "contentType": "application/json",
+        "sanityChecks": function (params) { return (params instanceof Object &&
+            typeof params.email === "string" &&
+            params.email.match(_constants_1.c.regExpEmail) !== null); },
+        "handler": function (params) { return __awaiter(_this, void 0, void 0, function () {
+            var email, hash;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        email = params.email;
+                        return [4 /*yield*/, db.getUserHash(email)];
+                    case 1:
+                        hash = _a.sent();
+                        //TODO send email
+                        return [2 /*return*/, hash !== undefined];
+                }
+            });
+        }); }
+    };
+})();
+(function () {
     var methodName = frontend_1.webApiDeclaration.getSims.methodName;
     exports.handlers[methodName] = {
         "needAuth": true,

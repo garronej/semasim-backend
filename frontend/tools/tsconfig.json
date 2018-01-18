@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es3",
+        "lib": [
+                    "dom",
+                    "es5",
+                    "es2015.promise"
+            ],
+        "declaration": true,
+        "outDir": "./dist",
+        "strictNullChecks": true,
+        "sourceMap": false,
+        "newLine": "LF",
+        "downlevelIteration":true
+    },
+    "filesGlob": [
+        "./src/**/*.ts"
+    ]
+}
+

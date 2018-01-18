@@ -41,4 +41,4 @@ dist/test
 
 .sync
 
-res/theme-static/assets
+frontend/static

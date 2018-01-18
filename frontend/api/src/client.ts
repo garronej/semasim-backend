@@ -1,6 +1,4 @@
 import * as declaration from "./declaration";
-//TODO: import in webpage as we do for jQuerry so we do not have to host it, it can be cached ext...
-import "es6-promise/auto";
 
 async function makeRequest<Params, Response>(
     methodName, params: Params
@@ -51,6 +49,35 @@ export function loginUser(
     return makeRequest<Params, Response>(
         methodName,
         { email, password }
+    );
+
+}
+
+export function logoutUser() {
+
+    const methodName = declaration.logoutUser.methodName;
+    type Params = declaration.logoutUser.Params;
+    type Response = declaration.logoutUser.Response;
+
+    return makeRequest<Params, Response>(
+        methodName,
+        undefined
+    );
+
+}
+
+/** Return true if email has account */
+export function sendRenewPasswordEmail(
+    email: string
+){
+
+    const methodName= declaration.sendRenewPasswordEmail.methodName;
+    type Params= declaration.sendRenewPasswordEmail.Params;
+    type Response= declaration.sendRenewPasswordEmail.Response;
+
+    return makeRequest<Params, Response>(
+        methodName,
+        { email }
     );
 
 }

@@ -1,7 +1,9 @@
 import * as declaration from "./declaration";
-import "es6-promise/auto";
 export declare function registerUser(email: string, password: string): Promise<declaration.registerUser.Response>;
 export declare function loginUser(email: string, password: string): Promise<boolean>;
+export declare function logoutUser(): Promise<undefined>;
+/** Return true if email has account */
+export declare function sendRenewPasswordEmail(email: string): Promise<boolean>;
 export declare function getSims(): Promise<declaration.Types.UserSim.Base<declaration.Types.SimOwnership>[]>;
 export declare function getUnregisteredLanDongles(): Promise<declaration.Types.Dongle[]>;
 export declare function unlockSim(imei: string, pin: string): Promise<declaration.Types.UnlockResult>;

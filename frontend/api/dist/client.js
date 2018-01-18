@@ -36,8 +36,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 exports.__esModule = true;
 var declaration = require("./declaration");
-//TODO: import in webpage as we do for jQuerry so we do not have to host it, it can be cached ext...
-require("es6-promise/auto");
 function makeRequest(methodName, params) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
@@ -69,6 +67,17 @@ function loginUser(email, password) {
     return makeRequest(methodName, { email: email, password: password });
 }
 exports.loginUser = loginUser;
+function logoutUser() {
+    var methodName = declaration.logoutUser.methodName;
+    return makeRequest(methodName, undefined);
+}
+exports.logoutUser = logoutUser;
+/** Return true if email has account */
+function sendRenewPasswordEmail(email) {
+    var methodName = declaration.sendRenewPasswordEmail.methodName;
+    return makeRequest(methodName, { email: email });
+}
+exports.sendRenewPasswordEmail = sendRenewPasswordEmail;
 function getSims() {
     var methodName = declaration.getSims.methodName;
     return makeRequest(methodName, undefined);

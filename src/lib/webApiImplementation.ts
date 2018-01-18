@@ -87,6 +87,57 @@ export const handlers: Handlers= {};
 
 (() => {
 
+    let methodName = apiDeclaration.logoutUser.methodName;
+    type Params = apiDeclaration.logoutUser.Params;
+    type Response = apiDeclaration.logoutUser.Response;
+
+    handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => params === undefined,
+        "handler": async (params, session): Promise<Response> => {
+
+            session.auth= undefined;
+
+            return;
+
+        }
+    } as Handler<Params, Response>;
+
+})();
+
+(() => {
+
+    let methodName = apiDeclaration.sendRenewPasswordEmail.methodName;
+    type Params = apiDeclaration.sendRenewPasswordEmail.Params;
+    type Response = apiDeclaration.sendRenewPasswordEmail.Response;
+
+    handlers[methodName] = {
+        "needAuth": false,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.email === "string" &&
+            params.email.match(c.regExpEmail) !== null 
+        ),
+        "handler": async (params): Promise<Response> => {
+
+            let { email } = params;
+
+            let hash= await db.getUserHash(email);
+
+            //TODO send email
+
+            return hash !== undefined;
+
+        }
+    } as Handler<Params, Response>;
+
+})();
+
+
+(() => {
+
     let methodName = apiDeclaration.getSims.methodName;
     type Params = apiDeclaration.getSims.Params;
     type Response = apiDeclaration.getSims.Response;
@@ -527,6 +578,3 @@ export const handlers: Handlers= {};
 
 
 })();
-
-
-

@@ -9,6 +9,16 @@ var loginUser;
 (function (loginUser) {
     loginUser.methodName = "login-user";
 })(loginUser = exports.loginUser || (exports.loginUser = {}));
+//TODO: implement
+var logoutUser;
+(function (logoutUser) {
+    logoutUser.methodName = "logout-user";
+})(logoutUser = exports.logoutUser || (exports.logoutUser = {}));
+//TODO: implement
+var sendRenewPasswordEmail;
+(function (sendRenewPasswordEmail) {
+    sendRenewPasswordEmail.methodName = "send-renew-password-email";
+})(sendRenewPasswordEmail = exports.sendRenewPasswordEmail || (exports.sendRenewPasswordEmail = {}));
 var getSims;
 (function (getSims) {
     getSims.methodName = "get-sim";

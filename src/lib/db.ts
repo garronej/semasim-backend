@@ -1,4 +1,3 @@
-import * as mysql from "mysql";
 import * as RIPEMD160 from 'ripemd160';
 import * as crypto from "crypto";
 import { DongleController as Dc } from "chan-dongle-extended-client";
@@ -87,6 +86,30 @@ export async function deleteUser(
     let isDeleted = affectedRows !== 0;
 
     return isDeleted;
+
+}
+
+export async function getUserHash(
+    email: string
+): Promise<string | undefined> {
+
+    email = email.toLowerCase();
+
+    let rows = await query(
+        `SELECT hash FROM user WHERE email= ${f.esc(email)}`
+    );
+
+    if (!rows.length) {
+        return undefined;
+    }
+
+    let [{ hash }] = rows;
+
+    if( hash === "" ){
+        return undefined;
+    }else{
+        return hash;
+    }
 
 }
 

@@ -16,6 +16,19 @@ export declare namespace loginUser {
     /** isGranted */
     type Response = boolean;
 }
+export declare namespace logoutUser {
+    const methodName = "logout-user";
+    type Params = undefined;
+    type Response = undefined;
+}
+export declare namespace sendRenewPasswordEmail {
+    const methodName = "send-renew-password-email";
+    type Params = {
+        email: string;
+    };
+    /** true if email exist */
+    type Response = boolean;
+}
 export declare namespace getSims {
     const methodName = "get-sim";
     type Params = undefined;
