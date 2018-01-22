@@ -5,7 +5,6 @@ const apiPath = webApiDeclaration.apiPath;
 import JSON_CUSTOM= webApiDeclaration.JSON_CUSTOM;
 
 import "colors";
-
 import * as _debug from "debug";
 let debug = _debug("_webApiServer");
 
@@ -119,6 +118,9 @@ export function start(
                 );
 
             } catch (error) {
+
+                debug("WEB API INTERNAL SERVER ERROR".red, error);
+
                 res.status(httpCodes.internalServerError).end();
                 return;
             }

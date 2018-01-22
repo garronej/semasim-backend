@@ -197,13 +197,13 @@ export const handlers: Handlers= {};
                 dongle => Dc.LockedDongle.match(dongle) && dongle.imei === imei
             ) as Dc.LockedDongle | undefined;
 
-            if (!lockedDongle) throw new Error("assert");
+            if (!lockedDongle) throw new Error("assert 0");
 
             let gwSocket = donglePathMap.get(lockedDongle)!;
 
             let unlockResult = await sipApiGateway.unlockDongle(gwSocket, imei, pin);
 
-            if (!unlockResult) throw new Error("assert");
+            if (!unlockResult) throw new Error("assert 1");
 
             if (!unlockResult.success) {
                 return {
@@ -214,7 +214,7 @@ export const handlers: Handlers= {};
             }
 
             let { dongle, simOwner } = await sipApiServer.getEvtNewActiveDongle(gwSocket)
-                .waitFor(({ dongle }) => dongle.imei === imei, 10000);
+                .waitFor(({ dongle }) => dongle.imei === imei, 30000);
 
             if (!simOwner) {
 
