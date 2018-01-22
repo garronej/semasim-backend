@@ -7,7 +7,7 @@ import * as db from "./db";
 import * as utils from "./utils";
 import { DongleController as Dc } from "chan-dongle-extended-client";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
-import { Session } from "./mainWeb";
+import { Session } from "./web";
 import { c } from "./_constants";
 
 import * as _debug from "debug";

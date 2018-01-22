@@ -1,14 +1,14 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
 import * as sipProxy from "./sipProxy";
-import * as webServer from "./mainWeb";
+import * as web from "./web";
 
 import * as _debug from "debug";
 let debug = _debug("_main");
 
-(async () => {
+debug("Starting semasim backend");
 
-    debug("Starting semasim backend...");
+(async () => {
 
     debug("Starting sip proxy server...");
 
@@ -18,7 +18,7 @@ let debug = _debug("_main");
 
     debug("Starting web server...");
 
-    await webServer.start();
+    await web.start();
 
     debug("...web server started !");
 

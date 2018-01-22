@@ -1,9 +1,9 @@
 import * as RIPEMD160 from 'ripemd160';
 import * as crypto from "crypto";
 import { DongleController as Dc } from "chan-dongle-extended-client";
-import { webApiDeclaration } from "../frontend";
+import { webApiDeclaration } from "../semasim-frontend";
 import Types = webApiDeclaration.Types;
-import { Session } from "./mainWeb";
+import { Session } from "./web";
 
 import { mySqlFunctions as f, Contact } from "../semasim-gateway";
 
@@ -107,9 +107,40 @@ export async function getUserHash(
 
     if( hash === "" ){
         return undefined;
-    }else{
+    } else {
         return hash;
     }
+
+}
+
+export async function getWebUaData(
+    user: number
+): Promise<Types.WebUaData | undefined> {
+
+    let { web_ua_data } = await query(
+        `SELECT web_ua_data FROM user WHERE id_= ${f.esc(user)}`
+    );
+
+    return web_ua_data ?
+        JSON.parse((new Buffer(web_ua_data, "base64")).toString("utf8")) :
+        undefined
+        ;
+
+}
+
+
+export async function storeWebUaData(
+    user: number,
+    webUaData: Types.WebUaData
+) {
+
+    //UPDATE t1 SET col1 = col1 + 1;
+
+    let web_user_data= (new Buffer(JSON.stringify(webUaData), "utf8")).toString("base64");
+
+    await query(
+        `UPDATE user SET web_user_data= ${f.esc(web_user_data)} WHERE id_= ${f.esc(user)}`
+    );
 
 }
 
@@ -139,17 +170,17 @@ export async function filterDongleWithRegistrableSim(
         return registrableDongles;
     }
 
-    let rows= await query([
+    let rows = await query([
         "SELECT iccid, user",
         "FROM sim",
         "WHERE",
         dongleWithReadableIccid.map(({ sim }) => `iccid= ${f.esc(sim.iccid!)}`).join(" OR ")
     ].join("\n"));
 
-    let userByIccid: { [iccid: string]: number }= {};
+    let userByIccid: { [iccid: string]: number } = {};
 
-    for( let { iccid, user } of rows ){
-        userByIccid[iccid]= user;
+    for (let { iccid, user } of rows) {
+        userByIccid[iccid] = user;
     }
 
     registrableDongles = [
@@ -157,12 +188,12 @@ export async function filterDongleWithRegistrableSim(
         ...dongleWithReadableIccid.filter(
             dongle => {
 
-                let registeredBy= userByIccid[dongle.sim.iccid!];
+                let registeredBy = userByIccid[dongle.sim.iccid!];
 
-                if( !registeredBy ){
+                if (!registeredBy) {
                     return true;
-                }else{
-                    return ( registeredBy === user ) && Dc.LockedDongle.match(dongle);
+                } else {
+                    return (registeredBy === user) && Dc.LockedDongle.match(dongle);
                 }
 
             }
@@ -421,7 +452,7 @@ export async function getUserSims(
 
         })();
 
-        let userSim: Types.UserSim= {
+        let userSim: Types.UserSim = {
             sim,
             friendlyName,
             ownership,

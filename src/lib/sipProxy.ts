@@ -8,6 +8,7 @@ import * as sipApiServer from "./sipApiBackendServerImplementation";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import * as utils from "./utils";
 import * as db from "./db";
+import * as WebSocket from "ws";
 
 import { c } from "./_constants";
 
@@ -138,9 +139,28 @@ const uniqNow = (() => {
     };
 })();
 
-function onClientConnection(clientSocketRaw: net.Socket) {
+export function onClientConnection(socket: net.Socket);
+export function onClientConnection(webSocket: WebSocket, addrAndPorts: sipLibrary.Socket.AddrAndPorts);
+export function onClientConnection(...inputs: any[]) {
 
-    let clientSocket = new sipLibrary.Socket(clientSocketRaw);
+    debug("Client connection");
+
+    let clientSocket: sipLibrary.Socket;
+
+    if (inputs.length === 1) {
+
+        let socket: net.Socket = inputs[0];
+
+        clientSocket = new sipLibrary.Socket(socket);
+
+    } else {
+
+        let webSocket: WebSocket = inputs[0];
+        let addrAndPort: sipLibrary.Socket.AddrAndPorts = inputs[1];
+
+        clientSocket = new sipLibrary.Socket( webSocket, addrAndPort);
+
+    }
 
     let connectionId = uniqNow();
 
@@ -148,16 +168,13 @@ function onClientConnection(clientSocketRaw: net.Socket) {
 
     clientSockets.set(connectionId, clientSocket);
 
-    /*
-    clientSocket.evtPacket.attach(sipPacket =>
-        debug("From Client Parsed:\n", sipLibrary.stringify(sipPacket).red, "\n\n")
-    );
     clientSocket.evtData.attach(chunk =>
-        debug("From Client:\n", chunk.yellow, "\n\n")
+        console.log(`\nFrom client:\n${chunk.yellow}\n\n`)
     );
-    */
+
 
     clientSocket.evtRequest.attach(sipRequest => {
+
 
         try {
 
@@ -282,14 +299,9 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
     sipApiGateway.init(gatewaySocket);
 
-    /*
-    gatewaySocket.evtPacket.attach(sipPacket =>
-        debug("From gateway:\n", sipLibrary.stringify(sipPacket).grey, "\n\n")
-    );
     gatewaySocket.evtData.attach(chunk =>
-        debug("From gateway:\n", chunk.grey, "\n\n")
+        console.log(`\nFrom gateway:\n${chunk.yellow}\n\n`)
     );
-    */
 
     gatewaySocket.evtRequest.attach(sipRequest => {
 
