@@ -4,6 +4,7 @@ import { DongleController as Dc } from "chan-dongle-extended-client";
 import { webApiDeclaration } from "../semasim-frontend";
 import Types = webApiDeclaration.Types;
 import { Session } from "./web";
+import { geoiplookup } from "../tools/geoiplookup";
 
 import { mySqlFunctions as f, Contact } from "../semasim-gateway";
 
@@ -141,6 +142,38 @@ export async function storeWebUaData(
     await query(
         `UPDATE user SET web_user_data= ${f.esc(web_user_data)} WHERE id_= ${f.esc(user)}`
     );
+
+}
+
+export async function addIp(ip: string) {
+
+    let { insertId } = await query(
+        f.buildInsertQuery(
+            "geoip", { ip }, "IGNORE"
+        )
+    );
+
+    if (!insertId) return;
+
+    try {
+
+        let { country, subdivisions, city } = await geoiplookup(ip);
+
+        await query(
+            f.buildInsertQuery(
+                "geoip",
+                { ip, country, subdivisions, city },
+                "UPDATE"
+            )
+        );
+
+    } catch (error) {
+
+        debug("addIp error", error);
+
+        return;
+
+    }
 
 }
 

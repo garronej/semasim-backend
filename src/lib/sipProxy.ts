@@ -35,9 +35,10 @@ export namespace gatewaySockets {
 
         let ip= gwSocket.remoteAddress;
 
-        debug({ ip });
-
         if (!byIp.has(ip)) {
+
+            db.addIp(ip);
+
             byIp.set(ip, new Set());
         }
 
