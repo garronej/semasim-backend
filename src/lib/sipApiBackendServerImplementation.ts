@@ -37,26 +37,29 @@ export function getEvtNewActiveDongle(
 
 (() => {
 
-
     const methodName = apiDeclaration.notifySimOnline.methodName;
     type Params = apiDeclaration.notifySimOnline.Params;
     type Response = apiDeclaration.notifySimOnline.Response;
 
     sanityChecks[methodName] = (params: Params) => (
         params instanceof Object &&
-        Dc.isImsiWellFormed(params.imsi) && (
-            params.isVoiceEnabled === undefined ||
-            typeof params.isVoiceEnabled === "boolean"
-        ) &&
+        Dc.isImsiWellFormed(params.imsi) && 
         typeof params.storageDigest === "string" &&
-        typeof params.password === "string"
+        typeof params.password === "string" &&
+        params.simDongle instanceof Object &&
+        Dc.isImeiWellFormed(params.simDongle.imei) &&
+        (
+            params.simDongle.isVoiceEnabled === undefined ||
+            typeof params.simDongle.isVoiceEnabled === "boolean"
+        ) &&
+        typeof params.simDongle.model === "string" &&
+        typeof params.simDongle.firmwareVersion === "string"
     );
-
 
     handlers[methodName] = async (params: Params, fromSocket): Promise<Response> => {
 
         let {
-            imsi, isVoiceEnabled, storageDigest, password
+            imsi, storageDigest, password, simDongle
         } = params;
 
         let currentSocket = sipProxy.gatewaySockets.getSimRoute(imsi);
@@ -73,9 +76,8 @@ export function getEvtNewActiveDongle(
 
         }
 
-
-        let setOnlineFeedback = await db.setSimOnline(
-            imsi, password, isVoiceEnabled
+        let resp= await db.setSimOnline(
+            imsi, password, fromSocket.remoteAddress, simDongle
         );
 
         let evtNewActiveDongle = getEvtNewActiveDongle(fromSocket);
@@ -94,7 +96,7 @@ export function getEvtNewActiveDongle(
 
                     evtNewActiveDongle.post({
                         dongle,
-                        "simOwner": setOnlineFeedback.isSimRegistered ?
+                        "simOwner": resp.isSimRegistered ?
                             (await db.getSimOwner(imsi)) : undefined
                     });
 
@@ -104,7 +106,7 @@ export function getEvtNewActiveDongle(
 
         }
 
-        if (!setOnlineFeedback.isSimRegistered) {
+        if (!resp.isSimRegistered) {
 
             utils.simPassword.store(fromSocket, imsi, password);
 
@@ -112,18 +114,18 @@ export function getEvtNewActiveDongle(
 
         }
 
-        if (setOnlineFeedback.passwordStatus === "NEED RENEWAL") {
+        if (resp.passwordStatus === "NEED RENEWAL") {
 
             return {
                 "status": "NEED PASSWORD RENEWAL",
-                "allowedUas": setOnlineFeedback.uasRegisteredToSim
+                "allowedUas": resp.uasRegisteredToSim
             };
 
         }
 
         let isStorageUpToDate: boolean;
 
-        if (setOnlineFeedback.storageDigest === storageDigest) {
+        if (resp.storageDigest === storageDigest) {
             isStorageUpToDate= true;
         }else{
             isStorageUpToDate= false;
@@ -131,11 +133,9 @@ export function getEvtNewActiveDongle(
         }
 
         await utils.sendPushNotification.toUas(
-            setOnlineFeedback.uasRegisteredToSim,
-            (
-                !isStorageUpToDate ||
-                setOnlineFeedback.passwordStatus === "RENEWED"
-            ) ? "RELOAD CONFIG" : undefined
+            resp.uasRegisteredToSim,
+            ( !isStorageUpToDate || resp.passwordStatus === "RENEWED") ? 
+                "RELOAD CONFIG" : undefined
         )
 
         return { "status": "OK" };

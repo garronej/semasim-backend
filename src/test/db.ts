@@ -6,7 +6,6 @@ import { mySqlFunctions as f, Contact, genSamples } from "../semasim-gateway";
 import { webApiDeclaration } from "../semasim-frontend";
 import Types = webApiDeclaration.Types;
 
-
 (async () => {
 
     console.log("START TESTING");
@@ -23,6 +22,13 @@ import Types = webApiDeclaration.Types;
 
 })();
 
+function genIp(): string{
+
+    let genGroup= ()=> ~~(Math.random()*255);
+
+    return (new Array(4)).fill("").map(()=> `${genGroup()}`).join(".");
+    
+}
 
 function createUserSimProxy(
     userSim: Types.UserSim,
@@ -37,23 +43,27 @@ function createUserSimProxy(
             "enumerable": true,
             "get": () => userSim.sim
         },
+        "friendlyName": {
+            "enumerable": true,
+            "get": () => (friendlyName === undefined) ? userSim.friendlyName : friendlyName,
+            "set": (value: string) => friendlyName = value
+        },
         "password": {
             "enumerable": true,
             "get": () => (userSimProxy.ownership.status === "SHARED NOT CONFIRMED") ?
                 "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" : userSim.password
         },
-        "isVoiceEnabled": {
+        "dongle": {
             "enumerable": true,
-            "get": () => userSim.isVoiceEnabled
+            "get": ()=> userSim.dongle
+        },
+        "gatewayLocation": {
+            "enumerable": true,
+            "get": ()=> userSim.gatewayLocation
         },
         "isOnline": {
             "enumerable": true,
             "get": () => userSim.isOnline
-        },
-        "friendlyName": {
-            "enumerable": true,
-            "get": () => (friendlyName === undefined) ? userSim.friendlyName : friendlyName,
-            "set": (value: string) => friendlyName = value
         }
     });
 
@@ -96,15 +106,28 @@ async function testMain() {
         }
 
         for (let _ of new Array(~~(Math.random() * 5) + 2)) {
+        //for (let _ of [ null ]) {
 
             if (user === dave) break;
 
             let userSim: Types.UserSim = {
                 "sim": genSamples.generateSim(),
-                "password": f.genHexStr(32),
-                "isVoiceEnabled": true,
-                "isOnline": true,
                 "friendlyName": f.genUtf8Str(12),
+                "password": f.genHexStr(32),
+                "dongle": {
+                    "imei": f.genDigits(15),
+                    "isVoiceEnabled": (Date.now()%2===0)?true:undefined,
+                    "manufacturer": f.genUtf8Str(7),
+                    "model": f.genUtf8Str(7),
+                    "firmwareVersion": `1.${f.genDigits(3)}.${f.genDigits(3)}`
+                },
+                "gatewayLocation": {
+                    "ip": genIp(),
+                    "countryIso": undefined,
+                    "subdivisions": undefined,
+                    "city": undefined
+                },
+                "isOnline": true,
                 "ownership": {
                     "status": "OWNED",
                     "sharedWith": {
@@ -114,19 +137,33 @@ async function testMain() {
                 }
             };
 
+            await db.addGatewayLocation(userSim.gatewayLocation.ip);
+
+            await (async () => {
+
+                let [row] = await db.query(
+                    `SELECT * FROM gateway_location WHERE ip= ${db.esc(userSim.gatewayLocation.ip)}`
+                );
+
+                userSim.gatewayLocation.countryIso = row["country_iso"] || undefined;
+                userSim.gatewayLocation.subdivisions = row["subdivisions"] || undefined;
+                userSim.gatewayLocation.city = row["city"] || undefined;
+
+            })();
+
             user.userSims.push(userSim);
 
             f.assertSame(
-                await db.registerSim(
-                    userSim.sim,
-                    userSim.password,
-                    user.user,
-                    userSim.friendlyName,
-                    userSim.isVoiceEnabled
+                await db.registerSim( 
+                    user.user, 
+                    userSim.sim, 
+                    userSim.friendlyName, 
+                    userSim.password, 
+                    userSim.dongle, 
+                    userSim.gatewayLocation.ip
                 ),
                 user.uas
             );
-
 
         }
 
@@ -136,6 +173,7 @@ async function testMain() {
         );
 
     }
+
 
     (alice.userSims[0].ownership as Types.SimOwnership.Owned)
         .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
@@ -152,15 +190,24 @@ async function testMain() {
 
     }
 
-    await db.shareSim(
-        { "user": alice.user, "email": alice.email },
-        alice.userSims[0].sim.imsi,
-        (alice.userSims[0].ownership as Types.SimOwnership.Owned).sharedWith.notConfirmed,
-        sharingRequestMessage
+    //TODO: compare emails that we get
+    f.assertSame(
+        await db.shareSim(
+            { "user": alice.user, "email": alice.email },
+            alice.userSims[0].sim.imsi,
+            (alice.userSims[0].ownership as Types.SimOwnership.Owned).sharedWith.notConfirmed,
+            sharingRequestMessage
+        ),
+        {
+            "registered": [ bob.email, carol.email, dave.email ],
+            "notRegistered": [ unregisteredEmail ]
+        }
     );
 
     for (let user of [alice, bob, carol, dave]) {
+
         f.assertSame(await db.getUserSims(user.user), user.userSims);
+
     }
 
     let uasRegisteredToSim: Contact.UaSim.Ua[] = [...alice.uas];
@@ -210,7 +257,8 @@ async function testMain() {
             await db.setSimOnline(
                 alice.userSims[0].sim.imsi,
                 alice.userSims[0].password,
-                alice.userSims[0].isVoiceEnabled
+                alice.userSims[0].gatewayLocation.ip,
+                alice.userSims[0].dongle
             ),
             {
                 "isSimRegistered": true,
@@ -234,19 +282,22 @@ async function testMain() {
         await db.setSimOnline(
             f.genDigits(15),
             alice.userSims[0].password,
-            alice.userSims[0].isVoiceEnabled
+            alice.userSims[0].gatewayLocation.ip,
+            alice.userSims[0].dongle
         ),
         { "isSimRegistered": false }
     );
 
     alice.userSims[0].isOnline = true;
-    alice.userSims[0].isVoiceEnabled = false;
+    alice.userSims[0].dongle.isVoiceEnabled = false;
+
 
     f.assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
-            alice.userSims[0].isVoiceEnabled
+            alice.userSims[0].gatewayLocation.ip,
+            alice.userSims[0].dongle
         ),
         {
             "isSimRegistered": true,
@@ -266,7 +317,8 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
-            alice.userSims[0].isVoiceEnabled
+            alice.userSims[0].gatewayLocation.ip,
+            alice.userSims[0].dongle
         ),
         {
             "isSimRegistered": true,
@@ -331,7 +383,8 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
-            alice.userSims[0].isVoiceEnabled
+            alice.userSims[0].gatewayLocation.ip,
+            alice.userSims[0].dongle
         ),
         {
             "isSimRegistered": true,
@@ -347,7 +400,8 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
-            alice.userSims[0].isVoiceEnabled
+            alice.userSims[0].gatewayLocation.ip,
+            alice.userSims[0].dongle
         ),
         {
             "isSimRegistered": true,
@@ -360,6 +414,7 @@ async function testMain() {
     for (let user of [alice, dave]) {
         f.assertSame(await db.getUserSims(user.user), user.userSims);
     }
+
 
     dave.userSims.pop();
 
@@ -375,7 +430,8 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
-            alice.userSims[0].isVoiceEnabled
+            alice.userSims[0].gatewayLocation.ip,
+            alice.userSims[0].dongle
         ),
         {
             "isSimRegistered": true,
@@ -384,7 +440,6 @@ async function testMain() {
             "uasRegisteredToSim": alice.uas
         }
     );
-
 
     for (let user of [alice, dave]) {
         f.assertSame(await db.getUserSims(user.user), user.userSims);
@@ -427,19 +482,25 @@ async function testMain() {
     let dongles: Dc.ActiveDongle[] = [
         {
             "imei": f.genDigits(15),
+            "manufacturer": "Whatever",
+            "model": "Foo Bar",
+            "firmwareVersion": "1.000.223",
             "isVoiceEnabled": true,
             "sim": genSamples.generateSim()
         },
         {
             "imei": f.genDigits(15),
-            "isVoiceEnabled": alice.userSims[0].isVoiceEnabled,
+            "manufacturer": alice.userSims[0].dongle.manufacturer,
+            "model": alice.userSims[0].dongle.model,
+            "firmwareVersion": alice.userSims[0].dongle.firmwareVersion,
+            "isVoiceEnabled": alice.userSims[0].dongle.isVoiceEnabled,
             "sim": alice.userSims[0].sim,
         }
     ];
 
     f.assertSame(
         await db.filterDongleWithRegistrableSim(
-            alice.user, 
+            alice.user,
             dongles
         ),
         [dongles[0]]
@@ -493,7 +554,7 @@ async function testUser() {
         "INSERT INTO user",
         "   (email, salt, hash)",
         "VALUES",
-        `   ( ${f.esc(email)}, '', '')`
+        `   ( ${db.esc(email)}, '', '')`
     ].join("\n"));
 
     user = insertId;

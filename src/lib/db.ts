@@ -14,11 +14,17 @@ import * as _debug from "debug";
 let debug = _debug("_db");
 
 /** Exported only for tests */
-export const query = f.buildQueryFunction(c.dbParamsBackend);
+export const { query, esc, buildInsertQuery } = f.getUtils(
+    c.dbParamsBackend, "HANDLE STRING ENCODING"
+);
 
 /** For test purpose only */
 export async function flush() {
-    await query("DELETE FROM user;");
+    await query([
+        "DELETE FROM user;",
+        "DELETE FROM dongle;",
+        "DELETE FROM gateway_location;"
+    ].join("\n"));
 }
 
 /** Return user.id_ or undefined */
@@ -37,7 +43,7 @@ export async function createUserAccount(
         "INSERT INTO user",
         "   ( email, salt, hash )",
         "VALUES",
-        `   ( ${f.esc(email)}, ${f.esc(salt)}, ${f.esc(hash)})`,
+        `   ( ${esc(email)}, ${esc(salt)}, ${esc(hash)})`,
         "ON DUPLICATE KEY UPDATE",
         "   salt= IF(@update_record:= salt = '', VALUES(salt), salt),",
         "   hash= IF(@update_record, VALUES(hash), hash)"
@@ -58,7 +64,7 @@ export async function authenticateUser(
     email = email.toLowerCase();
 
     let rows = await query(
-        `SELECT * FROM user WHERE email= ${f.esc(email)}`
+        `SELECT * FROM user WHERE email= ${esc(email)}`
     );
 
     if (!rows.length) {
@@ -81,7 +87,7 @@ export async function deleteUser(
 ): Promise<boolean> {
 
     let { affectedRows } = await query(
-        `DELETE FROM user WHERE id_ = ${f.esc(user)}`
+        `DELETE FROM user WHERE id_ = ${esc(user)}`
     );
 
     let isDeleted = affectedRows !== 0;
@@ -97,7 +103,7 @@ export async function getUserHash(
     email = email.toLowerCase();
 
     let rows = await query(
-        `SELECT hash FROM user WHERE email= ${f.esc(email)}`
+        `SELECT hash FROM user WHERE email= ${esc(email)}`
     );
 
     if (!rows.length) {
@@ -106,7 +112,7 @@ export async function getUserHash(
 
     let [{ hash }] = rows;
 
-    if( hash === "" ){
+    if (hash === "") {
         return undefined;
     } else {
         return hash;
@@ -118,14 +124,13 @@ export async function getWebUaData(
     user: number
 ): Promise<Types.WebUaData | undefined> {
 
-    let { web_ua_data } = await query(
-        `SELECT web_ua_data FROM user WHERE id_= ${f.esc(user)}`
+    let res = await query(
+        `SELECT web_ua_data FROM user WHERE id_= ${esc(user)}`
     );
 
-    return web_ua_data ?
-        JSON.parse((new Buffer(web_ua_data, "base64")).toString("utf8")) :
-        undefined
-        ;
+    let web_ua_data: string | null= res["web_ua_data"];
+
+    return web_ua_data ? JSON.parse(web_ua_data) : undefined;
 
 }
 
@@ -135,41 +140,38 @@ export async function storeWebUaData(
     webUaData: Types.WebUaData
 ) {
 
-    //UPDATE t1 SET col1 = col1 + 1;
-
-    let web_user_data= (new Buffer(JSON.stringify(webUaData), "utf8")).toString("base64");
-
-    await query(
-        `UPDATE user SET web_user_data= ${f.esc(web_user_data)} WHERE id_= ${f.esc(user)}`
-    );
+    await query([
+        "UPDATE user",
+        `SET web_user_data= ${esc(JSON.stringify(webUaData))}`,
+        `WHERE id_= ${esc(user)}`
+    ].join("\n"));
 
 }
 
-export async function addIp(ip: string) {
+export async function addGatewayLocation(ip: string) {
 
     let { insertId } = await query(
-        f.buildInsertQuery(
-            "geoip", { ip }, "IGNORE"
-        )
+        buildInsertQuery("gateway_location", { ip }, "IGNORE")
     );
 
     if (!insertId) return;
 
     try {
 
-        let { country, subdivisions, city } = await geoiplookup(ip);
+        let { countryIso, subdivisions, city } = await geoiplookup(ip);
 
-        await query(
-            f.buildInsertQuery(
-                "geoip",
-                { ip, country, subdivisions, city },
-                "UPDATE"
-            )
-        );
+        let sql = buildInsertQuery("gateway_location", {
+            ip,
+            "country_iso": countryIso || null,
+            "subdivisions": subdivisions || null,
+            "city": city || null
+        }, "UPDATE");
+
+        await query(sql);
 
     } catch (error) {
 
-        debug("addIp error", error);
+        debug(`Lookup id failed ${ip}`, error.message);
 
         return;
 
@@ -207,7 +209,7 @@ export async function filterDongleWithRegistrableSim(
         "SELECT iccid, user",
         "FROM sim",
         "WHERE",
-        dongleWithReadableIccid.map(({ sim }) => `iccid= ${f.esc(sim.iccid!)}`).join(" OR ")
+        dongleWithReadableIccid.map(({ sim }) => `iccid= ${esc(sim.iccid!)}`).join(" OR ")
     ].join("\n"));
 
     let userByIccid: { [iccid: string]: number } = {};
@@ -239,19 +241,46 @@ export async function filterDongleWithRegistrableSim(
 
 /** return user UAs */
 export async function registerSim(
-    sim: Dc.ActiveDongle["sim"],
-    password: string,
     user: number,
+    sim: Dc.ActiveDongle["sim"],
     friendlyName: string,
-    isVoiceEnabled: boolean | undefined
+    password: string,
+    dongle: Types.UserSim["dongle"],
+    gatewayIp: string
 ): Promise<Contact.UaSim.Ua[]> {
 
-    let sql = f.buildInsertQuery("sim", {
+    let sql = buildInsertQuery("dongle", {
+        "imei": dongle.imei,
+        "is_voice_enabled": f.bool.enc(dongle.isVoiceEnabled),
+        "manufacturer": dongle.manufacturer,
+        "model": dongle.model,
+        "firmware_version": dongle.firmwareVersion
+    }, "UPDATE");
+
+    sql += [
+        "SELECT @dongle_ref:= id_",
+        "FROM dongle",
+        `WHERE imei= ${esc(dongle.imei)}`,
+        ";",
+        "SELECT @gateway_location_ref:= id_",
+        "FROM gateway_location",
+        `WHERE ip= ${esc(gatewayIp)}`,
+        ";",
+        ""
+    ].join("\n");
+
+    sql += buildInsertQuery("sim", {
         "imsi": sim.imsi,
+        "country_name": sim.country ? sim.country.name : null,
+        "country_iso": sim.country ? sim.country.iso : null,
+        "country_code": sim.country ? sim.country.code : null,
         "iccid": sim.iccid,
-        "number": sim.storage.number || null,
-        "base64_service_provider_from_imsi": f.b64.enc(sim.serviceProvider.fromImsi),
-        "base64_service_provider_from_network": f.b64.enc(sim.serviceProvider.fromNetwork),
+        "dongle": { "@": "dongle_ref" },
+        "gateway_location": { "@": "gateway_location_ref" },
+        "number_as_stored": sim.storage.number ? sim.storage.number.asStored : null,
+        "number_local_format": sim.storage.number ? sim.storage.number.localFormat : null,
+        "service_provider_from_imsi": sim.serviceProvider.fromImsi || null,
+        "service_provider_from_network": sim.serviceProvider.fromNetwork || null,
         "contact_name_max_length": sim.storage.infos.contactNameMaxLength,
         "number_max_length": sim.storage.infos.numberMaxLength,
         "storage_left": sim.storage.infos.storageLeft,
@@ -259,28 +288,27 @@ export async function registerSim(
         user,
         password,
         "need_password_renewal": 0,
-        "base64_friendly_name": f.b64.enc(friendlyName),
-        "is_voice_enabled": f.booleanOrUndefinedToSmallIntOrNull(isVoiceEnabled),
+        "friendly_name": friendlyName,
         "is_online": 1
     }, "THROW ERROR");
 
     sql += [
         "SELECT @sim_ref:= id_",
         "FROM sim",
-        `WHERE imsi= ${f.esc(sim.imsi)}`,
+        `WHERE imsi= ${esc(sim.imsi)}`,
         ";",
         ""
     ].join("\n");
 
     for (let contact of sim.storage.contacts) {
 
-        sql += f.buildInsertQuery("contact", {
+        sql += buildInsertQuery("contact", {
             "sim": { "@": "sim_ref" },
             "mem_index": contact.index,
             "number_as_stored": contact.number.asStored,
             "number_local_format": contact.number.localFormat,
-            "base64_name_as_stored": f.b64.enc(contact.name.asStored),
-            "base64_name_full": f.b64.enc(contact.name.full)
+            "name_as_stored": contact.name.asStored,
+            "name_full": contact.name.full
         }, "THROW ERROR");
 
     }
@@ -289,7 +317,7 @@ export async function registerSim(
         "SELECT ua.*, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user.id_= ${f.esc(user)}`
+        `WHERE user.id_= ${esc(user)}`
     ].join("\n");
 
     let queryResults = await query(sql);
@@ -308,11 +336,9 @@ export async function registerSim(
 
     }
 
-
     return userUas;
 
 }
-
 
 export async function getUserSims(
     user: number
@@ -320,35 +346,49 @@ export async function getUserSims(
 
     let sql = [
         "SELECT",
-        "   sim.*",
+        "   sim.*,",
+        "   dongle.*,",
+        "   gateway_location.ip,",
+        "   gateway_location.country_iso AS gw_country_iso,",
+        "   gateway_location.subdivisions,",
+        "   gateway_location.city",
         "FROM sim",
-        `WHERE sim.user= ${f.esc(user)}`,
+        "INNER JOIN dongle ON dongle.id_= sim.dongle",
+        "INNER JOIN gateway_location ON gateway_location.id_= sim.gateway_location",
+        `WHERE sim.user= ${esc(user)}`,
         ";",
         "SELECT",
         "   sim.imsi,",
         "   contact.*",
         "FROM contact",
         "INNER JOIN sim ON sim.id_= contact.sim",
-        `WHERE sim.user= ${f.esc(user)}`,
+        `WHERE sim.user= ${esc(user)}`,
         ";",
         "SELECT",
         "   sim.imsi,",
         "   user.email,",
-        "   user_sim.base64_friendly_name IS NOT NULL AS is_confirmed",
+        "   user_sim.friendly_name IS NOT NULL AS is_confirmed",
         "FROM sim",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
         "INNER JOIN user ON user.id_= user_sim.user",
-        `WHERE sim.user= ${f.esc(user)}`,
+        `WHERE sim.user= ${esc(user)}`,
         ";",
         "SELECT",
         "   sim.*,",
-        "   user_sim.base64_friendly_name AS base64_user_friendly_name,",
-        "   user_sim.base64_sharing_request_message,",
+        "   dongle.*,",
+        "   gateway_location.ip,",
+        "   gateway_location.country_iso AS gw_country_iso,",
+        "   gateway_location.subdivisions,",
+        "   gateway_location.city,",
+        "   user_sim.friendly_name AS user_friendly_name,",
+        "   user_sim.sharing_request_message,",
         "   user.email",
         "FROM sim",
+        "INNER JOIN dongle ON dongle.id_= sim.dongle",
+        "INNER JOIN gateway_location ON gateway_location.id_= sim.gateway_location",
         "INNER JOIN user ON user.id_= sim.user",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
-        `WHERE user_sim.user= ${f.esc(user)}`,
+        `WHERE user_sim.user= ${esc(user)}`,
         ";",
         "SELECT",
         "   sim.imsi,",
@@ -356,7 +396,7 @@ export async function getUserSims(
         "FROM contact",
         "INNER JOIN sim ON sim.id_= contact.sim",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
-        `WHERE user_sim.user= ${f.esc(user)}`,
+        `WHERE user_sim.user= ${esc(user)}`,
     ].join("\n");
 
     let [
@@ -401,8 +441,8 @@ export async function getUserSims(
         contactsBySim[imsi].push({
             "index": parseInt(row["mem_index"]),
             "name": {
-                "asStored": f.b64.dec(row["base64_name_as_stored"])!,
-                "full": f.b64.dec(row["base64_name_full"])!
+                "asStored": row["name_as_stored"],
+                "full": row["name_full"]
             },
             "number": {
                 "asStored": row["number_as_stored"],
@@ -419,12 +459,20 @@ export async function getUserSims(
         let sim: Dc.ActiveDongle["sim"] = {
             "iccid": row["iccid"],
             "imsi": row["imsi"],
+            "country": row["country_name"] ? ({
+                "name": row["country_name"],
+                "iso": row["country_iso"],
+                "code": parseInt(row["country_code"])
+            }) : undefined,
             "serviceProvider": {
-                "fromImsi": f.b64.dec(row["base64_service_provider_from_imsi"]),
-                "fromNetwork": f.b64.dec(row["base64_service_provider_from_network"])
+                "fromImsi": row["service_provider_from_imsi"] || undefined,
+                "fromNetwork": row["service_provider_from_network"] || undefined
             },
             "storage": {
-                "number": (row["number"] === null) ? undefined : row["number"],
+                "number": row["number_as_stored"] ? ({
+                    "asStored": row["number_as_stored"],
+                    "localFormat": row["number_local_format"]
+                }) : undefined,
                 "infos": {
                     "contactNameMaxLength": parseInt(row["contact_name_max_length"]),
                     "numberMaxLength": parseInt(row["number_max_length"]),
@@ -435,11 +483,26 @@ export async function getUserSims(
             }
         };
 
+        let dongle: Types.UserSim["dongle"] = {
+            "imei": row["imei"],
+            "isVoiceEnabled": f.bool.dec(row["is_voice_enabled"]),
+            "manufacturer": row["manufacturer"],
+            "model": row["model"],
+            "firmwareVersion": row["firmware_version"]
+        };
+
+        let gatewayLocation: Types.UserSim.GatewayLocation = {
+            "ip": row["ip"],
+            "countryIso": row["gw_country_iso"] || undefined,
+            "subdivisions": row["subdivisions"] || undefined,
+            "city": row["city"] || undefined
+        };
+
         let [friendlyName, ownership] = ((): [string, Types.SimOwnership] => {
 
             let ownerEmail = row["email"];
 
-            let ownerFriendlyName = f.b64.dec(row["base64_friendly_name"])!;
+            let ownerFriendlyName = row["friendly_name"];
 
             if (ownerEmail === undefined) {
 
@@ -456,11 +519,11 @@ export async function getUserSims(
 
             } else {
 
-                let friendlyName = f.b64.dec(row["base64_user_friendly_name"]);
+                let friendlyName: string | null = row["user_friendly_name"];
 
-                if (friendlyName === undefined) {
+                if (friendlyName === null) {
 
-                    //TODO: Security hotFix
+                    //NOTE: Security hotFix
                     row["password"] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
                     return [
@@ -468,7 +531,7 @@ export async function getUserSims(
                         {
                             "status": "SHARED NOT CONFIRMED",
                             ownerEmail,
-                            "sharingRequestMessage": f.b64.dec(row["base64_sharing_request_message"])
+                            "sharingRequestMessage": row["sharing_request_message"] || undefined
                         }
                     ];
 
@@ -488,16 +551,16 @@ export async function getUserSims(
         let userSim: Types.UserSim = {
             sim,
             friendlyName,
-            ownership,
             "password": row["password"],
-            "isVoiceEnabled": f.smallIntOrNullToBooleanOrUndefined(row["is_voice_enabled"]),
-            "isOnline": row["is_online"] === 1
+            dongle,
+            gatewayLocation,
+            "isOnline": row["is_online"] === 1,
+            ownership
         };
 
         userSims.push(userSim);
 
     }
-
 
     return userSims;
 
@@ -512,13 +575,13 @@ export async function addOrUpdateUa(
         "   (instance, user, platform, push_token, software)",
         "SELECT",
         [
-            f.esc(ua.instance),
+            esc(ua.instance),
             "id_",
-            f.esc(ua.platform),
-            f.esc(ua.pushToken),
-            f.esc(ua.software)
+            esc(ua.platform),
+            esc(ua.pushToken),
+            esc(ua.software)
         ].join(", "),
-        `FROM user WHERE email= ${f.esc(ua.userEmail)}`,
+        `FROM user WHERE email= ${esc(ua.userEmail)}`,
         "ON DUPLICATE KEY UPDATE",
         "   platform= VALUES(platform),",
         "   push_token= VALUES(push_token),",
@@ -532,7 +595,8 @@ export async function addOrUpdateUa(
 export async function setSimOnline(
     imsi: string,
     password: string,
-    isVoiceEnabled: boolean | undefined
+    gatewayIp: string,
+    dongle: Types.UserSim["dongle"]
 ): Promise<{
     isSimRegistered: false;
 } | {
@@ -542,28 +606,46 @@ export async function setSimOnline(
     uasRegisteredToSim: Contact.UaSim.Ua[];
 }> {
 
-    let is_voice_enabled = f.booleanOrUndefinedToSmallIntOrNull(isVoiceEnabled);
-
-    //TODO: see if valid SET query
-    let queryResults = await query([
+    let sql = [
         "SELECT",
         "@sim_ref:= id_,",
         `storage_digest,`,
         [
             "@password_status:= ",
-            `IF(password= ${f.esc(password)}, `,
+            `IF(password= ${esc(password)}, `,
             "IF(need_password_renewal, 'NEED RENEWAL', 'UNCHANGED'), ",
             "'RENEWED') AS password_status"
         ].join(""),
         "FROM sim",
-        `WHERE imsi= ${f.esc(imsi)}`,
+        `WHERE imsi= ${esc(imsi)}`,
+        ";",
+        ""
+    ].join("\n");
+
+    sql += buildInsertQuery("dongle", {
+        "imei": dongle.imei,
+        "is_voice_enabled": f.bool.enc(dongle.isVoiceEnabled),
+        "manufacturer": dongle.manufacturer,
+        "model": dongle.model,
+        "firmware_version": dongle.firmwareVersion
+    }, "UPDATE");
+
+    sql += [
+        "SELECT @dongle_ref:= id_",
+        "FROM dongle",
+        `WHERE imei= ${dongle.imei}`,
+        ";",
+        "SELECT @gateway_location_ref:= id_",
+        "FROM gateway_location",
+        `WHERE ip= ${esc(gatewayIp)}`,
         ";",
         "UPDATE sim",
         "SET",
         "   is_online= 1,",
-        `   password= ${f.esc(password)},`,
-        "   need_password_renewal= (@password_status= 'NEED RENEWAL'),",
-        `   is_voice_enabled= ${f.esc(is_voice_enabled)}`,
+        `   password= ${esc(password)},`,
+        "   dongle= @dongle_ref,",
+        "   gateway_location= @gateway_location_ref,",
+        "   need_password_renewal= (@password_status= 'NEED RENEWAL')",
         "WHERE id_= @sim_ref",
         ";",
         "SELECT",
@@ -579,35 +661,35 @@ export async function setSimOnline(
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN user_sim ON user_sim.user= user.id_",
         "INNER JOIN sim ON sim.id_= user_sim.sim",
-        `WHERE sim.id_= @sim_ref AND user_sim.base64_friendly_name IS NOT NULL`
-    ].join("\n"));
+        `WHERE sim.id_= @sim_ref AND user_sim.friendly_name IS NOT NULL`
+    ].join("\n");
+
+    let queryResults = await query(sql);
 
     if (queryResults[0].length === 0) {
         return { "isSimRegistered": false };
-    } else {
+    }
 
-        let uasRegisteredToSim: Contact.UaSim.Ua[] = [];
+    let uasRegisteredToSim: Contact.UaSim.Ua[] = [];
 
-        for (let row of [...queryResults.pop(), ...queryResults.pop()]) {
+    for (let row of [...queryResults.pop(), ...queryResults.pop()]) {
 
-            uasRegisteredToSim.push({
-                "instance": row["instance"],
-                "userEmail": row["email"],
-                "platform": row["platform"],
-                "pushToken": row["push_token"],
-                "software": row["software"]
-            });
-
-        }
-
-        return {
-            "isSimRegistered": true,
-            "passwordStatus": queryResults[0][0]["password_status"],
-            "storageDigest": queryResults[0][0]["storage_digest"],
-            uasRegisteredToSim
-        };
+        uasRegisteredToSim.push({
+            "instance": row["instance"],
+            "userEmail": row["email"],
+            "platform": row["platform"],
+            "pushToken": row["push_token"],
+            "software": row["software"]
+        });
 
     }
+
+    return {
+        "isSimRegistered": true,
+        "passwordStatus": queryResults[0][0]["password_status"],
+        "storageDigest": queryResults[0][0]["storage_digest"],
+        uasRegisteredToSim
+    };
 
 }
 
@@ -615,7 +697,7 @@ export async function setSimOffline(
     imsi: string
 ) {
     await query(
-        `UPDATE sim SET is_online= 0 WHERE imsi= ${f.esc(imsi)}`
+        `UPDATE sim SET is_online= 0 WHERE imsi= ${esc(imsi)}`
     );
 }
 
@@ -625,14 +707,12 @@ export async function unregisterSim(
     imsi: string
 ): Promise<Contact.UaSim.Ua[]> {
 
-    //TODO: here do not include ua that did not accept sharing request
-    //TODO: test is carriage return allowed in WHERE
     let queryResults = await query([
-        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${f.esc(user)}`,
+        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
         "WHERE",
-        `sim.imsi= ${f.esc(imsi)} AND ( sim.user= ${f.esc(user)} OR user_sim.user= ${f.esc(user)})`,
+        `sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(user)} OR user_sim.user= ${esc(user)})`,
         "GROUP BY sim.id_",
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
@@ -651,13 +731,13 @@ export async function unregisterSim(
         "INNER JOIN user_sim ON user_sim.user= user.id_",
         "WHERE",
         "   user_sim.sim= @sim_ref",
-        "   AND user_sim.base64_friendly_name IS NOT NULL",
-        `   AND ( @is_sim_owned OR user.id_= ${f.esc(user)})`,
+        "   AND user_sim.friendly_name IS NOT NULL",
+        `   AND ( @is_sim_owned OR user.id_= ${esc(user)})`,
         ";",
         "DELETE FROM sim WHERE id_= @sim_ref AND @is_sim_owned",
         ";",
         "DELETE FROM user_sim",
-        `WHERE sim= @sim_ref AND user= ${f.esc(user)} AND NOT @is_sim_owned`
+        `WHERE sim= @sim_ref AND user= ${esc(user)} AND NOT @is_sim_owned`
     ].join("\n"));
 
     let affectedUas: Contact.UaSim.Ua[] = [];
@@ -678,7 +758,6 @@ export async function unregisterSim(
 
 }
 
-//TODO: useless to return UA as sharing request must be accepted first
 /** Return assert emails not empty */
 export async function shareSim(
     auth: Session.Auth,
@@ -695,14 +774,14 @@ export async function shareSim(
     let sql = [
         "SELECT @sim_ref:= id_",
         "FROM sim",
-        `WHERE imsi= ${f.esc(imsi)} AND user= ${f.esc(auth.user)}`,
+        `WHERE imsi= ${esc(imsi)} AND user= ${esc(auth.user)}`,
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own sim')",
         ";",
         "INSERT IGNORE INTO user",
         "   (email, salt, hash)",
         "VALUES",
-        emails.map(email => `   ( ${f.esc(email)}, '', '')`).join(",\n"),
+        emails.map(email => `   ( ${esc(email)}, '', '')`).join(",\n"),
         ";",
         "DROP TABLE IF EXISTS _user",
         ";",
@@ -710,15 +789,15 @@ export async function shareSim(
         "   SELECT user.id_, user.email, user.salt<> '' AS is_registered",
         "   FROM user",
         "   LEFT JOIN user_sim ON user_sim.user= user.id_",
-        `   WHERE ${emails.map(email => `user.email= ${f.esc(email)}`).join(" OR ")}`,
+        `   WHERE ${emails.map(email => `user.email= ${esc(email)}`).join(" OR ")}`,
         "   GROUP BY user.id_",
         "   HAVING COUNT(user_sim.id_)=0 OR SUM(user_sim.sim= @sim_ref)=0",
         ")",
         ";",
         "INSERT INTO user_sim",
-        "   (user, sim, base64_friendly_name, base64_sharing_request_message)",
+        "   (user, sim, friendly_name, sharing_request_message)",
         "SELECT",
-        `   id_, @sim_ref, NULL, ${f.esc(f.b64.enc(sharingRequestMessage))}`,
+        `   id_, @sim_ref, NULL, ${esc(sharingRequestMessage || null)}`,
         "FROM _user",
         ";",
         "SELECT * from _user"
@@ -762,7 +841,7 @@ export async function stopSharingSim(
     let sql = [
         "SELECT @sim_ref:= id_",
         "FROM sim",
-        `WHERE imsi= ${f.esc(imsi)} AND user= ${f.esc(user)}`,
+        `WHERE imsi= ${esc(imsi)} AND user= ${esc(user)}`,
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own SIM')",
         ";",
@@ -773,10 +852,10 @@ export async function stopSharingSim(
         "       user_sim.id_,",
         "       user_sim.user,",
         "       user.email,",
-        "       user_sim.base64_friendly_name IS NOT NULL as is_confirmed",
+        "       user_sim.friendly_name IS NOT NULL as is_confirmed",
         "   FROM user_sim",
         "   INNER JOIN user ON user.id_= user_sim.user",
-        `   WHERE user_sim.sim= @sim_ref AND (${emails.map(email => `user.email= ${f.esc(email)}`).join(" OR ")})`,
+        `   WHERE user_sim.sim= @sim_ref AND (${emails.map(email => `user.email= ${esc(email)}`).join(" OR ")})`,
         ")",
         ";",
         "SELECT ua.*, _user_sim.email, @ua_found:= 1",
@@ -822,29 +901,27 @@ export async function setSimFriendlyName(
     friendlyName: string
 ): Promise<Contact.UaSim.Ua[]> {
 
-    let b64FriendlyName = f.b64.enc(friendlyName);
-
     let sql = [
-        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${f.esc(user)}`,
+        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
-        `WHERE sim.imsi= ${f.esc(imsi)} AND ( sim.user= ${f.esc(user)} OR user_sim.user= ${f.esc(user)})`,
+        `WHERE sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(user)} OR user_sim.user= ${esc(user)})`,
         "GROUP BY sim.id_",
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
         ";",
         "UPDATE sim",
-        `SET base64_friendly_name= ${f.esc(b64FriendlyName)}`,
+        `SET friendly_name= ${esc(friendlyName)}`,
         "WHERE id_= @sim_ref AND @is_sim_owned",
         ";",
         "UPDATE user_sim",
-        `SET base64_friendly_name= ${f.esc(b64FriendlyName)}, base64_sharing_request_message= NULL`,
-        `WHERE sim= @sim_ref AND user= ${f.esc(user)} AND NOT @is_sim_owned`,
+        `SET friendly_name= ${esc(friendlyName)}, sharing_request_message= NULL`,
+        `WHERE sim= @sim_ref AND user= ${esc(user)} AND NOT @is_sim_owned`,
         ";",
         "SELECT ua.*, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user= ${f.esc(user)}`
+        `WHERE user= ${esc(user)}`
     ].join("\n");
 
     let queryResults = await query(sql);
@@ -877,7 +954,7 @@ export async function getSimOwner(
         "SELECT user.*",
         "FROM user",
         "INNER JOIN sim ON sim.user= user.id_",
-        `WHERE sim.imsi= ${f.esc(imsi)}`
+        `WHERE sim.imsi= ${esc(imsi)}`
     ].join("\n"));
 
     if (!rows.length) {

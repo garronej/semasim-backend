@@ -5,11 +5,11 @@ import { spawn } from "child_process";
 const dataFile = "/usr/share/GeoIP/GeoLiteCity.dat";
 
 export type GeoInfo = {
-    country: string;
-    subdivisions: string;
-    city: string;
-    postalCode: string;
-}
+    countryIso: string | undefined;
+    subdivisions: string | undefined;
+    city: string | undefined;
+    postalCode: string | undefined;
+};
 
 /** May reject error */
 export function geoiplookup(address: string): Promise<GeoInfo> {
@@ -34,8 +34,13 @@ export function geoiplookup(address: string): Promise<GeoInfo> {
                     return;
                 }
 
+                for( let i of [1, 2, 3, 4] ){
+                    (parsed as any)[i]= (parsed[i] === "N/A")?
+                        undefined : parsed[i];
+                }
+
                 resolve({
-                    "country": parsed[1].toLowerCase(),
+                    "countryIso": parsed[1],
                     "subdivisions": parsed[2],
                     "city": parsed[3],
                     "postalCode": parsed[4]
@@ -71,3 +76,5 @@ export function geoiplookup(address: string): Promise<GeoInfo> {
     );
 
 }
+
+//geoiplookup("70.235.134.249").then(res=> console.log({ res })).catch(err=> console.log({ err }));

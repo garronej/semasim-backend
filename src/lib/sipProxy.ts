@@ -31,13 +31,11 @@ export namespace gatewaySockets {
 
     export function add(gwSocket: sipLibrary.Socket){
 
-        debug("Add GW socket");
-
         let ip= gwSocket.remoteAddress;
 
         if (!byIp.has(ip)) {
 
-            db.addIp(ip);
+            db.addGatewayLocation(ip);
 
             byIp.set(ip, new Set());
         }

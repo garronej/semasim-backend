@@ -271,12 +271,15 @@ export const handlers: Handlers= {};
 
             if (!password) throw new Error("assert");
 
-            let userUas = await db.registerSim(
-                dongle.sim,
-                password,
+            //NEED password, simDongle & gatewayIp
+
+            let userUas= await db.registerSim(
                 session.auth!.user,
-                friendlyName,
-                dongle.isVoiceEnabled
+                dongle.sim,
+                friendlyName, 
+                password, 
+                dongle, 
+                donglePathMap.get(dongle)!.remoteAddress
             );
 
             await utils.sendPushNotification.toUas(userUas, "RELOAD CONFIG");
