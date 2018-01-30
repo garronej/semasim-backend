@@ -40,7 +40,7 @@ export function geoiplookup(address: string): Promise<GeoInfo> {
                 }
 
                 resolve({
-                    "countryIso": parsed[1],
+                    "countryIso": parsed[1].toLowerCase(),
                     "subdivisions": parsed[2],
                     "city": parsed[3],
                     "postalCode": parsed[4]
