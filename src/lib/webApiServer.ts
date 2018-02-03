@@ -1,8 +1,7 @@
 import * as express from "express";
 import { Session } from "./web";
-import { webApiDeclaration } from "../semasim-frontend";
+import { webApiDeclaration, JSON_CUSTOM } from "../semasim-frontend";
 const apiPath = webApiDeclaration.apiPath;
-import JSON_CUSTOM= webApiDeclaration.JSON_CUSTOM;
 
 import "colors";
 import * as _debug from "debug";

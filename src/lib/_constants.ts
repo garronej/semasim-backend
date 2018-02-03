@@ -50,6 +50,8 @@ export class c {
 
     public static readonly reg_expires = 21601;
 
+    public static readonly uuidNs= "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9";
+
     //TODO: put in dongle extended client
     public static readonly regExpImeiImsi = /^[0-9]{15}$/;
 

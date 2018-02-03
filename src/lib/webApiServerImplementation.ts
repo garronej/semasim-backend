@@ -1,8 +1,9 @@
 import { DongleController as Dc } from "chan-dongle-extended-client";
-import { webApiDeclaration as apiDeclaration } from "../semasim-frontend";
+import { webApiDeclaration as d } from "../semasim-frontend";
 import { Session } from "./web";
 import { Handler, Handlers } from "./webApiServer";
 import * as db from "./db";
+import * as dbw from "./dbWebphone";
 import * as sipProxy from "./sipProxy";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import * as sipApiServer from "./sipApiBackendServerImplementation";
@@ -20,9 +21,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.registerUser.methodName;
-    type Params = apiDeclaration.registerUser.Params;
-    type Response = apiDeclaration.registerUser.Response;
+    let methodName = d.registerUser.methodName;
+    type Params = d.registerUser.Params;
+    type Response = d.registerUser.Response;
 
     handlers[methodName] = {
         "needAuth": false,
@@ -49,9 +50,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.loginUser.methodName;
-    type Params = apiDeclaration.loginUser.Params;
-    type Response = apiDeclaration.loginUser.Response;
+    let methodName = d.loginUser.methodName;
+    type Params = d.loginUser.Params;
+    type Response = d.loginUser.Response;
 
     handlers[methodName] = {
         "needAuth": false,
@@ -87,9 +88,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.logoutUser.methodName;
-    type Params = apiDeclaration.logoutUser.Params;
-    type Response = apiDeclaration.logoutUser.Response;
+    let methodName = d.logoutUser.methodName;
+    type Params = d.logoutUser.Params;
+    type Response = d.logoutUser.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -108,9 +109,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.sendRenewPasswordEmail.methodName;
-    type Params = apiDeclaration.sendRenewPasswordEmail.Params;
-    type Response = apiDeclaration.sendRenewPasswordEmail.Response;
+    let methodName = d.sendRenewPasswordEmail.methodName;
+    type Params = d.sendRenewPasswordEmail.Params;
+    type Response = d.sendRenewPasswordEmail.Response;
 
     handlers[methodName] = {
         "needAuth": false,
@@ -138,9 +139,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.getSims.methodName;
-    type Params = apiDeclaration.getSims.Params;
-    type Response = apiDeclaration.getSims.Response;
+    let methodName = d.getSims.methodName;
+    type Params = d.getSims.Params;
+    type Response = d.getSims.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -153,9 +154,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.getUnregisteredLanDongles.methodName;
-    type Params = apiDeclaration.getUnregisteredLanDongles.Params;
-    type Response = apiDeclaration.getUnregisteredLanDongles.Response;
+    let methodName = d.getUnregisteredLanDongles.methodName;
+    type Params = d.getUnregisteredLanDongles.Params;
+    type Response = d.getUnregisteredLanDongles.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -175,9 +176,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.unlockSim.methodName;
-    type Params = apiDeclaration.unlockSim.Params;
-    type Response = apiDeclaration.unlockSim.Response;
+    let methodName = d.unlockSim.methodName;
+    type Params = d.unlockSim.Params;
+    type Response = d.unlockSim.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -243,9 +244,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.registerSim.methodName;
-    type Params = apiDeclaration.registerSim.Params;
-    type Response = apiDeclaration.registerSim.Response;
+    let methodName = d.registerSim.methodName;
+    type Params = d.registerSim.Params;
+    type Response = d.registerSim.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -294,9 +295,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.unregisterSim.methodName;
-    type Params = apiDeclaration.unregisterSim.Params;
-    type Response = apiDeclaration.unregisterSim.Response;
+    let methodName = d.unregisterSim.methodName;
+    type Params = d.unregisterSim.Params;
+    type Response = d.unregisterSim.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -337,9 +338,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.shareSim.methodName;
-    type Params = apiDeclaration.shareSim.Params;
-    type Response = apiDeclaration.shareSim.Response;
+    let methodName = d.shareSim.methodName;
+    type Params = d.shareSim.Params;
+    type Response = d.shareSim.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -378,9 +379,9 @@ export const handlers: Handlers= {};
 
 (() => {
 
-    let methodName = apiDeclaration.stopSharingSim.methodName;
-    type Params = apiDeclaration.stopSharingSim.Params;
-    type Response = apiDeclaration.stopSharingSim.Response;
+    let methodName = d.stopSharingSim.methodName;
+    type Params = d.stopSharingSim.Params;
+    type Response = d.stopSharingSim.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -434,9 +435,9 @@ export const handlers: Handlers= {};
 //TODO: define max length of friendly name
 (() => {
 
-    let methodName = apiDeclaration.setSimFriendlyName.methodName;
-    type Params = apiDeclaration.setSimFriendlyName.Params;
-    type Response = apiDeclaration.setSimFriendlyName.Response;
+    let methodName = d.setSimFriendlyName.methodName;
+    type Params = d.setSimFriendlyName.Params;
+    type Response = d.setSimFriendlyName.Response;
 
     handlers[methodName] = {
         "needAuth": true,
@@ -471,9 +472,9 @@ export const handlers: Handlers= {};
 //TODO: define max length of friendly name
 (() => {
 
-    let methodName = apiDeclaration.getUaConfig.methodName;
-    type Params = apiDeclaration.getUaConfig.Params;
-    type Response = apiDeclaration.getUaConfig.Response;
+    let methodName = d.getUaConfig.methodName;
+    type Params = d.getUaConfig.Params;
+    type Response = d.getUaConfig.Response;
 
     const hexToUtf8 = (hexStr: string) =>
         (new Buffer(hexStr, "hex")).toString("utf8");
@@ -583,41 +584,197 @@ export const handlers: Handlers= {};
 })();
 
 
+import dw= d.webphoneData;
+
 (() => {
 
-    let methodName = apiDeclaration.fetchWebUaData.methodName;
-    type Params = apiDeclaration.fetchWebUaData.Params;
-    type Response = apiDeclaration.fetchWebUaData.Response;
+    let methodName = dw.fetch.methodName;
+    type Params = dw.fetch.Params;
+    type Response = dw.fetch.Response;
 
     handlers[methodName] = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": async (params, session): Promise<Response> => 
-            (await db.getWebUaData(session.auth!.user)) || {}
+        "handler": (params, session): Promise<Response> => 
+            dbw.fetch(session.auth!.user)
     } as Handler<Params, Response>;
 
 })();
 
 (() => {
 
-    let methodName = apiDeclaration.pushWebUaData.methodName;
-    type Params = apiDeclaration.pushWebUaData.Params;
-    type Response = apiDeclaration.pushWebUaData.Response;
+    let methodName = dw.newInstance.methodName;
+    type Params = dw.newInstance.Params;
+    type Response = dw.newInstance.Response;
 
     handlers[methodName] = {
         "needAuth": true,
         "contentType": "application/json",
-        "sanityChecks": params => params instanceof Object,
-        "handler": async (params, session): Promise<Response> => {
+        "sanityChecks": params => (
+            params instanceof Object &&
+            Dc.isImsiWellFormed(params.imsi)
+        ),
+        "handler": (params, session): Promise<Response> => 
+            dbw.newInstance(session.auth!.user, params.imsi)
+    } as Handler<Params, Response>;
 
-            let webUaData = params;
+})();
 
-            await db.storeWebUaData(session.auth!.user, webUaData);
+(() => {
 
-            return;
+    let methodName = dw.newChat.methodName;
+    type Params = dw.newChat.Params;
+    type Response = dw.newChat.Response;
 
-        }
+    handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.instance_id === "number" &&
+            typeof params.contactNumber === "string" &&
+            typeof params.contactName === "string" &&
+            typeof params.isContactInSim === "boolean"
+        ),
+        "handler": (params, session): Promise<Response> => 
+            dbw.newChat(
+                session.auth!.user,
+                params.instance_id,
+                params.contactNumber,
+                params.contactName,
+                params.isContactInSim
+            )
+    } as Handler<Params, Response>;
+
+})();
+
+(() => {
+
+    let methodName = dw.updateChat.methodName;
+    type Params = dw.updateChat.Params;
+    type Response = dw.updateChat.Response;
+
+    handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.chat_id === "number" &&
+            ( 
+                params.lastSeenTime === undefined ||
+                typeof params.lastSeenTime === "number" 
+            ) && ( 
+                params.contactName === undefined ||
+                typeof params.contactName === "string" 
+            ) && ( 
+                params.isContactInSim === undefined ||
+                typeof params.isContactInSim === "boolean" 
+            ) 
+        ),
+        "handler": (params, session): Promise<Response> => 
+            dbw.updateChat(
+                session.auth!.user,
+                params.chat_id,
+                params.lastSeenTime,
+                params.contactName,
+                params.isContactInSim
+            )
+    } as Handler<Params, Response>;
+
+})();
+
+(() => {
+
+    let methodName = dw.destroyChat.methodName;
+    type Params = dw.destroyChat.Params;
+    type Response = dw.destroyChat.Response;
+
+    handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.chat_id === "number"
+        ),
+        "handler": (params, session): Promise<Response> => 
+            dbw.destroyChat(session.auth!.user, params.chat_id)
+    } as Handler<Params, Response>;
+
+})();
+
+(() => {
+
+    let methodName = dw.newMessage.methodName;
+    type Params = dw.newMessage.Params;
+    type Response = dw.newMessage.Response;
+
+    handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.chat_id === "number" &&
+            params.message instanceof Object &&
+            typeof params.message.time === "number" &&
+            typeof params.message.text === "string" &&
+            (
+                (
+                    params.message.direction === "INCOMING" &&
+                    typeof params.message.isNotification === "boolean"
+                ) || 
+                (
+                    params.message.direction === "OUTGOING" &&
+                    (
+                        params.message.status === "TRANSMITTED TO GATEWAY" ||
+                        params.message.status === "SENT BY DONGLE" ||
+                        params.message.status === "RECEIVED"
+                    ) &&
+                    params.message.sentBy instanceof Object &&
+                    (
+                        params.message.sentBy.who === "MYSELF" ||
+                        (
+                            params.message.sentBy.who === "OTHER" &&
+                            params.message.sentBy.email.match(c.regExpEmail)
+                        )
+                    )
+                )
+            )
+        ),
+        "handler": (params, session): Promise<Response> =>
+            dbw.newMessage(
+                session.auth!.user, 
+                params.chat_id, 
+                params.message
+            )
+    } as Handler<Params, Response>;
+
+})();
+
+(() => {
+
+    let methodName = dw.updateOutgoingMessageStatus.methodName;
+    type Params = dw.updateOutgoingMessageStatus.Params;
+    type Response = dw.updateOutgoingMessageStatus.Response;
+
+    handlers[methodName] = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.message_id === "number" &&
+            (
+                params.status === "TRANSMITTED TO GATEWAY" ||
+                params.status === "SENT BY DONGLE" ||
+                params.status === "RECEIVED"
+            )
+        ),
+        "handler": (params, session): Promise<Response> => 
+            dbw.updateOutgoingMessageStatus(
+                session.auth!.user,
+                params.message_id,
+                params.status
+            )
     } as Handler<Params, Response>;
 
 })();

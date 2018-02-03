@@ -3,8 +3,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 import { DongleController as Dc } from "chan-dongle-extended-client";
 import * as db from "../lib/db";
 import { mySqlFunctions as f, Contact, genSamples } from "../semasim-gateway";
-import { webApiDeclaration } from "../semasim-frontend";
-import Types = webApiDeclaration.Types;
+import { webApiDeclaration, types } from "../semasim-frontend";
 
 (async () => {
 
@@ -31,10 +30,10 @@ function genIp(): string{
 }
 
 function createUserSimProxy(
-    userSim: Types.UserSim,
-    ownership: Types.SimOwnership.Shared.NotConfirmed
+    userSim: types.UserSim,
+    ownership: types.SimOwnership.Shared.NotConfirmed
 ) {
-    let userSimProxy: Types.UserSim = { ownership } as any;
+    let userSimProxy: types.UserSim = { ownership } as any;
 
     let friendlyName: string | undefined = undefined;
 
@@ -80,7 +79,7 @@ async function testMain() {
         ({
             "user": (await db.createUserAccount(email, f.genUtf8Str(10)))!,
             email,
-            "userSims": [] as Types.UserSim[],
+            "userSims": [] as types.UserSim[],
             "uas": [] as Contact.UaSim.Ua[]
         });
 
@@ -110,7 +109,7 @@ async function testMain() {
 
             if (user === dave) break;
 
-            let userSim: Types.UserSim = {
+            let userSim: types.UserSim = {
                 "sim": genSamples.generateSim(),
                 "friendlyName": f.genUtf8Str(12),
                 "password": f.genHexStr(32),
@@ -175,7 +174,7 @@ async function testMain() {
     }
 
 
-    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+    (alice.userSims[0].ownership as types.SimOwnership.Owned)
         .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
 
     let sharingRequestMessage = f.genUtf8Str(50);
@@ -195,7 +194,7 @@ async function testMain() {
         await db.shareSim(
             { "user": alice.user, "email": alice.email },
             alice.userSims[0].sim.imsi,
-            (alice.userSims[0].ownership as Types.SimOwnership.Owned).sharedWith.notConfirmed,
+            (alice.userSims[0].ownership as types.SimOwnership.Owned).sharedWith.notConfirmed,
             sharingRequestMessage
         ),
         {
@@ -221,11 +220,11 @@ async function testMain() {
             "ownerEmail": alice.email
         };
 
-        (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+        (alice.userSims[0].ownership as types.SimOwnership.Owned)
             .sharedWith.notConfirmed = (() => {
 
                 let set = new Set(
-                    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+                    (alice.userSims[0].ownership as types.SimOwnership.Owned)
                         .sharedWith.notConfirmed
                 );
 
@@ -235,7 +234,7 @@ async function testMain() {
 
             })();
 
-        (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+        (alice.userSims[0].ownership as types.SimOwnership.Owned)
             .sharedWith.confirmed.push(user.email);
 
         uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
@@ -351,11 +350,11 @@ async function testMain() {
     bob.userSims.pop();
     carol.userSims.pop();
 
-    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+    (alice.userSims[0].ownership as types.SimOwnership.Owned)
         .sharedWith.confirmed = (() => {
 
             let set = new Set(
-                (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+                (alice.userSims[0].ownership as types.SimOwnership.Owned)
                     .sharedWith.confirmed
             );
 
@@ -418,7 +417,7 @@ async function testMain() {
 
     dave.userSims.pop();
 
-    (alice.userSims[0].ownership as Types.SimOwnership.Owned)
+    (alice.userSims[0].ownership as types.SimOwnership.Owned)
         .sharedWith.confirmed = [];
 
     f.assertSame(

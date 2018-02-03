@@ -60,6 +60,7 @@ export async function start() {
                 .once("listening", () => resolve())
                 ;
 
+                //TODO: See if we have session on req
             webSocketServer.on("connection", (webSocket, req) =>
                 sipProxy.onClientConnection(
                     webSocket,
