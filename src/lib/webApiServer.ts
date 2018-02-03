@@ -73,6 +73,7 @@ export function start(
             let { methodName } = req.params;
 
             if (!handlers[methodName]) {
+                console.log("no handler".red, { methodName });
                 badRequest();
                 return;
             }
@@ -94,6 +95,7 @@ export function start(
                     try{
                         params= await bodyParser(req);
                     }catch{
+                        console.log("body could not be parsed".red, { params, methodName });
                         badRequest();
                         return;
                     }
@@ -102,6 +104,7 @@ export function start(
             }
 
             if (sanityChecks && !sanityChecks(params)) {
+                console.log("sanity checks failed".red, { params, methodName });
                 badRequest();
                 return;
             }
@@ -118,7 +121,7 @@ export function start(
 
             } catch (error) {
 
-                debug("WEB API INTERNAL SERVER ERROR".red, error);
+                debug("WEB API INTERNAL SERVER ERROR".red,{ methodName, params}, error);
 
                 res.status(httpCodes.internalServerError).end();
                 return;

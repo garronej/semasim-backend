@@ -24,10 +24,10 @@ export async function fetch(
 
     let sql = buildInsertQuery("root", {
         user,
-        ua_instance: `<urn:uuid:${uuidv3(`${user}`, c.uuidNs)}>`
+        "ua_instance": `<urn:uuid:${uuidv3(`${user}`, c.uuidNs)}>`
     }, "IGNORE");
 
-    sql = [
+    sql += [
         "SELECT *",
         "from root",
         `WHERE user= ${esc(user)}`,
@@ -53,10 +53,12 @@ export async function fetch(
         ";",
     ].join("\n");
 
+    let resp= await query(sql);
 
-    let [
-        [rowRoot], rowsInstance, rowsChat, rowsMessage
-    ] = await query(sql);
+    let [ rowRoot ]= resp[1];
+    let rowsInstance= resp[2];
+    let rowsChat= resp[3];
+    let rowsMessage= resp[4];
 
     let webphoneData: types.WebphoneData = {
         "uaInstanceId": rowRoot["ua_instance"],
@@ -176,10 +178,10 @@ export async function newInstance(
         "root": { "@": "root_ref" }
     }, "THROW ERROR");
 
-    let { insertId } = await query(sql);
+    let resp = await query(sql);
 
     return {
-        "id_": insertId,
+        "id_": resp[1].insertId,
         imsi,
         "chats": []
     };
