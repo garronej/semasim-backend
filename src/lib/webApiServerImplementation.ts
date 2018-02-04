@@ -1,6 +1,5 @@
 import { DongleController as Dc } from "chan-dongle-extended-client";
-import { webApiDeclaration as d } from "../semasim-frontend";
-import { Session } from "./web";
+import { webApiDeclaration as d, types } from "../semasim-frontend";
 import { Handler, Handlers } from "./webApiServer";
 import * as db from "./db";
 import * as dbw from "./dbWebphone";
@@ -13,9 +12,6 @@ import { c } from "./_constants";
 
 import * as html_entities from "html-entities";
 const entities= new html_entities.XmlEntities;
-
-import * as _debug from "debug";
-let debug = _debug("_webApiServerImplementation");
 
 export const handlers: Handlers= {};
 
@@ -185,8 +181,9 @@ export const handlers: Handlers= {};
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.imei === "string" &&
-            typeof params.pin === "string" //TODO: regexp pin
+            Dc.isImeiWellFormed(params.imei) &&
+            typeof params.pin === "string" && 
+            params.pin.match(c.regExpPin) !== null
         ),
         "handler": async (params, session, remoteAddress): Promise<Response> => {
 
@@ -219,21 +216,25 @@ export const handlers: Handlers= {};
 
             if (!simOwner) {
 
-                return {
+                let resp: types.UnlockResult.ValidPin.Registerable= {
                     "wasPinValid": true,
                     "isSimRegisterable": true,
                     dongle
                 };
 
+                return resp;
+
             } else {
 
-                return {
+                let resp: types.UnlockResult.ValidPin.NotRegisterable={
                     "wasPinValid": true,
                     "isSimRegisterable": false,
                     "simRegisteredBy": (simOwner.user === session.auth!.user) ?
                         ({ "who": "MYSELF" }) :
                         ({ "who": "OTHER USER", "email": simOwner.email })
                 };
+
+                return resp;
 
             }
 
@@ -477,7 +478,7 @@ export const handlers: Handlers= {};
     type Response = d.getUaConfig.Response;
 
     const hexToUtf8 = (hexStr: string) =>
-        (new Buffer(hexStr, "hex")).toString("utf8");
+        Buffer.from(hexStr, "hex").toString("utf8");
 
     const ov = ` overwrite="true" `;
     const domain = c.shared.domain;
@@ -510,7 +511,7 @@ export const handlers: Handlers= {};
             let contactEntries: string[] = [];
 
             //TODO: maybe find a way to smuggle sim infos in config
-            let contact_parameters = entities.encode(`base64_email=${(new Buffer(email, "utf8")).toString("base64")}`);
+            let contact_parameters = entities.encode(`base64_email=${Buffer.from(email, "utf8").toString("base64")}`);
 
             for (let { sim, friendlyName, password, ownership } of await db.getUserSims(user)) {
 
@@ -735,6 +736,7 @@ import dw= d.webphoneData;
                         params.message.sentBy.who === "MYSELF" ||
                         (
                             params.message.sentBy.who === "OTHER" &&
+                            typeof params.message.sentBy.email === "string" &&
                             params.message.sentBy.email.match(c.regExpEmail)
                         )
                     )

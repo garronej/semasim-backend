@@ -1,12 +1,9 @@
-
 import { sipApi, sipLibrary } from "../semasim-gateway";
 
 import protocol= sipApi.protocol;
 import apiDeclaration= sipApi.gatewayDeclaration;
 
 import { DongleController as Dc } from "chan-dongle-extended-client";
-import * as sipProxy from "./sipProxy";
-import { gatewaySockets } from "./sipProxy";
 
 let sanityChecks: protocol.Client.SanityChecks = {};
 
@@ -24,9 +21,6 @@ sanityChecks[apiDeclaration.getDongles.methodName] =
         for (let dongle of response) {
 
             if (!Dc.Dongle.sanityCheck(dongle)) {
-
-                console.log("sanity check get dongles failed");
-
                 return false;
             }
 
@@ -50,8 +44,6 @@ export async function getDongles(
             .sendRequest(methodName, params, 3000);
 
     } catch{
-
-        console.log("error get dongles");
 
         return [];
 

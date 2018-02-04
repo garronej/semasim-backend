@@ -1,7 +1,7 @@
 import * as RIPEMD160 from 'ripemd160';
 import * as crypto from "crypto";
 import { DongleController as Dc } from "chan-dongle-extended-client";
-import { webApiDeclaration, types } from "../semasim-frontend";
+import { types } from "../semasim-frontend";
 import { Session } from "./web";
 import { geoiplookup } from "../tools/geoiplookup";
 

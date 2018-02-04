@@ -1,8 +1,6 @@
-import * as dns from "dns";
 import * as tls from "tls";
 import * as net from "net";
-import { SyncEvent } from "ts-events-extended";
-import { Contact, sipLibrary } from "../semasim-gateway";
+import { sipLibrary } from "../semasim-gateway";
 import * as networkTools from "../tools/networkTools";
 import * as sipApiServer from "./sipApiBackendServerImplementation";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";

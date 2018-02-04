@@ -4,9 +4,6 @@ import { types } from "../semasim-frontend";
 
 import { c } from "./_constants"
 
-import * as _debug from "debug";
-let debug = _debug("_dbWebphone");
-
 /** Exported only for tests */
 export const { query, esc, buildInsertQuery } = f.getUtils(
     { ...c.dbParamsBackend, "database": "semasim_webphone" },

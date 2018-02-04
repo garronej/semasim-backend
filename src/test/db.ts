@@ -3,7 +3,7 @@ require("rejection-tracker").main(__dirname, "..", "..");
 import { DongleController as Dc } from "chan-dongle-extended-client";
 import * as db from "../lib/db";
 import { mySqlFunctions as f, Contact, genSamples } from "../semasim-gateway";
-import { webApiDeclaration, types } from "../semasim-frontend";
+import { types } from "../semasim-frontend";
 
 (async () => {
 

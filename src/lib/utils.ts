@@ -4,7 +4,6 @@ import * as sipProxy from "./sipProxy";
 import * as pushSender from "../tools/pushSender";
 import { c } from "./_constants";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
-import * as db from "./db";
 import * as _debug from "debug";
 const debug = _debug("_utils");
 

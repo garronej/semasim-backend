@@ -3,6 +3,8 @@
   "description": "Semasim backend server",
   "version": "0.7.0",
   "scripts": {
+    "postinstall": "npm run remove-bold-color",
+    "remove-bold-color": "sed -i '/bold: string;/d' ./node_modules/@types/colors/index.d.ts",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "start": "sudo systemctl stop semasim-backend && sudo DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/lib/main.js",
@@ -43,10 +45,10 @@
     "@types/express-session": "^1.15.3",
     "@types/html-entities": "^1.2.16",
     "@types/morgan": "^1.7.32",
-    "@types/node": "^6.0.0",
+    "@types/node": "^6.0.96",
     "@types/uuid": "^3.4.3",
     "@types/ws": "^4.0.0",
-    "nodemon": "^1.11.0",
-    "typescript": "^2.4.1"
+    "nodemon": "^1.14.12",
+    "typescript": "^2.7.1"
   }
 }

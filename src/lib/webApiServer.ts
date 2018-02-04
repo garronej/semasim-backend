@@ -143,7 +143,7 @@ export function start(
 
             }
 
-            res.send(new Buffer(rawResponse, "utf8"));
+            res.send(Buffer.from(rawResponse, "utf8"));
 
         });
 

@@ -1,12 +1,7 @@
 import * as express from "express";
 //import * as logger from "morgan";
-import * as path from "path";
 import { Session } from "./web";
-import * as fs from "fs";
 import * as frontend from "../semasim-frontend";
-
-import * as _debug from "debug";
-let debug = _debug("_webPagesServer");
 
 export function start(app: express.Express) {
 

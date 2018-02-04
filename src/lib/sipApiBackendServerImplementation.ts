@@ -8,10 +8,6 @@ import * as utils from "./utils";
 import { DongleController as Dc } from "chan-dongle-extended-client";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import { Session } from "./web";
-import { c } from "./_constants";
-
-import * as _debug from "debug";
-const debug = _debug("_sipApiBackendServerImplementation");
 
 const handlers: protocol.Server.Handlers = {};
 let sanityChecks: protocol.Server.SanityChecks = {};

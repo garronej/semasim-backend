@@ -59,6 +59,8 @@ export class c {
 
     public static readonly regExpEmail =
         /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    
+    public static readonly regExpPin = /^[0-9]{4}$/;
 
     //TODO: better regexp
     public static readonly regExpPassword = /^[0-9a-zA-Z]{6,}$/;
