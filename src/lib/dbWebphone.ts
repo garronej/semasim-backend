@@ -297,13 +297,13 @@ export async function newMessage(
         "INNER JOIN root ON root.id_= instance.root",
         `WHERE root.user= ${esc(user)} AND chat.id_= ${esc(chat_id)}`,
         ";",
-        `DELETE FROM chat WHERE id_= ${esc(chat_id)}`
+        ""
     ].join("\n");
 
     sql += buildInsertQuery("message", {
         "chat": chat_id,
         "time": message.time,
-        "test": message.text,
+        "text": message.text,
         "is_incoming": f.bool.enc(message.direction === "INCOMING"),
         "incoming_is_notification": (message.direction === "INCOMING") ?
             f.bool.enc(message.isNotification) : null,
