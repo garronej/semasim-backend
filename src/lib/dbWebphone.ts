@@ -1,6 +1,7 @@
 import { mySqlFunctions as f } from "../semasim-gateway";
 const uuidv3 = require("uuid/v3");
 import { types } from "../semasim-frontend";
+import { Session } from "./web";
 
 import { c } from "./_constants"
 
@@ -16,11 +17,11 @@ export async function flush() {
 }
 
 export async function fetch(
-    user: number
+    { user, email }: Session.Auth
 ): Promise<types.WebphoneData> {
 
     let sql = buildInsertQuery("root", {
-        user,
+        "user": user,
         "ua_instance": `<urn:uuid:${uuidv3(`${user}`, c.uuidNs)}>`
     }, "IGNORE");
 
@@ -59,6 +60,7 @@ export async function fetch(
 
     let webphoneData: types.WebphoneData = {
         "uaInstanceId": rowRoot["ua_instance"],
+        email,
         "instances": []
     };
 

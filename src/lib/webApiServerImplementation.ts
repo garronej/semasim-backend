@@ -598,7 +598,7 @@ import dw= d.webphoneData;
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
         "handler": (params, session): Promise<Response> => 
-            dbw.fetch(session.auth!.user)
+            dbw.fetch(session.auth!)
     } as Handler<Params, Response>;
 
 })();
