@@ -1,11 +1,36 @@
-import { DongleController as Dc } from "chan-dongle-extended-client";
-import { sipLibrary, Contact } from "../semasim-gateway";
+import { types as dcTypes } from "chan-dongle-extended-client";
+import { sipLibrary, types as gwTypes } from "../semasim-gateway";
 import * as sipProxy from "./sipProxy";
 import * as pushSender from "../tools/pushSender";
-import { c } from "./_constants";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
+import * as fs from "fs";
+import * as c from "./_constants";
+
 import * as _debug from "debug";
 const debug = _debug("_utils");
+
+export function getTlsOptions(): typeof c.tlsPath {
+
+    if( getTlsOptions.out ){
+        return getTlsOptions.out;
+    }
+
+    getTlsOptions.out= Object.assign({}, c.tlsPath);
+
+    for( let key in c.tlsPath ){
+        getTlsOptions.out[key]= fs.readFileSync(c.tlsPath[key], "utf8");
+    }
+
+    return getTlsOptions();
+
+}
+
+export namespace getTlsOptions {
+
+    export let out: typeof c.tlsPath | undefined= undefined;
+
+}
+
 
 export function createSelfMaintainedSocketMap<Key>(): Map<Key, sipLibrary.Socket>{
 
@@ -72,7 +97,7 @@ export namespace simPassword{
 }
 
 export function qualifyContact(
-    contact: Contact,
+    contact: gwTypes.Contact,
     timeout = 2500
 ): Promise<boolean> | false {
 
@@ -200,7 +225,7 @@ export namespace qualifyContact {
 
 //TODO: implement reload config!!!!
 export function sendPushNotification(
-    ua: Contact.UaSim.Ua,
+    ua: gwTypes.Ua,
     reloadConfig: "RELOAD CONFIG" | undefined= undefined
 ): Promise<boolean> {
 
@@ -251,17 +276,17 @@ export namespace sendPushNotification {
         const map = new Map<string, Promise<boolean>>();
 
         export function get(
-            ua: Contact.UaSim.Ua
+            ua: gwTypes.Ua
         ) {
-            return map.get(Contact.UaSim.Ua.id(ua));
+            return map.get(gwTypes.misc.generateUaId(ua));
         }
 
         export function set(
-            ua: Contact.UaSim.Ua,
+            ua: gwTypes.Ua,
             prIsSent: Promise<boolean>
         ) {
 
-            let uaId = Contact.UaSim.Ua.id(ua);
+            let uaId= gwTypes.misc.generateUaId(ua);
 
             switch (ua.platform) {
                 case "iOS":
@@ -279,7 +304,7 @@ export namespace sendPushNotification {
     }
 
     export async function toUas(
-        uas: Iterable<Contact.UaSim.Ua>,
+        uas: Iterable<gwTypes.Ua>,
         reloadConfig: "RELOAD CONFIG" | undefined = undefined
     ){
 
@@ -299,13 +324,13 @@ export namespace sendPushNotification {
 
 export async function getDonglesConnectedFrom(
     remoteAddress: string
-): Promise<Map<Dc.Dongle, sipLibrary.Socket>> {
+): Promise<Map<dcTypes.Dongle, sipLibrary.Socket>> {
 
     let gatewaySockets = await sipProxy.gatewaySockets.getConnectedFrom(remoteAddress);
 
     let tasks: Promise<void>[] = [];
 
-    let map = new Map<Dc.Dongle, sipLibrary.Socket>();
+    let map = new Map<dcTypes.Dongle, sipLibrary.Socket>();
 
     for (let gatewaySocket of gatewaySockets) {
 

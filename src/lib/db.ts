@@ -1,20 +1,24 @@
 import * as RIPEMD160 from 'ripemd160';
 import * as crypto from "crypto";
-import { DongleController as Dc } from "chan-dongle-extended-client";
-import { types } from "../semasim-frontend";
 import { Session } from "./web";
 import { geoiplookup } from "../tools/geoiplookup";
 
-import { mySqlFunctions as f, Contact } from "../semasim-gateway";
+import { 
+    mySqlFunctions as f, 
+    types as gwTypes 
+} from "../semasim-gateway";
+import { types as dcTypes } from "chan-dongle-extended-client";
+import { types as feTypes } from "../semasim-frontend";
 
-import { c } from "./_constants"
+import * as c from "./_constants";
 
 import * as _debug from "debug";
 let debug = _debug("_db");
 
 /** Exported only for tests */
 export const { query, esc, buildInsertQuery } = f.getUtils(
-    c.dbParamsBackend, "HANDLE STRING ENCODING"
+    { ...c.dbParamsBackend, "database": "semasim" },
+    "HANDLE STRING ENCODING"
 );
 
 /** For test purpose only */
@@ -156,11 +160,11 @@ export async function addGatewayLocation(ip: string) {
  */
 export async function filterDongleWithRegistrableSim(
     user: number,
-    dongles: Dc.Dongle[]
-): Promise<Dc.Dongle[]> {
+    dongles: Iterable<dcTypes.Dongle>
+): Promise<dcTypes.Dongle[]> {
 
-    let registrableDongles: Dc.Dongle[] = [];
-    let dongleWithReadableIccid: Dc.Dongle[] = []
+    let registrableDongles: dcTypes.Dongle[] = [];
+    let dongleWithReadableIccid: dcTypes.Dongle[] = []
 
     for (let dongle of dongles) {
 
@@ -199,7 +203,7 @@ export async function filterDongleWithRegistrableSim(
                 if (!registeredBy) {
                     return true;
                 } else {
-                    return (registeredBy === user) && Dc.LockedDongle.match(dongle);
+                    return (registeredBy === user) && dcTypes.Dongle.Locked.match(dongle);
                 }
 
             }
@@ -213,12 +217,12 @@ export async function filterDongleWithRegistrableSim(
 /** return user UAs */
 export async function registerSim(
     user: number,
-    sim: Dc.ActiveDongle["sim"],
+    sim: dcTypes.Sim,
     friendlyName: string,
     password: string,
-    dongle: types.UserSim["dongle"],
+    dongle: feTypes.UserSim["dongle"],
     gatewayIp: string
-): Promise<Contact.UaSim.Ua[]> {
+): Promise<gwTypes.Ua[]> {
 
     let sql = buildInsertQuery("dongle", {
         "imei": dongle.imei,
@@ -293,7 +297,7 @@ export async function registerSim(
 
     let queryResults = await query(sql);
 
-    let userUas: Contact.UaSim.Ua[] = [];
+    let userUas: gwTypes.Ua[] = [];
 
     for (let row of queryResults.pop()) {
 
@@ -313,7 +317,7 @@ export async function registerSim(
 
 export async function getUserSims(
     user: number
-): Promise<types.UserSim[]> {
+): Promise<feTypes.UserSim[]> {
 
     let sql = [
         "SELECT",
@@ -379,7 +383,7 @@ export async function getUserSims(
     ] = await query(sql);
 
     let sharedWithBySim: {
-        [imsi: string]: types.SimOwnership.Owned["sharedWith"]
+        [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
     } = {};
 
     for (let row of rowsSharedWith) {
@@ -399,7 +403,7 @@ export async function getUserSims(
 
     }
 
-    let contactsBySim: { [imsi: string]: Dc.Contact[]; } = {};
+    let contactsBySim: { [imsi: string]: dcTypes.Sim.Contact[]; } = {};
 
     for (let row of [...rowsContactSimOwned, ...rowsContactSimShared]) {
 
@@ -423,11 +427,11 @@ export async function getUserSims(
 
     }
 
-    let userSims: types.UserSim[] = [];
+    let userSims: feTypes.UserSim[] = [];
 
     for (let row of [...rowsSimOwned, ...rowsSimShared]) {
 
-        let sim: Dc.ActiveDongle["sim"] = {
+        let sim: dcTypes.Sim = {
             "iccid": row["iccid"],
             "imsi": row["imsi"],
             "country": row["country_name"] ? ({
@@ -454,7 +458,7 @@ export async function getUserSims(
             }
         };
 
-        let dongle: types.UserSim["dongle"] = {
+        let dongle: feTypes.UserSim["dongle"] = {
             "imei": row["imei"],
             "isVoiceEnabled": f.bool.dec(row["is_voice_enabled"]),
             "manufacturer": row["manufacturer"],
@@ -462,14 +466,14 @@ export async function getUserSims(
             "firmwareVersion": row["firmware_version"]
         };
 
-        let gatewayLocation: types.UserSim.GatewayLocation = {
+        let gatewayLocation: feTypes.UserSim.GatewayLocation = {
             "ip": row["ip"],
             "countryIso": row["gw_country_iso"] || undefined,
             "subdivisions": row["subdivisions"] || undefined,
             "city": row["city"] || undefined
         };
 
-        let [friendlyName, ownership] = ((): [string, types.SimOwnership] => {
+        let [friendlyName, ownership] = ((): [string, feTypes.SimOwnership] => {
 
             let ownerEmail = row["email"];
 
@@ -519,7 +523,7 @@ export async function getUserSims(
 
         })();
 
-        let userSim: types.UserSim = {
+        let userSim: feTypes.UserSim = {
             sim,
             friendlyName,
             "password": row["password"],
@@ -538,7 +542,7 @@ export async function getUserSims(
 }
 
 export async function addOrUpdateUa(
-    ua: Contact.UaSim.Ua
+    ua: gwTypes.Ua
 ) {
 
     let sql = [
@@ -567,14 +571,14 @@ export async function setSimOnline(
     imsi: string,
     password: string,
     gatewayIp: string,
-    dongle: types.UserSim["dongle"]
+    dongle: feTypes.UserSim["dongle"]
 ): Promise<{
     isSimRegistered: false;
 } | {
     isSimRegistered: true;
     storageDigest: string;
     passwordStatus: "UNCHANGED" | "RENEWED" | "NEED RENEWAL";
-    uasRegisteredToSim: Contact.UaSim.Ua[];
+    uasRegisteredToSim: gwTypes.Ua[];
 }> {
 
     let sql = [
@@ -641,7 +645,7 @@ export async function setSimOnline(
         return { "isSimRegistered": false };
     }
 
-    let uasRegisteredToSim: Contact.UaSim.Ua[] = [];
+    let uasRegisteredToSim: gwTypes.Ua[] = [];
 
     for (let row of [...queryResults.pop(), ...queryResults.pop()]) {
 
@@ -676,7 +680,7 @@ export async function setSimOffline(
 export async function unregisterSim(
     user: number,
     imsi: string
-): Promise<Contact.UaSim.Ua[]> {
+): Promise<gwTypes.Ua[]> {
 
     let queryResults = await query([
         `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
@@ -711,7 +715,7 @@ export async function unregisterSim(
         `WHERE sim= @sim_ref AND user= ${esc(user)} AND NOT @is_sim_owned`
     ].join("\n"));
 
-    let affectedUas: Contact.UaSim.Ua[] = [];
+    let affectedUas: gwTypes.Ua[] = [];
 
     for (let row of [ ...queryResults[2], ...queryResults[3]]) {
 
@@ -735,7 +739,7 @@ export async function shareSim(
     imsi: string,
     emails: string[],
     sharingRequestMessage: string | undefined
-): Promise<types.AffectedUsers> {
+): Promise<feTypes.AffectedUsers> {
 
     emails = emails
         .map(email => email.toLowerCase())
@@ -804,7 +808,7 @@ export async function stopSharingSim(
     user: number,
     imsi: string,
     emails: string[]
-): Promise<Contact.UaSim.Ua[]> {
+): Promise<gwTypes.Ua[]> {
 
     emails = emails.map(email => email.toLowerCase());
 
@@ -847,7 +851,7 @@ export async function stopSharingSim(
 
     let uaRows = queryResults[4];
 
-    let noLongerRegisteredUas: Contact.UaSim.Ua[] = [];
+    let noLongerRegisteredUas: gwTypes.Ua[] = [];
 
     for (let row of uaRows) {
 
@@ -870,7 +874,7 @@ export async function setSimFriendlyName(
     user: number,
     imsi: string,
     friendlyName: string
-): Promise<Contact.UaSim.Ua[]> {
+): Promise<gwTypes.Ua[]> {
 
     let sql = [
         `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
@@ -899,7 +903,7 @@ export async function setSimFriendlyName(
 
     let uaRows = queryResults.pop();
 
-    let userUas: Contact.UaSim.Ua[] = [];
+    let userUas: gwTypes.Ua[] = [];
 
     for (let row of uaRows) {
 

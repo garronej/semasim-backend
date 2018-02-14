@@ -1,5 +1,9 @@
-import { DongleController as Dc } from "chan-dongle-extended-client";
-import { webApiDeclaration as d, types } from "../semasim-frontend";
+import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
+import { types as dcTypes } from "chan-dongle-extended-client";
+import { 
+    webApiDeclaration as d, 
+    types as feTypes
+} from "../semasim-frontend";
 import { Handler, Handlers } from "./webApiServer";
 import * as db from "./db";
 import * as dbw from "./dbWebphone";
@@ -8,12 +12,21 @@ import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import * as sipApiServer from "./sipApiBackendServerImplementation";
 import * as utils from "./utils";
 
-import { c } from "./_constants";
+import * as c from "./_constants";
+
+import { types as gwTypes } from "../semasim-gateway";
+import isValidEmail= gwTypes.misc.isValidEmail
+
+
 
 import * as html_entities from "html-entities";
 const entities= new html_entities.XmlEntities;
 
 export const handlers: Handlers= {};
+
+//TODO: regexp for password once and for all!!!
+//TODO: regexp for friendly name!!!
+//TODO: set some reasonable max length for text messages... maybe set max packet length
 
 (() => {
 
@@ -21,17 +34,15 @@ export const handlers: Handlers= {};
     type Params = d.registerUser.Params;
     type Response = d.registerUser.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response>= {
         "needAuth": false,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.email === "string" &&
-            params.email.match(c.regExpEmail) !== null &&
-            typeof params.password === "string" &&
-            params.password.match(c.regExpPassword) !== null
+            isValidEmail(params.email) &&
+            typeof params.password === "string"
         ),
-        "handler": async (params): Promise<Response> => {
+        "handler": async params => {
 
             let { email, password } = params;
 
@@ -40,7 +51,9 @@ export const handlers: Handlers= {};
             return user?"CREATED":"EMAIL NOT AVAILABLE";
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName]= handler;
 
 })();
 
@@ -50,17 +63,15 @@ export const handlers: Handlers= {};
     type Params = d.loginUser.Params;
     type Response = d.loginUser.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.email === "string" &&
-            params.email.match(c.regExpEmail) !== null &&
-            typeof params.password === "string" &&
-            params.password.match(c.regExpPassword) !== null
+            isValidEmail(params.email) &&
+            typeof params.password === "string"
         ),
-        "handler": async (params, session): Promise<Response> => {
+        "handler": async (params, session) => {
 
             let { email, password } = params;
 
@@ -78,7 +89,9 @@ export const handlers: Handlers= {};
             return true;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName]= handler;
 
 })();
 
@@ -88,18 +101,20 @@ export const handlers: Handlers= {};
     type Params = d.logoutUser.Params;
     type Response = d.logoutUser.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": async (params, session): Promise<Response> => {
+        "handler": async (params, session) => {
 
             session.auth= undefined;
 
-            return;
+            return undefined;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName]= handler;
 
 })();
 
@@ -109,15 +124,14 @@ export const handlers: Handlers= {};
     type Params = d.sendRenewPasswordEmail.Params;
     type Response = d.sendRenewPasswordEmail.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.email === "string" &&
-            params.email.match(c.regExpEmail) !== null 
+            isValidEmail(params.email)
         ),
-        "handler": async (params): Promise<Response> => {
+        "handler": async params=> {
 
             let { email } = params;
 
@@ -128,7 +142,9 @@ export const handlers: Handlers= {};
             return hash !== undefined;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName]= handler;
 
 })();
 
@@ -139,12 +155,14 @@ export const handlers: Handlers= {};
     type Params = d.getSims.Params;
     type Response = d.getSims.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": (params, session): Promise<Response> => db.getUserSims(session.auth!.user)
-    } as Handler<Params, Response>;
+        "handler": (params, session)=> db.getUserSims(session.auth!.user)
+    };
+
+    handlers[methodName]= handler;
 
 })();
 
@@ -154,18 +172,18 @@ export const handlers: Handlers= {};
     type Params = d.getUnregisteredLanDongles.Params;
     type Response = d.getUnregisteredLanDongles.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": async (params, session, remoteAddress): Promise<Response> => 
+        "handler": async (params, session, remoteAddress) =>
             db.filterDongleWithRegistrableSim(
                 session.auth!.user,
-                Array.from(
-                    (await utils.getDonglesConnectedFrom(remoteAddress)).keys()
-                )
+                (await utils.getDonglesConnectedFrom(remoteAddress)).keys()
             )
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -176,24 +194,24 @@ export const handlers: Handlers= {};
     type Params = d.unlockSim.Params;
     type Response = d.unlockSim.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            Dc.isImeiWellFormed(params.imei) &&
-            typeof params.pin === "string" && 
-            params.pin.match(c.regExpPin) !== null
+            dcSanityChecks.imei(params.imei) &&
+            typeof params.pin === "string" &&
+            !!params.pin.match(/^[0-9]{4}$/)
         ),
-        "handler": async (params, session, remoteAddress): Promise<Response> => {
+        "handler": async (params, session, remoteAddress)=> {
 
             let { imei, pin } = params;
 
             let donglePathMap = await utils.getDonglesConnectedFrom(remoteAddress);
 
             let lockedDongle = Array.from(donglePathMap.keys()).find(
-                dongle => Dc.LockedDongle.match(dongle) && dongle.imei === imei
-            ) as Dc.LockedDongle | undefined;
+                dongle => dcTypes.Dongle.Locked.match(dongle) && dongle.imei === imei
+            ) as dcTypes.Dongle.Locked | undefined;
 
             if (!lockedDongle) throw new Error("assert 0");
 
@@ -216,7 +234,7 @@ export const handlers: Handlers= {};
 
             if (!simOwner) {
 
-                let resp: types.UnlockResult.ValidPin.Registerable= {
+                let resp: feTypes.UnlockResult.ValidPin.Registerable = {
                     "wasPinValid": true,
                     "isSimRegisterable": true,
                     dongle
@@ -226,7 +244,7 @@ export const handlers: Handlers= {};
 
             } else {
 
-                let resp: types.UnlockResult.ValidPin.NotRegisterable={
+                let resp: feTypes.UnlockResult.ValidPin.NotRegisterable = {
                     "wasPinValid": true,
                     "isSimRegisterable": false,
                     "simRegisteredBy": (simOwner.user === session.auth!.user) ?
@@ -239,7 +257,9 @@ export const handlers: Handlers= {};
             }
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -249,23 +269,23 @@ export const handlers: Handlers= {};
     type Params = d.registerSim.Params;
     type Response = d.registerSim.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.imsi === "string" &&
+            dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"
         ),
-        "handler": async (params, session, remoteAddress): Promise<Response> => {
+        "handler": async (params, session, remoteAddress) => {
 
             let { imsi, friendlyName } = params;
 
             let donglePathMap = await utils.getDonglesConnectedFrom(remoteAddress);
 
             let dongle = Array.from(donglePathMap.keys()).find(
-                dongle => Dc.ActiveDongle.match(dongle) && dongle.sim.imsi === imsi
-            ) as Dc.ActiveDongle | undefined;
+                dongle => dcTypes.Dongle.Usable.match(dongle) && dongle.sim.imsi === imsi
+            ) as dcTypes.Dongle.Usable | undefined;
 
             if (!dongle) throw new Error("assert");
 
@@ -273,14 +293,12 @@ export const handlers: Handlers= {};
 
             if (!password) throw new Error("assert");
 
-            //NEED password, simDongle & gatewayIp
-
-            let userUas= await db.registerSim(
+            let userUas = await db.registerSim(
                 session.auth!.user,
                 dongle.sim,
-                friendlyName, 
-                password, 
-                dongle, 
+                friendlyName,
+                password,
+                dongle,
                 donglePathMap.get(dongle)!.remoteAddress
             );
 
@@ -289,7 +307,9 @@ export const handlers: Handlers= {};
             return undefined;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -300,14 +320,14 @@ export const handlers: Handlers= {};
     type Params = d.unregisterSim.Params;
     type Response = d.unregisterSim.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.imsi === "string"
+            dcSanityChecks.imsi(params.imsi)
         ),
-        "handler": async (params, session): Promise<Response> => {
+        "handler": async (params, session)=> {
 
             let { imsi } = params;
 
@@ -315,8 +335,6 @@ export const handlers: Handlers= {};
                 session.auth!.user,
                 imsi
             );
-
-            //TODO: force sim to reconnect and remove all ua sim
 
             let gwSocket = sipProxy.gatewaySockets.getSimRoute(imsi);
 
@@ -331,7 +349,9 @@ export const handlers: Handlers= {};
             return undefined;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -343,22 +363,18 @@ export const handlers: Handlers= {};
     type Params = d.shareSim.Params;
     type Response = d.shareSim.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.imsi === "string" &&
+            dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
-            params.emails.find(
-                email => (
-                    typeof email !== "string" ||
-                    email.match(c.regExpEmail) === null
-                )
-            ) === undefined &&
+            !!params.emails.length &&
+            !params.emails.find( email => !isValidEmail(email)) &&
             typeof params.message === "string"
         ),
-        "handler": async (params, session): Promise<Response>=> {
+        "handler": async (params, session) => {
 
             let { imsi, emails, message } = params;
 
@@ -374,7 +390,9 @@ export const handlers: Handlers= {};
             return affectedUsers;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -384,22 +402,17 @@ export const handlers: Handlers= {};
     type Params = d.stopSharingSim.Params;
     type Response = d.stopSharingSim.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.imsi === "string" &&
+            dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
             !!params.emails.length &&
-            params.emails.find(
-                email => (
-                    typeof email !== "string" ||
-                    email.match(c.regExpEmail) === null
-                )
-            ) === undefined
+            !params.emails.find( email => !isValidEmail(email))
         ),
-        "handler": async (params, session): Promise<Response> => {
+        "handler": async (params, session)=> {
 
             let { imsi, emails } = params;
 
@@ -429,26 +442,27 @@ export const handlers: Handlers= {};
             return undefined;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
-//TODO: define max length of friendly name
 (() => {
 
     let methodName = d.setSimFriendlyName.methodName;
     type Params = d.setSimFriendlyName.Params;
     type Response = d.setSimFriendlyName.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            typeof params.imsi === "string" &&
+            dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"
         ),
-        "handler": async (params, session): Promise<Response> => {
+        "handler": async (params, session) => {
 
             let { imsi, friendlyName } = params;
 
@@ -466,11 +480,12 @@ export const handlers: Handlers= {};
             return undefined;
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
-//TODO: define max length of friendly name
 (() => {
 
     let methodName = d.getUaConfig.methodName;
@@ -483,24 +498,22 @@ export const handlers: Handlers= {};
     const ov = ` overwrite="true" `;
     const domain = c.shared.domain;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": false,
         "contentType": "application/xml",
         "sanityChecks": params => {
             try {
                 return (
-                    hexToUtf8(params.email_as_hex)
-                        .match(c.regExpEmail) !== null &&
-                    hexToUtf8(params.password_as_hex)
-                        .match(c.regExpPassword) !== null
+                    isValidEmail(hexToUtf8(params.email_as_hex)) &&
+                    typeof hexToUtf8(params.password_as_hex) === "string"
                 );
             } catch {
                 return false;
             }
         },
-        "handler": async (params): Promise<Response> => {
+        "handler": async params=> {
 
-            let email = hexToUtf8(params.email_as_hex).toLocaleLowerCase();
+            let email = hexToUtf8(params.email_as_hex).toLowerCase();
             let password = hexToUtf8(params.password_as_hex);
 
             let user = await db.authenticateUser(email, password);
@@ -528,7 +541,7 @@ export const handlers: Handlers= {};
                     `  <section name="proxy_${endpointEntries.length}">`,
                     `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=tls</entry>`,
                     `    <entry name="reg_route" ${ov}>sip:${domain};transport=tls;lr</entry>`,
-                    `    <entry name="reg_expires" ${ov}>${c.reg_expires}</entry>`,
+                    `    <entry name="reg_expires" ${ov}>${21601}</entry>`,
                     [
                         `    <entry name="reg_identity" ${ov}>`,
                         entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=tls>`),
@@ -579,13 +592,15 @@ export const handlers: Handlers= {};
             ].join("\n");
 
         }
-    } as Handler<Params, Response>;
+    };
+
+    handlers[methodName] = handler;
 
 
 })();
 
 
-import dw= d.webphoneData;
+import dw = d.webphoneData;
 
 (() => {
 
@@ -593,13 +608,14 @@ import dw= d.webphoneData;
     type Params = dw.fetch.Params;
     type Response = dw.fetch.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => params === undefined,
-        "handler": (params, session): Promise<Response> => 
-            dbw.fetch(session.auth!)
-    } as Handler<Params, Response>;
+        "handler": (params, session) => dbw.fetch(session.auth!)
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -609,16 +625,20 @@ import dw= d.webphoneData;
     type Params = dw.newInstance.Params;
     type Response = dw.newInstance.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
-            Dc.isImsiWellFormed(params.imsi)
+            dcSanityChecks.imsi(params.imsi)
         ),
-        "handler": (params, session): Promise<Response> => 
-            dbw.newInstance(session.auth!.user, params.imsi)
-    } as Handler<Params, Response>;
+        "handler": (params, session) => dbw.newInstance(
+            session.auth!.user,
+            params.imsi
+        )
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -628,7 +648,7 @@ import dw= d.webphoneData;
     type Params = dw.newChat.Params;
     type Response = dw.newChat.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
@@ -638,15 +658,16 @@ import dw= d.webphoneData;
             typeof params.contactName === "string" &&
             typeof params.isContactInSim === "boolean"
         ),
-        "handler": (params, session): Promise<Response> => 
-            dbw.newChat(
-                session.auth!.user,
-                params.instance_id,
-                params.contactNumber,
-                params.contactName,
-                params.isContactInSim
-            )
-    } as Handler<Params, Response>;
+        "handler": (params, session) => dbw.newChat(
+            session.auth!.user,
+            params.instance_id,
+            params.contactNumber,
+            params.contactName,
+            params.isContactInSim
+        )
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -656,32 +677,33 @@ import dw= d.webphoneData;
     type Params = dw.updateChat.Params;
     type Response = dw.updateChat.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
             typeof params.chat_id === "number" &&
-            ( 
+            (
                 params.lastSeenTime === undefined ||
-                typeof params.lastSeenTime === "number" 
-            ) && ( 
+                typeof params.lastSeenTime === "number"
+            ) && (
                 params.contactName === undefined ||
-                typeof params.contactName === "string" 
-            ) && ( 
+                typeof params.contactName === "string"
+            ) && (
                 params.isContactInSim === undefined ||
-                typeof params.isContactInSim === "boolean" 
-            ) 
-        ),
-        "handler": (params, session): Promise<Response> => 
-            dbw.updateChat(
-                session.auth!.user,
-                params.chat_id,
-                params.lastSeenTime,
-                params.contactName,
-                params.isContactInSim
+                typeof params.isContactInSim === "boolean"
             )
-    } as Handler<Params, Response>;
+        ),
+        "handler": (params, session) => dbw.updateChat(
+            session.auth!.user,
+            params.chat_id,
+            params.lastSeenTime,
+            params.contactName,
+            params.isContactInSim
+        )
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -691,16 +713,20 @@ import dw= d.webphoneData;
     type Params = dw.destroyChat.Params;
     type Response = dw.destroyChat.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
             params instanceof Object &&
             typeof params.chat_id === "number"
         ),
-        "handler": (params, session): Promise<Response> => 
-            dbw.destroyChat(session.auth!.user, params.chat_id)
-    } as Handler<Params, Response>;
+        "handler": (params, session) => dbw.destroyChat(
+            session.auth!.user,
+            params.chat_id
+        )
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -710,7 +736,7 @@ import dw= d.webphoneData;
     type Params = dw.newMessage.Params;
     type Response = dw.newMessage.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
@@ -723,7 +749,7 @@ import dw= d.webphoneData;
                 (
                     params.message.direction === "INCOMING" &&
                     typeof params.message.isNotification === "boolean"
-                ) || 
+                ) ||
                 (
                     params.message.direction === "OUTGOING" &&
                     (
@@ -736,20 +762,20 @@ import dw= d.webphoneData;
                         params.message.sentBy.who === "MYSELF" ||
                         (
                             params.message.sentBy.who === "OTHER" &&
-                            typeof params.message.sentBy.email === "string" &&
-                            params.message.sentBy.email.match(c.regExpEmail)
+                            isValidEmail(params.message.sentBy.email)
                         )
                     )
                 )
             )
         ),
-        "handler": (params, session): Promise<Response> =>
-            dbw.newMessage(
-                session.auth!.user, 
-                params.chat_id, 
-                params.message
-            )
-    } as Handler<Params, Response>;
+        "handler": (params, session) => dbw.newMessage(
+            session.auth!.user,
+            params.chat_id,
+            params.message
+        )
+    };
+
+    handlers[methodName] = handler;
 
 })();
 
@@ -759,7 +785,7 @@ import dw= d.webphoneData;
     type Params = dw.updateOutgoingMessageStatus.Params;
     type Response = dw.updateOutgoingMessageStatus.Response;
 
-    handlers[methodName] = {
+    let handler: Handler<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json",
         "sanityChecks": params => (
@@ -771,12 +797,13 @@ import dw= d.webphoneData;
                 params.status === "RECEIVED"
             )
         ),
-        "handler": (params, session): Promise<Response> => 
-            dbw.updateOutgoingMessageStatus(
-                session.auth!.user,
-                params.message_id,
-                params.status
-            )
-    } as Handler<Params, Response>;
+        "handler": (params, session) => dbw.updateOutgoingMessageStatus(
+            session.auth!.user,
+            params.message_id,
+            params.status
+        )
+    };
+
+    handlers[methodName] = handler;
 
 })();

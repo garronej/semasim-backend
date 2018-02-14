@@ -1,7 +1,10 @@
 import * as express from "express";
 import { Session } from "./web";
-import { webApiDeclaration, JSON_CUSTOM } from "../semasim-frontend";
+import { webApiDeclaration } from "../semasim-frontend";
+import * as ttJC from "transfer-tools/dist/lib/JSON_CUSTOM";
 const apiPath = webApiDeclaration.apiPath;
+
+const JSON_CUSTOM= ttJC.get();
 
 import "colors";
 import * as _debug from "debug";

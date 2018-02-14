@@ -1,9 +1,79 @@
-require("rejection-tracker").main(__dirname, "..", "..");
+// require("rejection-tracker").main(__dirname, "..", "..");
 
-import { DongleController as Dc } from "chan-dongle-extended-client";
+import { types as dcTypes } from "chan-dongle-extended-client";
+import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
+import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
+import { testing as ttTesting } from "transfer-tools";
+import assertSame = ttTesting.assertSame;
+import { types as gwTypes, generateUa } from "../semasim-gateway";
+import { types as feTypes } from "../semasim-frontend";
+
 import * as db from "../lib/db";
-import { mySqlFunctions as f, Contact, genSamples } from "../semasim-gateway";
-import { types } from "../semasim-frontend";
+
+export function generateSim(
+    contactCount: number = ~~(Math.random() * 200)
+): dcTypes.Sim {
+
+    let sim: dcTypes.Sim = {
+        "imsi": ttTesting.genDigits(15),
+        "iccid": ttTesting.genDigits(22),
+        "country": Date.now() % 2 === 0 ?
+            undefined : ({
+                "name": "France",
+                "iso": "fr",
+                "code": 33
+            }),
+        "serviceProvider": {
+            "fromImsi": ttTesting.genUtf8Str(10),
+            "fromNetwork": ttTesting.genUtf8Str(5),
+        },
+        "storage": {
+            "number": Date.now() % 2 === 0 ?
+                undefined :
+                ({ "asStored": ttTesting.genDigits(10), "localFormat": `+${ttTesting.genDigits(9)}` }),
+            "infos": {
+                "contactNameMaxLength": ~~(Math.random() * 15),
+                "numberMaxLength": ~~(Math.random() * 10),
+                "storageLeft": ~~(Math.random() * 300)
+            },
+            "contacts": [],
+            "digest": ""
+        }
+    };
+
+    let index = 1;
+
+    while (contactCount--) {
+
+        index += ~~(Math.random() * 10) + 1;
+
+        sim.storage.contacts.push({
+            index,
+            "name": {
+                "asStored": ttTesting.genUtf8Str(10),
+                "full": ttTesting.genUtf8Str(15)
+            },
+            "number": {
+                "asStored": ttTesting.genDigits(10),
+                "localFormat": ttTesting.genDigits(10)
+            }
+        });
+
+    }
+
+    
+
+    sim.storage.digest = dcMisc.computeSimStorageDigest(
+        sim.storage.number?sim.storage.number.asStored:undefined,
+        sim.storage.infos.storageLeft,
+        sim.storage.contacts
+    );
+
+    console.assert(dcSanityChecks.simStorage(sim.storage));
+
+    return sim;
+
+}
 
 (async () => {
 
@@ -30,10 +100,10 @@ function genIp(): string{
 }
 
 function createUserSimProxy(
-    userSim: types.UserSim,
-    ownership: types.SimOwnership.Shared.NotConfirmed
+    userSim: feTypes.UserSim,
+    ownership: feTypes.SimOwnership.Shared.NotConfirmed
 ) {
-    let userSimProxy: types.UserSim = { ownership } as any;
+    let userSimProxy: feTypes.UserSim = { ownership } as any;
 
     let friendlyName: string | undefined = undefined;
 
@@ -75,12 +145,12 @@ async function testMain() {
 
     await db.flush();
 
-    const genUser = async (email: string = `${f.genHexStr(20)}@foobar.com`) =>
+    const genUser = async (email: string = `${ttTesting.genHexStr(20)}@foobar.com`) =>
         ({
-            "user": (await db.createUserAccount(email, f.genUtf8Str(10)))!,
+            "user": (await db.createUserAccount(email, ttTesting.genUtf8Str(10)))!,
             email,
-            "userSims": [] as types.UserSim[],
-            "uas": [] as Contact.UaSim.Ua[]
+            "userSims": [] as feTypes.UserSim[],
+            "uas": [] as gwTypes.Ua[]
         });
 
     let alice = await genUser();
@@ -96,7 +166,7 @@ async function testMain() {
 
             if (user === carol) break;
 
-            let ua = genSamples.generateUa(user.email);
+            let ua = generateUa(user.email);
 
             user.uas.push(ua);
 
@@ -109,16 +179,16 @@ async function testMain() {
 
             if (user === dave) break;
 
-            let userSim: types.UserSim = {
-                "sim": genSamples.generateSim(),
-                "friendlyName": f.genUtf8Str(12),
-                "password": f.genHexStr(32),
+            let userSim: feTypes.UserSim = {
+                "sim": generateSim(),
+                "friendlyName": ttTesting.genUtf8Str(12),
+                "password": ttTesting.genHexStr(32),
                 "dongle": {
-                    "imei": f.genDigits(15),
+                    "imei": ttTesting.genDigits(15),
                     "isVoiceEnabled": (Date.now()%2===0)?true:undefined,
-                    "manufacturer": f.genUtf8Str(7),
-                    "model": f.genUtf8Str(7),
-                    "firmwareVersion": `1.${f.genDigits(3)}.${f.genDigits(3)}`
+                    "manufacturer": ttTesting.genUtf8Str(7),
+                    "model": ttTesting.genUtf8Str(7),
+                    "firmwareVersion": `1.${ttTesting.genDigits(3)}.${ttTesting.genDigits(3)}`
                 },
                 "gatewayLocation": {
                     "ip": genIp(),
@@ -152,7 +222,7 @@ async function testMain() {
 
             user.userSims.push(userSim);
 
-            f.assertSame(
+            assertSame(
                 await db.registerSim( 
                     user.user, 
                     userSim.sim, 
@@ -166,7 +236,7 @@ async function testMain() {
 
         }
 
-        f.assertSame(
+        assertSame(
             await db.getUserSims(user.user),
             user.userSims
         );
@@ -174,10 +244,10 @@ async function testMain() {
     }
 
 
-    (alice.userSims[0].ownership as types.SimOwnership.Owned)
+    (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
         .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
 
-    let sharingRequestMessage = f.genUtf8Str(50);
+    let sharingRequestMessage = ttTesting.genUtf8Str(50);
 
     for (let user of [bob, carol, dave]) {
 
@@ -190,11 +260,11 @@ async function testMain() {
     }
 
     //TODO: compare emails that we get
-    f.assertSame(
+    assertSame(
         await db.shareSim(
             { "user": alice.user, "email": alice.email },
             alice.userSims[0].sim.imsi,
-            (alice.userSims[0].ownership as types.SimOwnership.Owned).sharedWith.notConfirmed,
+            (alice.userSims[0].ownership as feTypes.SimOwnership.Owned).sharedWith.notConfirmed,
             sharingRequestMessage
         ),
         {
@@ -205,26 +275,26 @@ async function testMain() {
 
     for (let user of [alice, bob, carol, dave]) {
 
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
 
     }
 
-    let uasRegisteredToSim: Contact.UaSim.Ua[] = [...alice.uas];
+    let uasRegisteredToSim: gwTypes.Ua[] = [...alice.uas];
 
     for (let user of [bob, carol, dave]) {
 
-        user.userSims[user.userSims.length - 1].friendlyName = f.genUtf8Str(12);
+        user.userSims[user.userSims.length - 1].friendlyName = ttTesting.genUtf8Str(12);
 
         user.userSims[user.userSims.length - 1].ownership = {
             "status": "SHARED CONFIRMED",
             "ownerEmail": alice.email
         };
 
-        (alice.userSims[0].ownership as types.SimOwnership.Owned)
+        (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
             .sharedWith.notConfirmed = (() => {
 
                 let set = new Set(
-                    (alice.userSims[0].ownership as types.SimOwnership.Owned)
+                    (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
                         .sharedWith.notConfirmed
                 );
 
@@ -234,12 +304,12 @@ async function testMain() {
 
             })();
 
-        (alice.userSims[0].ownership as types.SimOwnership.Owned)
+        (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
             .sharedWith.confirmed.push(user.email);
 
         uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
 
-        f.assertSame(
+        assertSame(
             await db.setSimFriendlyName(
                 user.user,
                 alice.userSims[0].sim.imsi,
@@ -248,11 +318,11 @@ async function testMain() {
             user.uas
         );
 
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
 
-        f.assertSame(await db.getUserSims(alice.user), alice.userSims);
+        assertSame(await db.getUserSims(alice.user), alice.userSims);
 
-        f.assertSame(
+        assertSame(
             await db.setSimOnline(
                 alice.userSims[0].sim.imsi,
                 alice.userSims[0].password,
@@ -274,12 +344,12 @@ async function testMain() {
     await db.setSimOffline(alice.userSims[0].sim.imsi);
 
     for (let user of [alice, bob, carol, dave]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
-    f.assertSame(
+    assertSame(
         await db.setSimOnline(
-            f.genDigits(15),
+            ttTesting.genDigits(15),
             alice.userSims[0].password,
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
@@ -291,7 +361,7 @@ async function testMain() {
     alice.userSims[0].dongle.isVoiceEnabled = false;
 
 
-    f.assertSame(
+    assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
@@ -307,12 +377,12 @@ async function testMain() {
     );
 
     for (let user of [alice, bob, carol, dave]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
-    alice.userSims[0].password = f.genHexStr(32);
+    alice.userSims[0].password = ttTesting.genHexStr(32);
 
-    f.assertSame(
+    assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
@@ -328,12 +398,12 @@ async function testMain() {
     );
 
     for (let user of [alice, bob, carol, dave]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
-    alice.userSims[0].friendlyName = f.genUtf8Str(11);
+    alice.userSims[0].friendlyName = ttTesting.genUtf8Str(11);
 
-    f.assertSame(
+    assertSame(
         await db.setSimFriendlyName(
             alice.user,
             alice.userSims[0].sim.imsi,
@@ -342,7 +412,7 @@ async function testMain() {
         alice.uas
     );
 
-    f.assertSame(
+    assertSame(
         await db.getSimOwner(alice.userSims[0].sim.imsi),
         { "user": alice.user, "email": alice.email }
     );
@@ -350,11 +420,11 @@ async function testMain() {
     bob.userSims.pop();
     carol.userSims.pop();
 
-    (alice.userSims[0].ownership as types.SimOwnership.Owned)
+    (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
         .sharedWith.confirmed = (() => {
 
             let set = new Set(
-                (alice.userSims[0].ownership as types.SimOwnership.Owned)
+                (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
                     .sharedWith.confirmed
             );
 
@@ -365,7 +435,7 @@ async function testMain() {
 
         })();
 
-    f.assertSame(
+    assertSame(
         await db.stopSharingSim(
             alice.user,
             alice.userSims[0].sim.imsi,
@@ -375,10 +445,10 @@ async function testMain() {
     );
 
     for (let user of [alice, bob, carol, dave]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
-    f.assertSame(
+    assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
@@ -393,9 +463,9 @@ async function testMain() {
         }
     );
 
-    alice.userSims[0].password = f.genHexStr(32);
+    alice.userSims[0].password = ttTesting.genHexStr(32);
 
-    f.assertSame(
+    assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
@@ -411,21 +481,21 @@ async function testMain() {
     );
 
     for (let user of [alice, dave]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
 
     dave.userSims.pop();
 
-    (alice.userSims[0].ownership as types.SimOwnership.Owned)
+    (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
         .sharedWith.confirmed = [];
 
-    f.assertSame(
+    assertSame(
         await db.unregisterSim(dave.user, alice.userSims[0].sim.imsi),
         dave.uas
     );
 
-    f.assertSame(
+    assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
@@ -441,7 +511,7 @@ async function testMain() {
     );
 
     for (let user of [alice, dave]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
     let eve = await genUser(unregisteredEmail);
@@ -452,11 +522,11 @@ async function testMain() {
         "sharingRequestMessage": sharingRequestMessage
     }));
 
-    f.assertSame(await db.getUserSims(eve.user), eve.userSims);
+    assertSame(await db.getUserSims(eve.user), eve.userSims);
 
     for (let _ of new Array(~~(Math.random() * 2) + 1)) {
 
-        let ua = genSamples.generateUa(eve.email);
+        let ua = generateUa(eve.email);
 
         eve.uas.push(ua);
 
@@ -466,7 +536,7 @@ async function testMain() {
 
     eve.userSims.pop();
 
-    f.assertSame(
+    assertSame(
         await db.unregisterSim(
             alice.user,
             alice.userSims.shift()!.sim.imsi
@@ -475,20 +545,20 @@ async function testMain() {
     );
 
     for (let user of [alice, eve]) {
-        f.assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user.user), user.userSims);
     }
 
-    let dongles: Dc.ActiveDongle[] = [
+    let dongles: dcTypes.Dongle.Usable[] = [
         {
-            "imei": f.genDigits(15),
+            "imei": ttTesting.genDigits(15),
             "manufacturer": "Whatever",
             "model": "Foo Bar",
             "firmwareVersion": "1.000.223",
             "isVoiceEnabled": true,
-            "sim": genSamples.generateSim()
+            "sim": generateSim()
         },
         {
-            "imei": f.genDigits(15),
+            "imei": ttTesting.genDigits(15),
             "manufacturer": alice.userSims[0].dongle.manufacturer,
             "model": alice.userSims[0].dongle.model,
             "firmwareVersion": alice.userSims[0].dongle.firmwareVersion,
@@ -497,7 +567,7 @@ async function testMain() {
         }
     ];
 
-    f.assertSame(
+    assertSame(
         await db.filterDongleWithRegistrableSim(
             alice.user,
             dongles

@@ -9,10 +9,11 @@ import * as webApiServer from "./webApiServer";
 import { handlers as apiHandlers } from "./webApiServerImplementation";
 import * as webPagesServer from "./webPagesServer";
 import * as sipProxy from "./sipProxy";
+import * as utils from "./utils";
 
 import * as WebSocket from "ws";
 
-import { c } from "./_constants";
+import * as c from "./_constants";
 
 
 import * as _debug from "debug";
@@ -30,6 +31,12 @@ export namespace Session {
     };
 }
 
+const sessionMiddleware= session({ 
+    "secret": "xSoLe9d3=", 
+    "resave": false, 
+    "saveUninitialized": false 
+});
+
 export async function start() {
 
     let hostname = `www.${c.shared.domain}`;
@@ -43,14 +50,14 @@ export async function start() {
 
             app
                 .use(forceDomain({ hostname }))
-                .use(session({ "secret": "xSoLe9d3=", "resave": false, "saveUninitialized": false }))
+                .use(sessionMiddleware)
                 ;
 
             webApiServer.start(app, apiHandlers);
 
             webPagesServer.start(app);
 
-            let httpsServer = https.createServer(c.tlsOptions);
+            let httpsServer = https.createServer(utils.getTlsOptions());
 
             let webSocketServer = new WebSocket.Server({ "server": httpsServer });
 
@@ -60,18 +67,41 @@ export async function start() {
                 .once("listening", () => resolve())
                 ;
 
-                //TODO: See if we have session on req
-            webSocketServer.on("connection", (webSocket, req) =>
+
+            webSocketServer.on("connection", async (webSocket, req) => {
+
+                await new Promise<void>(
+                    resolve => (sessionMiddleware as any)(req, {}, () => resolve())
+                );
+
+                let auth: Session.Auth;
+
+                try {
+
+                    auth = (req["session"] as Session).auth!;
+
+                    console.assert(!!auth);
+
+                } catch{
+
+                    webSocket.close();
+
+                    return;
+
+                }
+
                 sipProxy.onClientConnection(
                     webSocket,
                     {
                         "localPort": 443,
                         "remotePort": req.socket.remotePort,
                         "localAddress": interfaceIp,
-                        "remoteAddress": req.socket.remoteAddress
-                    }
-                )
-            );
+                        "remoteAddress": req.socket.remoteAddress,
+                    },
+                    auth
+                );
+
+            });
 
         }
     );

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { c } from "../lib/_constants";
+import * as c from "../lib/_constants";
 
 import * as path from "path";
 const modulePath = path.join(__dirname, "..", "..");

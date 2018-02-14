@@ -3,7 +3,7 @@ import { sipApi, sipLibrary } from "../semasim-gateway";
 import protocol= sipApi.protocol;
 import apiDeclaration= sipApi.gatewayDeclaration;
 
-import { DongleController as Dc } from "chan-dongle-extended-client";
+import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 
 let sanityChecks: protocol.Client.SanityChecks = {};
 
@@ -20,7 +20,7 @@ sanityChecks[apiDeclaration.getDongles.methodName] =
 
         for (let dongle of response) {
 
-            if (!Dc.Dongle.sanityCheck(dongle)) {
+            if (!dcSanityChecks.dongle(dongle)) {
                 return false;
             }
 
@@ -53,7 +53,7 @@ export async function getDongles(
 
 
 sanityChecks[apiDeclaration.unlockDongle.methodName] =
-    Dc.UnlockResult.sanityCheck;
+    dcSanityChecks.unlockResult;
 
 export async function unlockDongle(
     gatewaySocket: sipLibrary.Socket,

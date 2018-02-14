@@ -7,8 +7,9 @@ import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import * as utils from "./utils";
 import * as db from "./db";
 import * as WebSocket from "ws";
+import { Session } from "./web";
 
-import { c } from "./_constants";
+import * as c from "./_constants";
 
 import "colors";
 
@@ -87,7 +88,7 @@ export async function start() {
 
     publicIp = sipIps.publicIp;
 
-    let options: tls.TlsOptions = c.tlsOptions;
+    let options: tls.TlsOptions = utils.getTlsOptions();
 
     let servers: net.Server[] = [];
 
@@ -137,7 +138,11 @@ const uniqNow = (() => {
 })();
 
 export function onClientConnection(socket: net.Socket);
-export function onClientConnection(webSocket: WebSocket, addrAndPorts: sipLibrary.Socket.AddrAndPorts);
+export function onClientConnection(
+    webSocket: WebSocket, 
+    addrAndPorts: sipLibrary.Socket.AddrAndPorts, 
+    auth: Session.Auth
+);
 export function onClientConnection(...inputs: any[]) {
 
     debug("Client connection");
@@ -154,10 +159,24 @@ export function onClientConnection(...inputs: any[]) {
 
         let webSocket: WebSocket = inputs[0];
         let addrAndPort: sipLibrary.Socket.AddrAndPorts = inputs[1];
+        let auth: Session.Auth= inputs[2];
+
+        console.log({ auth });
 
         clientSocket = new sipLibrary.Socket( webSocket, addrAndPort);
 
     }
+
+    clientSocket.localAddressPublic= publicIp;
+
+    //TODO: debug
+
+    clientSocket.evtClose.attach( hasError => {
+
+        console.log(`client socket closed: `.red, { hasError });
+
+    });
+
 
     let connectionId = uniqNow();
 
@@ -288,6 +307,8 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
     let gatewaySocket = new sipLibrary.Socket(gatewaySocketRaw);
 
+    gatewaySocket.localAddressPublic= publicIp;
+
     gatewaySockets.add(gatewaySocket);
 
     gatewaySocket.setKeepAlive(true);
@@ -324,7 +345,7 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             clientSocket.addViaHeader(sipRequest);
 
-            clientSocket.shiftRouteAndUnshiftRecordRoute(sipRequest, publicIp);
+            clientSocket.shiftRouteAndUnshiftRecordRoute(sipRequest);
 
             clientSocket.write(sipRequest);
 
@@ -358,7 +379,7 @@ function onGatewayConnection(gatewaySocketRaw: net.Socket) {
 
             }
 
-            clientSocket.pushRecordRoute(sipResponse, false, publicIp);
+            clientSocket.pushRecordRoute(sipResponse, false);
 
             sipResponse.headers.via.shift();
 

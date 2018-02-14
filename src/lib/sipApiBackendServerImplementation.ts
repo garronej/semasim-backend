@@ -1,11 +1,12 @@
 import { SyncEvent } from "ts-events-extended";
-import { sipApi, sipLibrary, Contact } from "../semasim-gateway";
+import { sipApi, sipLibrary, types as gwTypes } from "../semasim-gateway";
+import { types as dcTypes } from "chan-dongle-extended-client";
+import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import apiDeclaration = sipApi.backendDeclaration;
 import protocol = sipApi.protocol;
 import * as sipProxy from "./sipProxy";
 import * as db from "./db";
 import * as utils from "./utils";
-import { DongleController as Dc } from "chan-dongle-extended-client";
 import * as sipApiGateway from "./sipApiGatewayClientImplementation";
 import { Session } from "./web";
 
@@ -25,7 +26,7 @@ export function startListening(gatewaySocket: sipLibrary.Socket ){
 export function getEvtNewActiveDongle(
     gatewaySocket: sipLibrary.Socket
 ): SyncEvent<{
-    dongle: Dc.ActiveDongle;
+    dongle: dcTypes.Dongle.Usable;
     simOwner: Session["auth"] | undefined;
 }> {
     return gatewaySocket.misc["evtNewActiveDongle"];
@@ -39,11 +40,11 @@ export function getEvtNewActiveDongle(
 
     sanityChecks[methodName] = (params: Params) => (
         params instanceof Object &&
-        Dc.isImsiWellFormed(params.imsi) && 
+        dcSanityChecks.imsi(params.imsi) && 
         typeof params.storageDigest === "string" &&
         typeof params.password === "string" &&
         params.simDongle instanceof Object &&
-        Dc.isImeiWellFormed(params.simDongle.imei) &&
+        dcSanityChecks.imei(params.simDongle.imei) &&
         (
             params.simDongle.isVoiceEnabled === undefined ||
             typeof params.simDongle.isVoiceEnabled === "boolean"
@@ -84,9 +85,9 @@ export function getEvtNewActiveDongle(
 
                 let dongle = (await sipApiGateway.getDongles(fromSocket))
                     .find(dongle => (
-                        Dc.ActiveDongle.match(dongle) &&
+                        dcTypes.Dongle.Usable.match(dongle) &&
                         dongle.sim.imsi === imsi
-                    )) as Dc.ActiveDongle | undefined;
+                    )) as dcTypes.Dongle.Usable | undefined;
 
                 if (dongle) {
 
@@ -149,7 +150,7 @@ export function getEvtNewActiveDongle(
 
     sanityChecks[methodName] = (params: Params) => (
         params instanceof Object &&
-        Dc.isImsiWellFormed(params.imsi)
+        dcSanityChecks.imsi(params.imsi)
     );
 
     handlers[methodName] = async (params: Params, fromSocket): Promise<Response> => {
@@ -180,7 +181,7 @@ export function getEvtNewActiveDongle(
     type Response = apiDeclaration.notifyNewOrUpdatedUa.Response;
 
     sanityChecks[methodName] = (params: Params) =>
-        Contact.UaSim.Ua.sanityCheck(params);
+        gwTypes.misc.sanityChecks.ua(params);
 
     handlers[methodName] = async (params: Params, fromSocket): Promise<Response> => {
 
@@ -202,7 +203,7 @@ export function getEvtNewActiveDongle(
 
     sanityChecks[methodName] = (params: Params) => (
         params instanceof Object &&
-        Contact.sanityCheck(params.contact)
+        gwTypes.misc.sanityChecks.contact(params.contact)
     );
 
     handlers[methodName] = async (params: Params, fromSocket): Promise<Response> => {
@@ -269,7 +270,7 @@ export function getEvtNewActiveDongle(
 
     sanityChecks[methodName] = (params: Params) => (
         params instanceof Object &&
-        Contact.sanityCheck(params.contact)
+        gwTypes.misc.sanityChecks.contact(params.contact)
     );
 
     handlers[methodName] = async (params: Params, fromSocket): Promise<Response> => {

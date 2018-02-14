@@ -2,8 +2,7 @@ import { mySqlFunctions as f } from "../semasim-gateway";
 const uuidv3 = require("uuid/v3");
 import { types } from "../semasim-frontend";
 import { Session } from "./web";
-
-import { c } from "./_constants"
+import * as c from "./_constants"
 
 /** Exported only for tests */
 export const { query, esc, buildInsertQuery } = f.getUtils(
@@ -16,13 +15,16 @@ export async function flush() {
     await query("DELETE FROM root");
 }
 
+
 export async function fetch(
     { user, email }: Session.Auth
 ): Promise<types.WebphoneData> {
 
+    const uuidNs = "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9";
+
     let sql = buildInsertQuery("root", {
         "user": user,
-        "ua_instance": `<urn:uuid:${uuidv3(`${user}`, c.uuidNs)}>`
+        "ua_instance": `uuid:${uuidv3(`${user}`, uuidNs)}`
     }, "IGNORE");
 
     sql += [
