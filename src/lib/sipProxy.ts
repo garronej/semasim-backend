@@ -171,7 +171,7 @@ export function onClientConnection(...inputs: any[]) {
 
     //TODO: debug
 
-    clientSocket.evtClose.attach( hasError => {
+    clientSocket.evtClose.attachOnce( hasError => {
 
         console.log(`client socket closed: `.red, { hasError });
 
@@ -222,7 +222,7 @@ export function onClientConnection(...inputs: any[]) {
             if (!gatewaySocket.evtClose.getHandlers().find(({ boundTo }) => boundTo === clientSocket)) {
 
                 //** when gw socket close then close client socket */
-                gatewaySocket.evtClose.attachOnce(clientSocket, clientSocket.destroy);
+                gatewaySocket.evtClose.attachOnce(clientSocket, ()=> clientSocket.destroy());
 
                 clientSocket.evtClose.attachOnce(() => gatewaySocket!.evtClose.detach(clientSocket));
 
