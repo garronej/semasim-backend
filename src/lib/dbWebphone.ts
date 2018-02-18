@@ -112,19 +112,20 @@ export async function fetch(
             "direction": null as any,
         }
 
+
         if (rowMessage["is_incoming"]) {
 
             let incomingMessage: types.WebphoneData.Message.Incoming = {
                 ...messageBase,
                 "direction": "INCOMING",
-                "isNotification": rowMessage["incoming_is_notification"] === 1
+                "isNotification": (rowMessage["incoming_is_notification"] === 1) as any
             };
 
             message = incomingMessage;
 
         } else {
 
-            let outgoingMessage: types.WebphoneData.Message.Outgoing = {
+            let outgoingBase: types.WebphoneData.Message.Outgoing.Base = {
                 ...messageBase,
                 "direction": "OUTGOING",
                 "sentBy": ((): types.WebphoneData.Message.Outgoing["sentBy"] => {
@@ -138,16 +139,37 @@ export async function fetch(
                     }
 
                 })(),
-                "status": (() => {
-
-                    switch (rowMessage["outgoing_status_code"] as 0 | 1 | 2) {
-                        case 0: return "TRANSMITTED TO GATEWAY";
-                        case 1: return "SENT BY DONGLE";
-                        case 2: return "RECEIVED";
-                    }
-
-                })()
+                "status": null as any
             };
+
+            let outgoingMessage!: types.WebphoneData.Message.Outgoing;
+
+            switch (rowMessage["outgoing_status_code"] as (0 | 1 | 2)) {
+                case 0:
+                    let o0: types.WebphoneData.Message.Outgoing.TransmittedToGateway = {
+                        ...outgoingBase,
+                        "status": "TRANSMITTED TO GATEWAY"
+                    };
+                    outgoingMessage = o0;
+                    break;
+                case 1:
+                    let o1: types.WebphoneData.Message.Outgoing.SendReportReceived = {
+                        ...outgoingBase,
+                        "status": "SEND REPORT RECEIVED",
+                        "dongleSendTime": rowMessage["outgoing_dongle_send_time"]
+                    };
+                    outgoingMessage = o1;
+                    break;
+                case 2:
+                    let o2: types.WebphoneData.Message.Outgoing.StatusReportReceived = {
+                        ...outgoingBase,
+                        "status": "STATUS REPORT RECEIVED",
+                        "dongleSendTime": rowMessage["outgoing_dongle_send_time"],
+                        "deliveredTime": rowMessage["outgoing_delivered_time"]
+                    };
+                    outgoingMessage = o2;
+                    break;
+            }
 
             message = outgoingMessage;
 
@@ -304,26 +326,64 @@ export async function newMessage(
         ""
     ].join("\n");
 
+    let is_incoming: 0 | 1;
+    let incoming_is_notification: 0 | 1 | null;
+    let outgoing_sent_by_email: string | null;
+    let outgoing_status_code: 0 | 1 | 2 | null;
+    let outgoing_dongle_send_time: number | null;
+    let outgoing_delivered_time: number | null;
+
+    if (message.direction === "INCOMING") {
+
+        is_incoming = f.bool.enc(true);
+        incoming_is_notification = f.bool.enc(message.isNotification);
+        outgoing_sent_by_email = null;
+        outgoing_status_code = null;
+        outgoing_dongle_send_time = null;
+        outgoing_delivered_time = null;
+
+    } else {
+
+        is_incoming = f.bool.enc(false);
+        incoming_is_notification = null;
+
+        if( message.sentBy.who === "OTHER" ){
+            outgoing_sent_by_email = message.sentBy.email;
+        }else{
+            outgoing_sent_by_email = null;
+        }
+
+        switch (message.status) {
+            case "TRANSMITTED TO GATEWAY":
+                outgoing_status_code = 0;
+                outgoing_dongle_send_time = null;
+                outgoing_delivered_time = null;
+                break;
+            case "SEND REPORT RECEIVED":
+                outgoing_status_code = 1;
+                outgoing_dongle_send_time = message.dongleSendTime;
+                outgoing_delivered_time = null;
+                break;
+            case "STATUS REPORT RECEIVED":
+                outgoing_status_code = 2;
+                outgoing_dongle_send_time = message.dongleSendTime;
+                outgoing_delivered_time = message.deliveredTime;
+                break;
+            default: throw new Error();
+        }
+
+    }
+
     sql += buildInsertQuery("message", {
         "chat": chat_id,
         "time": message.time,
         "text": message.text,
-        "is_incoming": f.bool.enc(message.direction === "INCOMING"),
-        "incoming_is_notification": (message.direction === "INCOMING") ?
-            f.bool.enc(message.isNotification) : null,
-        "outgoing_sent_by_email": (
-            message.direction === "OUTGOING" &&
-            message.sentBy.who === "OTHER"
-        ) ? message.sentBy.email : null,
-        "outgoing_status_code": (message.direction === "OUTGOING") ? (() => {
-
-            switch (message.status) {
-                case "TRANSMITTED TO GATEWAY": return 0;
-                case "SENT BY DONGLE": return 1;
-                case "RECEIVED": return 2;
-            }
-
-        })() : null
+        is_incoming,
+        incoming_is_notification,
+        outgoing_sent_by_email,
+        outgoing_status_code,
+        outgoing_dongle_send_time,
+        outgoing_delivered_time
     }, "THROW ERROR")
 
     let resp = await query(sql);
@@ -334,14 +394,15 @@ export async function newMessage(
 
 }
 
-export async function updateOutgoingMessageStatus(
+
+export async function updateOutgoingMessageStatusToSendReportReceived(
     user: number,
     message_id: number,
-    status: types.WebphoneData.Message.Outgoing["status"]
+    dongleSendTime: number | null
 ): Promise<undefined> {
 
     let sql = [
-        "SELECT _ASSERT( COUNT(*) , 'Outgoing message does not exist')",
+        "SELECT _ASSERT( COUNT(*) , 'Outgoing message in state transmitted to GW does not exist')",
         "FROM message",
         "INNER JOIN chat ON chat.id_= message.chat",
         "INNER JOIN instance ON instance.id_= chat.instance",
@@ -349,24 +410,54 @@ export async function updateOutgoingMessageStatus(
         "WHERE " + [
             `root.user= ${esc(user)}`,
             `message.id_= ${esc(message_id)}`,
-            `NOT message.is_incoming`
+            `NOT message.is_incoming`,
+            `message.outgoing_status_code= 0`
         ].join(" AND "),
         ";",
         ""
     ].join("\n");
 
     sql += buildInsertQuery("message", {
-        "outgoing_status_code": (() => {
-            switch (status) {
-                case "TRANSMITTED TO GATEWAY": return 0;
-                case "SENT BY DONGLE": return 1;
-                case "RECEIVED": return 2;
-            }
-        })()
+        "id_": message_id,
+        "outgoing_status_code": 1,
+        "outgoing_dongle_send_time": dongleSendTime
     }, "UPDATE");
 
     await query(sql);
 
     return;
-
 }
+
+export async function updateOutgoingMessageStatusToStatusReportReceived(
+    user: number,
+    message_id: number,
+    deliveredTime: number | null
+): Promise<undefined> {
+
+    let sql = [
+        "SELECT _ASSERT( COUNT(*) , 'Outgoing message in state send report received does not exist')",
+        "FROM message",
+        "INNER JOIN chat ON chat.id_= message.chat",
+        "INNER JOIN instance ON instance.id_= chat.instance",
+        "INNER JOIN root ON root.id_= instance.root",
+        "WHERE " + [
+            `root.user= ${esc(user)}`,
+            `message.id_= ${esc(message_id)}`,
+            `NOT message.is_incoming`,
+            `message.outgoing_status_code= 1`
+        ].join(" AND "),
+        ";",
+        ""
+    ].join("\n");
+
+    sql += buildInsertQuery("message", {
+        "id_": message_id,
+        "outgoing_status_code": 2,
+        "outgoing_delivered_time": deliveredTime
+    }, "UPDATE");
+
+    await query(sql);
+
+    return;
+}
+

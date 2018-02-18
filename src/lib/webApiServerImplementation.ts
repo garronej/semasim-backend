@@ -754,8 +754,23 @@ import dw = d.webphoneData;
                     params.message.direction === "OUTGOING" &&
                     (
                         params.message.status === "TRANSMITTED TO GATEWAY" ||
-                        params.message.status === "SENT BY DONGLE" ||
-                        params.message.status === "RECEIVED"
+                        (
+                            params.message.status === "SEND REPORT RECEIVED" &&
+                            (
+                                typeof params.message.dongleSendTime === "number" ||
+                                params.message.dongleSendTime === null
+                            )
+                        ) ||
+                        (
+                            params.message.status === "STATUS REPORT RECEIVED" &&
+                            (
+                                typeof params.message.dongleSendTime === "number" ||
+                                params.message.dongleSendTime === null
+                            ) && (
+                                typeof params.message.deliveredTime === "number" ||
+                                params.message.deliveredTime === null
+                            )
+                        )
                     ) &&
                     params.message.sentBy instanceof Object &&
                     (
@@ -781,9 +796,9 @@ import dw = d.webphoneData;
 
 (() => {
 
-    let methodName = dw.updateOutgoingMessageStatus.methodName;
-    type Params = dw.updateOutgoingMessageStatus.Params;
-    type Response = dw.updateOutgoingMessageStatus.Response;
+    let methodName = dw.updateOutgoingMessageStatusToSendReportReceived.methodName;
+    type Params = dw.updateOutgoingMessageStatusToSendReportReceived.Params;
+    type Response = dw.updateOutgoingMessageStatusToSendReportReceived.Response;
 
     let handler: Handler<Params, Response> = {
         "needAuth": true,
@@ -792,15 +807,42 @@ import dw = d.webphoneData;
             params instanceof Object &&
             typeof params.message_id === "number" &&
             (
-                params.status === "TRANSMITTED TO GATEWAY" ||
-                params.status === "SENT BY DONGLE" ||
-                params.status === "RECEIVED"
+                typeof params.dongleSendTime === "number" ||
+                params.dongleSendTime === null
             )
         ),
-        "handler": (params, session) => dbw.updateOutgoingMessageStatus(
+        "handler": (params, session) => dbw.updateOutgoingMessageStatusToSendReportReceived(
             session.auth!.user,
             params.message_id,
-            params.status
+            params.dongleSendTime
+        )
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
+(() => {
+
+    let methodName = dw.updateOutgoingMessageStatusToStatusReportReceived.methodName;
+    type Params = dw.updateOutgoingMessageStatusToStatusReportReceived.Params;
+    type Response = dw.updateOutgoingMessageStatusToStatusReportReceived.Response;
+
+    let handler: Handler<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json",
+        "sanityChecks": params => (
+            params instanceof Object &&
+            typeof params.message_id === "number" &&
+            (
+                typeof params.deliveredTime === "number" ||
+                params.deliveredTime === null
+            )
+        ),
+        "handler": (params, session) => dbw.updateOutgoingMessageStatusToStatusReportReceived(
+            session.auth!.user,
+            params.message_id,
+            params.deliveredTime
         )
     };
 
