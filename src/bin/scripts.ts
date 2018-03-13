@@ -9,7 +9,7 @@ const systemdServicePath = path.join("/etc", "systemd", "system", `${c.serviceNa
 require("rejection-tracker").main(modulePath);
 
 import * as program from "commander";
-import { commanderFunctions as _ } from "../semasim-gateway"
+import { scriptsTools as _ } from "../semasim-gateway"
 import { unlinkSync } from "fs";
 import "colors";
 

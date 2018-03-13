@@ -1,14 +1,29 @@
-import { mySqlFunctions as f } from "../semasim-gateway";
 const uuidv3 = require("uuid/v3");
-import { types } from "../semasim-frontend";
-import { Session } from "./web";
-import * as c from "./_constants"
+import { types } from "../../../semasim-frontend";
+import { Auth } from "./sessionManager";
+import * as c from "../../_constants"
+import { mysqlCustom as f } from "../../../semasim-gateway";
+import * as networkTools from "../../../tools/networkTools";
 
-/** Exported only for tests */
-export const { query, esc, buildInsertQuery } = f.getUtils(
-    { ...c.dbParamsBackend, "database": "semasim_webphone" },
-    "HANDLE STRING ENCODING"
-);
+/** exported only for tests */
+export let query: f.Api["query"];
+let esc: f.Api["esc"];
+let buildInsertQuery: f.Api["buildInsertQuery"];
+
+/** Must be called and awaited before use */
+export async function launch(): Promise<void> {
+
+    let api = await f.connectAndGetApi({
+        ...c.dbAuth,
+        "database": "semasim_webphone",
+        "localAddress": networkTools.getInterfaceAddressInRange(c.semasim_lan)
+    }, "HANDLE STRING ENCODING");
+
+    query= api.query;
+    esc= api.esc;
+    buildInsertQuery= api.buildInsertQuery;
+
+}
 
 /** For test purpose only */
 export async function flush() {
@@ -17,7 +32,7 @@ export async function flush() {
 
 
 export async function fetch(
-    { user, email }: Session.Auth
+    { user, email }: Auth
 ): Promise<types.WebphoneData> {
 
     const uuidNs = "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9";

@@ -1,14 +1,18 @@
-// require("rejection-tracker").main(__dirname, "..", "..");
+require("rejection-tracker").main(__dirname, "..", "..");
 
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
-import { types as gwTypes, generateUa } from "../semasim-gateway";
+import { 
+    types as gwTypes, 
+    tests_generateUa as generateUa 
+} from "../semasim-gateway";
 import { types as feTypes } from "../semasim-frontend";
+import * as c from "../lib/_constants";
 
-import * as db from "../lib/db";
+import * as db from "../lib/dbSemasim";
 
 export function generateSim(
     contactCount: number = ~~(Math.random() * 200)
@@ -78,6 +82,8 @@ export function generateSim(
 (async () => {
 
     console.log("START TESTING");
+
+    await db.launch(c.dbAuth.host);
 
     await testUser();
 

@@ -1,22 +1,19 @@
-/*
-For dist: 
-import * as networkTools from "semasim-gateway/dist/tools/networkTools";
-import * as sharedConstants from "semasim-gateway/dist/lib/_constants/shared";
-import * as mySqlFunctions from "semasim-gateway/dist/tools/mySqlFunctions";
-import * as types from "semasim-gateway/dist/lib/types";
-import * as sipLibrary from "semasim-gateway/dist/tools/sipLibrary";
-import * as sipApi from "semasim-gateway/dist/lib/sipApi";
-import * as commanderFunctions from "semasim-gateway/dist/tools/commanderFunctions";
-import { generateUa } from "semasim-gateway/dist/test/db";
-*/
 
 import * as networkTools from "../../semasim-gateway/dist/tools/networkTools";
 import * as sharedConstants from "../../semasim-gateway/dist/lib/_constants/shared";
-import * as mySqlFunctions from "../../semasim-gateway/dist/tools/mySqlFunctions";
+import * as mysqlCustom from "../../semasim-gateway/dist/tools/mysqlCustom";
 import * as types from "../../semasim-gateway/dist/lib/types";
 import * as sipLibrary from "../../semasim-gateway/dist/tools/sipLibrary";
-import * as sipApi from "../../semasim-gateway/dist/lib/sipApi";
-import * as commanderFunctions from "../../semasim-gateway/dist/tools/commanderFunctions";
-import { generateUa } from "../../semasim-gateway/dist/test/db";
+import * as scriptsTools from "../../semasim-gateway/dist/tools/scriptsTools";
+import * as sipProxyMisc from "../../semasim-gateway/dist/lib/sipProxy/misc";
 
-export { networkTools, sharedConstants, mySqlFunctions, types, sipLibrary, sipApi, commanderFunctions, generateUa };
+import * as declarationGatewaySocketApi from "../../semasim-gateway/dist/lib/sipApiDeclarations/semasimBackend/gatewaySide/gatewaySockets";
+import * as declarationBackendSocketApi from "../../semasim-gateway/dist/lib/sipApiDeclarations/semasimGateway/backendSocket";
+
+import { generateUa as tests_generateUa } from "../../semasim-gateway/dist/test/dbSemasim";
+
+export { 
+    networkTools, sharedConstants, mysqlCustom, types, sipLibrary, 
+    scriptsTools, declarationGatewaySocketApi, declarationBackendSocketApi, 
+    sipProxyMisc, tests_generateUa 
+};

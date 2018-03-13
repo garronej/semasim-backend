@@ -1,30 +1,21 @@
 import * as path from "path";
-import { PushNotificationCredentials } from "../tools/pushSender";
 import { sharedConstants as shared } from "../semasim-gateway";
+import { PushNotificationCredentials } from "../tools/pushSender";
+
+export const serviceName= "semasim";
 
 export { shared };
 
-export const serviceName = "semasim-backend";
+export const semasim_lan= "172.31.20.0/24";
 
-export const dbParamsBackend = {
-    "host": "127.0.0.1",
+export const dbAuth = {
+    "host": "172.31.19.1",
+    "port": 3306,
     "user": "semasim",
-    "password": "semasim"
+    "password": "5iv2hG50BAhbU7bL"
 };
 
 const pathToPrivate = path.join(__dirname, "..", "..", "..", "private");
-
-export const pushNotificationCredentials: PushNotificationCredentials = {
-    "android": {
-        "pathToServiceAccount": path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json")
-    },
-    "iOS": {
-        "pathToKey": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
-        "keyId": "Y84XM8SSNL",
-        "teamId": "TW9WZG49Q3",
-        "appId": "com.semasim.semasim"
-    }
-};
 
 export const tlsPath = (() => {
 
@@ -38,6 +29,15 @@ export const tlsPath = (() => {
 
 })();
 
-
-
+export const pushNotificationCredentials: PushNotificationCredentials = {
+    "android": {
+        "pathToServiceAccount": path.join(pathToPrivate, "semasimdev-firebase-adminsdk.json")
+    },
+    "iOS": {
+        "pathToKey": path.join(pathToPrivate, "AuthKey_Y84XM8SSNL.p8"),
+        "keyId": "Y84XM8SSNL",
+        "teamId": "TW9WZG49Q3",
+        "appId": "com.semasim.semasim"
+    }
+};
 
