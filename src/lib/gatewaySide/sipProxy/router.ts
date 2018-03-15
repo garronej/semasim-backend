@@ -26,6 +26,8 @@ export function createClientSideSocket(
 
     clientSideSockets.set({ remoteAddress, remotePort }, clientSideSocket);
 
+    clientSideSocket.evtData.attach(data=> console.log("BK-CLI=>BK-GW\n", `${data.toString("utf8").yellow}`));
+
     (() => {
 
         const onPacket = (sipPacketReceived: sipLibrary.Packet) => {
@@ -64,6 +66,8 @@ export function onGwConnection(
 ) {
 
     gatewaySockets.add(gatewaySocket);
+
+    gatewaySocket.evtData.attach(data=> console.log("BK-GW<=GW\n", `${data.toString("utf8")}`));
 
     (() => {
 

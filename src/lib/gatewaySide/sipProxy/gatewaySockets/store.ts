@@ -1,6 +1,7 @@
 
 import { sipLibrary } from "../../../../semasim-gateway";
 import { handlers as localApiHandlers } from "./localApiHandlers";
+import * as dbSemasim from "../../../dbSemasim";
 
 const __set_of_imsi__= " set of imsi ";
 export const __set_of_imsi_on_close__ = " set of imsi on close ";
@@ -35,6 +36,8 @@ export function add(gatewaySocket: sipLibrary.Socket): void {
     let { remoteAddress } = gatewaySocket;
 
     let set = byRemoteAddress.get(remoteAddress) || (() => {
+
+        dbSemasim.addGatewayLocation(remoteAddress);
 
         let newSet = new Set();
 

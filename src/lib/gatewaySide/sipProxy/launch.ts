@@ -6,6 +6,7 @@ import * as router from "./router";
 import { sipLibrary } from "../../../semasim-gateway";
 import * as gatewaySockets from "./gatewaySockets/index_sipProxy";
 import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
+import * as dbSemasim from "../../dbSemasim";
 
 export function launch({server, spoofedLocal}: {
     server: tls.Server,
@@ -67,14 +68,24 @@ export function launch({server, spoofedLocal}: {
 
             }
 
-            gatewaySocket.evtClose.waitFor().then(() =>
+            gatewaySocket.evtClose.waitFor().then(() =>{
+
+                let sims= gatewaySockets.getSetOfImsiAtCloseTime(gatewaySocket);
+
+                for( let imsi of sims ){
+                    dbSemasim.setSimOffline(imsi);
+                }
+
                 clientSideSockets.remoteApi.notifyLostRouteFor({
-                    "sims": Array.from(gatewaySockets.getSetOfImsiAtCloseTime(gatewaySocket)),
+                    "sims": Array.from(sims),
                     "gatewaySocketRemoteAddress":
                         gatewaySockets.byRemoteAddress.has(gatewaySocket.remoteAddress) ?
                             undefined : gatewaySocket.remoteAddress
-                })
-            );
+                });
+
+
+            });
+
 
         }
     );

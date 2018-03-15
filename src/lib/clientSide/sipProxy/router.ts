@@ -25,6 +25,8 @@ export function onUaConnection(
 
     clientSockets.set(connectionId, clientSocket);
 
+    clientSocket.evtData.attach(data=> console.log("CLI=>BK-CLI\n", data.toString("utf8").yellow));
+
     clientSocket.evtRequest.attach(sipRequestReceived => {
 
         try {
@@ -41,6 +43,8 @@ export function onUaConnection(
             let sipRequest = gatewaySideSocket.buildNextHopPacket(sipRequestReceived);
 
             sipProxyMisc.cid.set(sipRequest, connectionId);
+
+            console.log("CLI<=BK-CLI\n", sipLibrary.stringify(sipRequest));
 
             gatewaySideSocket.write(sipRequest);
 
@@ -65,6 +69,8 @@ export function onUaConnection(
                 return;
             }
 
+            console.log("CLI<=BK-CLI\n", sipLibrary.stringify(gatewaySideSocket.buildNextHopPacket(sipResponseReceived)));
+
             gatewaySideSocket.write(
                 gatewaySideSocket.buildNextHopPacket(sipResponseReceived)
             );
@@ -84,6 +90,8 @@ export function onGwSideConnection(
 ) {
 
     gatewaySideSockets.add(gatewaySideSocket);
+
+    gatewaySideSocket.evtData.attach(data=> console.log("BK-CLI<=BK-GW\n", `${data.toString("utf8")}`));
 
     (() => {
 

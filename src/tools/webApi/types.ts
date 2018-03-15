@@ -70,7 +70,7 @@ export namespace InitParams {
         onHandlerThrow(methodName: string, params: any, error: Error, req: express.Request): void;
         onHandlerReturnsNotStringifiableResp(methodName: string, params: any, response: any, req: express.Request): void;
         onUnauthorized(methodName: string, req: express.Request);
-        onRequestSuccessfullyHandled(methodName: string, params: any, response: any, req: express.Request): void
+        onRequestSuccessfullyHandled(methodName: string, params: any, response: any, req: express.Request, rsvDate: Date): void
     };
 
 

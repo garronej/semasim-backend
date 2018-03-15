@@ -24,7 +24,8 @@ export function getDefaultLogger(
     let logOnlyMethods = options.logOnlyMethods;
     let stringifyAuthentication = options.stringifyAuthentication;
 
-    const base = (methodName: string, req: express.Request, isError: boolean) => [
+    const base = (methodName: string, req: express.Request, isError: boolean, date= new Date()) => [
+        `${date.getHours()}h ${date.getMinutes()}m ${date.getSeconds()}s ${date.getMilliseconds()}ms`,
         isError ? `[ Web API ${idString} Error ]`.red : `[ Web API ${idString} ]`.cyan,
         `from: ${req.connection.remoteAddress}`,
         stringifyAuthentication ? stringifyAuthentication(req) : "",
@@ -68,7 +69,7 @@ export function getDefaultLogger(
             ),
         "onUnauthorized": (methodName, req) =>
             log(`${base(methodName, req, true)}Unauthorized`),
-        "onRequestSuccessfullyHandled": (methodName, params, response, req) => {
+        "onRequestSuccessfullyHandled": (methodName, params, response, req, rsvDate) => {
 
             if (logOnlyErrors) {
                 return;
@@ -79,9 +80,10 @@ export function getDefaultLogger(
             }
 
             log([
-                base(methodName, req, false),
+                base(methodName, req, false, rsvDate),
                 `${"---Params:".blue}   ${JSON.stringify(params)}\n`,
                 `${"---Response:".blue} ${responseToString(response)}\n`,
+                `${"---Runtime:".yellow}  ${Date.now() - rsvDate.getTime()}ms\n`
             ].join(""));
 
         }

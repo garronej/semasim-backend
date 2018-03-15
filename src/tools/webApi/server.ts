@@ -18,6 +18,8 @@ export function init(initParams: InitParams): void {
     router.use("/:methodName",
         async (req, res) => {
 
+            let rsvDate= new Date();
+
             const handleError = buildHandleError(onError, req, res);
 
             let { methodName } = req.params;
@@ -190,7 +192,7 @@ export function init(initParams: InitParams): void {
 
             if (!!logger.onRequestSuccessfullyHandled) {
 
-                logger.onRequestSuccessfullyHandled(methodName, params, response, req);
+                logger.onRequestSuccessfullyHandled(methodName, params, response, req, rsvDate);
 
             }
 
