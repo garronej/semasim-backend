@@ -2,19 +2,14 @@
 
 On branch webphone
 
-* Install
+* Add nginxUpdater to systemd
 
 ``` bash
-$ git clone https://github.com/garronej/semasim-backend
-$ cd semasim-backend
-$ npm install
-$ sudo node dist/bin/scripts.js postinstall
+$ sudo node dist/bin/scripts.js install-nginx-updater-service
 ```
-* Run
+
+* Remove nginxUpdater to systemd
+
 ``` bash
-$ npm start
-```
-* Uninstall
-``` bash
-$ sudo node dist/bin/scripts.js preuninstall
+$ sudo node dist/bin/scripts.js uninstall-nginx-updater-service
 ```

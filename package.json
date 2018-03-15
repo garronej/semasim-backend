@@ -7,7 +7,7 @@
     "remove-bold-color": "sed -i '/bold: string;/d' ./node_modules/@types/colors/index.d.ts",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
-    "lb": "sudo node ./dist/bin/nginxUpdater.js",
+    "lb": "sudo node ./node_modules/nodemon/bin/nodemon ./dist/bin/nginxUpdater.js",
     "start": "DEBUG=_* node ./node_modules/nodemon/bin/nodemon ./dist/bin/main.js",
     "test": "node ./dist/test/db"
   },
@@ -34,6 +34,7 @@
     "morgan": "^1.8.2",
     "mysql": "^2.15.0",
     "network": "^0.4.0",
+    "pm2": "^2.10.1",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "ripemd160": "^2.0.1",
     "stun": "^1.0.2",

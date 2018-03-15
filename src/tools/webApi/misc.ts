@@ -25,9 +25,9 @@ export function getDefaultLogger(
     let stringifyAuthentication = options.stringifyAuthentication;
 
     const base = (methodName: string, req: express.Request, isError: boolean) => [
-        isError ? `[ Web API ${idString} Error ]`.red : `[ Sip API ${idString} ]`.cyan,
+        isError ? `[ Web API ${idString} Error ]`.red : `[ Web API ${idString} ]`.cyan,
         `from: ${req.connection.remoteAddress}`,
-        stringifyAuthentication ? `Authentication: ${stringifyAuthentication(req)}` : "",
+        stringifyAuthentication ? stringifyAuthentication(req) : "",
         methodName.yellow,
         "\n"
     ].join(" ");
@@ -86,7 +86,6 @@ export function getDefaultLogger(
 
         }
     };
-
 
 }
 

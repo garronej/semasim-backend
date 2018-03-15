@@ -7,8 +7,6 @@ import * as c from "../lib/_constants";
 import * as path from "path";
 import * as networkTools from "../tools/networkTools";
 
-console.log("start nginx updater");
-
 const path_to_nginx = path.join("/", "etc", "nginx");
 const path_to_tcpconf_d = path.join(path_to_nginx, "tcpconf.d");
 
@@ -117,6 +115,8 @@ function onRunningInstancesChanged(
 
 (async function main() {
 
+    console.log("start nginx updater...");
+
     try {
 
         await scriptsTools.run("systemctl stop nginx");
@@ -154,6 +154,8 @@ function onRunningInstancesChanged(
     await db.launch(c.dbAuth.host);
 
     await db.cleanup();
+
+    console.log("...nginx updater started");
 
     db.getEvtRunningInstances().attach(
         runningInstances => onRunningInstancesChanged(entryPoints, runningInstances)
