@@ -79,7 +79,7 @@ export function onGwConnection(
 
                 if (sipLibrary.matchRequest(sipPacketReceived)) {
 
-                    wrap = sipPacketReceived.headers.route![0].uri;
+                    wrap = sipPacketReceived.headers.route![1].uri;
 
                 } else {
 

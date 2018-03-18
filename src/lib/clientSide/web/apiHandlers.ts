@@ -449,7 +449,9 @@ export const handlers: Handlers= {};
 
             let user = await db.authenticateUser(email, password);
 
-            if (!user) throw new Error("assert");
+            if (!user){
+                 throw new Error("User not authenticated");
+            }
 
             let endpointEntries: string[] = [];
             let contactEntries: string[] = [];
