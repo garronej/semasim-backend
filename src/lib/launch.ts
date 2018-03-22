@@ -1,3 +1,11 @@
+process.once("warning", error=> { 
+
+    console.log("WARNING WARNING WARNING");
+
+    console.log(error.stack);
+
+});
+
 import * as networkTools from "../tools/networkTools";
 import * as c from "./_constants";
 import * as  https from "https";

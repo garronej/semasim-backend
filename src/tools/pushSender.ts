@@ -42,14 +42,28 @@ export function launch(
     let sendByPlatform: { [platform: string]: (token: string) => Promise<void> } = {
         "android": async token => {
 
+            console.log("sending push notification to android device");
+
             let payload: fbAdmin.messaging.MessagingPayload = { "data": {} };
 
             let options: fbAdmin.messaging.MessagingOptions = { "priority": "high" };
 
+            try{
+
             await fbAdmin.messaging().sendToDevice(token, payload, options);
+
+            }catch(error){
+
+                console.log("failed to sent push notification to android device");
+
+                throw error;
+
+            }
 
         },
         "iOS": async token => {
+
+            console.log("sending push notification to iOS device");
 
             let notification = new apn.Notification({
                 "topic": `${iOS.appId}.voip`,
@@ -60,6 +74,8 @@ export function launch(
             let { failed } = await apnProvider.send(notification, token);
 
             if (failed.length) {
+
+                console.log("failed to send push notification to iOS device");
 
                 let error = new Error("Apple send push notification failed");
 

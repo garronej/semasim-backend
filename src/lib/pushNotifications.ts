@@ -8,6 +8,7 @@ export function launch() {
 
 }
 
+/** Return true if everything goes as expected */
 export async function send(
     target: gwTypes.Ua | gwTypes.Ua[],
     reloadConfig: "RELOAD CONFIG" | undefined = undefined
@@ -17,34 +18,36 @@ export async function send(
 
         let uas = target;
 
-        let task: Promise<boolean>[] = [];
+        let tasks: Promise<boolean>[] = [];
 
         for (let ua of uas) {
 
-            task[task.length] = send(ua, reloadConfig);
+            tasks[tasks.length] = send(ua, reloadConfig);
 
         }
 
-        try {
-
-            await task;
-
-
-        } catch{
-
-            return false;
-
-        }
-
-        return true;
+        return (await Promise.all(tasks))
+            .reduce((r, elem) => r && elem, true);
 
     } else {
 
         let ua = target;
 
+        if( ua.platform === "other" ){
+
+            return true;
+
+        }
+
         let prIsSent = pending.get(ua);
 
-        if (prIsSent) return prIsSent;
+        if (prIsSent) {
+
+            console.log("avoid sending push as it was recently sent");
+
+            return prIsSent;
+
+        }
 
         prIsSent = (async () => {
 
@@ -68,7 +71,6 @@ export async function send(
         pending.set(ua, prIsSent);
 
         return prIsSent;
-
 
     }
 

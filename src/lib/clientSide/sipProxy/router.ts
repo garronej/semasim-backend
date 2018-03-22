@@ -44,8 +44,6 @@ export function onUaConnection(
 
             sipProxyMisc.cid.set(sipRequest, connectionId);
 
-            console.log("CLI<=BK-CLI\n", sipLibrary.stringify(sipRequest));
-
             gatewaySideSocket.write(sipRequest);
 
         } catch{
@@ -68,8 +66,6 @@ export function onUaConnection(
                 //TODO: close client socket???
                 return;
             }
-
-            console.log("CLI<=BK-CLI\n", sipLibrary.stringify(gatewaySideSocket.buildNextHopPacket(sipResponseReceived)));
 
             gatewaySideSocket.write(
                 gatewaySideSocket.buildNextHopPacket(sipResponseReceived)
@@ -106,6 +102,8 @@ export function onGwSideConnection(
                 if (!clientSocket) {
                     return;
                 }
+
+                console.log("CLI<=BK-CLI\n", sipLibrary.stringify(clientSocket.buildNextHopPacket(sipPacketReceived)));
 
                 clientSocket.write(
                     clientSocket.buildNextHopPacket(sipPacketReceived)

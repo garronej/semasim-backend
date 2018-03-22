@@ -484,7 +484,8 @@ export const handlers: Handlers= {};
                     `    <entry name="reg_expires" ${ov}>${21601}</entry>`,
                     [
                         `    <entry name="reg_identity" ${ov}>`,
-                        entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=tls>`),
+                        //entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=tls>`),
+                        entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=tls;base64_email=${Buffer.from(email, "utf8").toString("base64")}>`),
                         `</entry>`,
                     ].join(""),
                     `    <entry name="contact_parameters" ${ov}>${contact_parameters}</entry>`,

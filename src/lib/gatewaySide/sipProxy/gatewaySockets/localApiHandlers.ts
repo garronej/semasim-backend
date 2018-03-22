@@ -112,7 +112,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                 resp.uasRegisteredToSim,
                 (!isStorageUpToDate || resp.passwordStatus === "RENEWED") ?
                     "RELOAD CONFIG" : undefined
-            )
+            );
 
             return { "status": "OK" };
 
