@@ -121,7 +121,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                 let imsi = contact.uaSim.imsi;
 
                 let sipRequestNextHop = clientSocket.buildNextHopPacket(
-                    sipLibrary.parse([
+                    sipLibrary.parse(Buffer.from([
                         `OPTIONS ${contact.uri} SIP/2.0`,
                         `From: <sip:${imsi}@${c.shared.domain}>;tag=${fromTag}`,
                         `To: <${contact.uri}>`,
@@ -132,7 +132,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                         "User-Agent: Semasim-backend",
                         "Content-Length:  0",
                         "\r\n"
-                    ].join("\r\n")) as sipLibrary.Request
+                    ].join("\r\n"), "utf8")) as sipLibrary.Request
                 );
 
                 clientSocket.write(sipRequestNextHop);

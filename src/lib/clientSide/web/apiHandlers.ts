@@ -1,10 +1,10 @@
 
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
-import { 
+import {
     webApiDeclaration as d
 } from "../../../semasim-frontend";
 import * as db from "../../dbSemasim";
-import { Handler, Handlers } from "../../../tools/webApi";
+import { Handler, Handlers, internalErrorCustomHttpCode, httpCodes } from "../../../tools/webApi";
 import * as sessionManager from "./sessionManager";
 import * as dbw from "./dbWebphone";
 import * as gatewaySideSockets from "../sipProxy/gatewaySideSockets";
@@ -13,13 +13,13 @@ import * as pushNotifications from "../../pushNotifications";
 import * as c from "../../_constants";
 
 import { types as gwTypes } from "../../../semasim-gateway";
-import isValidEmail= gwTypes.misc.isValidEmail
+import isValidEmail = gwTypes.misc.isValidEmail
 
 
 import * as html_entities from "html-entities";
-const entities= new html_entities.XmlEntities;
+const entities = new html_entities.XmlEntities;
 
-export const handlers: Handlers= {};
+export const handlers: Handlers = {};
 
 //TODO: regexp for password once and for all!!!
 //TODO: regexp for friendly name!!!
@@ -31,7 +31,7 @@ export const handlers: Handlers= {};
     type Params = d.registerUser.Params;
     type Response = d.registerUser.Response;
 
-    let handler: Handler.JSON<Params, Response>= {
+    let handler: Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -43,12 +43,12 @@ export const handlers: Handlers= {};
 
             let user = await db.createUserAccount(email, password);
 
-            return user?"CREATED":"EMAIL NOT AVAILABLE";
+            return user ? "CREATED" : "EMAIL NOT AVAILABLE";
 
         }
     };
 
-    handlers[methodName]= handler;
+    handlers[methodName] = handler;
 
 })();
 
@@ -70,7 +70,7 @@ export const handlers: Handlers= {};
 
             let user = await db.authenticateUser(email, password);
 
-            if( !user ){
+            if (!user) {
 
                 console.log(" authentication failed ");
 
@@ -89,7 +89,7 @@ export const handlers: Handlers= {};
         }
     };
 
-    handlers[methodName]= handler;
+    handlers[methodName] = handler;
 
 })();
 
@@ -112,7 +112,7 @@ export const handlers: Handlers= {};
         }
     };
 
-    handlers[methodName]= handler;
+    handlers[methodName] = handler;
 
 })();
 
@@ -129,9 +129,9 @@ export const handlers: Handlers= {};
             params instanceof Object &&
             isValidEmail(params.email)
         ),
-        "handler": async ({ email })=> {
+        "handler": async ({ email }) => {
 
-            let hash= await db.getUserHash(email);
+            let hash = await db.getUserHash(email);
 
             //TODO send email
 
@@ -140,7 +140,7 @@ export const handlers: Handlers= {};
         }
     };
 
-    handlers[methodName]= handler;
+    handlers[methodName] = handler;
 
 })();
 
@@ -155,10 +155,10 @@ export const handlers: Handlers= {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (params, session)=> db.getUserSims(sessionManager.getAuth(session)!.user)
+        "handler": (params, session) => db.getUserSims(sessionManager.getAuth(session)!.user)
     };
 
-    handlers[methodName]= handler;
+    handlers[methodName] = handler;
 
 })();
 
@@ -205,11 +205,11 @@ export const handlers: Handlers= {};
         ),
         "handler": async ({ imei, pin }, session, remoteAddress) => {
 
-            let result= await gatewaySideSockets.unlockDongle(
+            let result = await gatewaySideSockets.unlockDongle(
                 imei, pin, remoteAddress, sessionManager.getAuth(session)!
             );
 
-            if( result === undefined ){
+            if (result === undefined) {
                 throw new Error("Unlock failed, internal error");
             }
 
@@ -238,14 +238,14 @@ export const handlers: Handlers= {};
         ),
         "handler": async ({ imsi, friendlyName }, session, remoteAddress) => {
 
-            try{
+            try {
 
                 var { dongle, sipPassword } = (await gatewaySideSockets.getSipPasswordAndDongle(
                     imsi,
                     remoteAddress
                 ))!;
 
-            }catch{
+            } catch{
 
                 throw new Error("Dongle not found");
 
@@ -259,7 +259,7 @@ export const handlers: Handlers= {};
                 dongle,
                 remoteAddress
             );
-            
+
             pushNotifications.send(userUas, "RELOAD CONFIG");
 
             return undefined;
@@ -398,7 +398,7 @@ export const handlers: Handlers= {};
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"
         ),
-        "handler": async ({ imsi, friendlyName } , session) => {
+        "handler": async ({ imsi, friendlyName }, session) => {
 
             let userUas = await db.setSimFriendlyName(
                 session.auth!.user,
@@ -449,15 +449,20 @@ export const handlers: Handlers= {};
 
             let user = await db.authenticateUser(email, password);
 
-            if (!user){
-                 throw new Error("User not authenticated");
+            if (!user) {
+
+                let error = new Error("User not authenticated");
+
+                internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
+
+                throw error;
+
             }
 
             let endpointEntries: string[] = [];
             let contactEntries: string[] = [];
 
-            //TODO: maybe find a way to smuggle sim infos in config
-            let contact_parameters = entities.encode(`base64_email=${Buffer.from(email, "utf8").toString("base64")}`);
+            let p_email = `enc_email=${gwTypes.misc.urlSafeB64.enc(email)}`;
 
             for (let { sim, friendlyName, password, ownership } of await db.getUserSims(user)) {
 
@@ -465,13 +470,6 @@ export const handlers: Handlers= {};
                     continue;
                 }
 
-                /** 
-                 * Note for later: I think I remember that for implementing TURN I have to put 
-                 * stun,turn,ice in protocols set turn user name in stun_server_username
-                 * and create a new auth_info_section see coreapi/nat_policy.c
-                 * 
-                 * I have also to add SRV record for _turn._tcp.semasim.com
-                 */
                 endpointEntries[endpointEntries.length] = [
                     `  <section name="nat_policy_${endpointEntries.length}">`,
                     `    <entry name="ref" ${ov}>nat_policy_${endpointEntries.length}</entry>`,
@@ -479,16 +477,15 @@ export const handlers: Handlers= {};
                     `    <entry name="protocols" ${ov}>stun,ice</entry>`,
                     `  </section>`,
                     `  <section name="proxy_${endpointEntries.length}">`,
-                    `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=tls</entry>`,
-                    `    <entry name="reg_route" ${ov}>sip:${domain};transport=tls;lr</entry>`,
+                    `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=TLS</entry>`,
+                    `    <entry name="reg_route" ${ov}>sip:${domain};transport=TLS;lr</entry>`,
                     `    <entry name="reg_expires" ${ov}>${21601}</entry>`,
                     [
                         `    <entry name="reg_identity" ${ov}>`,
-                        //entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=tls>`),
-                        entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=tls;base64_email=${Buffer.from(email, "utf8").toString("base64")}>`),
+                        entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=TLS;${p_email}>`),
                         `</entry>`,
                     ].join(""),
-                    `    <entry name="contact_parameters" ${ov}>${contact_parameters}</entry>`,
+                    `    <entry name="contact_parameters" ${ov}>${p_email}</entry>`, //TODO: See if it work with Ios, if not remove
                     `    <entry name="reg_sendregister" ${ov}>1</entry>`,
                     `    <entry name="publish" ${ov}>0</entry>`,
                     `    <entry name="nat_policy_ref" ${ov}>nat_policy_${endpointEntries.length}</entry>`,

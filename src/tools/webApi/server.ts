@@ -141,6 +141,8 @@ export function init(initParams: InitParams): void {
 
             } catch (error) {
 
+                res.status(misc.internalErrorCustomHttpCode.get(error)).end();
+
                 if( !!logger.onHandlerThrow ){
 
                     logger.onHandlerThrow(methodName, params, error, req);

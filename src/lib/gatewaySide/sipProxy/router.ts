@@ -5,8 +5,6 @@ import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
 import * as gatewaySockets from "./gatewaySockets/index_sipProxy";
 import * as c from "../../_constants";
 
-import "colors";
-
 export function createClientSideSocket(
     remoteAddress: string,
     remotePort: number
@@ -24,36 +22,49 @@ export function createClientSideSocket(
         })
     );
 
+    clientSideSocket.enableLogger({
+        "socketId": "clientSideSocket",
+        "remoteEndId": "BACKEND-CLIENT",
+        "localEndId": "BACKEND-GW",
+        "connection": true,
+        "error": true,
+        "close": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
+        "colorizedTraffic": "IN",
+        "ignoreApiTraffic": true
+    }, console.log);
+
     clientSideSockets.set({ remoteAddress, remotePort }, clientSideSocket);
 
-    clientSideSocket.evtData.attach(data=> console.log("BK-CLI=>BK-GW\n", `${data.toString("utf8").yellow}`));
 
-    (() => {
+    const onPacket = (sipPacketReceived: sipLibrary.Packet) => {
 
-        const onPacket = (sipPacketReceived: sipLibrary.Packet) => {
+        try {
 
-            try {
+            let gatewaySocket = gatewaySockets.byImsi.get(
+                sipProxyMisc.readImsi(sipPacketReceived)
+            );
 
-                let gatewaySocket = gatewaySockets.byImsi.get(
-                    sipProxyMisc.readImsi(sipPacketReceived)
-                );
+            if (!gatewaySocket) {
+                return;
+            }
 
-                if (!gatewaySocket) {
-                    return;
-                }
+            gatewaySocket.write(
+                gatewaySocket.buildNextHopPacket(sipPacketReceived)
+            );
 
-                gatewaySocket.write(
-                    gatewaySocket.buildNextHopPacket(sipPacketReceived)
-                );
+        } catch(error){ 
 
-            } catch{ }
+            throw error;
 
-        };
+        }
 
-        clientSideSocket.evtRequest.attach(onPacket);
-        clientSideSocket.evtResponse.attach(onPacket);
+    };
 
-    })();
+    clientSideSocket.evtRequest.attach(onPacket);
+    clientSideSocket.evtResponse.attach(onPacket);
+
 
     return clientSideSocket;
 
@@ -65,52 +76,61 @@ export function onGwConnection(
     gatewaySocket: sipLibrary.Socket
 ) {
 
+    gatewaySocket.enableLogger({
+        "socketId": "gatewaySocket",
+        "remoteEndId": "GW",
+        "localEndId": "BACKEND-GW",
+        "connection": true,
+        "error": true,
+        "close": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
+        "colorizedTraffic": "OUT",
+        "ignoreApiTraffic": true
+    }, console.log);
+
     gatewaySockets.add(gatewaySocket);
 
-    gatewaySocket.evtData.attach(data=> console.log("BK-GW<=GW\n", `${data.toString("utf8")}`));
+    const onPacket = (sipPacketReceived: sipLibrary.Packet) => {
 
-    (() => {
+        try {
 
-        const onPacket = (sipPacketReceived: sipLibrary.Packet) => {
+            let wrap: { host?: string; port: number; };
 
-            try {
+            if (sipLibrary.matchRequest(sipPacketReceived)) {
 
-                let wrap: { host?: string; port: number; };
+                wrap = sipPacketReceived.headers.route![1].uri;
 
-                if (sipLibrary.matchRequest(sipPacketReceived)) {
+            } else {
 
-                    wrap = sipPacketReceived.headers.route![1].uri;
-
-                } else {
-
-                    wrap = sipPacketReceived.headers.via[1];
-
-                }
-
-                let clientSideSocket = clientSideSockets.get({
-                    "remoteAddress": wrap.host!,
-                    "remotePort": wrap.port
-                });
-
-                if (!clientSideSocket) {
-                    return;
-                }
-
-                clientSideSocket.write(
-                    clientSideSocket.buildNextHopPacket(sipPacketReceived)
-                );
-
-            } catch{
-
-                gatewaySocket.destroy();
+                wrap = sipPacketReceived.headers.via[1];
 
             }
 
-        };
+            let clientSideSocket = clientSideSockets.get({
+                "remoteAddress": wrap.host!,
+                "remotePort": wrap.port
+            });
 
-        gatewaySocket.evtRequest.attach(onPacket);
-        gatewaySocket.evtResponse.attach(onPacket);
+            if (!clientSideSocket) {
+                return;
+            }
 
-    })();
+            clientSideSocket.write(
+                clientSideSocket.buildNextHopPacket(sipPacketReceived)
+            );
+
+        } catch(error){
+
+            throw error;
+
+            //gatewaySocket.destroy();
+
+        }
+
+    };
+
+    gatewaySocket.evtRequest.attach(onPacket);
+    gatewaySocket.evtResponse.attach(onPacket);
 
 }

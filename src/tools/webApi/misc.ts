@@ -140,6 +140,35 @@ export const httpCodes = {
     "INTERNAL_SERVER_ERROR": 500,
 };
 
+export namespace internalErrorCustomHttpCode {
+
+    let key = "__http_code__";
+
+    export function set(error:Error, code: number): void{
+        error[key]= code;
+    }
+
+    export function get(error): number {
+
+        try{ 
+
+            let code= error[key];
+
+            console.assert( typeof code === "number" && !isNaN(code) );
+
+            return code;
+
+        }catch{
+
+            return httpCodes.INTERNAL_SERVER_ERROR;
+
+        }
+
+    }
+
+}
+
+
 export function buildDummySession(): Express.Session {
     return {
         "id": "dummy",
@@ -158,4 +187,7 @@ export function buildDummySession(): Express.Session {
         }
     };
 }
+
+
+
 

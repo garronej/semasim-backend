@@ -10,6 +10,19 @@ export function onUaConnection(
     auth?: web.Auth
 ) {
 
+    clientSocket.enableLogger({
+        "socketId": "clientSocket",
+        "remoteEndId": "CLIENT",
+        "localEndId": "BACKEND-CLIENT",
+        "connection": true,
+        "error": true,
+        "close": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
+        "colorizedTraffic": "IN",
+        "ignoreApiTraffic": true
+    }, console.log);
+
     if (clientSocket.protocol === "WSS") {
 
         if (!auth) {
@@ -25,14 +38,12 @@ export function onUaConnection(
 
     clientSockets.set(connectionId, clientSocket);
 
-    clientSocket.evtData.attach(data=> console.log("CLI=>BK-CLI\n", data.toString("utf8").yellow));
-
-    clientSocket.evtRequest.attach(sipRequestReceived => {
+    const onPacket = (sipPacketReceived: sipLibrary.Packet): void => {
 
         try {
 
             let gatewaySideSocket = gatewaySideSockets.get({
-                "imsi": sipProxyMisc.readImsi(sipRequestReceived)
+                "imsi": sipProxyMisc.readImsi(sipPacketReceived)
             });
 
             if (!gatewaySideSocket) {
@@ -40,44 +51,30 @@ export function onUaConnection(
                 return;
             }
 
-            let sipRequest = gatewaySideSocket.buildNextHopPacket(sipRequestReceived);
+            let sipPacket = gatewaySideSocket.buildNextHopPacket(sipPacketReceived);
 
-            sipProxyMisc.cid.set(sipRequest, connectionId);
+            if (sipLibrary.matchRequest(sipPacket)) {
 
-            gatewaySideSocket.write(sipRequest);
+                sipProxyMisc.cid.set(sipPacket, connectionId);
 
-        } catch{
-
-            clientSocket.destroy();
-
-        }
-
-    });
-
-    clientSocket.evtResponse.attach(sipResponseReceived => {
-
-        try {
-
-            let gatewaySideSocket = gatewaySideSockets.get({
-                "imsi": sipProxyMisc.readImsi(sipResponseReceived)
-            });
-
-            if (!gatewaySideSocket) {
-                //TODO: close client socket???
-                return;
             }
 
-            gatewaySideSocket.write(
-                gatewaySideSocket.buildNextHopPacket(sipResponseReceived)
-            );
+            gatewaySideSocket.write(sipPacket);
 
-        } catch{
+        } catch (error) {
 
-            clientSocket.destroy();
+            throw error;
+
+            //clientSocket.destroy();
 
         }
 
-    });
+
+    };
+
+    clientSocket.evtRequest.attach(onPacket);
+    clientSocket.evtResponse.attach(onPacket);
+
 
 }
 
@@ -85,38 +82,47 @@ export function onGwSideConnection(
     gatewaySideSocket: sipLibrary.Socket
 ) {
 
+    gatewaySideSocket.enableLogger({
+        "socketId": "gatewaySideSocket",
+        "remoteEndId": "BACKEND-GW",
+        "localEndId": "BACKEND-CLIENT",
+        "connection": true,
+        "error": true,
+        "close": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
+        "colorizedTraffic": "OUT",
+        "ignoreApiTraffic": true
+    }, console.log);
+
     gatewaySideSockets.add(gatewaySideSocket);
 
-    gatewaySideSocket.evtData.attach(data=> console.log("BK-CLI<=BK-GW\n", `${data.toString("utf8")}`));
+    const onSipPacket = (sipPacketReceived: sipLibrary.Packet) => {
 
-    (() => {
+        try {
 
-        const onSipPacket = (sipPacketReceived: sipLibrary.Packet) => {
+            let clientSocket = clientSockets.get(
+                sipProxyMisc.cid.read(sipPacketReceived)
+            );
 
-            try {
+            if (!clientSocket) {
+                return;
+            }
 
-                let clientSocket = clientSockets.get(
-                    sipProxyMisc.cid.read(sipPacketReceived)
-                );
+            clientSocket.write(
+                clientSocket.buildNextHopPacket(sipPacketReceived)
+            );
 
-                if (!clientSocket) {
-                    return;
-                }
+        } catch(error) { 
 
-                console.log("CLI<=BK-CLI\n", sipLibrary.stringify(clientSocket.buildNextHopPacket(sipPacketReceived)));
+            throw error;
 
-                clientSocket.write(
-                    clientSocket.buildNextHopPacket(sipPacketReceived)
-                );
+        }
 
-            } catch { }
+    };
 
-        };
-
-        gatewaySideSocket.evtRequest.attach(onSipPacket);
-        gatewaySideSocket.evtResponse.attach(onSipPacket);
-
-    })();
+    gatewaySideSocket.evtRequest.attach(onSipPacket);
+    gatewaySideSocket.evtResponse.attach(onSipPacket);
 
 }
 
