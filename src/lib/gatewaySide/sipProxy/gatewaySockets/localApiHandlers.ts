@@ -235,7 +235,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                     }
 
-                case "other":
+                case "web":
 
                     return (await clientSideSockets.remoteApi.qualifyContact(contact)) ?
                         "REACHABLE" : "UNREACHABLE";

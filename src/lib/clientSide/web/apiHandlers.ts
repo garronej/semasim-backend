@@ -419,6 +419,7 @@ export const handlers: Handlers = {};
 
 (() => {
 
+    //TODO: enable "Send DTMFs in SIP" disable "Send DTMFs in stream" in static config
     //TODO: remove response from declaration
     let methodName = d.getUaConfig.methodName;
     type Params = d.getUaConfig.Params;

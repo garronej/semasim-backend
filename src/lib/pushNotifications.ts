@@ -33,7 +33,7 @@ export async function send(
 
         let ua = target;
 
-        if( ua.platform === "other" ){
+        if( ua.platform === "web" ){
 
             return true;
 
