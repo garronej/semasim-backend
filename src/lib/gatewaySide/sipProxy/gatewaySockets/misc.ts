@@ -1,5 +1,4 @@
-
-import { sipLibrary } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as store from "./store";
 
 export function getSetOfImsiAtCloseTime(gatewaySocket: sipLibrary.Socket): Set<string> {

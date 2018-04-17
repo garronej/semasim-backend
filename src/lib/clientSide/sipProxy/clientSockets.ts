@@ -1,5 +1,4 @@
-
-import { sipLibrary } from "../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 
 const map = new Map<string, sipLibrary.Socket>();
 
@@ -16,4 +15,3 @@ export function get(connectionId: string): sipLibrary.Socket | undefined {
     return map.get(connectionId);
 
 }
-

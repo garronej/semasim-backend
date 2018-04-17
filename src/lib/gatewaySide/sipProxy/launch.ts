@@ -3,7 +3,7 @@
 import * as tls from "tls";
 import * as dbRunningInstances from "../../dbRunningInstances";
 import * as router from "./router";
-import { sipLibrary } from "../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as gatewaySockets from "./gatewaySockets/index_sipProxy";
 import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
 import * as dbSemasim from "../../dbSemasim";

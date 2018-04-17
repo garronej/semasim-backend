@@ -1,4 +1,5 @@
-import { sipLibrary, types as gwTypes } from "../../../../semasim-gateway";
+import { types as gwTypes } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 
 const map= new Map<string, sipLibrary.Socket>();
@@ -28,9 +29,9 @@ export function set(key: Key, clientSideSocket: sipLibrary.Socket){
 
     sipLibrary.api.client.enableKeepAlive(clientSideSocket);
 
-    sipLibrary.api.client.enableLogging(
+    sipLibrary.api.client.enableErrorLogging(
         clientSideSocket, 
-        sipLibrary.api.client.getDefaultLogger({ idString })
+        sipLibrary.api.client.getDefaultErrorLogger({ idString })
     );
 
     let id= Key.getId(key);

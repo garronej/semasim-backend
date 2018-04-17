@@ -1,5 +1,5 @@
 
-import { sipLibrary } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as dbSemasim from "../../../dbSemasim";
 
@@ -26,9 +26,9 @@ export function add(gatewaySocket: sipLibrary.Socket): void {
 
     sipLibrary.api.client.enableKeepAlive(gatewaySocket);
 
-    sipLibrary.api.client.enableLogging(
+    sipLibrary.api.client.enableErrorLogging(
         gatewaySocket, 
-        sipLibrary.api.client.getDefaultLogger({
+        sipLibrary.api.client.getDefaultErrorLogger({
             idString
         })
     );

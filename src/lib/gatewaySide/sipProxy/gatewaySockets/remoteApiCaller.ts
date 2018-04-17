@@ -3,7 +3,7 @@ import { types as dcTypes } from "chan-dongle-extended-client";
 import * as web from "../../../clientSide/web";
 import { declarationBackendSocketApi as apiDeclaration } from "../../../../semasim-gateway";
 import * as store from "./store";
-import { sipLibrary } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 
 export async function getDongles(

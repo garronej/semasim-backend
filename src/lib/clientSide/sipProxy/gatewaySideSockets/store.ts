@@ -1,4 +1,4 @@
-import { sipLibrary } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 
 const byRemoteAddress= new Map<string, Set<sipLibrary.Socket>>();
@@ -42,9 +42,9 @@ export function add(gatewaySideSocket: sipLibrary.Socket): void {
 
     sipLibrary.api.client.enableKeepAlive(gatewaySideSocket);
 
-    sipLibrary.api.client.enableLogging(
+    sipLibrary.api.client.enableErrorLogging(
         gatewaySideSocket, 
-        sipLibrary.api.client.getDefaultLogger({ idString })
+        sipLibrary.api.client.getDefaultErrorLogger({ idString })
     );
 
     gatewaySideSocket.misc[__set_of_imsi__]= new Set<string>();

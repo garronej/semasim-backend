@@ -1,4 +1,5 @@
-import { sipLibrary, sipProxyMisc } from "../../../semasim-gateway";
+import { sipProxyMisc } from "../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as web from "../web";
 import * as clientSockets from "./clientSockets";
 import * as gatewaySideSockets from "./gatewaySideSockets/index_sipProxy";

@@ -1,5 +1,5 @@
 import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/gatewaySide/clientSideSockets";
-import { sipLibrary } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as gatewaySockets from "../gatewaySockets/index_sipProxy";
 import { types as feTypes } from "../../../../semasim-frontend";
 

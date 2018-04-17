@@ -5,14 +5,19 @@ import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
-import { 
-    types as gwTypes, 
-    tests_generateUa as generateUa 
-} from "../semasim-gateway";
+import { types as gwTypes } from "../semasim-gateway";
 import { types as feTypes } from "../semasim-frontend";
 import * as c from "../lib/_constants";
 
 import * as db from "../lib/dbSemasim";
+
+export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`): gwTypes.Ua => ({
+    "instance": `"<urn:uuid:${ttTesting.genHexStr(30)}>"`,
+    "platform": Date.now() % 2 ? "android" : "iOS",
+    "pushToken": ttTesting.genHexStr(60),
+    "software": ttTesting.genHexStr(20),
+    "userEmail": email
+});
 
 export function generateSim(
     contactCount: number = ~~(Math.random() * 200)

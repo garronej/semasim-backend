@@ -1,5 +1,6 @@
 import * as net from "net";
-import { sipLibrary, sipProxyMisc } from "../../../semasim-gateway";
+import { sipProxyMisc } from "../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as networkTools from "../../../tools/networkTools";
 import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
 import * as gatewaySockets from "./gatewaySockets/index_sipProxy";

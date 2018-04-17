@@ -1,5 +1,6 @@
 import {declarationGatewaySocketApi as apiDeclaration} from "../../../../semasim-gateway";
-import { sipLibrary, types as gwTypes } from "../../../../semasim-gateway";
+import { types as gwTypes } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as store from "./store";
 import * as dbSemasim from "../../../dbSemasim";

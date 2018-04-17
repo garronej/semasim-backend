@@ -1,7 +1,7 @@
 import * as tls from "tls";
 import * as net from "net";
 import * as WebSocket from "ws";
-import { sipLibrary } from "../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as web from "../web";
 
 import * as router from "./router";

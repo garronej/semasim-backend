@@ -1,7 +1,7 @@
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/gatewaySide/clientSideSockets";
 import * as store from "./store";
-import { sipLibrary } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as web from "../../../clientSide/web";
 
 export async function getDongles(

@@ -1,4 +1,5 @@
-import { sipLibrary, types as gwTypes } from "../../../../semasim-gateway";
+import { types as gwTypes } from "../../../../semasim-gateway";
+import * as sipLibrary from "ts-sip";
 import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/clientSide/gatewaySideSockets";
 import * as store from "./store";
 
