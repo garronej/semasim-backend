@@ -55,6 +55,7 @@ web.ts:
 ````typescript
 
 import * as session from "express-session";
+import * as express from "express";
 import { handlers } from "./apiHandlers";
 import * as webApiServer from "./webApi/server";
 
@@ -64,9 +65,11 @@ const sessionMiddleware= session({
     "saveUninitialized": false 
 });
 
+let app = express();
+
 app.use(sessionMiddleware) ;
 
-webApiServer.start({
+webApiServer.init({
     app,
     "apiPath": "my-api",
     handlers,
