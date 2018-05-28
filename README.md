@@ -1,15 +1,5 @@
 # semasim-backend
 
-On branch webphone
+# Deploy note: 
 
-* Add nginxUpdater to systemd
-
-``` bash
-$ sudo node dist/bin/scripts.js install-nginx-updater-service
-```
-
-* Remove nginxUpdater to systemd
-
-``` bash
-$ sudo node dist/bin/scripts.js uninstall-nginx-updater-service
-```
+https://gist.github.com/garronej/ca9a56f958a4b16b42e21f9ee6eae14c
