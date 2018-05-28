@@ -37,6 +37,7 @@
     "pm2": "^2.10.1",
     "rejection-tracker": "github:garronej/rejection-tracker",
     "ripemd160": "^2.0.1",
+    "scripting-tools": "github:garronej/scripting-tools",
     "stun": "^1.0.2",
     "ts-events-extended": "garronej/ts-events-extended",
     "uuid": "^3.2.1",

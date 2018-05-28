@@ -1,7 +1,7 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
 import * as fs from "fs";
-import { scriptsTools } from "../semasim-gateway";
+import * as scriptLib from "scripting-tools";
 import * as db from "../lib/dbRunningInstances";
 import * as c from "../lib/_constants";
 import * as path from "path";
@@ -109,7 +109,7 @@ function onRunningInstancesChanged(
         Buffer.from(raw_lb_file, "utf8")
     );
 
-    scriptsTools.run("systemctl reload nginx");
+    scriptLib.execSync("systemctl reload nginx");
 
 }
 
@@ -119,7 +119,7 @@ function onRunningInstancesChanged(
 
     try {
 
-        await scriptsTools.run("systemctl stop nginx");
+        scriptLib.execSync("systemctl stop nginx");
 
     } catch (error) {
 
@@ -142,14 +142,14 @@ function onRunningInstancesChanged(
         )
     );
 
-    await scriptsTools.run([
+    await scriptLib.exec([
         `rm -rf ${path_to_tcpconf_d}`,
         `mkdir ${path_to_tcpconf_d}`
     ].join(" && "));
 
     let entryPoints = await EntryPoints.get();
 
-    await scriptsTools.run("systemctl start nginx");
+    await scriptLib.exec("systemctl start nginx");
 
     await db.launch(c.dbAuth.host);
 

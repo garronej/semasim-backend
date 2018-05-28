@@ -4,11 +4,12 @@ import * as c from "../lib/_constants";
 require("rejection-tracker").main(c.modulePath);
 
 import * as path from "path";
+import * as fs from "fs";
 
 const systemdServicePath = path.join("/etc", "systemd", "system", `${c.nginxUpdaterServiceName}.service`);
 
 import * as program from "commander";
-import { scriptsTools as _ } from "../semasim-gateway"
+import * as scriptLib from "scripting-tools"
 import "colors";
 
 program
@@ -42,29 +43,32 @@ async function installNginxUpdaterService() {
 
     const pm2 = `${node_execpath} ${c.modulePath}/node_modules/pm2/bin/pm2`;
 
-    let service = [
-        `[Unit]`,
-        `Description=Semasim nginx real time updater for load balancing.`,
-        `After=network.target`,
-        ``,
-        `[Service]`,
-        `Type=oneshot`,
-        `ExecStart=${pm2} start ${c.modulePath}/dist/bin/nginxUpdater.js`,
-        `RemainAfterExit=true`,
-        `ExecStop=${pm2} delete nginxUpdater`,
-        `StandardOutput=journal`,
-        `User=root`,
-        `Group=root`,
-        `Environment=NODE_ENV=production`,
-        ``,
-        `[Install]`,
-        `WantedBy=multi-user.target`,
-        ``
+    const service= [
+                `[Unit]`,
+                `Description=Semasim nginx real time updater for load balancing.`,
+                `After=network.target`,
+                ``,
+                `[Service]`,
+                `Type=oneshot`,
+                `ExecStart=${pm2} start ${c.modulePath}/dist/bin/nginxUpdater.js`,
+                `RemainAfterExit=true`,
+                `ExecStop=${pm2} delete nginxUpdater`,
+                `StandardOutput=journal`,
+                `User=root`,
+                `Group=root`,
+                `Environment=NODE_ENV=production`,
+                ``,
+                `[Install]`,
+                `WantedBy=multi-user.target`,
+                ``
     ].join("\n");
 
-    await _.writeFileAssertSuccess(systemdServicePath, service);
+    fs.writeFileSync(
+        systemdServicePath,
+        Buffer.from( service, "utf8")
+    );
 
-    await _.run("systemctl daemon-reload");
+    scriptLib.execSync("systemctl daemon-reload");
 
     console.log([
         `Service successfully installed!`.green,
@@ -77,24 +81,21 @@ async function installNginxUpdaterService() {
 
 }
 
-
 async function removeNginxUpdaterService() {
-
-    const fs= await import("fs");
 
     try {
 
-        await _.run(`systemctl stop ${c.nginxUpdaterServiceName}.service`);
+        scriptLib.execSync(`systemctl stop ${c.nginxUpdaterServiceName}.service`);
 
-        await _.run(`systemctl disable ${c.nginxUpdaterServiceName}.service`);
+        scriptLib.execSync(`systemctl disable ${c.nginxUpdaterServiceName}.service`);
 
     } catch (error) { }
 
-    try { 
-        fs.unlinkSync(systemdServicePath); 
+    try {
+        fs.unlinkSync(systemdServicePath);
     } catch { }
 
-    await _.run("systemctl daemon-reload");
+    await scriptLib.execSync("systemctl daemon-reload");
 
     console.log(`${c.nginxUpdaterServiceName}.service removed from systemd`.green);
 
