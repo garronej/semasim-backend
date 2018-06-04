@@ -20,7 +20,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
         "sanityCheck": params => (
             params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
-            typeof params.storageDigest === "string" &&
+            dcSanityChecks.md5(params.storageDigest) &&
             typeof params.password === "string" &&
             params.simDongle instanceof Object &&
             dcSanityChecks.imei(params.simDongle.imei) &&
@@ -47,7 +47,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             } else {
 
-                let { rejectedSims } =await clientSideSockets.remoteApi.notifyRouteFor({ 
+                const { rejectedSims } =await clientSideSockets.remoteApi.notifyRouteFor({ 
                     "sims": [ imsi ] 
                 });
 
@@ -63,20 +63,20 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                 imsi, password, fromSocket.remoteAddress, simDongle
             );
 
-            let evtUsableDongle = remoteApi.waitForUsableDongle.__waited.get(simDongle.imei);
+            const evtUsableDongle = remoteApi.waitForUsableDongle.__waited.get(simDongle.imei);
 
             if (evtUsableDongle) {
 
                 (async () => {
 
-                    let found = await remoteApi.getSipPasswordAndDongle(imsi);
+                    const dongle_password = await remoteApi.getSipPasswordAndDongle(imsi);
 
-                    if (!found) {
+                    if (!dongle_password) {
                         return;
                     }
 
                     evtUsableDongle.post({
-                        "dongle": found.dongle,
+                        "dongle": dongle_password.dongle,
                         "simOwner": resp.isSimRegistered ?
                             (await dbSemasim.getSimOwner(imsi)) : undefined
                     });
@@ -86,32 +86,44 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
             }
 
             if (!resp.isSimRegistered) {
-
                 return { "status": "NOT REGISTERED" };
-
             }
 
             if (resp.passwordStatus === "NEED RENEWAL") {
-
                 return {
                     "status": "NEED PASSWORD RENEWAL",
                     "allowedUas": resp.uasRegisteredToSim
                 };
-
             }
 
-            let isStorageUpToDate: boolean;
+            let wasStorageUpToDate: boolean;
 
             if (resp.storageDigest === storageDigest) {
-                isStorageUpToDate = true;
+                wasStorageUpToDate = true;
             } else {
-                isStorageUpToDate = false;
                 //TODO: sync SIM storage
+                wasStorageUpToDate = false;
+
+                const dongle_password = await remoteApi.getSipPasswordAndDongle(imsi);
+
+                if( !dongle_password ){
+
+                    /*
+                    Should happen only when the dongle is connected and immediately disconnected
+                    The gateway should notify sim offline. 
+                    We return here to prevent sending push notifications.
+                    */
+                    return { "status": "OK" };
+
+                }
+
+                await dbSemasim.updateSimStorage(imsi, dongle_password.dongle.sim.storage);
+
             }
 
             await pushNotifications.send(
                 resp.uasRegisteredToSim,
-                (!isStorageUpToDate || resp.passwordStatus === "RENEWED") ?
+                (!wasStorageUpToDate || resp.passwordStatus === "RENEWED") ?
                     "RELOAD CONFIG" : undefined
             );
 

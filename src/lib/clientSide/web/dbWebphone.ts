@@ -1,5 +1,5 @@
 const uuidv3 = require("uuid/v3");
-import { types } from "../../../semasim-frontend";
+import { types as feTypes } from "../../../semasim-frontend";
 import { Auth } from "./sessionManager";
 import * as c from "../../_constants"
 import { mysqlCustom as f } from "../../../semasim-gateway";
@@ -30,19 +30,17 @@ export async function flush() {
     await query("DELETE FROM root");
 }
 
-
 export async function fetch(
     { user, email }: Auth
-): Promise<types.WebphoneData> {
+): Promise<feTypes.WebphoneData> {
 
     const uuidNs = "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9";
 
-    let sql = buildInsertQuery("root", {
-        "user": user,
-        "ua_instance": `uuid:${uuidv3(`${user}`, uuidNs)}`
-    }, "IGNORE");
-
-    sql += [
+    const sql = [
+        buildInsertQuery("root", {
+            "user": user,
+            "ua_instance": `uuid:${uuidv3(`${user}`, uuidNs)}`
+        }, "IGNORE"),
         "SELECT *",
         "from root",
         `WHERE user= ${esc(user)}`,
@@ -68,24 +66,24 @@ export async function fetch(
         ";",
     ].join("\n");
 
-    let resp= await query(sql);
+    let resp = await query(sql);
 
-    let [ rowRoot ]= resp[1];
-    let rowsInstance= resp[2];
-    let rowsChat= resp[3];
-    let rowsMessage= resp[4];
+    let [rowRoot] = resp[1];
+    let rowsInstance = resp[2];
+    let rowsChat = resp[3];
+    let rowsMessage = resp[4];
 
-    let webphoneData: types.WebphoneData = {
+    let webphoneData: feTypes.WebphoneData = {
         "uaInstanceId": rowRoot["ua_instance"],
         email,
         "instances": []
     };
 
-    let instanceById = new Map<number, types.WebphoneData.Instance>();
+    let instanceById = new Map<number, feTypes.WebphoneData.Instance>();
 
     for (let rowInstance of rowsInstance) {
 
-        let instance: types.WebphoneData.Instance = {
+        let instance: feTypes.WebphoneData.Instance = {
             "id_": rowInstance["id_"],
             "imsi": rowInstance["imsi"],
             "chats": []
@@ -97,15 +95,15 @@ export async function fetch(
 
     }
 
-    let chatById = new Map<number, types.WebphoneData.Chat>();
+    let chatById = new Map<number, feTypes.WebphoneData.Chat>();
 
     for (let rowChat of rowsChat) {
 
-        let chat: types.WebphoneData.Chat = {
+        let chat: feTypes.WebphoneData.Chat = {
             "id_": rowChat["id_"],
             "contactNumber": rowChat["contact_number"],
             "contactName": rowChat["contact_name"],
-            "isContactInSim": rowChat["is_contact_in_sim"] === 1,
+            "contactIndexInSim": rowChat["contact_index_in_sim"],
             "lastSeenTime": rowChat["last_seen_time"],
             "messages": []
         };
@@ -118,9 +116,9 @@ export async function fetch(
 
     for (let rowMessage of rowsMessage) {
 
-        let message: types.WebphoneData.Message;
+        let message: feTypes.WebphoneData.Message;
 
-        let messageBase: types.WebphoneData.Message.Base = {
+        let messageBase: feTypes.WebphoneData.Message.Base = {
             "id_": rowMessage["id_"],
             "text": rowMessage["text"],
             "time": rowMessage["time"],
@@ -130,7 +128,7 @@ export async function fetch(
 
         if (rowMessage["is_incoming"]) {
 
-            let incomingMessage: types.WebphoneData.Message.Incoming = {
+            let incomingMessage: feTypes.WebphoneData.Message.Incoming = {
                 ...messageBase,
                 "direction": "INCOMING",
                 "isNotification": (rowMessage["incoming_is_notification"] === 1) as any
@@ -140,10 +138,10 @@ export async function fetch(
 
         } else {
 
-            let outgoingBase: types.WebphoneData.Message.Outgoing.Base = {
+            let outgoingBase: feTypes.WebphoneData.Message.Outgoing.Base = {
                 ...messageBase,
                 "direction": "OUTGOING",
-                "sentBy": ((): types.WebphoneData.Message.Outgoing["sentBy"] => {
+                "sentBy": ((): feTypes.WebphoneData.Message.Outgoing["sentBy"] => {
 
                     let email: string = rowMessage["outgoing_sent_by_email"];
 
@@ -157,18 +155,18 @@ export async function fetch(
                 "status": null as any
             };
 
-            let outgoingMessage!: types.WebphoneData.Message.Outgoing;
+            let outgoingMessage!: feTypes.WebphoneData.Message.Outgoing;
 
             switch (rowMessage["outgoing_status_code"] as (0 | 1 | 2)) {
                 case 0:
-                    let o0: types.WebphoneData.Message.Outgoing.TransmittedToGateway = {
+                    let o0: feTypes.WebphoneData.Message.Outgoing.TransmittedToGateway = {
                         ...outgoingBase,
                         "status": "TRANSMITTED TO GATEWAY"
                     };
                     outgoingMessage = o0;
                     break;
                 case 1:
-                    let o1: types.WebphoneData.Message.Outgoing.SendReportReceived = {
+                    let o1: feTypes.WebphoneData.Message.Outgoing.SendReportReceived = {
                         ...outgoingBase,
                         "status": "SEND REPORT RECEIVED",
                         "dongleSendTime": rowMessage["outgoing_dongle_send_time"]
@@ -176,7 +174,7 @@ export async function fetch(
                     outgoingMessage = o1;
                     break;
                 case 2:
-                    let o2: types.WebphoneData.Message.Outgoing.StatusReportReceived = {
+                    let o2: feTypes.WebphoneData.Message.Outgoing.StatusReportReceived = {
                         ...outgoingBase,
                         "status": "STATUS REPORT RECEIVED",
                         "dongleSendTime": rowMessage["outgoing_dongle_send_time"],
@@ -201,25 +199,24 @@ export async function fetch(
 export async function newInstance(
     user: number,
     imsi: string
-): Promise<types.WebphoneData.Instance> {
+): Promise<feTypes.WebphoneData.Instance> {
 
-    let sql = [
+    const sql = [
+        "SELECT @root_ref:= NULL;",
         "SELECT @root_ref:= id_",
         "FROM root",
         `WHERE user= ${esc(user)}`,
         ";",
-        ""
+        buildInsertQuery("instance", {
+            imsi,
+            "root": { "@": "root_ref" }
+        }, "THROW ERROR")
     ].join("\n");
-
-    sql += buildInsertQuery("instance", {
-        imsi,
-        "root": { "@": "root_ref" }
-    }, "THROW ERROR");
 
     let resp = await query(sql);
 
     return {
-        "id_": resp[1].insertId,
+        "id_": resp.pop().insertId,
         imsi,
         "chats": []
     };
@@ -231,25 +228,24 @@ export async function newChat(
     instance_id: number,
     contactNumber: string,
     contactName: string,
-    isContactInSim: boolean
-): Promise<types.WebphoneData.Chat> {
+    contactIndexInSim: number | null
+): Promise<feTypes.WebphoneData.Chat> {
 
-    let sql = [
+    const sql = [
         "SELECT _ASSERT( COUNT(*) , 'Instance does not exist')",
         "FROM instance",
         "INNER JOIN root ON root.id_= instance.root",
         `WHERE root.user= ${esc(user)} AND instance.id_= ${esc(instance_id)}`,
         ";",
-        ""
+        buildInsertQuery("chat", {
+            "instance": instance_id,
+            "contact_number": contactNumber,
+            "contact_name": contactName,
+            "contact_index_in_sim": contactIndexInSim,
+            "last_seen_time": 0
+        }, "THROW ERROR")
     ].join("\n");
 
-    sql += buildInsertQuery("chat", {
-        "instance": instance_id,
-        "contact_number": contactNumber,
-        "contact_name": contactName,
-        "is_contact_in_sim": f.bool.enc(isContactInSim),
-        "last_seen_time": 0
-    }, "THROW ERROR");
 
     let resp = await query(sql);
 
@@ -257,7 +253,7 @@ export async function newChat(
         "id_": resp.pop().insertId,
         contactNumber,
         contactName,
-        isContactInSim,
+        contactIndexInSim,
         "messages": [],
         "lastSeenTime": 0
     };
@@ -269,20 +265,10 @@ export async function updateChat(
     chat_id: number,
     lastSeenTime: number | undefined,
     contactName: string | undefined,
-    isContactInSim: boolean | undefined
+    contactIndexInSim: number | null | undefined
 ): Promise<undefined> {
 
-    let sql = [
-        "SELECT _ASSERT( COUNT(*) , 'Chat does not exist')",
-        "FROM chat",
-        "INNER JOIN instance ON instance.id_= chat.instance",
-        "INNER JOIN root ON root.id_= instance.root",
-        `WHERE root.user= ${esc(user)} AND chat.id_= ${esc(chat_id)}`,
-        ";",
-        ""
-    ].join("\n");
-
-    let fields: { [key: string]: f.TSql } = { "id_": chat_id };
+    const fields: { [key: string]: f.TSql } = { "id_": chat_id };
 
     if (lastSeenTime !== undefined) {
         fields["last_seen_time"] = lastSeenTime;
@@ -292,11 +278,19 @@ export async function updateChat(
         fields["contact_name"] = contactName;
     }
 
-    if (isContactInSim !== undefined) {
-        fields["is_contact_in_sim"] = f.bool.enc(isContactInSim);
+    if (contactIndexInSim !== undefined) {
+        fields["contact_index_in_sim"] = contactIndexInSim;
     }
 
-    sql += buildInsertQuery("chat", fields, "UPDATE");
+    const sql = [
+        "SELECT _ASSERT( COUNT(*) , 'Chat does not exist')",
+        "FROM chat",
+        "INNER JOIN instance ON instance.id_= chat.instance",
+        "INNER JOIN root ON root.id_= instance.root",
+        `WHERE root.user= ${esc(user)} AND chat.id_= ${esc(chat_id)}`,
+        ";",
+        buildInsertQuery("chat", fields, "UPDATE")
+    ].join("\n");
 
     await query(sql);
 
@@ -328,18 +322,9 @@ export async function destroyChat(
 export async function newMessage(
     user: number,
     chat_id: number,
-    message: types.WebphoneData.Message
-): Promise<types.WebphoneData.Message> {
+    message: feTypes.WebphoneData.Message
+): Promise<feTypes.WebphoneData.Message> {
 
-    let sql = [
-        "SELECT _ASSERT( COUNT(*) , 'Chat does not exist')",
-        "FROM chat",
-        "INNER JOIN instance ON instance.id_= chat.instance",
-        "INNER JOIN root ON root.id_= instance.root",
-        `WHERE root.user= ${esc(user)} AND chat.id_= ${esc(chat_id)}`,
-        ";",
-        ""
-    ].join("\n");
 
     let is_incoming: 0 | 1;
     let incoming_is_notification: 0 | 1 | null;
@@ -362,9 +347,9 @@ export async function newMessage(
         is_incoming = f.bool.enc(false);
         incoming_is_notification = null;
 
-        if( message.sentBy.who === "OTHER" ){
+        if (message.sentBy.who === "OTHER") {
             outgoing_sent_by_email = message.sentBy.email;
-        }else{
+        } else {
             outgoing_sent_by_email = null;
         }
 
@@ -389,17 +374,25 @@ export async function newMessage(
 
     }
 
-    sql += buildInsertQuery("message", {
-        "chat": chat_id,
-        "time": message.time,
-        "text": message.text,
-        is_incoming,
-        incoming_is_notification,
-        outgoing_sent_by_email,
-        outgoing_status_code,
-        outgoing_dongle_send_time,
-        outgoing_delivered_time
-    }, "THROW ERROR")
+    const sql = [
+        "SELECT _ASSERT( COUNT(*) , 'Chat does not exist')",
+        "FROM chat",
+        "INNER JOIN instance ON instance.id_= chat.instance",
+        "INNER JOIN root ON root.id_= instance.root",
+        `WHERE root.user= ${esc(user)} AND chat.id_= ${esc(chat_id)}`,
+        ";",
+        buildInsertQuery("message", {
+            "chat": chat_id,
+            "time": message.time,
+            "text": message.text,
+            is_incoming,
+            incoming_is_notification,
+            outgoing_sent_by_email,
+            outgoing_status_code,
+            outgoing_dongle_send_time,
+            outgoing_delivered_time
+        }, "THROW ERROR")
+    ].join("\n");
 
     let resp = await query(sql);
 
@@ -416,7 +409,7 @@ export async function updateOutgoingMessageStatusToSendReportReceived(
     dongleSendTime: number | null
 ): Promise<undefined> {
 
-    let sql = [
+    const sql = [
         "SELECT _ASSERT( COUNT(*) , 'Outgoing message in state transmitted to GW does not exist')",
         "FROM message",
         "INNER JOIN chat ON chat.id_= message.chat",
@@ -429,14 +422,12 @@ export async function updateOutgoingMessageStatusToSendReportReceived(
             `message.outgoing_status_code= 0`
         ].join(" AND "),
         ";",
-        ""
+        buildInsertQuery("message", {
+            "id_": message_id,
+            "outgoing_status_code": 1,
+            "outgoing_dongle_send_time": dongleSendTime
+        }, "UPDATE")
     ].join("\n");
-
-    sql += buildInsertQuery("message", {
-        "id_": message_id,
-        "outgoing_status_code": 1,
-        "outgoing_dongle_send_time": dongleSendTime
-    }, "UPDATE");
 
     await query(sql);
 
@@ -449,7 +440,7 @@ export async function updateOutgoingMessageStatusToStatusReportReceived(
     deliveredTime: number | null
 ): Promise<undefined> {
 
-    let sql = [
+    const sql = [
         "SELECT _ASSERT( COUNT(*) , 'Outgoing message in state send report received does not exist')",
         "FROM message",
         "INNER JOIN chat ON chat.id_= message.chat",
@@ -462,14 +453,12 @@ export async function updateOutgoingMessageStatusToStatusReportReceived(
             `message.outgoing_status_code= 1`
         ].join(" AND "),
         ";",
-        ""
+        buildInsertQuery("message", {
+            "id_": message_id,
+            "outgoing_status_code": 2,
+            "outgoing_delivered_time": deliveredTime
+        }, "UPDATE")
     ].join("\n");
-
-    sql += buildInsertQuery("message", {
-        "id_": message_id,
-        "outgoing_status_code": 2,
-        "outgoing_delivered_time": deliveredTime
-    }, "UPDATE");
 
     await query(sql);
 

@@ -1,16 +1,16 @@
 import { SyncEvent } from "ts-events-extended";
 import { types as dcTypes } from "chan-dongle-extended-client";
+import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as web from "../../../clientSide/web";
 import { declarationBackendSocketApi as apiDeclaration } from "../../../../semasim-gateway";
 import * as store from "./store";
 import * as sipLibrary from "ts-sip";
-import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 
 export async function getDongles(
     fromGatewayRemoteAddress: string
 ): Promise<dcTypes.Dongle[]> {
 
-    let methodName = apiDeclaration.getDongles.methodName;
+    const methodName = apiDeclaration.getDongles.methodName;
     type Params = apiDeclaration.getDongles.Params;
     type Response = apiDeclaration.getDongles.Response;
 
@@ -69,9 +69,9 @@ export async function getDongles(
 function whoHasLockedDongle(
     gatewaySocketRemoteAddress: string,
     imei: string
-): Promise<sipLibrary.Socket | undefined> {
+) {
 
-    let methodName = apiDeclaration.whoHasLockedDongle.methodName;
+    const methodName = apiDeclaration.whoHasLockedDongle.methodName;
     type Params = apiDeclaration.whoHasLockedDongle.Params;
     type Response = apiDeclaration.whoHasLockedDongle.Response;
 
@@ -122,40 +122,42 @@ export async function unlockDongle(
     gatewaySocketRemoteAddress: string,
     imei: string,
     pin: string,
-): Promise<dcTypes.UnlockResult | undefined> {
+) {
 
     let methodName = apiDeclaration.unlockDongle.methodName;
     type Params = apiDeclaration.unlockDongle.Params;
     type Response = apiDeclaration.unlockDongle.Response;
 
-    const sanityCheck= (response: Response)=> 
+    const sanityCheck = (response: Response) =>
         response === undefined ? true : dcSanityChecks.unlockResult(response);
 
-    let gatewaySocket = await whoHasLockedDongle(gatewaySocketRemoteAddress, imei);
+    return (async (): Promise<Response> => {
 
-    if (!gatewaySocket) {
+        const gatewaySocket = await whoHasLockedDongle(gatewaySocketRemoteAddress, imei);
 
-        return undefined;
+        if (!gatewaySocket) {
+            return undefined;
+        }
 
-    }
+        try {
 
-    try {
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySocket,
+                methodName,
+                { imei, pin },
+                {
+                    "timeout": 30 * 1000,
+                    sanityCheck
+                }
+            );
 
-        return await sipLibrary.api.client.sendRequest<Params, Response>(
-            gatewaySocket,
-            methodName,
-            { imei, pin },
-            { 
-                "timeout": 30 * 1000,
-                sanityCheck
-            }
-        );
+        } catch{
 
-    } catch{
+            return undefined;
 
-        return undefined;
+        }
 
-    }
+    })();
 
 }
 
@@ -167,38 +169,40 @@ export async function getSipPasswordAndDongle(
     type Params = apiDeclaration.getSipPasswordAndDongle.Params;
     type Response = apiDeclaration.getSipPasswordAndDongle.Response;
 
-    const sanityCheck= (response: Response)=> (
+    const sanityCheck = (response: Response) => (
         response instanceof Object &&
         dcSanityChecks.dongle(response.dongle) &&
         typeof response.sipPassword === "string" &&
         !!response.sipPassword.match(/^[0-9a-f]{32}$/)
     );
 
+    return (async (): Promise<Response> => {
 
-    let gatewaySocket = store.byImsi.get(imsi);
+        const gatewaySocket = store.byImsi.get(imsi);
 
-    if (!gatewaySocket) {
-        return undefined;
-    }
+        if (!gatewaySocket) {
+            return undefined;
+        }
 
-    try {
+        try {
 
-        return await sipLibrary.api.client.sendRequest<Params, Response>(
-            gatewaySocket,
-            methodName,
-            { imsi },
-            { 
-                "timeout": 5 * 1000,
-                sanityCheck
-             }
-        );
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySocket,
+                methodName,
+                { imsi },
+                {
+                    "timeout": 5 * 1000,
+                    sanityCheck
+                }
+            );
 
-    } catch{
+        } catch{
 
-        return undefined;
+            return undefined;
 
-    }
+        }
 
+    })();
 
 }
 
@@ -222,7 +226,7 @@ export async function reNotifySimOnline(
             gatewaySocket,
             methodName,
             { imsi },
-            { 
+            {
                 "timeout": 5 * 1000,
                 "sanityCheck": response => response === undefined
             }
@@ -233,6 +237,103 @@ export async function reNotifySimOnline(
         return;
 
     }
+
+}
+
+export async function createContact(
+    imsi: string, name: string, number: string
+) {
+
+    const methodName = apiDeclaration.createContact.methodName;
+    type Params = apiDeclaration.createContact.Params;
+    type Response = apiDeclaration.createContact.Response;
+
+    const sanityCheck = (response: Response) => (
+        response === undefined ||
+        (
+            response instanceof Object &&
+            typeof response.mem_index === "number" &&
+            typeof response.name_as_stored === "string" &&
+            dcSanityChecks.md5(response.new_storage_digest)
+        )
+    );
+
+    return (async (): Promise<Response> => {
+
+        let gatewaySocket = store.byImsi.get(imsi);
+
+        if (!gatewaySocket) {
+            return undefined;
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySocket,
+                methodName,
+                { imsi, name, number },
+                {
+                    "timeout": 15 * 1000,
+                    sanityCheck
+                }
+            );
+
+        } catch{
+
+            return undefined;
+
+        }
+
+    })();
+
+}
+
+export async function updateContactName(
+    imsi: string, 
+    mem_index: number,
+    newName: string
+) {
+
+    const methodName = apiDeclaration.updateContactName.methodName;
+    type Params = apiDeclaration.updateContactName.Params;
+    type Response = apiDeclaration.updateContactName.Response;
+
+    const sanityCheck = (response: Response) => (
+        response === undefined ||
+        (
+            response instanceof Object &&
+            typeof response.new_name_as_stored === "string" &&
+            dcSanityChecks.md5(response.new_storage_digest)
+        )
+    );
+
+    return (async (): Promise<Response> => {
+
+        let gatewaySocket = store.byImsi.get(imsi);
+
+        if (!gatewaySocket) {
+            return undefined;
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySocket,
+                methodName,
+                { imsi, mem_index, newName },
+                {
+                    "timeout": 15 * 1000,
+                    sanityCheck
+                }
+            );
+
+        } catch{
+
+            return undefined;
+
+        }
+
+    })();
 
 }
 

@@ -1,7 +1,7 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
 import { types as dcTypes } from "chan-dongle-extended-client";
-import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
+import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
@@ -19,8 +19,21 @@ export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`)
     "userEmail": email
 });
 
+function genUniqNumber(): string{
+
+    const c= `${genUniqNumber.counter++}`;
+
+    return "+33" + (new Array(8-c.length)).fill("0").join("") + c;
+
+}
+
+namespace genUniqNumber {
+    export let counter= 0;
+}
+
 export function generateSim(
-    contactCount: number = ~~(Math.random() * 200)
+    contactCount = ~~(Math.random() * 200)
+    //contactCount: number = 1
 ): dcTypes.Sim {
 
     let sim: dcTypes.Sim = {
@@ -38,12 +51,11 @@ export function generateSim(
         },
         "storage": {
             "number": Date.now() % 2 === 0 ?
-                undefined :
-                ({ "asStored": ttTesting.genDigits(10), "localFormat": `+${ttTesting.genDigits(9)}` }),
+                undefined : genUniqNumber(),
             "infos": {
-                "contactNameMaxLength": ~~(Math.random() * 15),
-                "numberMaxLength": ~~(Math.random() * 10),
-                "storageLeft": ~~(Math.random() * 300)
+                "contactNameMaxLength": 15,
+                "numberMaxLength": 20,
+                "storageLeft": 800
             },
             "contacts": [],
             "digest": ""
@@ -58,22 +70,14 @@ export function generateSim(
 
         sim.storage.contacts.push({
             index,
-            "name": {
-                "asStored": ttTesting.genUtf8Str(10),
-                "full": ttTesting.genUtf8Str(15)
-            },
-            "number": {
-                "asStored": ttTesting.genDigits(10),
-                "localFormat": ttTesting.genDigits(10)
-            }
+            "name": ttTesting.genHexStr(5),
+            "number": genUniqNumber()
         });
 
     }
 
-    
-
     sim.storage.digest = dcMisc.computeSimStorageDigest(
-        sim.storage.number?sim.storage.number.asStored:undefined,
+        sim.storage.number,
         sim.storage.infos.storageLeft,
         sim.storage.contacts
     );
@@ -86,7 +90,7 @@ export function generateSim(
 
 (async () => {
 
-    console.log("START TESTING");
+    console.log("START TESTING...");
 
     await db.launch(c.dbAuth.host);
 
@@ -102,12 +106,12 @@ export function generateSim(
 
 })();
 
-function genIp(): string{
+function genIp(): string {
 
-    let genGroup= ()=> ~~(Math.random()*255);
+    let genGroup = () => ~~(Math.random() * 255);
 
-    return (new Array(4)).fill("").map(()=> `${genGroup()}`).join(".");
-    
+    return (new Array(4)).fill("").map(() => `${genGroup()}`).join(".");
+
 }
 
 function createUserSimProxy(
@@ -135,15 +139,19 @@ function createUserSimProxy(
         },
         "dongle": {
             "enumerable": true,
-            "get": ()=> userSim.dongle
+            "get": () => userSim.dongle
         },
         "gatewayLocation": {
             "enumerable": true,
-            "get": ()=> userSim.gatewayLocation
+            "get": () => userSim.gatewayLocation
         },
         "isOnline": {
             "enumerable": true,
             "get": () => userSim.isOnline
+        },
+        "phonebook": {
+            "enumerable": true,
+            "get": ()=> userSim.phonebook
         }
     });
 
@@ -171,11 +179,15 @@ async function testMain() {
 
     let unregisteredEmail = "eve@foobar.com";
 
+
     for (let user of [alice, bob, carol, dave]) {
 
         for (let _ of new Array(~~(Math.random() * 10) + 1)) {
+        //for (let _ of [ null, null ]) {
 
-            if (user === carol) break;
+            if (user === carol) {
+                break;
+            }
 
             let ua = generateUa(user.email);
 
@@ -186,36 +198,52 @@ async function testMain() {
         }
 
         for (let _ of new Array(~~(Math.random() * 5) + 2)) {
-        //for (let _ of [ null ]) {
+        //for (let _ of [null]) {
 
-            if (user === dave) break;
+            if (user === dave){
+                 break;
+            }
 
-            let userSim: feTypes.UserSim = {
-                "sim": generateSim(),
-                "friendlyName": ttTesting.genUtf8Str(12),
-                "password": ttTesting.genHexStr(32),
-                "dongle": {
-                    "imei": ttTesting.genDigits(15),
-                    "isVoiceEnabled": (Date.now()%2===0)?true:undefined,
-                    "manufacturer": ttTesting.genUtf8Str(7),
-                    "model": ttTesting.genUtf8Str(7),
-                    "firmwareVersion": `1.${ttTesting.genDigits(3)}.${ttTesting.genDigits(3)}`
-                },
-                "gatewayLocation": {
-                    "ip": genIp(),
-                    "countryIso": undefined,
-                    "subdivisions": undefined,
-                    "city": undefined
-                },
-                "isOnline": true,
-                "ownership": {
-                    "status": "OWNED",
-                    "sharedWith": {
-                        "confirmed": [],
-                        "notConfirmed": []
-                    }
-                }
-            };
+            const userSim = (() => {
+
+                const sim = generateSim();
+
+                const out: feTypes.UserSim = {
+                    sim,
+                    "friendlyName": ttTesting.genUtf8Str(12),
+                    "password": ttTesting.genHexStr(32),
+                    "dongle": {
+                        "imei": ttTesting.genDigits(15),
+                        "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
+                        "manufacturer": ttTesting.genUtf8Str(7),
+                        "model": ttTesting.genUtf8Str(7),
+                        "firmwareVersion": `1.${ttTesting.genDigits(3)}.${ttTesting.genDigits(3)}`
+                    },
+                    "gatewayLocation": {
+                        "ip": genIp(),
+                        "countryIso": undefined,
+                        "subdivisions": undefined,
+                        "city": undefined
+                    },
+                    "isOnline": true,
+                    "ownership": {
+                        "status": "OWNED",
+                        "sharedWith": {
+                            "confirmed": [],
+                            "notConfirmed": []
+                        }
+                    },
+                    "phonebook": sim.storage.contacts.map(c => ({
+                        "mem_index": c.index,
+                        "name": c.name,
+                        "number_raw": c.number,
+                        "number_local_format": dcMisc.toNationalNumber(c.number, sim.imsi)
+                    }))
+                };
+
+                return out;
+
+            })();
 
             await db.addGatewayLocation(userSim.gatewayLocation.ip);
 
@@ -234,16 +262,282 @@ async function testMain() {
             user.userSims.push(userSim);
 
             assertSame(
-                await db.registerSim( 
-                    user.user, 
-                    userSim.sim, 
-                    userSim.friendlyName, 
-                    userSim.password, 
-                    userSim.dongle, 
+                await db.registerSim(
+                    user.user,
+                    userSim.sim,
+                    userSim.friendlyName,
+                    userSim.password,
+                    userSim.dongle,
                     userSim.gatewayLocation.ip
                 ),
                 user.uas
             );
+
+            assertSame(
+                (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                userSim
+            );
+
+            for (let i = 0; i < 7; i++) {
+
+                const name = ttTesting.genUtf8Str(30);
+                const number_raw = genUniqNumber();
+                const number_local_format = dcMisc.toNationalNumber(number_raw, userSim.sim.imsi);
+
+                const c: feTypes.UserSim.Contact = {
+                    "mem_index": undefined,
+                    name,
+                    number_raw,
+                    number_local_format
+                };
+
+                userSim.phonebook.push(c);
+
+                await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw);
+
+                assertSame(
+                    (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                    userSim
+                );
+
+                if (i === 0) {
+
+                    userSim.phonebook.pop();
+
+                    await db.deleteSimContact(userSim.sim.imsi, { number_raw });
+
+                    assertSame(
+                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        userSim
+                    );
+
+
+                }
+
+                if (i === 1) {
+
+                    c.name = ttTesting.genUtf8Str(30);
+
+                    await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw);
+
+                    assertSame(
+                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        userSim
+                    );
+
+                }
+
+
+            }
+
+            for (const isStepByStep of [false, true]) {
+
+                for (const _ of [null, null, null, null]) {
+
+                    const mem_index = (() => {
+
+                        let out = 1;
+
+                        while (true) {
+
+                            if (!userSim.sim.storage.contacts.find(({ index }) => index === out)) {
+                                break;
+                            }
+
+                            out++;
+
+                        }
+
+                        return out;
+
+                    })();
+
+
+                    const name_as_stored = ttTesting.genHexStr(12);
+
+                    const number_raw = genUniqNumber();
+
+                    userSim.sim.storage.contacts.push({
+                        "index": mem_index,
+                        "name": name_as_stored,
+                        "number": number_raw
+                    });
+
+                    const name = isStepByStep ? ttTesting.genUtf8Str(20) : name_as_stored ;
+
+                    userSim.phonebook.push({
+                        mem_index,
+                        name,
+                        number_raw,
+                        "number_local_format": dcMisc.toNationalNumber(number_raw, userSim.sim.imsi)
+                    });
+
+                    userSim.sim.storage.infos.storageLeft--;
+
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+
+                    if (isStepByStep) {
+
+                        await db.createOrUpdateSimContact(
+                            userSim.sim.imsi,
+                            name,
+                            number_raw,
+                            { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }
+                        );
+
+                        assertSame(
+                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            userSim
+                        );
+
+                    }
+
+                }
+
+                if (isStepByStep) {
+
+                    const updatedContact = userSim.sim.storage.contacts[userSim.sim.storage.contacts.length - 1];
+
+                    const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index)!
+
+                    c.name = ttTesting.genUtf8Str(20);
+
+                    updatedContact.name= ttTesting.genHexStr(10);
+
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+
+                    await db.createOrUpdateSimContact(
+                        userSim.sim.imsi,
+                        c.name,
+                        c.number_raw,
+                        {
+                            "mem_index": updatedContact.index,
+                            "name_as_stored": updatedContact.name,
+                            "new_storage_digest": userSim.sim.storage.digest
+                        }
+                    );
+
+                    assertSame(
+                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        userSim
+                    );
+
+                }
+
+                for (const _ of [null, null]) {
+
+                    const deletedContact = userSim.sim.storage.contacts.pop()!;
+
+                    userSim.phonebook.splice(
+                        userSim.phonebook.indexOf(
+                            userSim.phonebook.find(({ mem_index }) => mem_index === deletedContact.index)!
+                        ), 1
+                    );
+
+                    userSim.sim.storage.infos.storageLeft++;
+
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+
+                    if (isStepByStep) {
+
+                        await db.deleteSimContact(
+                            userSim.sim.imsi,
+                            { "mem_index": deletedContact.index, "new_storage_digest": userSim.sim.storage.digest }
+                        );
+
+                        assertSame(
+                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            userSim
+                        );
+
+                    }
+
+                }
+
+                await (async () => {
+
+                    const updatedContact = userSim.sim.storage.contacts[0];
+
+                    updatedContact.name = ttTesting.genHexStr(8);
+
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+
+                    const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index)!
+
+                    //storage name updated => full name updated.
+                    c.name = updatedContact.name;
+
+                    if (isStepByStep) {
+
+                        await db.createOrUpdateSimContact(
+                            userSim.sim.imsi,
+                            c.name,
+                            c.number_raw,
+                            {
+                                "mem_index": updatedContact.index,
+                                "name_as_stored": updatedContact.name,
+                                "new_storage_digest": userSim.sim.storage.digest
+                            }
+                        );
+
+                        assertSame(
+                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            userSim
+                        );
+
+                    }
+
+                })();
+
+                await (async () => {
+
+                    const updatedContact = userSim.sim.storage.contacts[1];
+
+                    updatedContact.number = genUniqNumber();
+
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+
+                    const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index)!
+
+                    //storage number updated => full name updated.
+                    c.name = updatedContact.name;
+                    c.number_raw = updatedContact.number;
+                    c.number_local_format = dcMisc.toNationalNumber(c.number_raw, userSim.sim.imsi);
+
+                    if (isStepByStep) {
+
+                        await db.createOrUpdateSimContact(
+                            userSim.sim.imsi,
+                            c.name,
+                            c.number_raw,
+                            {
+                                "mem_index": updatedContact.index,
+                                "name_as_stored": updatedContact.name,
+                                "new_storage_digest": userSim.sim.storage.digest
+                            }
+                        );
+
+                        assertSame(
+                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            userSim
+                        );
+
+                    }
+
+                })();
+
+                if (!isStepByStep) {
+
+                    await db.updateSimStorage(userSim.sim.imsi, userSim.sim.storage);
+
+                    assertSame(
+                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        userSim
+                    );
+
+                }
+
+            }
 
         }
 
@@ -253,7 +547,6 @@ async function testMain() {
         );
 
     }
-
 
     (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
         .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
@@ -279,8 +572,8 @@ async function testMain() {
             sharingRequestMessage
         ),
         {
-            "registered": [ bob.email, carol.email, dave.email ],
-            "notRegistered": [ unregisteredEmail ]
+            "registered": [bob.email, carol.email, dave.email],
+            "notRegistered": [unregisteredEmail]
         }
     );
 

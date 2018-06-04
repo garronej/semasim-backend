@@ -53,3 +53,29 @@ export namespace reNotifySimOnline {
     export type Response= undefined;
 
 }
+
+export namespace createContact {
+
+    export const methodName = "createContact";
+
+    export type Params = { imsi: string; name: string; number: string; auth: web.Auth; };
+
+    /** undefined when a contact with number already exist or user does not have access to this sim */
+    export type Response = { mem_index: number | null; } | undefined;
+
+}
+
+export namespace updateContactName {
+
+    export const methodName= "updateContactName";
+
+    export type Params = { 
+        imsi: string; 
+        contactRef: { mem_index: number } | { number: string; }; 
+        newName: string; 
+        auth: web.Auth;
+    };
+
+    export type Response= { isSuccess: boolean; };
+
+}

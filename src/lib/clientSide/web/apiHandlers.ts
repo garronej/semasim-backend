@@ -251,7 +251,7 @@ export const handlers: Handlers = {};
 
             }
 
-            let userUas = await db.registerSim(
+            const userUas = await db.registerSim(
                 session.auth!.user,
                 dongle.sim,
                 friendlyName,
@@ -417,6 +417,81 @@ export const handlers: Handlers = {};
 
 })();
 
+
+(() => {
+
+    const methodName = d.createContact.methodName;
+    type Params = d.createContact.Params;
+    type Response = d.createContact.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            dcSanityChecks.imsi(params.imsi) &&
+            typeof params.name === "string" &&
+            typeof params.number === "string"
+        ),
+        "handler": async ({ imsi, name, number }, session, remoteAddress) => {
+
+            const result = await gatewaySideSockets.createContact(
+                imsi, name, number, sessionManager.getAuth(session)!
+            );
+
+            if (result === undefined) {
+                throw new Error("Unlock failed, internal error");
+            }
+
+            return result;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
+(() => {
+
+    const methodName = d.updateContactName.methodName;
+    type Params = d.updateContactName.Params;
+    type Response = d.updateContactName.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            dcSanityChecks.imsi(params.imsi) &&
+            params.contactRef instanceof Object &&
+            (
+                typeof params.contactRef["mem_index"] === "number" ||
+                typeof params.contactRef["number"] === "string"
+            ) &&
+            typeof params.newName === "string" &&
+            params.newName !== ""
+        ),
+        "handler": async ({ imsi, contactRef, newName }, session, remoteAddress) => {
+
+            const result = await gatewaySideSockets.updateContactName(
+                imsi, contactRef, newName, sessionManager.getAuth(session)!
+            );
+
+            if( !result.isSuccess ){
+                throw new Error("Update contact error");
+            }
+
+            return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
+
 (() => {
 
     //TODO: enable "Send DTMFs in SIP" disable "Send DTMFs in stream" in static config
@@ -465,7 +540,7 @@ export const handlers: Handlers = {};
 
             let p_email = `enc_email=${gwTypes.misc.urlSafeB64.enc(email)}`;
 
-            for (let { sim, friendlyName, password, ownership } of await db.getUserSims(user)) {
+            for (let { sim, friendlyName, password, ownership, phonebook } of await db.getUserSims(user)) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
@@ -498,14 +573,14 @@ export const handlers: Handlers = {};
                     `  </section>`
                 ].join("\n");
 
-                for (let contact of sim.storage.contacts) {
+                for (let contact of phonebook) {
 
                     contactEntries[contactEntries.length] = [
                         `  <section name="friend_${contactEntries.length}">`,
                         [
                             `    <entry name="url" ${ov}>`,
                             entities.encode(
-                                `"${contact.name.full} (${friendlyName})" <sip:${contact.number.localFormat}@${domain}>`
+                                `"${contact.name} (${friendlyName})" <sip:${contact.number_local_format}@${domain}>`
                             ),
                             `</entry>`
                         ].join(""),
@@ -595,14 +670,14 @@ import dw = d.webphoneData;
             typeof params.instance_id === "number" &&
             typeof params.contactNumber === "string" &&
             typeof params.contactName === "string" &&
-            typeof params.isContactInSim === "boolean"
+            ( typeof params.contactIndexInSim === "number" || params.contactIndexInSim === null )
         ),
         "handler": (params, session) => dbw.newChat(
             sessionManager.getAuth(session)!.user,
             params.instance_id,
             params.contactNumber,
             params.contactName,
-            params.isContactInSim
+            params.contactIndexInSim
         )
     };
 
@@ -629,8 +704,9 @@ import dw = d.webphoneData;
                 params.contactName === undefined ||
                 typeof params.contactName === "string"
             ) && (
-                params.isContactInSim === undefined ||
-                typeof params.isContactInSim === "boolean"
+                params.contactIndexInSim === undefined ||
+                typeof params.contactIndexInSim === "number" ||
+                params.contactIndexInSim === null
             )
         ),
         "handler": (params, session) => dbw.updateChat(
@@ -638,7 +714,7 @@ import dw = d.webphoneData;
             params.chat_id,
             params.lastSeenTime,
             params.contactName,
-            params.isContactInSim
+            params.contactIndexInSim
         )
     };
 

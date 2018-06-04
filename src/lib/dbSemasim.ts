@@ -9,6 +9,7 @@ import {
     types as gwTypes 
 } from "../semasim-gateway";
 import { types as dcTypes } from "chan-dongle-extended-client";
+import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
 import { types as feTypes } from "../semasim-frontend";
 
 import * as c from "./_constants";
@@ -170,7 +171,8 @@ export async function addGatewayLocation(ip: string) {
 
 }
 
-/** returns locked dongles with unreadable SIM iccid,
+/** 
+ *  returns locked dongles with unreadable SIM iccid,
  *  locked dongles with readable iccid registered by user
  *  active dongles not registered
  */
@@ -230,6 +232,171 @@ export async function filterDongleWithRegistrableSim(
 
 }
 
+export async function updateSimStorage(
+    imsi: string, storage: dcTypes.Sim.Storage
+): Promise<void> {
+
+    let sql = [
+        "SELECT @sim_ref:=NULL;",
+        `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
+        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'SIM should be registered');",
+        buildInsertQuery("sim", {
+            "id_": { "@": "sim_ref" },
+            "number_as_stored": storage.number || null,
+            "storage_left": storage.infos.storageLeft,
+            "storage_digest": storage.digest
+        }, "UPDATE")
+    ].join("\n");
+
+    for (const { index, name, number } of storage.contacts) {
+
+        sql += [
+            `SELECT @new_name:=${esc(name)};`,
+            [
+                `SELECT @new_name:=name FROM contact WHERE`,
+                `sim=@sim_ref AND mem_index IS NOT NULL AND mem_index=${esc(index)} AND name_as_stored=${esc(name)} AND number_raw=${esc(number)};`,
+            ].join(" "),
+            buildInsertQuery("contact", {
+                "sim": { "@": "sim_ref" },
+                "mem_index": index,
+                "name_as_stored": name,
+                "number_raw": number,
+                "name": { "@": "new_name" },
+                "number_local_format": dcMisc.toNationalNumber(number, imsi)
+            }, "UPDATE")
+        ].join("\n");
+
+    }
+
+    let where_clause = storage.contacts.map(({ index }) => `mem_index <> ${esc(index)}`).join(" AND ");
+
+    where_clause = !!where_clause ? `AND ${where_clause}` : "";
+
+    sql += `DELETE FROM contact WHERE sim=@sim_ref AND mem_index IS NOT NULL ${where_clause}`;
+
+    //const before = Date.now();
+
+    await query(sql);
+
+    //console.log(`updateSimStorage: ${Date.now()-before}ms`);
+
+}
+
+export async function createOrUpdateSimContact(
+    imsi: string,
+    name: string,
+    number_raw: string,
+    storageInfos?: {
+        mem_index: number;
+        name_as_stored: string;
+        new_storage_digest: string;
+    }
+) {
+
+    let sql = [
+        "SELECT @sim_ref:=NULL;",
+        `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
+        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'SIM should be registered');",
+        ""
+    ].join("\n");
+
+    //TODO: make sure that variable lifetime is query only.
+
+    const number_local_format = dcMisc.toNationalNumber(number_raw, imsi);
+
+    if (!!storageInfos) {
+
+        const { mem_index, name_as_stored, new_storage_digest } = storageInfos;
+
+        sql += [
+            "SELECT @contact_ref:=NULL;",
+            "SELECT @contact_ref:=id_",
+            "FROM contact",
+            `WHERE sim=@sim_ref AND mem_index=${esc(mem_index)}`,
+            ";",
+            "UPDATE sim",
+            `SET storage_left=storage_left-1`,
+            "WHERE id_=@sim_ref AND @contact_ref IS NULL",
+            ";",
+            "UPDATE sim",
+            `SET storage_digest=${esc(new_storage_digest)}`,
+            "WHERE id_=@sim_ref",
+            ";",
+            buildInsertQuery("contact", {
+                "sim": { "@": "sim_ref" },
+                mem_index,
+                name_as_stored,
+                number_raw,
+                name,
+                number_local_format
+            }, "UPDATE")
+        ].join("\n");
+
+    } else {
+
+        sql += [
+            "SELECT @contact_ref:=NULL;",
+            "SELECT @contact_ref:= id_",
+            "FROM contact",
+            `WHERE sim=@sim_ref AND mem_index IS NULL AND number_raw=${esc(number_raw)}`,
+            ";",
+            "UPDATE contact",
+            `SET name=${esc(name)}`,
+            "WHERE @contact_ref IS NOT NULL AND id_=@contact_ref",
+            ";",
+            "INSERT INTO contact (sim, number_raw, number_local_format, name)",
+            `SELECT @sim_ref, ${esc(number_raw)}, ${esc(number_local_format)}, ${esc(name)}`,
+            "FROM DUAL WHERE @contact_ref IS NULL",
+            ";"
+        ].join("\n");
+
+    }
+
+    //const before = Date.now();
+
+    await query(sql);
+
+    //console.log(`createOrUpdateSimContact: ${Date.now()-before}ms`);
+
+}
+
+export async function deleteSimContact(
+    imsi: string,
+    contactRef: { mem_index: number; new_storage_digest: string; } | { number_raw: string; }
+) {
+
+    let sql = [
+        "SELECT @sim_ref:=NULL;",
+        `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
+        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'SIM should be registered');",
+        ""
+    ].join("\n");
+
+    if ("mem_index" in contactRef) {
+
+        const { mem_index, new_storage_digest } = contactRef;
+
+        sql += [
+            `DELETE FROM contact WHERE sim=@sim_ref AND mem_index=${esc(mem_index)};`,
+            `UPDATE sim SET storage_left=storage_left+1, storage_digest=${esc(new_storage_digest)} WHERE id_=@sim_ref;`,
+        ].join("\n");
+
+    } else {
+
+        const { number_raw } = contactRef;
+
+        sql += `DELETE FROM contact WHERE sim=@sim_ref AND number_raw=${esc(number_raw)};`;
+
+    }
+
+    //const before = Date.now();
+
+    await query(sql);
+
+    //console.log(`deleteSimContact: ${Date.now()-before}ms`);
+
+}
+
 /** return user UAs */
 export async function registerSim(
     user: number,
@@ -240,15 +407,15 @@ export async function registerSim(
     gatewayIp: string
 ): Promise<gwTypes.Ua[]> {
 
-    let sql = buildInsertQuery("dongle", {
-        "imei": dongle.imei,
-        "is_voice_enabled": f.bool.enc(dongle.isVoiceEnabled),
-        "manufacturer": dongle.manufacturer,
-        "model": dongle.model,
-        "firmware_version": dongle.firmwareVersion
-    }, "UPDATE");
-
-    sql += [
+    let sql = [
+        "SELECT @dongle_ref:=NULL, @gateway_location_ref:=NULL, @sim_ref:=NULL;",
+        buildInsertQuery("dongle", {
+            "imei": dongle.imei,
+            "is_voice_enabled": f.bool.enc(dongle.isVoiceEnabled),
+            "manufacturer": dongle.manufacturer,
+            "model": dongle.model,
+            "firmware_version": dongle.firmwareVersion
+        }, "UPDATE"),
         "SELECT @dongle_ref:= id_",
         "FROM dongle",
         `WHERE imei= ${esc(dongle.imei)}`,
@@ -257,38 +424,31 @@ export async function registerSim(
         "FROM gateway_location",
         `WHERE ip= ${esc(gatewayIp)}`,
         ";",
-        ""
-    ].join("\n");
-
-    sql += buildInsertQuery("sim", {
-        "imsi": sim.imsi,
-        "country_name": sim.country ? sim.country.name : null,
-        "country_iso": sim.country ? sim.country.iso : null,
-        "country_code": sim.country ? sim.country.code : null,
-        "iccid": sim.iccid,
-        "dongle": { "@": "dongle_ref" },
-        "gateway_location": { "@": "gateway_location_ref" },
-        "number_as_stored": sim.storage.number ? sim.storage.number.asStored : null,
-        "number_local_format": sim.storage.number ? sim.storage.number.localFormat : null,
-        "service_provider_from_imsi": sim.serviceProvider.fromImsi || null,
-        "service_provider_from_network": sim.serviceProvider.fromNetwork || null,
-        "contact_name_max_length": sim.storage.infos.contactNameMaxLength,
-        "number_max_length": sim.storage.infos.numberMaxLength,
-        "storage_left": sim.storage.infos.storageLeft,
-        "storage_digest": sim.storage.digest,
-        user,
-        password,
-        "need_password_renewal": 0,
-        "friendly_name": friendlyName,
-        "is_online": 1
-    }, "THROW ERROR");
-
-    sql += [
+        buildInsertQuery("sim", {
+            "imsi": sim.imsi,
+            "country_name": sim.country ? sim.country.name : null,
+            "country_iso": sim.country ? sim.country.iso : null,
+            "country_code": sim.country ? sim.country.code : null,
+            "iccid": sim.iccid,
+            "dongle": { "@": "dongle_ref" },
+            "gateway_location": { "@": "gateway_location_ref" },
+            "number_as_stored": !!sim.storage.number ? sim.storage.number : null,
+            "service_provider_from_imsi": sim.serviceProvider.fromImsi || null,
+            "service_provider_from_network": sim.serviceProvider.fromNetwork || null,
+            "contact_name_max_length": sim.storage.infos.contactNameMaxLength,
+            "number_max_length": sim.storage.infos.numberMaxLength,
+            "storage_left": sim.storage.infos.storageLeft,
+            "storage_digest": sim.storage.digest,
+            user,
+            password,
+            "need_password_renewal": 0,
+            "friendly_name": friendlyName,
+            "is_online": 1
+        }, "THROW ERROR"),
         "SELECT @sim_ref:= id_",
         "FROM sim",
         `WHERE imsi= ${esc(sim.imsi)}`,
-        ";",
-        ""
+        ";"
     ].join("\n");
 
     for (let contact of sim.storage.contacts) {
@@ -296,10 +456,10 @@ export async function registerSim(
         sql += buildInsertQuery("contact", {
             "sim": { "@": "sim_ref" },
             "mem_index": contact.index,
-            "number_as_stored": contact.number.asStored,
-            "number_local_format": contact.number.localFormat,
-            "name_as_stored": contact.name.asStored,
-            "name_full": contact.name.full
+            "number_raw": contact.number,
+            "number_local_format": dcMisc.toNationalNumber(contact.number, sim.imsi),
+            "name_as_stored": contact.name,
+            "name": contact.name
         }, "THROW ERROR");
 
     }
@@ -311,7 +471,11 @@ export async function registerSim(
         `WHERE user.id_= ${esc(user)}`
     ].join("\n");
 
+    //const before= Date.now();
+
     let queryResults = await query(sql);
+
+    //console.log(`registerSim: ${Date.now()-before}ms`);
 
     let userUas: gwTypes.Ua[] = [];
 
@@ -390,6 +554,8 @@ export async function getUserSims(
         `WHERE user_sim.user= ${esc(user)}`,
     ].join("\n");
 
+    //const before= Date.now();
+
     let [
         rowsSimOwned,
         rowsContactSimOwned,
@@ -397,6 +563,8 @@ export async function getUserSims(
         rowsSimShared,
         rowsContactSimShared
     ] = await query(sql);
+
+    //console.log(`getUserSims ${Date.now()-before}ms`);
 
     let sharedWithBySim: {
         [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
@@ -419,6 +587,7 @@ export async function getUserSims(
 
     }
 
+    /*
     let contactsBySim: { [imsi: string]: dcTypes.Sim.Contact[]; } = {};
 
     for (let row of [...rowsContactSimOwned, ...rowsContactSimShared]) {
@@ -442,6 +611,45 @@ export async function getUserSims(
         });
 
     }
+    */
+
+    const storageContactsBySim: { [imsi: string]: dcTypes.Sim.Contact[]; } = {};
+    const phonebookBySim: { [imsi: string]: feTypes.UserSim.Contact[]; } = {};
+
+    for (const row of [...rowsContactSimOwned, ...rowsContactSimShared]) {
+
+        let imsi = row["imsi"];
+
+        const mem_index: number | undefined =
+            row["mem_index"] !== null ? row["mem_index"] : undefined;
+
+        if (mem_index !== undefined) {
+
+            if (!storageContactsBySim[imsi]) {
+                storageContactsBySim[imsi] = [];
+            }
+
+            storageContactsBySim[imsi].push({
+                "index": mem_index,
+                "name": row["name_as_stored"],
+                "number": row["number_raw"]
+            });
+
+        }
+
+        if (!phonebookBySim[imsi]) {
+            phonebookBySim[imsi] = [];
+        }
+
+        phonebookBySim[imsi].push({
+            mem_index,
+            "name": row["name"],
+            "number_raw": row["number_raw"],
+            "number_local_format": row["number_local_format"]
+        });
+
+    }
+
 
     let userSims: feTypes.UserSim[] = [];
 
@@ -453,23 +661,20 @@ export async function getUserSims(
             "country": row["country_name"] ? ({
                 "name": row["country_name"],
                 "iso": row["country_iso"],
-                "code": parseInt(row["country_code"])
+                "code": row["country_code"]
             }) : undefined,
             "serviceProvider": {
                 "fromImsi": row["service_provider_from_imsi"] || undefined,
                 "fromNetwork": row["service_provider_from_network"] || undefined
             },
             "storage": {
-                "number": row["number_as_stored"] ? ({
-                    "asStored": row["number_as_stored"],
-                    "localFormat": row["number_local_format"]
-                }) : undefined,
+                "number": row["number_as_stored"] || undefined,
                 "infos": {
-                    "contactNameMaxLength": parseInt(row["contact_name_max_length"]),
-                    "numberMaxLength": parseInt(row["number_max_length"]),
-                    "storageLeft": parseInt(row["storage_left"]),
+                    "contactNameMaxLength": row["contact_name_max_length"],
+                    "numberMaxLength": row["number_max_length"],
+                    "storageLeft": row["storage_left"],
                 },
-                "contacts": contactsBySim[row["imsi"]] || [],
+                "contacts": storageContactsBySim[row["imsi"]] || [],
                 "digest": row["storage_digest"]
             }
         };
@@ -514,7 +719,7 @@ export async function getUserSims(
 
                 if (friendlyName === null) {
 
-                    //NOTE: Security hotFix
+                    //NOTE: Security hotFix, TODO: see if uppercase, if changed update in make sim proxy (tests)
                     row["password"] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
                     return [
@@ -546,7 +751,8 @@ export async function getUserSims(
             dongle,
             gatewayLocation,
             "isOnline": row["is_online"] === 1,
-            ownership
+            ownership,
+            "phonebook": phonebookBySim[sim.imsi] || []
         };
 
         userSims.push(userSim);
@@ -597,7 +803,8 @@ export async function setSimOnline(
     uasRegisteredToSim: gwTypes.Ua[];
 }> {
 
-    let sql = [
+    const sql = [
+        "SELECT @sim_ref:=NULL, @password_status:=NULL, @dongle_ref:=NULL, @gateway_location_ref:=NULL;",
         "SELECT",
         "@sim_ref:= id_,",
         `storage_digest,`,
@@ -610,18 +817,13 @@ export async function setSimOnline(
         "FROM sim",
         `WHERE imsi= ${esc(imsi)}`,
         ";",
-        ""
-    ].join("\n");
-
-    sql += buildInsertQuery("dongle", {
-        "imei": dongle.imei,
-        "is_voice_enabled": f.bool.enc(dongle.isVoiceEnabled),
-        "manufacturer": dongle.manufacturer,
-        "model": dongle.model,
-        "firmware_version": dongle.firmwareVersion
-    }, "UPDATE");
-
-    sql += [
+        buildInsertQuery("dongle", {
+            "imei": dongle.imei,
+            "is_voice_enabled": f.bool.enc(dongle.isVoiceEnabled),
+            "manufacturer": dongle.manufacturer,
+            "model": dongle.model,
+            "firmware_version": dongle.firmwareVersion
+        }, "UPDATE"),
         "SELECT @dongle_ref:= id_",
         "FROM dongle",
         `WHERE imei= ${dongle.imei}`,
@@ -646,16 +848,18 @@ export async function setSimOnline(
         "INNER JOIN sim ON sim.user= user.id_",
         `WHERE sim.id_= @sim_ref`,
         ";",
-        "SELECT",
+        "SELECT ",
         "   ua.*, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN user_sim ON user_sim.user= user.id_",
         "INNER JOIN sim ON sim.id_= user_sim.sim",
-        `WHERE sim.id_= @sim_ref AND user_sim.friendly_name IS NOT NULL`
+        "WHERE sim.id_= @sim_ref AND user_sim.friendly_name IS NOT NULL"
     ].join("\n");
 
-    let queryResults = await query(sql);
+    const queryResults = await query(sql);
+
+    queryResults.shift();
 
     if (queryResults[0].length === 0) {
         return { "isSimRegistered": false };
@@ -698,7 +902,8 @@ export async function unregisterSim(
     imsi: string
 ): Promise<gwTypes.Ua[]> {
 
-    let queryResults = await query([
+    const sql = [
+        `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
         `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
@@ -729,11 +934,15 @@ export async function unregisterSim(
         ";",
         "DELETE FROM user_sim",
         `WHERE sim= @sim_ref AND user= ${esc(user)} AND NOT @is_sim_owned`
-    ].join("\n"));
+    ].join("\n");
 
-    let affectedUas: gwTypes.Ua[] = [];
+    const queryResults = await query(sql);
 
-    for (let row of [ ...queryResults[2], ...queryResults[3]]) {
+    queryResults.shift();
+
+    const affectedUas: gwTypes.Ua[] = [];
+
+    for (const row of [ ...queryResults[2], ...queryResults[3]]) {
 
         affectedUas.push({
             "instance": row["instance"],
@@ -762,7 +971,8 @@ export async function shareSim(
         .filter(email => email !== auth.email)
         ;
 
-    let sql = [
+    const sql = [
+        "SELECT @sim_ref:=NULL;",
         "SELECT @sim_ref:= id_",
         "FROM sim",
         `WHERE imsi= ${esc(imsi)} AND user= ${esc(auth.user)}`,
@@ -794,16 +1004,16 @@ export async function shareSim(
         "SELECT * from _user"
     ].join("\n");
 
-    let queryResults = await query(sql);
+    const queryResults = await query(sql);
 
-    let userRows = queryResults.pop();
+    const userRows = queryResults.pop();
 
-    let affectedUsers = {
+    const affectedUsers = {
         "registered": [] as string[],
         "notRegistered": [] as string[]
     };
 
-    for (let row of userRows) {
+    for (const row of userRows) {
 
         let email = row["email"];
 
@@ -829,7 +1039,8 @@ export async function stopSharingSim(
     emails = emails.map(email => email.toLowerCase());
 
     //TODO: See if JOIN work on temporary table
-    let sql = [
+    const sql = [
+        "SELECT @sim_ref:=NULL, @ua_found:=NULL;",
         "SELECT @sim_ref:= id_",
         "FROM sim",
         `WHERE imsi= ${esc(imsi)} AND user= ${esc(user)}`,
@@ -863,13 +1074,15 @@ export async function stopSharingSim(
         "INNER JOIN _user_sim ON _user_sim.id_= user_sim.id_"
     ].join("\n");
 
-    let queryResults = await query(sql);
+    const queryResults = await query(sql);
 
-    let uaRows = queryResults[4];
+    queryResults.shift();
 
-    let noLongerRegisteredUas: gwTypes.Ua[] = [];
+    const uaRows = queryResults[4];
 
-    for (let row of uaRows) {
+    const noLongerRegisteredUas: gwTypes.Ua[] = [];
+
+    for (const row of uaRows) {
 
         noLongerRegisteredUas.push({
             "instance": row["instance"],
@@ -892,7 +1105,8 @@ export async function setSimFriendlyName(
     friendlyName: string
 ): Promise<gwTypes.Ua[]> {
 
-    let sql = [
+    const sql = [
+        `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
         `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
@@ -915,13 +1129,13 @@ export async function setSimFriendlyName(
         `WHERE user= ${esc(user)}`
     ].join("\n");
 
-    let queryResults = await query(sql);
+    const queryResults = await query(sql);
 
-    let uaRows = queryResults.pop();
+    const uaRows = queryResults.pop();
 
-    let userUas: gwTypes.Ua[] = [];
+    const userUas: gwTypes.Ua[] = [];
 
-    for (let row of uaRows) {
+    for (const row of uaRows) {
 
         userUas.push({
             "instance": row["instance"],

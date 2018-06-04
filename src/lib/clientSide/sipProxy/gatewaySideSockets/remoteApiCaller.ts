@@ -14,7 +14,7 @@ export async function getDongles(
 
     let tasks: Promise<Response>[] = [];
 
-    for (let gatewaySideSocket of store.get({ gatewaySocketRemoteAddress }) ) {
+    for (let gatewaySideSocket of store.get({ gatewaySocketRemoteAddress })) {
 
         tasks[tasks.length] = (async () => {
 
@@ -23,7 +23,7 @@ export async function getDongles(
                 return await sipLibrary.api.client.sendRequest<Params, Response>(
                     gatewaySideSocket,
                     methodName,
-                    {gatewaySocketRemoteAddress},
+                    { gatewaySocketRemoteAddress },
                     { "timeout": 5 * 1000 }
                 );
 
@@ -95,70 +95,149 @@ export async function getSipPasswordAndDongle(
     gatewaySocketRemoteAddress?: string
 ) {
 
-    let methodName = apiDeclaration.getSipPasswordAndDongle.methodName;
+    const methodName = apiDeclaration.getSipPasswordAndDongle.methodName;
     type Params = apiDeclaration.getSipPasswordAndDongle.Params;
     type Response = apiDeclaration.getSipPasswordAndDongle.Response;
 
-    let gatewaySideSocket = store.get({ imsi });
+    return (async (): Promise<Response> => {
 
-    if (!gatewaySideSocket) {
-        return undefined;
-    }
+        let gatewaySideSocket = store.get({ imsi });
 
-    if (!!gatewaySocketRemoteAddress) {
-
-        if (!store.get({ gatewaySocketRemoteAddress }).has(gatewaySideSocket)) {
+        if (!gatewaySideSocket) {
             return undefined;
         }
 
-    }
+        if (!!gatewaySocketRemoteAddress) {
 
-    try {
+            if (!store.get({ gatewaySocketRemoteAddress }).has(gatewaySideSocket)) {
+                return undefined;
+            }
 
-        return await sipLibrary.api.client.sendRequest<Params, Response>(
-            gatewaySideSocket,
-            methodName,
-            { imsi },
-            { "timeout": 5 * 1000 }
-        );
+        }
 
-    } catch{
+        try {
 
-        return undefined;
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySideSocket,
+                methodName,
+                { imsi },
+                { "timeout": 5 * 1000 }
+            );
 
-    }
+        } catch{
+
+            return undefined;
+
+        }
+
+
+    })();
 
 }
 
 export async function reNotifySimOnline(
     imsi: string
-): Promise<void>{
+): Promise<void> {
 
-    let methodName = apiDeclaration.reNotifySimOnline.methodName;
+    const methodName = apiDeclaration.reNotifySimOnline.methodName;
     type Params = apiDeclaration.reNotifySimOnline.Params;
     type Response = apiDeclaration.reNotifySimOnline.Response;
 
-    let gatewaySideSocket= store.get({ imsi });
+    let gatewaySideSocket = store.get({ imsi });
 
-    if(!gatewaySideSocket ){
-
-        return undefined;
-
+    if (!gatewaySideSocket) {
+        return;
     }
 
     try {
 
-        return await sipLibrary.api.client.sendRequest<Params, Response>(
+        await sipLibrary.api.client.sendRequest<Params, Response>(
             gatewaySideSocket,
             methodName,
             { imsi },
             { "timeout": 5 * 1000 }
         );
 
-    } catch{
+    } catch{ }
 
-        return undefined;
+}
 
-    }
+export async function createContact(
+    imsi: string,
+    name: string,
+    number: string,
+    auth: web.Auth
+) {
+
+    const methodName = apiDeclaration.createContact.methodName;
+    type Params = apiDeclaration.createContact.Params;
+    type Response = apiDeclaration.createContact.Response;
+
+    return (async (): Promise<Response> => {
+
+        const gatewaySideSocket = store.get({ imsi });
+
+        if (!gatewaySideSocket) {
+
+            return undefined;
+
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySideSocket,
+                methodName,
+                { imsi, name, number, auth },
+                { "timeout": 15 * 1000 }
+            );
+
+        } catch{
+
+            return undefined;
+
+        }
+
+    })();
+
+
+}
+
+export async function updateContactName(
+    imsi: string,
+    contactRef: { mem_index: number; } | { number: string; },
+    newName: string,
+    auth: web.Auth
+) {
+
+    const methodName = apiDeclaration.updateContactName.methodName;
+    type Params = apiDeclaration.updateContactName.Params;
+    type Response = apiDeclaration.updateContactName.Response;
+
+    return (async (): Promise<Response> => {
+
+        const gatewaySideSocket = store.get({ imsi });
+
+        if (!gatewaySideSocket) {
+            return { "isSuccess": false };
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySideSocket,
+                methodName,
+                { imsi, contactRef, newName, auth },
+                { "timeout": 15 * 1000 }
+            );
+
+
+        } catch{
+
+            return { "isSuccess": false };
+
+        }
+
+    })();
 
 }

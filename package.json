@@ -20,7 +20,7 @@
   "keywords": [],
   "dependencies": {
     "apn": "^2.1.5",
-    "chan-dongle-extended-client": "git+https://206e4c24cb9a1e4a8d42b7ac86e4a026b02cee42:x-oauth-basic@github.com/garronej/chan-dongle-extended-client.git",
+    "chan-dongle-extended-client": "garronej/chan-dongle-extended-client",
     "colors": "^1.1.2",
     "commander": "^2.11.0",
     "debug": "^2.6.8",
