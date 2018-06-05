@@ -1,5 +1,5 @@
 import { SyncEvent } from "ts-events-extended";
-import { mysqlCustom as f } from "../semasim-gateway";
+import * as f from "../tools/mysqlCustom";
 import * as c from "./_constants";
 import * as md5 from "md5";
 import * as networkTools from "../tools/networkTools";

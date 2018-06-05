@@ -1,5 +1,7 @@
 require("rejection-tracker").main(__dirname, "..", "..");
 
+//NOTE: must be run on load balancer.
+
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
@@ -8,6 +10,8 @@ import assertSame = ttTesting.assertSame;
 import { types as gwTypes } from "../semasim-gateway";
 import { types as feTypes } from "../semasim-frontend";
 import * as c from "../lib/_constants";
+
+import * as mysqlCustom from "../tools/mysqlCustom";
 
 import * as db from "../lib/dbSemasim";
 
@@ -93,6 +97,12 @@ export function generateSim(
     console.log("START TESTING...");
 
     await db.launch(c.dbAuth.host);
+
+    (await mysqlCustom.connectAndGetApi({
+        ...c.dbAuth,
+        "database": "semasim_express_session",
+        "localAddress": c.dbAuth.host 
+    })).query("DELETE FROM sessions");
 
     await testUser();
 
@@ -293,7 +303,10 @@ async function testMain() {
 
                 userSim.phonebook.push(c);
 
-                await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw);
+                assertSame(
+                    await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw),
+                    user.uas
+                );
 
                 assertSame(
                     (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
@@ -304,7 +317,10 @@ async function testMain() {
 
                     userSim.phonebook.pop();
 
-                    await db.deleteSimContact(userSim.sim.imsi, { number_raw });
+                    assertSame(
+                        await db.deleteSimContact(userSim.sim.imsi, { number_raw }),
+                        user.uas
+                    );
 
                     assertSame(
                         (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
@@ -318,7 +334,10 @@ async function testMain() {
 
                     c.name = ttTesting.genUtf8Str(30);
 
-                    await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw);
+                    assertSame(
+                        await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw),
+                        user.uas
+                    );
 
                     assertSame(
                         (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
@@ -363,7 +382,7 @@ async function testMain() {
                         "number": number_raw
                     });
 
-                    const name = isStepByStep ? ttTesting.genUtf8Str(20) : name_as_stored ;
+                    const name = isStepByStep ? ttTesting.genUtf8Str(20) : name_as_stored;
 
                     userSim.phonebook.push({
                         mem_index,
@@ -378,11 +397,14 @@ async function testMain() {
 
                     if (isStepByStep) {
 
-                        await db.createOrUpdateSimContact(
-                            userSim.sim.imsi,
-                            name,
-                            number_raw,
-                            { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }
+                        assertSame(
+                            await db.createOrUpdateSimContact(
+                                userSim.sim.imsi,
+                                name,
+                                number_raw,
+                                { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }
+                            ),
+                            user.uas
                         );
 
                         assertSame(
@@ -402,19 +424,22 @@ async function testMain() {
 
                     c.name = ttTesting.genUtf8Str(20);
 
-                    updatedContact.name= ttTesting.genHexStr(10);
+                    updatedContact.name = ttTesting.genHexStr(10);
 
                     dcMisc.updateStorageDigest(userSim.sim.storage);
 
-                    await db.createOrUpdateSimContact(
-                        userSim.sim.imsi,
-                        c.name,
-                        c.number_raw,
-                        {
-                            "mem_index": updatedContact.index,
-                            "name_as_stored": updatedContact.name,
-                            "new_storage_digest": userSim.sim.storage.digest
-                        }
+                    assertSame(
+                        await db.createOrUpdateSimContact(
+                            userSim.sim.imsi,
+                            c.name,
+                            c.number_raw,
+                            {
+                                "mem_index": updatedContact.index,
+                                "name_as_stored": updatedContact.name,
+                                "new_storage_digest": userSim.sim.storage.digest
+                            }
+                        ),
+                        user.uas
                     );
 
                     assertSame(
@@ -440,9 +465,12 @@ async function testMain() {
 
                     if (isStepByStep) {
 
-                        await db.deleteSimContact(
-                            userSim.sim.imsi,
-                            { "mem_index": deletedContact.index, "new_storage_digest": userSim.sim.storage.digest }
+                        assertSame(
+                            await db.deleteSimContact(
+                                userSim.sim.imsi,
+                                { "mem_index": deletedContact.index, "new_storage_digest": userSim.sim.storage.digest }
+                            ),
+                            user.uas
                         );
 
                         assertSame(
@@ -469,15 +497,18 @@ async function testMain() {
 
                     if (isStepByStep) {
 
-                        await db.createOrUpdateSimContact(
-                            userSim.sim.imsi,
-                            c.name,
-                            c.number_raw,
-                            {
-                                "mem_index": updatedContact.index,
-                                "name_as_stored": updatedContact.name,
-                                "new_storage_digest": userSim.sim.storage.digest
-                            }
+                        assertSame(
+                            await db.createOrUpdateSimContact(
+                                userSim.sim.imsi,
+                                c.name,
+                                c.number_raw,
+                                {
+                                    "mem_index": updatedContact.index,
+                                    "name_as_stored": updatedContact.name,
+                                    "new_storage_digest": userSim.sim.storage.digest
+                                }
+                            ),
+                            user.uas
                         );
 
                         assertSame(
@@ -506,15 +537,18 @@ async function testMain() {
 
                     if (isStepByStep) {
 
-                        await db.createOrUpdateSimContact(
-                            userSim.sim.imsi,
-                            c.name,
-                            c.number_raw,
-                            {
-                                "mem_index": updatedContact.index,
-                                "name_as_stored": updatedContact.name,
-                                "new_storage_digest": userSim.sim.storage.digest
-                            }
+                        assertSame(
+                            await db.createOrUpdateSimContact(
+                                userSim.sim.imsi,
+                                c.name,
+                                c.number_raw,
+                                {
+                                    "mem_index": updatedContact.index,
+                                    "name_as_stored": updatedContact.name,
+                                    "new_storage_digest": userSim.sim.storage.digest
+                                }
+                            ),
+                            user.uas
                         );
 
                         assertSame(

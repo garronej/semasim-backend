@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Mer 28 Mars 2018 à 09:32
+-- Généré le :  Mar 05 Juin 2018 à 08:02
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -20,21 +20,6 @@ SET time_zone = "+00:00";
 -- Base de données :  `semasim_webphone`
 --
 
-DELIMITER $$
---
--- Fonctions
---
-CREATE DEFINER=`semasim`@`172.31.16.0/255.255.240.0` FUNCTION `_ASSERT`(bool INTEGER, message VARCHAR(256)) RETURNS int(11)
-    DETERMINISTIC
-BEGIN
-    IF bool IS NULL OR bool = 0 THEN
-        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;
-    END IF;
-    RETURN bool;
-END$$
-
-DELIMITER ;
-
 -- --------------------------------------------------------
 
 --
@@ -46,9 +31,9 @@ CREATE TABLE IF NOT EXISTS `chat` (
   `instance` int(11) NOT NULL,
   `contact_number` varchar(30) COLLATE utf8_bin NOT NULL,
   `contact_name` varchar(126) COLLATE utf8_bin NOT NULL,
-  `is_contact_in_sim` tinyint(1) NOT NULL,
+  `contact_index_in_sim` smallint(6) DEFAULT NULL,
   `last_seen_time` bigint(20) NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -60,7 +45,7 @@ CREATE TABLE IF NOT EXISTS `instance` (
 `id_` int(11) NOT NULL,
   `root` int(11) NOT NULL,
   `imsi` varchar(15) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -79,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `message` (
   `outgoing_status_code` tinyint(4) DEFAULT NULL,
   `outgoing_dongle_send_time` bigint(20) DEFAULT NULL,
   `outgoing_delivered_time` bigint(20) DEFAULT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=175 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -91,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `root` (
 `id_` int(11) NOT NULL,
   `user` int(11) NOT NULL,
   `ua_instance` varchar(125) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=53 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 --
 -- Index pour les tables exportées
@@ -129,22 +114,22 @@ ALTER TABLE `root`
 -- AUTO_INCREMENT pour la table `chat`
 --
 ALTER TABLE `chat`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=16;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=10;
 --
 -- AUTO_INCREMENT pour la table `instance`
 --
 ALTER TABLE `instance`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=3;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=8;
 --
 -- AUTO_INCREMENT pour la table `message`
 --
 ALTER TABLE `message`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=175;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=4;
 --
 -- AUTO_INCREMENT pour la table `root`
 --
 ALTER TABLE `root`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=53;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=9;
 --
 -- Contraintes pour les tables exportées
 --

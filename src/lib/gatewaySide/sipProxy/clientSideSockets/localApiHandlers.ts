@@ -3,6 +3,8 @@ import * as sipLibrary from "ts-sip";
 import * as gatewaySockets from "../gatewaySockets/index_sipProxy";
 import { types as feTypes } from "../../../../semasim-frontend";
 import * as db from "../../../dbSemasim";
+import * as pushNotifications from "../../../pushNotifications";
+import { types as gwTypes } from "../../../../semasim-gateway";
 
 export const handlers: sipLibrary.api.Server.Handlers = {};
 
@@ -160,15 +162,21 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             }
 
+            let uasRegisteredToSim: gwTypes.Ua[];
+
             try {
 
-                await db.createOrUpdateSimContact(imsi, name, number, storageInfos);
+                uasRegisteredToSim= await db.createOrUpdateSimContact(
+                    imsi, name, number, storageInfos
+                );
 
             } catch{
 
                 return undefined;
 
             }
+
+            await pushNotifications.send( uasRegisteredToSim, "RELOAD CONFIG");
 
             return storageInfos !== undefined?({ "mem_index": storageInfos.mem_index }):undefined;
 
@@ -265,9 +273,11 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             }
 
+            let uasRegisteredToSim: gwTypes.Ua[];
+
             try {
 
-                await db.createOrUpdateSimContact(
+                uasRegisteredToSim= await db.createOrUpdateSimContact(
                     imsi, newName, contact.number_raw, storageInfos
                 );
 
@@ -276,6 +286,98 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                 return { "isSuccess": false };
 
             }
+
+            await pushNotifications.send( uasRegisteredToSim, "RELOAD CONFIG");
+
+            return { "isSuccess": true };
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
+
+(() => {
+
+    const methodName = apiDeclaration.deleteContact.methodName;
+    type Params = apiDeclaration.deleteContact.Params;
+    type Response = apiDeclaration.deleteContact.Response;
+
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
+        "handler": async ({ imsi, contactRef, auth }) =>{
+
+
+            const userSim= (await db.getUserSims(auth.user))
+                .find(({ sim }) => sim.imsi === imsi);
+
+            if( !userSim ){
+
+                console.log("User does not have access to this sim");
+                
+                return { "isSuccess": false };
+
+            }
+
+            let contact : feTypes.UserSim.Contact | undefined;
+
+            if ("mem_index" in contactRef) {
+
+                contact = userSim.phonebook.find(
+                    ({ mem_index }) => mem_index === contactRef.mem_index 
+                );
+
+            } else {
+
+                contact = userSim.phonebook.find(
+                    ({ number_raw }) => number_raw === contactRef.number
+                );
+
+            }
+
+            if (!contact) {
+
+                console.log(`Referenced contact does not exist does not exist.`);
+
+                return { "isSuccess": false };
+
+            }
+
+            let prQuery: Promise<gwTypes.Ua[]>;
+
+            if( contact.mem_index !== undefined ){
+
+                const resp= await gatewaySockets.remoteApi.deleteContact(imsi, contact.mem_index);
+
+                if( !resp ){
+                    return { "isSuccess": false };
+                }
+
+                prQuery= db.deleteSimContact(
+                    imsi, 
+                    { "mem_index": contact.mem_index, "new_storage_digest": resp.new_storage_digest }
+                );
+
+            }else{
+
+                prQuery= db.deleteSimContact(imsi, { "number_raw": contact.number_raw });
+
+            }
+
+            let uasRegisteredToSim: gwTypes.Ua[];
+
+            try {
+
+                uasRegisteredToSim= await prQuery;
+
+            } catch{
+
+                return { "isSuccess": false };
+
+            }
+
+            await pushNotifications.send( uasRegisteredToSim, "RELOAD CONFIG");
 
             return { "isSuccess": true };
 

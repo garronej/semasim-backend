@@ -189,7 +189,7 @@ export async function createContact(
                 gatewaySideSocket,
                 methodName,
                 { imsi, name, number, auth },
-                { "timeout": 15 * 1000 }
+                { "timeout": 6 * 1000 }
             );
 
         } catch{
@@ -228,9 +228,47 @@ export async function updateContactName(
                 gatewaySideSocket,
                 methodName,
                 { imsi, contactRef, newName, auth },
-                { "timeout": 15 * 1000 }
+                { "timeout": 6 * 1000 }
             );
 
+
+        } catch{
+
+            return { "isSuccess": false };
+
+        }
+
+    })();
+
+}
+
+
+export async function deleteContact(
+    imsi: string,
+    contactRef: { mem_index: number; } | { number: string; },
+    auth: web.Auth
+) {
+
+    const methodName = apiDeclaration.deleteContact.methodName;
+    type Params = apiDeclaration.deleteContact.Params;
+    type Response = apiDeclaration.deleteContact.Response;
+
+    return (async (): Promise<Response> => {
+
+        const gatewaySideSocket = store.get({ imsi });
+
+        if (!gatewaySideSocket) {
+            return { "isSuccess": false };
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySideSocket,
+                methodName,
+                { imsi, contactRef, auth },
+                { "timeout": 6 * 1000 }
+            );
 
         } catch{
 

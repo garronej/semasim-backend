@@ -273,7 +273,7 @@ export async function createContact(
                 methodName,
                 { imsi, name, number },
                 {
-                    "timeout": 15 * 1000,
+                    "timeout": 6 * 1000,
                     sanityCheck
                 }
             );
@@ -322,7 +322,7 @@ export async function updateContactName(
                 methodName,
                 { imsi, mem_index, newName },
                 {
-                    "timeout": 15 * 1000,
+                    "timeout": 6 * 1000,
                     sanityCheck
                 }
             );
@@ -337,6 +337,52 @@ export async function updateContactName(
 
 }
 
+export async function deleteContact(
+    imsi: string, 
+    mem_index: number
+) {
+
+    const methodName = apiDeclaration.deleteContact.methodName;
+    type Params = apiDeclaration.deleteContact.Params;
+    type Response = apiDeclaration.deleteContact.Response;
+
+    const sanityCheck = (response: Response) => (
+        response === undefined ||
+        (
+            response instanceof Object &&
+            dcSanityChecks.md5(response.new_storage_digest)
+        )
+    );
+
+    return (async (): Promise<Response> => {
+
+        let gatewaySocket = store.byImsi.get(imsi);
+
+        if (!gatewaySocket) {
+            return undefined;
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySocket,
+                methodName,
+                { imsi, mem_index },
+                {
+                    "timeout": 6 * 1000,
+                    sanityCheck
+                }
+            );
+
+        } catch{
+
+            return undefined;
+
+        }
+
+    })();
+
+}
 
 
 export async function waitForUsableDongle(

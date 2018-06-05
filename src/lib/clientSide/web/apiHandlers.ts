@@ -491,6 +491,43 @@ export const handlers: Handlers = {};
 
 })();
 
+(() => {
+
+    const methodName = d.deleteContact.methodName;
+    type Params = d.deleteContact.Params;
+    type Response = d.deleteContact.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            dcSanityChecks.imsi(params.imsi) &&
+            params.contactRef instanceof Object &&
+            (
+                typeof params.contactRef["mem_index"] === "number" ||
+                typeof params.contactRef["number"] === "string"
+            )
+        ),
+        "handler": async ({ imsi, contactRef }, session, remoteAddress) => {
+
+            const result = await gatewaySideSockets.deleteContact(
+                imsi, contactRef, sessionManager.getAuth(session)!
+            );
+
+            if( !result.isSuccess ){
+                throw new Error("Delete contact error");
+            }
+
+            return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
 
 (() => {
 

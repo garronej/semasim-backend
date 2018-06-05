@@ -79,3 +79,17 @@ export namespace updateContactName {
     export type Response= { isSuccess: boolean; };
 
 }
+
+export namespace deleteContact {
+
+    export const methodName= "deleteContact";
+
+    export type Params = { 
+        imsi: string; 
+        contactRef: { mem_index: number } | { number: string; }; 
+        auth: web.Auth;
+    };
+
+    export type Response= { isSuccess: boolean; };
+
+}

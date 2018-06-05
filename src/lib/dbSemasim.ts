@@ -3,11 +3,9 @@ import * as crypto from "crypto";
 import { Auth } from "./clientSide/web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
 import * as networkTools from "../tools/networkTools";
+import { types as gwTypes } from "../semasim-gateway";
+import * as f from "../tools/mysqlCustom";
 
-import { 
-    mysqlCustom as f, 
-    types as gwTypes 
-} from "../semasim-gateway";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
 import { types as feTypes } from "../semasim-frontend";
@@ -274,14 +272,60 @@ export async function updateSimStorage(
 
     sql += `DELETE FROM contact WHERE sim=@sim_ref AND mem_index IS NOT NULL ${where_clause}`;
 
-    //const before = Date.now();
-
     await query(sql);
-
-    //console.log(`updateSimStorage: ${Date.now()-before}ms`);
 
 }
 
+/** 
+ * Asserts: 
+ * 1) The sql query will will not be updated after.
+ * 2) @sim_ref is set to the sim id_ is NULL parse returns empty array.
+ */
+namespace retrieveUasRegisteredToSim {
+
+    export const sql = [
+        "",
+        "SELECT",
+        "   ua.*, user.email",
+        "FROM ua",
+        "INNER JOIN user ON user.id_= ua.user",
+        "INNER JOIN sim ON sim.user= user.id_",
+        `WHERE sim.id_= @sim_ref`,
+        ";",
+        "SELECT ",
+        "   ua.*, user.email",
+        "FROM ua",
+        "INNER JOIN user ON user.id_= ua.user",
+        "INNER JOIN user_sim ON user_sim.user= user.id_",
+        "INNER JOIN sim ON sim.id_= user_sim.sim",
+        "WHERE sim.id_= @sim_ref AND user_sim.friendly_name IS NOT NULL"
+    ].join("\n");
+
+    export function parse(queryResults: any): gwTypes.Ua[] {
+
+        const uasRegisteredToSim: gwTypes.Ua[] = [];
+
+        for (let row of [...queryResults.pop(), ...queryResults.pop()]) {
+
+            uasRegisteredToSim.push({
+                "instance": row["instance"],
+                "userEmail": row["email"],
+                "platform": row["platform"],
+                "pushToken": row["push_token"],
+                "software": row["software"]
+            });
+
+        }
+
+        return uasRegisteredToSim;
+
+    }
+
+
+
+}
+
+/** Return UAs registered to sim */
 export async function createOrUpdateSimContact(
     imsi: string,
     name: string,
@@ -291,16 +335,14 @@ export async function createOrUpdateSimContact(
         name_as_stored: string;
         new_storage_digest: string;
     }
-) {
+): Promise<gwTypes.Ua[]> {
 
     let sql = [
-        "SELECT @sim_ref:=NULL;",
+        "SELECT @sim_ref:=NULL, @contact_ref:=NULL;",
         `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'SIM should be registered');",
         ""
     ].join("\n");
-
-    //TODO: make sure that variable lifetime is query only.
 
     const number_local_format = dcMisc.toNationalNumber(number_raw, imsi);
 
@@ -309,7 +351,6 @@ export async function createOrUpdateSimContact(
         const { mem_index, name_as_stored, new_storage_digest } = storageInfos;
 
         sql += [
-            "SELECT @contact_ref:=NULL;",
             "SELECT @contact_ref:=id_",
             "FROM contact",
             `WHERE sim=@sim_ref AND mem_index=${esc(mem_index)}`,
@@ -335,7 +376,6 @@ export async function createOrUpdateSimContact(
     } else {
 
         sql += [
-            "SELECT @contact_ref:=NULL;",
             "SELECT @contact_ref:= id_",
             "FROM contact",
             `WHERE sim=@sim_ref AND mem_index IS NULL AND number_raw=${esc(number_raw)}`,
@@ -352,18 +392,19 @@ export async function createOrUpdateSimContact(
 
     }
 
-    //const before = Date.now();
+    sql += retrieveUasRegisteredToSim.sql;
 
-    await query(sql);
+    const queryResults = await query(sql);
 
-    //console.log(`createOrUpdateSimContact: ${Date.now()-before}ms`);
+    return retrieveUasRegisteredToSim.parse(queryResults);
 
 }
 
+/** Return UAs registered to sim */
 export async function deleteSimContact(
     imsi: string,
     contactRef: { mem_index: number; new_storage_digest: string; } | { number_raw: string; }
-) {
+): Promise<gwTypes.Ua[]> {
 
     let sql = [
         "SELECT @sim_ref:=NULL;",
@@ -389,11 +430,11 @@ export async function deleteSimContact(
 
     }
 
-    //const before = Date.now();
+    sql += retrieveUasRegisteredToSim.sql;
 
-    await query(sql);
+    const queryResults= await query(sql);
 
-    //console.log(`deleteSimContact: ${Date.now()-before}ms`);
+    return retrieveUasRegisteredToSim.parse(queryResults);
 
 }
 
@@ -471,11 +512,7 @@ export async function registerSim(
         `WHERE user.id_= ${esc(user)}`
     ].join("\n");
 
-    //const before= Date.now();
-
-    let queryResults = await query(sql);
-
-    //console.log(`registerSim: ${Date.now()-before}ms`);
+    const queryResults = await query(sql);
 
     let userUas: gwTypes.Ua[] = [];
 
@@ -554,9 +591,7 @@ export async function getUserSims(
         `WHERE user_sim.user= ${esc(user)}`,
     ].join("\n");
 
-    //const before= Date.now();
-
-    let [
+    const [
         rowsSimOwned,
         rowsContactSimOwned,
         rowsSharedWith,
@@ -564,13 +599,11 @@ export async function getUserSims(
         rowsContactSimShared
     ] = await query(sql);
 
-    //console.log(`getUserSims ${Date.now()-before}ms`);
-
-    let sharedWithBySim: {
+    const sharedWithBySim: {
         [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
     } = {};
 
-    for (let row of rowsSharedWith) {
+    for (const row of rowsSharedWith) {
 
         let imsi = row["imsi"];
 
@@ -586,32 +619,6 @@ export async function getUserSims(
         ].push(row["email"]);
 
     }
-
-    /*
-    let contactsBySim: { [imsi: string]: dcTypes.Sim.Contact[]; } = {};
-
-    for (let row of [...rowsContactSimOwned, ...rowsContactSimShared]) {
-
-        let imsi = row["imsi"];
-
-        if (!contactsBySim[imsi]) {
-            contactsBySim[imsi] = [];
-        }
-
-        contactsBySim[imsi].push({
-            "index": parseInt(row["mem_index"]),
-            "name": {
-                "asStored": row["name_as_stored"],
-                "full": row["name_full"]
-            },
-            "number": {
-                "asStored": row["number_as_stored"],
-                "localFormat": row["number_local_format"]
-            }
-        });
-
-    }
-    */
 
     const storageContactsBySim: { [imsi: string]: dcTypes.Sim.Contact[]; } = {};
     const phonebookBySim: { [imsi: string]: feTypes.UserSim.Contact[]; } = {};
@@ -841,20 +848,7 @@ export async function setSimOnline(
         "   need_password_renewal= (@password_status= 'NEED RENEWAL')",
         "WHERE id_= @sim_ref",
         ";",
-        "SELECT",
-        "   ua.*, user.email",
-        "FROM ua",
-        "INNER JOIN user ON user.id_= ua.user",
-        "INNER JOIN sim ON sim.user= user.id_",
-        `WHERE sim.id_= @sim_ref`,
-        ";",
-        "SELECT ",
-        "   ua.*, user.email",
-        "FROM ua",
-        "INNER JOIN user ON user.id_= ua.user",
-        "INNER JOIN user_sim ON user_sim.user= user.id_",
-        "INNER JOIN sim ON sim.id_= user_sim.sim",
-        "WHERE sim.id_= @sim_ref AND user_sim.friendly_name IS NOT NULL"
+        retrieveUasRegisteredToSim.sql
     ].join("\n");
 
     const queryResults = await query(sql);
@@ -865,25 +859,11 @@ export async function setSimOnline(
         return { "isSimRegistered": false };
     }
 
-    let uasRegisteredToSim: gwTypes.Ua[] = [];
-
-    for (let row of [...queryResults.pop(), ...queryResults.pop()]) {
-
-        uasRegisteredToSim.push({
-            "instance": row["instance"],
-            "userEmail": row["email"],
-            "platform": row["platform"],
-            "pushToken": row["push_token"],
-            "software": row["software"]
-        });
-
-    }
-
     return {
         "isSimRegistered": true,
         "passwordStatus": queryResults[0][0]["password_status"],
         "storageDigest": queryResults[0][0]["storage_digest"],
-        uasRegisteredToSim
+        "uasRegisteredToSim": retrieveUasRegisteredToSim.parse(queryResults)
     };
 
 }

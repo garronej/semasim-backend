@@ -101,7 +101,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
             if (resp.storageDigest === storageDigest) {
                 wasStorageUpToDate = true;
             } else {
-                //TODO: sync SIM storage
+
                 wasStorageUpToDate = false;
 
                 const dongle_password = await remoteApi.getSipPasswordAndDongle(imsi);

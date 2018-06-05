@@ -2,7 +2,7 @@ const uuidv3 = require("uuid/v3");
 import { types as feTypes } from "../../../semasim-frontend";
 import { Auth } from "./sessionManager";
 import * as c from "../../_constants"
-import { mysqlCustom as f } from "../../../semasim-gateway";
+import * as f from "../../../tools/mysqlCustom";
 import * as networkTools from "../../../tools/networkTools";
 
 /** exported only for tests */
