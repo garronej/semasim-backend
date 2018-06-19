@@ -1,13 +1,10 @@
 import * as path from "path";
-import { sharedConstants as shared } from "../semasim-gateway";
 import { PushNotificationCredentials } from "../tools/pushSender";
 
 export const nginxUpdaterServiceName= "semasim-nginx-updater";
 export const modulePath = path.join(__dirname, "..", "..");
 export const path_to_nginx = path.join("/", "etc", "nginx");
 export const path_to_tcpconf_d = path.join(modulePath, "res", "nginx", "tcpconf.d");
-
-export { shared };
 
 export const semasim_lan= "172.31.20.0/24";
 

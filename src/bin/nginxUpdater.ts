@@ -22,19 +22,19 @@ namespace EntryPoints {
     export async function get(): Promise<EntryPoints> {
 
         /* CNAME www.semasim.com => A semasim.com => interfaceIp: 172.31.19.1; publicIp: 52.58.64.189; */
-        let httpIps = await networkTools.retrieveIpsFromHostname(`www.${c.shared.domain}`);
+        const httpIps = await networkTools.retrieveIpsFromHostname("www.semasim.com");
 
-        let https = `${httpIps.interfaceIp}:443`;
-        let http = `${httpIps.interfaceIp}:80`;
+        const https = `${httpIps.interfaceIp}:443`;
+        const http = `${httpIps.interfaceIp}:80`;
 
         /* SRV _sips._tcp.semasim.com => [ sip.semasim.com:443 ] */
-        let [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${c.shared.domain}`);
+        const [sipSrv] = await networkTools.resolveSrv("_sips._tcp.semasim.com");
 
         /* A sip.semasim.com => interfaceIp: 172.31.19.2; publicIp: 52.57.54.73 */
-        let sipIps = await networkTools.retrieveIpsFromHostname(sipSrv.name);
+        const sipIps = await networkTools.retrieveIpsFromHostname(sipSrv.name);
 
-        let sipUa = `${sipIps.interfaceIp}:${sipSrv.port}`;
-        let sipGw = `${sipIps.interfaceIp}:${c.shared.gatewayPort}`;
+        const sipUa = `${sipIps.interfaceIp}:${sipSrv.port}`;
+        const sipGw = `${sipIps.interfaceIp}:80`;
 
         return { https, http, sipUa, sipGw };
 

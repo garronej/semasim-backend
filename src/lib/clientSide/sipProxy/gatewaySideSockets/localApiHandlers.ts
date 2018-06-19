@@ -1,7 +1,6 @@
 import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/clientSide/gatewaySideSockets";
 import * as sipLibrary from "ts-sip";
 import * as store from "./store";
-import * as c from "../../../_constants";
 import * as clientSockets from "../clientSockets";
 
 export const handlers: sipLibrary.api.Server.Handlers = {};
@@ -123,7 +122,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                 let sipRequestNextHop = clientSocket.buildNextHopPacket(
                     sipLibrary.parse(Buffer.from([
                         `OPTIONS ${contact.uri} SIP/2.0`,
-                        `From: <sip:${imsi}@${c.shared.domain}>;tag=${fromTag}`,
+                        `From: <sip:${imsi}@semasim.com>;tag=${fromTag}`,
                         `To: <${contact.uri}>`,
                         `Call-ID: ${callId}`,
                         `CSeq: ${cSeqSequenceNumber} OPTIONS`,

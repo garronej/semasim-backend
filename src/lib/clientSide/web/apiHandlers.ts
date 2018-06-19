@@ -10,9 +10,7 @@ import * as dbw from "./dbWebphone";
 import * as gatewaySideSockets from "../sipProxy/gatewaySideSockets";
 import * as pushNotifications from "../../pushNotifications";
 
-import * as c from "../../_constants";
-
-import { types as gwTypes } from "../../../semasim-gateway";
+import { types as gwTypes, version as semasim_gateway_version } from "../../../semasim-gateway";
 import isValidEmail = gwTypes.misc.isValidEmail
 
 
@@ -533,16 +531,15 @@ export const handlers: Handlers = {};
 
     //TODO: enable "Send DTMFs in SIP" disable "Send DTMFs in stream" in static config
     //TODO: remove response from declaration
-    let methodName = d.getUaConfig.methodName;
-    type Params = d.getUaConfig.Params;
+    const methodName = "get-user-linphone-config";
+    type Params = { email_as_hex: string; password_as_hex: string; };;
 
-    const hexToUtf8 = (hexStr: string) =>
-        Buffer.from(hexStr, "hex").toString("utf8");
+    const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
     const ov = ` overwrite="true" `;
-    const domain = c.shared.domain;
+    const domain = "semasim.com";
 
-    let handler: Handler.Generic<Params> = {
+    const handler: Handler.Generic<Params> = {
         "needAuth": false,
         "contentType": "application/xml",
         "sanityCheck": params => {
@@ -557,14 +554,14 @@ export const handlers: Handlers = {};
         },
         "handler": async params => {
 
-            let email = hexToUtf8(params.email_as_hex).toLowerCase();
-            let password = hexToUtf8(params.password_as_hex);
+            const email = hexToUtf8(params.email_as_hex).toLowerCase();
+            const password = hexToUtf8(params.password_as_hex);
 
-            let user = await db.authenticateUser(email, password);
+            const user = await db.authenticateUser(email, password);
 
             if (!user) {
 
-                let error = new Error("User not authenticated");
+                const error = new Error("User not authenticated");
 
                 internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
 
@@ -572,12 +569,12 @@ export const handlers: Handlers = {};
 
             }
 
-            let endpointEntries: string[] = [];
-            let contactEntries: string[] = [];
+            const endpointEntries: string[] = [];
+            const contactEntries: string[] = [];
 
-            let p_email = `enc_email=${gwTypes.misc.urlSafeB64.enc(email)}`;
+            const p_email = `enc_email=${gwTypes.misc.urlSafeB64.enc(email)}`;
 
-            for (let { sim, friendlyName, password, ownership, phonebook } of await db.getUserSims(user)) {
+            for (const { sim, friendlyName, password, ownership, phonebook } of await db.getUserSims(user)) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
@@ -610,7 +607,7 @@ export const handlers: Handlers = {};
                     `  </section>`
                 ].join("\n");
 
-                for (let contact of phonebook) {
+                for (const contact of phonebook) {
 
                     contactEntries[contactEntries.length] = [
                         `  <section name="friend_${contactEntries.length}">`,
@@ -647,6 +644,22 @@ export const handlers: Handlers = {};
 
     handlers[methodName] = handler;
 
+
+})();
+
+(() => {
+
+    const methodName = "version";
+    type Params = {};
+
+    const handler: Handler.Generic<Params> = {
+        "needAuth": false,
+        "contentType": "text/plain; charset=utf-8",
+        "sanityCheck": (params) => params instanceof Object,
+        "handler": async () => Buffer.from( semasim_gateway_version, "utf8")
+    };
+
+    handlers[methodName] = handler;
 
 })();
 

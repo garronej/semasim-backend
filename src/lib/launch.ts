@@ -52,7 +52,7 @@ namespace getEntryPoints {
             "https": _wrap(address1, 443),
             "http": _wrap(address1, 80),
             "sipUa": _wrap(address2, sipSrv_port),
-            "sipGw": _wrap(address2, c.shared.gatewayPort)
+            "sipGw": _wrap(address2, 80)
         };
 
     })();
@@ -62,19 +62,19 @@ namespace getEntryPoints {
     export async function fetch(): Promise<EntryPoints> {
 
         /* CNAME www.semasim.com => A semasim.com => '52.58.64.189' */
-        let address1 = await networkTools.resolve4(`www.${c.shared.domain}`);
+        const address1 = await networkTools.resolve4("www.semasim.com");
 
         /* SRV _sips._tcp.semasim.com => [ { name: 'sip.semasim.com,port', port: 443 } ] */
-        let [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${c.shared.domain}`);
+        const [sipSrv] = await networkTools.resolveSrv("_sips._tcp.semasim.com");
 
         /* A _sips._tcp.semasim.com => '52.57.54.73' */
-        let address2 = await networkTools.resolve4(sipSrv.name);
+        const address2 = await networkTools.resolve4(sipSrv.name);
 
         return {
             "https": _wrap(address1, 443),
             "http": _wrap(address1, 80),
             "sipUa": _wrap(address2, sipSrv.port),
-            "sipGw": _wrap(address2, c.shared.gatewayPort)
+            "sipGw": _wrap(address2, 80)
         };
 
     }
