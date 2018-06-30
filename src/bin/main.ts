@@ -65,16 +65,11 @@ scriptLib.createService({
 
                     logger.log(error);
 
-
                 }
 
                 await logger.file.terminate();
 
                 if (!!error) {
-
-                    scriptLib.execSync(
-                        `mv ${logfile_path} ${path.join(path.dirname(logfile_path), "previous_crash.log")}`
-                    );
 
                     scriptLib.execSync([
                         `mv ${logfile_path}`,
