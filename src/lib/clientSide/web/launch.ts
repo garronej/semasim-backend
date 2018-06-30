@@ -8,8 +8,8 @@ import { webApiDeclaration } from "../../../semasim-frontend";
 import * as sessionManager from "./sessionManager";
 import * as dbWebphone from "./dbWebphone";
 import * as frontend from "../../../semasim-frontend";
-
-import * as logger from "morgan";
+import * as morgan from "morgan";
+import * as logger from "logger";
 
 export async function launch(
     httpsServer: https.Server,
@@ -63,6 +63,7 @@ export async function launch(
         },
         "logger": apiServer.getDefaultLogger({
             "logOnlyErrors": false,
+            "log": logger.log,
             "stringifyAuthentication": req=> {
 
                 let auth= sessionManager.getAuth(req.session!);
@@ -83,7 +84,7 @@ export async function launch(
         .use(express.static(frontend.pathToStatic))
         .get(/\.[a-zA-Z0-9]{1,8}$/, (req, res) => res.status(404).end())
         .use((req, res, next) => sessionManager.loadRequestSession(req, res).then(() => next()))
-        .use(logger("dev"))
+        .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
         .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session!) ? res.redirect("/") : next())
         .get("/login", (req, res) => res.send(frontend.pagesHtml.login))
         .get("/register", (req, res) => res.send(frontend.pagesHtml.register))

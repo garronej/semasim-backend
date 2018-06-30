@@ -20,9 +20,12 @@ scriptLib.createService({
 
         return {
             pidfile_path,
+            "isQuiet": true,
             "assert_unix_user": "root",
             "daemon_unix_user": unix_user,
-            "daemon_count": parseInt(process.argv[1] || scriptLib.sh_eval("nproc"))
+            "daemon_count": process.argv.length === 3 ?
+                parseInt(process.argv[2]) : 
+                parseInt(scriptLib.sh_eval("nproc")) + 1
         };
 
     },

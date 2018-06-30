@@ -1,5 +1,6 @@
 import * as sipLibrary from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
+import * as logger from "logger";
 
 const byRemoteAddress= new Map<string, Set<sipLibrary.Socket>>();
 const byImsi = new Map<string, sipLibrary.Socket>();
@@ -32,6 +33,7 @@ const server = new sipLibrary.api.Server(
     localApiHandlers,
     sipLibrary.api.Server.getDefaultLogger({
         idString,
+        "log": logger.log,
         "hideKeepAlive": true
     })
 );
@@ -44,7 +46,10 @@ export function add(gatewaySideSocket: sipLibrary.Socket): void {
 
     sipLibrary.api.client.enableErrorLogging(
         gatewaySideSocket, 
-        sipLibrary.api.client.getDefaultErrorLogger({ idString })
+        sipLibrary.api.client.getDefaultErrorLogger({ 
+            idString,
+            "log": logger.log
+        })
     );
 
     gatewaySideSocket.misc[__set_of_imsi__]= new Set<string>();

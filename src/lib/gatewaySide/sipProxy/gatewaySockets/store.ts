@@ -2,6 +2,7 @@
 import * as sipLibrary from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as dbSemasim from "../../../dbSemasim";
+import * as logger from "logger";
 
 const __set_of_imsi__= " set of imsi ";
 export const __set_of_imsi_on_close__ = " set of imsi on close ";
@@ -16,6 +17,7 @@ const server = new sipLibrary.api.Server(
     localApiHandlers,
     sipLibrary.api.Server.getDefaultLogger({ 
         idString,
+        "log": logger.log,
         "hideKeepAlive": true
     })
 );
@@ -29,7 +31,8 @@ export function add(gatewaySocket: sipLibrary.Socket): void {
     sipLibrary.api.client.enableErrorLogging(
         gatewaySocket, 
         sipLibrary.api.client.getDefaultErrorLogger({
-            idString
+            idString,
+            "log": logger.log
         })
     );
 
