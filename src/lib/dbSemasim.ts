@@ -1,4 +1,4 @@
-import * as RIPEMD160 from 'ripemd160';
+import * as RIPEMD160 from "ripemd160";
 import * as crypto from "crypto";
 import { Auth } from "./clientSide/web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
@@ -9,11 +9,11 @@ import * as f from "../tools/mysqlCustom";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
 import { types as feTypes } from "../semasim-frontend";
+import * as logger from "logger";
 
-import * as c from "./_constants";
+import * as i from "../bin/installer";
 
-import * as _debug from "debug";
-let debug = _debug("_db");
+const debug= logger.debugFactory();
 
 /** exported only for tests */
 export let query: f.Api["query"];
@@ -24,9 +24,9 @@ let buildInsertQuery: f.Api["buildInsertQuery"];
 export async function launch(interfaceAddress?: string): Promise<void> {
 
     let api = await f.connectAndGetApi({
-        ...c.dbAuth,
+        ...i.dbAuth,
         "database": "semasim",
-        "localAddress": interfaceAddress || networkTools.getInterfaceAddressInRange(c.semasim_lan)
+        "localAddress": interfaceAddress || networkTools.getInterfaceAddressInRange(i.semasim_lan)
     }, "HANDLE STRING ENCODING");
 
     query= api.query;

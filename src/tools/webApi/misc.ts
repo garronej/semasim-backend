@@ -110,7 +110,7 @@ export async function bodyParser(req: express.Request): Promise<{ isSuccess: boo
     req.on("data", data => {
 
         if (typeof data === "string") {
-            console.log("attention on devrais avoir un buffer ici");
+            console.log(">>>attention on devrais avoir un buffer ici");
             parts.push(Buffer.from(data, "utf8"));
         } else {
             parts.push(data);

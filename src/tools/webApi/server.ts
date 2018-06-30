@@ -136,7 +136,7 @@ export function init(initParams: InitParams): void {
 
                 response = await handler(
                     params, session,
-                    req.connection.remoteAddress, req
+                    req.connection.remoteAddress!, req
                 );
 
             } catch (error) {

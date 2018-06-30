@@ -6,6 +6,10 @@ import * as db from "../../../dbSemasim";
 import * as pushNotifications from "../../../pushNotifications";
 import { types as gwTypes } from "../../../../semasim-gateway";
 
+import * as logger from "logger";
+
+const debug = logger.debugFactory();
+
 export const handlers: sipLibrary.api.Server.Handlers = {};
 
 (() => {
@@ -136,7 +140,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if( !userSim ){
 
-                console.log("User does not have access to this sim");
+                debug("User does not have access to this sim");
                 
                 return undefined;
 
@@ -144,7 +148,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if( !!userSim.phonebook.find(({ number_raw })=> number_raw === number) ){
 
-                console.log("Already a contact with this number");
+                debug("Already a contact with this number");
 
                 return undefined;
 
@@ -202,7 +206,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if( !userSim ){
 
-                console.log("User does not have access to this sim");
+                debug("User does not have access to this sim");
                 
                 return { "isSuccess": false };
 
@@ -226,7 +230,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if (!contact) {
 
-                console.log(`Referenced contact does not exist does not exist.`);
+                debug(`Referenced contact does not exist does not exist.`);
 
                 return { "isSuccess": false };
 
@@ -234,7 +238,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if( contact.name === newName ){
 
-                console.log("No need to update contact, name unchanged");
+                debug("No need to update contact, name unchanged");
 
                 return { "isSuccess": true };
 
@@ -260,7 +264,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                 }else{
 
-                    console.log("update contact failed on the gateway");
+                    debug("update contact failed on the gateway");
 
                     //TODO: the contact should maybe be updated anyway
                     return { "isSuccess": false };
@@ -314,7 +318,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if( !userSim ){
 
-                console.log("User does not have access to this sim");
+                debug("User does not have access to this sim");
                 
                 return { "isSuccess": false };
 
@@ -338,7 +342,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if (!contact) {
 
-                console.log(`Referenced contact does not exist does not exist.`);
+                debug(`Referenced contact does not exist does not exist.`);
 
                 return { "isSuccess": false };
 

@@ -29,8 +29,8 @@ export function init(
             new sipLibrary.Socket(socket, {
                 "localAddress": webUa.spoofedLocal.address,
                 "localPort": webUa.spoofedLocal.port,
-                "remoteAddress": req.socket.remoteAddress,
-                "remotePort": req.socket.remotePort
+                "remoteAddress": req.socket.remoteAddress!,
+                "remotePort": req.socket.remotePort!
             }),
             await web.getAuth(req)
         )

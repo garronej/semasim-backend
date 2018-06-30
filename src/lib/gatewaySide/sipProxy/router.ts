@@ -4,7 +4,8 @@ import * as sipLibrary from "ts-sip";
 import * as networkTools from "../../../tools/networkTools";
 import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
 import * as gatewaySockets from "./gatewaySockets/index_sipProxy";
-import * as c from "../../_constants";
+import * as i from "../../../bin/installer";
+import * as logger from "logger";
 
 export function createClientSideSocket(
     remoteAddress: string,
@@ -19,7 +20,7 @@ export function createClientSideSocket(
         net.connect({
             "host": remoteAddress,
             "port": remotePort,
-            "localAddress": networkTools.getInterfaceAddressInRange(c.semasim_lan)
+            "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan)
         })
     );
 
@@ -34,7 +35,7 @@ export function createClientSideSocket(
         "outgoingTraffic": false,
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
-    }, console.log);
+    }, logger.log);
 
     clientSideSockets.set({ remoteAddress, remotePort }, clientSideSocket);
 
@@ -43,7 +44,7 @@ export function createClientSideSocket(
 
         try {
 
-            let gatewaySocket = gatewaySockets.byImsi.get(
+            const gatewaySocket = gatewaySockets.byImsi.get(
                 sipProxyMisc.readImsi(sipPacketReceived)
             );
 
@@ -88,7 +89,7 @@ export function onGwConnection(
         "outgoingTraffic": false,
         "colorizedTraffic": "OUT",
         "ignoreApiTraffic": true
-    }, console.log);
+    }, logger.log);
 
     gatewaySockets.add(gatewaySocket);
 

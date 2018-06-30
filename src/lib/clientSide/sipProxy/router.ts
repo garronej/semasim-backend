@@ -3,6 +3,7 @@ import * as sipLibrary from "ts-sip";
 import * as web from "../web";
 import * as clientSockets from "./clientSockets";
 import * as gatewaySideSockets from "./gatewaySideSockets/index_sipProxy";
+import * as logger from "logger";
 
 //TODO: catch exceptions
 
@@ -22,7 +23,7 @@ export function onUaConnection(
         "outgoingTraffic": false,
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
-    }, console.log);
+    }, logger.log);
 
     if (clientSocket.protocol === "WSS") {
 
@@ -94,7 +95,7 @@ export function onGwSideConnection(
         "outgoingTraffic": false,
         "colorizedTraffic": "OUT",
         "ignoreApiTraffic": true
-    }, console.log);
+    }, logger.log);
 
     gatewaySideSockets.add(gatewaySideSocket);
 

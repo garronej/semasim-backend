@@ -1,5 +1,96 @@
-require("rejection-tracker").main(__dirname, "..", "..");
+import * as scriptLib from "scripting-tools";
 
-import { launch } from "../lib";
+scriptLib.createService({
+    "rootProcess": async () => {
 
-launch();
+        const [
+            { pidfile_path, unix_user, exit_if_not, working_directory_path },
+            fs
+        ] = await Promise.all([
+            import("./installer"),
+            import("fs")
+        ]);
+
+        console.assert(
+            fs.existsSync(working_directory_path),
+            "semasim does not seems to be installed."
+        );
+
+        await exit_if_not.run_instance();
+
+        return {
+            pidfile_path,
+            "assert_unix_user": "root",
+            "daemon_unix_user": unix_user,
+            "daemon_count": parseInt(process.argv[1] || scriptLib.sh_eval("nproc"))
+        };
+
+    },
+    "daemonProcess": async (daemon_number, daemon_count) => {
+
+        const [
+            path,
+            { working_directory_path },
+            { launch },
+            logger,
+            fs
+        ] = await Promise.all([
+            import("path"),
+            import("./installer"),
+            import("../lib/launch"),
+            import("logger"),
+            import("fs")
+        ]);
+
+        logger.log(`--Starting process ${daemon_number}/${daemon_count}--`);
+
+        const logfile_path = path.join(working_directory_path, `p${daemon_number}.log`);
+
+        return {
+            "launch": () => {
+
+                logger.file.enable(logfile_path);
+
+                process.on("warning", error => logger.log("WARNING", error));
+
+                launch();
+
+            },
+            "beforeExitTask": async error => {
+
+                if (!!error) {
+
+                    logger.log(error);
+
+
+                }
+
+                await logger.file.terminate();
+
+                if (!!error) {
+
+                    scriptLib.execSync(
+                        `mv ${logfile_path} ${path.join(path.dirname(logfile_path), "previous_crash.log")}`
+                    );
+
+                    scriptLib.execSync([
+                        `mv ${logfile_path}`,
+                        path.join(
+                            path.dirname(logfile_path),
+                            `crash_${path.basename(logfile_path)}`
+                        )
+                    ].join(" "));
+
+                } else {
+
+                    fs.unlinkSync(logfile_path);
+
+                }
+
+            }
+
+        };
+
+    }
+});
+

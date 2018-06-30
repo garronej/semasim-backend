@@ -1,13 +1,5 @@
-process.once("warning", error=> { 
-
-    console.log("WARNING WARNING WARNING");
-
-    console.log(error.stack);
-
-});
-
 import * as networkTools from "../tools/networkTools";
-import * as c from "./_constants";
+import * as i from "../bin/installer";
 import * as  https from "https";
 import * as http from "http";
 import * as fs from "fs";
@@ -84,10 +76,10 @@ namespace getEntryPoints {
 
 function loadTlsCerts() {
 
-    let out = Object.assign({}, c.tlsPath);
+    let out = Object.assign({}, i.tlsPath);
 
-    for (let key in c.tlsPath) {
-        out[key] = fs.readFileSync(c.tlsPath[key], "utf8");
+    for (let key in i.tlsPath) {
+        out[key] = fs.readFileSync(i.tlsPath[key], "utf8");
     }
 
     return out;
@@ -102,7 +94,7 @@ export async function launch() {
     const tlsCerts = loadTlsCerts();
 
     let interfaceAddress = networkTools
-        .getInterfaceAddressInRange(c.semasim_lan);
+        .getInterfaceAddressInRange(i.semasim_lan);
 
     let tasks: Promise<net.Server>[] = [];
 

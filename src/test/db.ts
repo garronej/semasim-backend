@@ -9,7 +9,7 @@ import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
 import { types as gwTypes } from "../semasim-gateway";
 import { types as feTypes } from "../semasim-frontend";
-import * as c from "../lib/_constants";
+import * as i from "../bin/installer";
 
 import * as mysqlCustom from "../tools/mysqlCustom";
 
@@ -40,7 +40,7 @@ export function generateSim(
     //contactCount: number = 1
 ): dcTypes.Sim {
 
-    let sim: dcTypes.Sim = {
+    const sim: dcTypes.Sim = {
         "imsi": ttTesting.genDigits(15),
         "iccid": ttTesting.genDigits(22),
         "country": Date.now() % 2 === 0 ?
@@ -96,12 +96,12 @@ export function generateSim(
 
     console.log("START TESTING...");
 
-    await db.launch(c.dbAuth.host);
+    await db.launch(i.dbAuth.host);
 
     (await mysqlCustom.connectAndGetApi({
-        ...c.dbAuth,
+        ...i.dbAuth,
         "database": "semasim_express_session",
-        "localAddress": c.dbAuth.host 
+        "localAddress": i.dbAuth.host 
     })).query("DELETE FROM sessions");
 
     await testUser();

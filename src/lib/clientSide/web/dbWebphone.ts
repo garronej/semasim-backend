@@ -1,7 +1,7 @@
 const uuidv3 = require("uuid/v3");
 import { types as feTypes } from "../../../semasim-frontend";
 import { Auth } from "./sessionManager";
-import * as c from "../../_constants"
+import * as i from "../../../bin/installer";
 import * as f from "../../../tools/mysqlCustom";
 import * as networkTools from "../../../tools/networkTools";
 
@@ -14,14 +14,14 @@ let buildInsertQuery: f.Api["buildInsertQuery"];
 export async function launch(): Promise<void> {
 
     let api = await f.connectAndGetApi({
-        ...c.dbAuth,
+        ...i.dbAuth,
         "database": "semasim_webphone",
-        "localAddress": networkTools.getInterfaceAddressInRange(c.semasim_lan)
+        "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan)
     }, "HANDLE STRING ENCODING");
 
-    query= api.query;
-    esc= api.esc;
-    buildInsertQuery= api.buildInsertQuery;
+    query = api.query;
+    esc = api.esc;
+    buildInsertQuery = api.buildInsertQuery;
 
 }
 
@@ -118,17 +118,16 @@ export async function fetch(
 
         let message: feTypes.WebphoneData.Message;
 
-        let messageBase: feTypes.WebphoneData.Message.Base = {
+        const messageBase: feTypes.WebphoneData.Message.Base = {
             "id_": rowMessage["id_"],
             "text": rowMessage["text"],
             "time": rowMessage["time"],
             "direction": null as any,
         }
 
-
         if (rowMessage["is_incoming"]) {
 
-            let incomingMessage: feTypes.WebphoneData.Message.Incoming = {
+            const incomingMessage: feTypes.WebphoneData.Message.Incoming = {
                 ...messageBase,
                 "direction": "INCOMING",
                 "isNotification": (rowMessage["incoming_is_notification"] === 1) as any
@@ -138,7 +137,7 @@ export async function fetch(
 
         } else {
 
-            let outgoingBase: feTypes.WebphoneData.Message.Outgoing.Base = {
+            const outgoingBase: feTypes.WebphoneData.Message.Outgoing.Base = {
                 ...messageBase,
                 "direction": "OUTGOING",
                 "sentBy": ((): feTypes.WebphoneData.Message.Outgoing["sentBy"] => {
@@ -213,7 +212,7 @@ export async function newInstance(
         }, "THROW ERROR")
     ].join("\n");
 
-    let resp = await query(sql);
+    const resp = await query(sql);
 
     return {
         "id_": resp.pop().insertId,
@@ -247,7 +246,7 @@ export async function newChat(
     ].join("\n");
 
 
-    let resp = await query(sql);
+    const resp = await query(sql);
 
     return {
         "id_": resp.pop().insertId,
@@ -303,7 +302,7 @@ export async function destroyChat(
     chat_id: number
 ): Promise<undefined> {
 
-    let sql = [
+    const sql = [
         "SELECT _ASSERT( COUNT(*) , 'Chat does not exist')",
         "FROM chat",
         "INNER JOIN instance ON instance.id_= chat.instance",
@@ -324,7 +323,6 @@ export async function newMessage(
     chat_id: number,
     message: feTypes.WebphoneData.Message
 ): Promise<feTypes.WebphoneData.Message> {
-
 
     let is_incoming: 0 | 1;
     let incoming_is_notification: 0 | 1 | null;
@@ -401,7 +399,6 @@ export async function newMessage(
     return message;
 
 }
-
 
 export async function updateOutgoingMessageStatusToSendReportReceived(
     user: number,

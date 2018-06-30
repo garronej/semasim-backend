@@ -70,13 +70,9 @@ export const handlers: Handlers = {};
 
             if (!user) {
 
-                console.log(" authentication failed ");
-
                 return false;
 
             }
-
-            console.log(" authentication success");
 
             sessionManager.setAuth(session, {
                 user, "email": email.toLocaleLowerCase()

@@ -3,7 +3,7 @@ import * as express_session from "express-session";
 import * as express_mysql_session from "express-mysql-session";
 import * as http from "http";
 import * as express from "express";
-import * as c from "../../_constants";
+import * as i from "../../../bin/installer";
 import * as networkTools from "../../../tools/networkTools";
 const MySQLStore= express_mysql_session(express_session);
 
@@ -12,9 +12,9 @@ export type Auth = { user: number; email: string; };
 export async function launch(): Promise<void> {
 
     const connection = mysql.createConnection({
-        ...c.dbAuth,
+        ...i.dbAuth,
         "database": "semasim_express_session",
-        "localAddress": networkTools.getInterfaceAddressInRange(c.semasim_lan)
+        "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan)
     });
 
     await new Promise<void>(
@@ -84,8 +84,6 @@ export function setAuth(session: Express.Session, auth: Auth | undefined): void 
     if (!auth) {
         delete session["auth"];
     } else {
-
-        console.log("setAuth", { auth });
 
         session["auth"] = auth;
 

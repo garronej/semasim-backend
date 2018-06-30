@@ -22,9 +22,9 @@ export function launch(
     credentials: PushNotificationCredentials
 ) {
 
-    let { android, iOS } = credentials;
+    const { android, iOS } = credentials;
 
-    let apnProvider = new apn.Provider({
+    const apnProvider = new apn.Provider({
         "token": {
             "key": iOS.pathToKey,
             "keyId": iOS.keyId,
@@ -33,28 +33,24 @@ export function launch(
         "production": false
     });
 
-    let serviceAccount: fbAdmin.ServiceAccount = require(android.pathToServiceAccount);
+    const serviceAccount: fbAdmin.ServiceAccount = require(android.pathToServiceAccount);
 
     fbAdmin.initializeApp({
         "credential": fbAdmin.credential.cert(serviceAccount)
     });
 
-    let sendByPlatform: { [platform: string]: (token: string) => Promise<void> } = {
+    const sendByPlatform: { [platform: string]: (token: string) => Promise<void> } = {
         "android": async token => {
 
-            console.log("sending push notification to android device");
+            const payload: fbAdmin.messaging.MessagingPayload = { "data": {} };
 
-            let payload: fbAdmin.messaging.MessagingPayload = { "data": {} };
+            const options: fbAdmin.messaging.MessagingOptions = { "priority": "high" };
 
-            let options: fbAdmin.messaging.MessagingOptions = { "priority": "high" };
+            try {
 
-            try{
+                await fbAdmin.messaging().sendToDevice(token, payload, options);
 
-            await fbAdmin.messaging().sendToDevice(token, payload, options);
-
-            }catch(error){
-
-                console.log("failed to sent push notification to android device");
+            } catch (error) {
 
                 throw error;
 
@@ -63,19 +59,15 @@ export function launch(
         },
         "iOS": async token => {
 
-            console.log("sending push notification to iOS device");
-
             let notification = new apn.Notification({
                 "topic": `${iOS.appId}.voip`,
                 "expiry": Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
                 "payload": {}
             });
 
-            let { failed } = await apnProvider.send(notification, token);
+            const { failed } = await apnProvider.send(notification, token);
 
             if (failed.length) {
-
-                console.log("failed to send push notification to iOS device");
 
                 let error = new Error("Apple send push notification failed");
 

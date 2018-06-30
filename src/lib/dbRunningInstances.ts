@@ -1,6 +1,6 @@
 import { SyncEvent } from "ts-events-extended";
 import * as f from "../tools/mysqlCustom";
-import * as c from "./_constants";
+import * as i from "../bin/installer";
 import * as md5 from "md5";
 import * as networkTools from "../tools/networkTools";
 
@@ -13,10 +13,10 @@ let buildInsertQuery: f.Api["buildInsertQuery"];
 export async function launch(interfaceAddress?: string): Promise<void> {
 
     let api = await f.connectAndGetApi({
-        ...c.dbAuth,
+        ...i.dbAuth,
         "database": "semasim_running_instances",
         "localAddress": interfaceAddress ||
-            networkTools.getInterfaceAddressInRange(c.semasim_lan)
+            networkTools.getInterfaceAddressInRange(i.semasim_lan)
     }, "HANDLE STRING ENCODING");
 
     query = api.query;

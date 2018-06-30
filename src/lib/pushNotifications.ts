@@ -1,10 +1,13 @@
 import { types as gwTypes } from "../semasim-gateway";
 import * as pushSender from "../tools/pushSender";
-import * as c from "./_constants";
+import * as i from "../bin/installer";
+import * as logger from "logger";
+
+const debug= logger.debugFactory();
 
 export function launch() {
 
-    pushSender.launch(c.pushNotificationCredentials);
+    pushSender.launch(i.pushNotificationCredentials);
 
 }
 
@@ -43,7 +46,7 @@ export async function send(
 
         if (prIsSent) {
 
-            console.log("avoid sending push as it was recently sent");
+            debug("avoid sending push as it was recently sent");
 
             return prIsSent;
 

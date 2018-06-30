@@ -40,4 +40,6 @@ dist
 .vscode
 
 .sync
+/working_directory
+/lb_working_directory
 
