@@ -26,7 +26,7 @@ scriptLib.createService({
     "daemonProcess": async () => ({
         "launch": async () => {
 
-            console.log("Started.");
+            console.log(`Daemon started (PID: ${process.pid})`);
 
             scriptLib.execSync(`echo "" > ${i.nginx_realtime_conf_path}`);
 
