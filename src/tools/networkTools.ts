@@ -3,11 +3,20 @@ import * as dns from "dns";
 import * as network from "network";
 import * as stun from "stun";
 import * as dgram from "dgram";
-import { networkTools } from "../semasim-gateway";
 import * as os from "os";
 import * as ipRangeCheck from "ip-range-check";
 
-export const resolveSrv=networkTools.resolveSrv;
+export function resolveSrv(hostname: string): Promise<dns.SrvRecord[]> {
+
+    return new Promise<dns.SrvRecord[]>(
+        (resolve, reject) => dns.resolveSrv(
+            hostname,
+            (error, addresses) =>
+                (error || !addresses.length) ? reject(error || new Error("no record")) : resolve(addresses)
+        )
+    );
+
+}
 
 export function resolve4(hostname: string): Promise<string> {
 

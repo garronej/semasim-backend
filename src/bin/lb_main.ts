@@ -17,16 +17,16 @@ scriptLib.createService({
 
         return {
             "pidfile_path": i.lb_pidfile_path,
-            "stop_timeout": 20000,
+            "srv_name": i.lb_srv_name,
             "assert_unix_user": "root",
             "isQuiet": true
-        }
+        };
 
     },
     "daemonProcess": async () => ({
         "launch": async () => {
 
-            console.log(`Daemon started (PID: ${process.pid})`);
+            console.log("Started");
 
             scriptLib.execSync(`echo "" > ${i.nginx_realtime_conf_path}`);
 
@@ -66,9 +66,11 @@ scriptLib.createService({
                 }
             );
 
-            scriptLib.execSync(`nginx -c ${i.nginx_master_conf_path}`);
+            scriptLib.execSync(`${i.nginx_path} -c ${i.nginx_master_conf_path}`);
 
             const entryPoints = await EntryPoints.get();
+
+            console.log({ entryPoints });
 
             await db.launch(i.dbAuth.host);
 
@@ -85,42 +87,15 @@ scriptLib.createService({
             );
 
         },
-        "beforeExitTask": error => new Promise(resolve => {
+        "beforeExitTask": error => {
 
             if (!!error) {
                 console.log(error);
             }
 
-            if (fs.existsSync(i.nginx_pidfile_path)) {
+            scriptLib.stopProcessSync(i.nginx_pidfile_path, "SIGTERM");
 
-                fs.watch(
-                    path.dirname(i.nginx_pidfile_path),
-                    { "persistent": false },
-                    (_, filename) => {
-
-                        if (filename !== path.basename(i.nginx_pidfile_path)) {
-                            return;
-                        }
-
-                        if (!fs.existsSync(i.nginx_pidfile_path)) {
-
-                            console.log("Nginx terminated.");
-
-                            resolve();
-
-                        }
-
-                    }
-                );
-
-                scriptLib.stopProcessSync(i.nginx_pidfile_path, "SIGTERM");
-
-                console.log("Waiting for Nginx to terminate...");
-
-            }
-
-
-        })
+        }
     })
 });
 

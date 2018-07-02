@@ -1,7 +1,6 @@
 
 const version: string= require("../../semasim-gateway/package.json")["version"];
 
-import * as networkTools from "../../semasim-gateway/dist/tools/networkTools";
 import * as types from "../../semasim-gateway/dist/lib/types";
 import * as sipProxyMisc from "../../semasim-gateway/dist/lib/sipProxy/misc";
 
@@ -9,8 +8,7 @@ import * as declarationGatewaySocketApi from "../../semasim-gateway/dist/lib/sip
 import * as declarationBackendSocketApi from "../../semasim-gateway/dist/lib/sipApiDeclarations/semasimGateway/backendSocket";
 
 export { 
-    version,
-    networkTools, types, 
+    version, types, sipProxyMisc, 
     declarationGatewaySocketApi, 
-    declarationBackendSocketApi, sipProxyMisc
+    declarationBackendSocketApi, 
 };

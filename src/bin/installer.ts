@@ -7,17 +7,18 @@ import { PushNotificationCredentials } from "../tools/pushSender";
 
 export const module_dir_path = path.join(__dirname, "..", "..");
 
-const srv_name= "semasim";
+export const srv_name= "semasim";
 export const unix_user = "semasim";
 export const working_directory_path = path.join(module_dir_path, "working_directory");
 export const pidfile_path= path.join(working_directory_path, "pid");
 
-const lb_srv_name = "lb_semasim";
+export const lb_srv_name = "lb_semasim";
 export const lb_working_directory_path = path.join(module_dir_path, "lb_working_directory");
 export const lb_pidfile_path= path.join(lb_working_directory_path, "pid");
 export const nginx_pidfile_path = path.join(lb_working_directory_path, "nginx.pid");
 export const nginx_master_conf_path = path.join(lb_working_directory_path, "nginx.conf");
 export const nginx_realtime_conf_path = path.join(lb_working_directory_path, "nginx_realtime.conf");
+export const nginx_path = "/usr/sbin/nginx";
 
 export const semasim_lan = "172.31.20.0/24";
 
@@ -141,7 +142,7 @@ function program_action_uninstall() {
 
 function program_action_lb_install() {
 
-    if (!scriptLib.apt_get_install_if_missing.doesHaveProg("nginx")) {
+    if( !fs.existsSync(nginx_path) ){
 
         console.log("Install nginx fist! (Tested with nginx version: nginx/1.12.2)");
 

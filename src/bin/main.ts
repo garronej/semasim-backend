@@ -4,7 +4,7 @@ scriptLib.createService({
     "rootProcess": async () => {
 
         const [
-            { pidfile_path, unix_user, exit_if_not, working_directory_path },
+            { pidfile_path, unix_user, exit_if_not, working_directory_path, srv_name },
             fs
         ] = await Promise.all([
             import("./installer"),
@@ -20,6 +20,7 @@ scriptLib.createService({
 
         return {
             pidfile_path,
+            "srv_name": srv_name,
             "isQuiet": true,
             "assert_unix_user": "root",
             "daemon_unix_user": unix_user,
