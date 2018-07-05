@@ -207,7 +207,7 @@ if (require.main === module) {
 
         program
             .command("install")
-            .action(async () => { 
+            .action(async () => {
                 await exit_if_not.run_instance();
                 program_action_install();
             })
@@ -215,7 +215,7 @@ if (require.main === module) {
 
         program
             .command("uninstall")
-            .action(async () => { 
+            .action(async () => {
                 await exit_if_not.run_instance();
                 program_action_uninstall();
             })
@@ -223,17 +223,15 @@ if (require.main === module) {
 
         program
             .command("lb_install")
-            .action(async () => { 
-                scriptLib.exit_if_not_root();
+            .action(async () => {
                 await exit_if_not.lb();
-                program_action_lb_install(); 
+                program_action_lb_install();
             })
             ;
 
         program
             .command("lb_uninstall")
-            .action( async () => { 
-                scriptLib.exit_if_not_root();
+            .action(async () => {
                 await exit_if_not.lb();
                 program_action_lb_uninstall();
             })
