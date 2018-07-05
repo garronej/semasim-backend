@@ -3,11 +3,12 @@
   "description": "Semasim backend server",
   "version": "0.9.0",
   "scripts": {
+    "postinstall": "cp $(readlink -e $(which node)) ./node",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
-    "start": "sudo node ./dist/bin/main.js",
-    "lb": "sudo node ./dist/bin/lb_main.js",
-    "test": "node ./dist/test/db"
+    "start": "sudo ./node ./dist/bin/main.js",
+    "lb": "sudo ./node ./dist/bin/lb_main.js",
+    "test": "./node ./dist/test/db"
   },
   "repository": {
     "type": "git",
@@ -36,7 +37,8 @@
     "stun": "^1.0.2",
     "ts-events-extended": "garronej/ts-events-extended",
     "uuid": "^3.2.1",
-    "ws": "^4.0.0"
+    "ws": "^4.0.0",
+    "ts-sip": "github:garronej/ts-sip"
   },
   "devDependencies": {
     "@types/express": "^4.0.36",

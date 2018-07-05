@@ -42,4 +42,5 @@ dist
 .sync
 /working_directory
 /lb_working_directory
+/node
 
