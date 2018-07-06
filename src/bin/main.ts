@@ -3,8 +3,6 @@ import * as scriptLib from "scripting-tools";
 scriptLib.createService({
     "rootProcess": async () => {
 
-        console.log("dans root");
-
         const [
             { pidfile_path, unix_user, exit_if_not, working_directory_path, srv_name },
             fs
@@ -18,11 +16,7 @@ scriptLib.createService({
             "semasim does not seems to be installed."
         );
 
-        console.log("avant");
-
         await exit_if_not.run_instance();
-
-        console.log("après");
 
          console.log(
              process.argv.length === 3 ?
@@ -33,7 +27,7 @@ scriptLib.createService({
         return {
             pidfile_path,
             "srv_name": srv_name,
-            "isQuiet": false,
+            "isQuiet": true,
             "assert_unix_user": "root",
             "daemon_unix_user": unix_user,
             "daemon_count": process.argv.length === 3 ?
@@ -66,8 +60,6 @@ scriptLib.createService({
         return {
             "launch": () => {
 
-                console.log("dans daemon");
-
                 logger.file.enable(logfile_path);
 
                 process.on("warning", error => logger.log("WARNING", error));
@@ -76,8 +68,6 @@ scriptLib.createService({
 
             },
             "beforeExitTask": async error => {
-
-                console.log("before exit");
 
                 if (!!error) {
 

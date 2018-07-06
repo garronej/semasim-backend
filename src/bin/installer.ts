@@ -33,7 +33,7 @@ const private_dir_path = path.normalize(path.join(module_dir_path, "..", "privat
 
 export const tlsPath = (() => {
 
-    let build = (fileName: string) => path.join(private_dir_path, "tls-certs", fileName);
+    const build = (fileName: string) => path.join(private_dir_path, "domain-certificates", fileName);
 
     return {
         "key": build("privkey.pem"),
