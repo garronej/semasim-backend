@@ -19,7 +19,7 @@ export function geoiplookup(address: string): Promise<GeoInfo> {
     return new Promise<GeoInfo>(
         (resolve, reject) => {
 
-            let onceData = (data: string | Buffer) => {
+            const onceData = (data: string | Buffer) => {
 
                 clearTimeout(timer);
 
@@ -48,7 +48,7 @@ export function geoiplookup(address: string): Promise<GeoInfo> {
 
             };
 
-            let onceClose = () => {
+            const onceClose = () => {
 
                 clearTimeout(timer);
 
@@ -58,7 +58,7 @@ export function geoiplookup(address: string): Promise<GeoInfo> {
 
             };
 
-            let timer = setTimeout(() => {
+            const timer = setTimeout(() => {
 
                 child.kill();
                 child.stdout.removeListener("data", onceData);

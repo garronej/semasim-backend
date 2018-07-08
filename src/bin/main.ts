@@ -18,31 +18,25 @@ scriptLib.createService({
 
         await exit_if_not.run_instance();
 
-         console.log(
-             process.argv.length === 3 ?
-                parseInt(process.argv[2]) : 
-                parseInt(scriptLib.sh_eval("nproc")) + 1
-         );
-
         return {
             pidfile_path,
+            "stop_timeout": 20000,
             "srv_name": srv_name,
-            "isQuiet": true,
+            "isQuiet": false,
             "assert_unix_user": "root",
             "daemon_unix_user": unix_user,
             "daemon_count": process.argv.length === 3 ?
-                parseInt(process.argv[2]) : 
+                parseInt(process.argv[2]) :
                 parseInt(scriptLib.sh_eval("nproc")) + 1
         };
 
     },
     "daemonProcess": async (daemon_number, daemon_count) => {
 
-
         const [
             path,
             { working_directory_path },
-            { launch },
+            { launch, beforeExit },
             logger,
             fs
         ] = await Promise.all([
@@ -64,7 +58,7 @@ scriptLib.createService({
 
                 process.on("warning", error => logger.log("WARNING", error));
 
-                launch();
+                launch(daemon_number);
 
             },
             "beforeExitTask": async error => {
@@ -75,23 +69,29 @@ scriptLib.createService({
 
                 }
 
-                await logger.file.terminate();
+                await Promise.all([
+                    logger.file.terminate().then(() => {
 
-                if (!!error) {
+                        if (!!error) {
 
-                    scriptLib.execSync([
-                        `mv ${logfile_path}`,
-                        path.join(
-                            path.dirname(logfile_path),
-                            `crash_${path.basename(logfile_path)}`
-                        )
-                    ].join(" "));
+                            scriptLib.execSync([
+                                `mv ${logfile_path}`,
+                                path.join(
+                                    path.dirname(logfile_path),
+                                    `crash_${path.basename(logfile_path)}`
+                                )
+                            ].join(" "));
 
-                } else {
+                        } else {
 
-                    fs.unlinkSync(logfile_path);
+                            fs.unlinkSync(logfile_path);
 
-                }
+                        }
+
+                    }),
+                    scriptLib.safePr(beforeExit())
+                ]);
+
 
             }
 

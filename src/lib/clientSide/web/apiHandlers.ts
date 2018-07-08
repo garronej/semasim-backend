@@ -125,7 +125,7 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ email }) => {
 
-            let hash = await db.getUserHash(email);
+            const hash = await db.getUserHash(email);
 
             //TODO send email
 
@@ -141,15 +141,15 @@ export const handlers: Handlers = {};
 
 (() => {
 
-    let methodName = d.getSims.methodName;
+    const methodName = d.getSims.methodName;
     type Params = d.getSims.Params;
     type Response = d.getSims.Response;
 
-    let handler: Handler.JSON<Params, Response> = {
+    const handler: Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (params, session) => db.getUserSims(sessionManager.getAuth(session)!.user)
+        "handler": (params, session) => db.getUserSims(sessionManager.getAuth(session)!)
     };
 
     handlers[methodName] = handler;
@@ -172,7 +172,7 @@ export const handlers: Handlers = {};
         "sanityCheck": params => params === undefined,
         "handler": async (params, session, remoteAddress) =>
             db.filterDongleWithRegistrableSim(
-                sessionManager.getAuth(session)!.user,
+                sessionManager.getAuth(session)!,
                 await gatewaySideSockets.getDongles(remoteAddress)
             )
     };
@@ -245,8 +245,10 @@ export const handlers: Handlers = {};
 
             }
 
+            
+
             const userUas = await db.registerSim(
-                session.auth!.user,
+                sessionManager.getAuth(session)!,
                 dongle.sim,
                 friendlyName,
                 sipPassword,
@@ -281,7 +283,7 @@ export const handlers: Handlers = {};
         "handler": async ({ imsi }, session) => {
 
             let affectedUas = await db.unregisterSim(
-                session.auth!.user,
+                sessionManager.getAuth(session)!,
                 imsi
             );
 
@@ -320,7 +322,7 @@ export const handlers: Handlers = {};
             let { imsi, emails, message } = params;
 
             let affectedUsers = await db.shareSim(
-                session.auth!,
+                sessionManager.getAuth(session)!,
                 imsi,
                 emails,
                 message
@@ -355,8 +357,8 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imsi, emails }, session) => {
 
-            let noLongerRegisteredUas = await db.stopSharingSim(
-                session.auth!.user,
+            const noLongerRegisteredUas = await db.stopSharingSim(
+                sessionManager.getAuth(session)!,
                 imsi,
                 emails
             );
@@ -380,11 +382,11 @@ export const handlers: Handlers = {};
 
 (() => {
 
-    let methodName = d.setSimFriendlyName.methodName;
+    const methodName = d.setSimFriendlyName.methodName;
     type Params = d.setSimFriendlyName.Params;
     type Response = d.setSimFriendlyName.Response;
 
-    let handler: Handler.JSON<Params, Response> = {
+    const handler: Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -394,8 +396,8 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imsi, friendlyName }, session) => {
 
-            let userUas = await db.setSimFriendlyName(
-                session.auth!.user,
+            const userUas = await db.setSimFriendlyName(
+                sessionManager.getAuth(session)!,
                 imsi,
                 friendlyName
             );
@@ -427,7 +429,7 @@ export const handlers: Handlers = {};
             typeof params.name === "string" &&
             typeof params.number === "string"
         ),
-        "handler": async ({ imsi, name, number }, session, remoteAddress) => {
+        "handler": async ({ imsi, name, number }, session) => {
 
             const result = await gatewaySideSockets.createContact(
                 imsi, name, number, sessionManager.getAuth(session)!
@@ -570,7 +572,7 @@ export const handlers: Handlers = {};
 
             const p_email = `enc_email=${gwTypes.misc.urlSafeB64.enc(email)}`;
 
-            for (const { sim, friendlyName, password, ownership, phonebook } of await db.getUserSims(user)) {
+            for (const { sim, friendlyName, password, ownership, phonebook } of await db.getUserSims({ user, email })) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;

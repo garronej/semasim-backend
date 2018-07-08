@@ -7,8 +7,33 @@ import * as sipLibrary from "ts-sip";
 import * as gatewaySockets from "./gatewaySockets/index_sipProxy";
 import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
 import * as dbSemasim from "../../dbSemasim";
+import * as logger from "logger";
 
-export function launch({server, spoofedLocal}: {
+const debug = logger.debugFactory();
+
+export async function beforeExit(): Promise<void> {
+
+    debug("BeforeExit...");
+
+    try {
+
+        await dbSemasim.setSimsOffline(
+            Array.from(
+                gatewaySockets.byImsi.keys()
+            )
+        );
+
+    } catch (error) {
+        debug(error);
+
+        throw error;
+    }
+
+    debug("BeforeExit success");
+
+}
+
+export function launch({ server, spoofedLocal }: {
     server: tls.Server,
     spoofedLocal: { address: string; port: number; }
 }): void {
@@ -16,18 +41,18 @@ export function launch({server, spoofedLocal}: {
     dbRunningInstances.getEvtRunningInstances().attach(
         runningInstances => {
 
-            for (let { interfaceAddress, interInstancesPort } of runningInstances) {
+            for (const { interfaceAddress, interInstancesPort } of runningInstances) {
 
-                let clientSideSocket = router.createClientSideSocket(
-                    interfaceAddress, 
+                const clientSideSocket = router.createClientSideSocket(
+                    interfaceAddress,
                     interInstancesPort
                 );
 
-                if( !clientSideSocket ){
+                if (!clientSideSocket) {
                     continue;
                 }
 
-                clientSideSocket.evtConnect.attachOnce(()=>
+                clientSideSocket.evtConnect.attachOnce(() =>
                     clientSideSockets.remoteApi.notifyRouteFor(
                         {
                             "sims": Array.from(gatewaySockets.byImsi.keys()),
@@ -68,16 +93,16 @@ export function launch({server, spoofedLocal}: {
 
             }
 
-            gatewaySocket.evtClose.waitFor().then(() =>{
+            gatewaySocket.evtClose.waitFor().then(() => {
 
-                let sims= gatewaySockets.getSetOfImsiAtCloseTime(gatewaySocket);
+                const sims = Array.from(
+                    gatewaySockets.getSetOfImsiAtCloseTime(gatewaySocket)
+                );
 
-                for( let imsi of sims ){
-                    dbSemasim.setSimOffline(imsi);
-                }
+                dbSemasim.setSimsOffline(sims);
 
                 clientSideSockets.remoteApi.notifyLostRouteFor({
-                    "sims": Array.from(sims),
+                    sims,
                     "gatewaySocketRemoteAddress":
                         gatewaySockets.byRemoteAddress.has(gatewaySocket.remoteAddress) ?
                             undefined : gatewaySocket.remoteAddress

@@ -21,7 +21,11 @@ export type Servers = {
     sip: { server: net.Server; };
 };
 
-export async function launch(p: Servers) {
+export function beforeExit(){
+    return web.beforeExit();
+}
+
+export function launch(p: Servers) {
 
     web.launch(
         p.https.server,

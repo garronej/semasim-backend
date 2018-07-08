@@ -1,2 +1,2 @@
-export { launch } from "./launch";
+export { launch, beforeExit } from "./launch";
 export { Auth, loadRequestSession, getAuth, setAuth } from "./sessionManager";

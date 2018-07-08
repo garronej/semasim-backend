@@ -159,7 +159,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             clientSideSockets.remoteApi.notifyLostRouteFor({ "sims": [ imsi ] });
 
-            await dbSemasim.setSimOffline(imsi);
+            await dbSemasim.setSimsOffline([ imsi ]);
 
             return undefined;
 

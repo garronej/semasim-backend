@@ -36,9 +36,9 @@ export function add(gatewaySocket: sipLibrary.Socket): void {
         })
     );
 
-    let { remoteAddress } = gatewaySocket;
+    const { remoteAddress } = gatewaySocket;
 
-    let set = byRemoteAddress.get(remoteAddress) || (() => {
+    const set = byRemoteAddress.get(remoteAddress) || (() => {
 
         dbSemasim.addGatewayLocation(remoteAddress);
 
@@ -65,7 +65,7 @@ export function add(gatewaySocket: sipLibrary.Socket): void {
 
             }
 
-            let setOfImsi: Set<string>= gatewaySocket.misc[__set_of_imsi__];
+            const setOfImsi: Set<string>= gatewaySocket.misc[__set_of_imsi__];
 
             gatewaySocket.misc[__set_of_imsi_on_close__]= new Set<string>(setOfImsi);
 

@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Mar 05 Juin 2018 à 08:02
+-- Généré le :  Dim 08 Juillet 2018 à 01:37
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -27,8 +27,9 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE IF NOT EXISTS `instance` (
-  `id_` varchar(32) COLLATE utf8_bin NOT NULL,
+`id_` int(11) NOT NULL,
   `interface_address` varchar(15) COLLATE utf8_bin NOT NULL,
+  `daemon_number` int(11) NOT NULL,
   `https_port` mediumint(9) NOT NULL,
   `http_port` mediumint(9) NOT NULL,
   `sip_ua_port` mediumint(9) NOT NULL,
@@ -55,7 +56,7 @@ CREATE TABLE IF NOT EXISTS `touch` (
 -- Index pour la table `instance`
 --
 ALTER TABLE `instance`
- ADD PRIMARY KEY (`id_`);
+ ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `interface_address` (`interface_address`,`daemon_number`);
 
 --
 -- Index pour la table `touch`
@@ -63,6 +64,15 @@ ALTER TABLE `instance`
 ALTER TABLE `touch`
  ADD PRIMARY KEY (`id_`);
 
+--
+-- AUTO_INCREMENT pour les tables exportées
+--
+
+--
+-- AUTO_INCREMENT pour la table `instance`
+--
+ALTER TABLE `instance`
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

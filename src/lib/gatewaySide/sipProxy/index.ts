@@ -1,1 +1,1 @@
-export { launch } from "./launch";
+export { launch, beforeExit } from "./launch";

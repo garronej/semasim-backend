@@ -10,16 +10,25 @@ import * as dbWebphone from "./dbWebphone";
 import * as frontend from "../../../semasim-frontend";
 import * as morgan from "morgan";
 import * as logger from "logger";
+import { safePr } from "scripting-tools";
 
-export async function launch(
-    httpsServer: https.Server,
-    httpServer: http.Server
-): Promise<void> {
+export async function beforeExit(){
 
     await Promise.all([
-        sessionManager.launch(),
-        dbWebphone.launch()
-    ]);
+        dbWebphone.beforeExit(),
+        sessionManager.beforeExit()
+    ].map(pr=> safePr(pr)));
+
+}
+
+export function launch(
+    httpsServer: https.Server,
+    httpServer: http.Server
+): void {
+
+    dbWebphone.launch();
+
+    sessionManager.launch();
 
     const hostname = "www.semasim.com";
 

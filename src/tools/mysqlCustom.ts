@@ -1,31 +1,36 @@
 import * as mysql from "mysql";
+import * as AsyncLock from "async-lock";
 
 export type TSql = string | number | null;
 
+export type Lock= { [key: string]: (string | number) | (string | number )[]; };
+
 export type Api= {
-    query(sql: string): Promise<any>;
+    query( sql: string, lockFor?: Lock ): Promise<any>;
     esc(value: TSql): string;
     buildInsertQuery(
         table: string,
         obj: Record<string, TSql | { "@": string; }>,
         onDuplicateKeyAction: "IGNORE" | "UPDATE" | "THROW ERROR"
     ): string;
+    end(): Promise<void>;
 };
 
-export async function connectAndGetApi(
+export function createPoolAndGetApi(
     connectionConfig: mysql.ConnectionConfig,
-    handleStringEncoding?: "HANDLE STRING ENCODING"
-): Promise<Api> {
+    handleStringEncoding: undefined | "HANDLE STRING ENCODING" = undefined,
+    connectionLimit= 50
+): Api {
 
-    const connection = mysql.createConnection({
+    const pool= mysql.createPool({
         ...connectionConfig,
-        "multipleStatements": true
+        "multipleStatements": true,
+        connectionLimit
     });
 
-    //TODO: see if ok
-    await new Promise<void>(
-        (resolve, reject) => connection.connect(
-            error => error ? reject(error) : resolve()
+    const end = () => new Promise<void>(
+        (resolve, reject) => pool.end(
+            error => !error ? resolve() : reject(error)
         )
     );
 
@@ -68,69 +73,146 @@ export async function connectAndGetApi(
 
         };
 
+    const query: Api["query"] = (() => {
 
-    const query: Api["query"] =
-        sql => new Promise<any>(
-            (resolve, reject) => connection.query(
-                sql,
-                (error, results) => {
+        const queryTransaction = (sql: string) => new Promise((resolve, reject) => {
+
+            if (isSelectOnly(sql)) {
+
+                pool.query(sql, (error, results) => {
 
                     if (error) {
                         reject(error);
                         return;
                     }
 
-                    if (handleStringEncoding && (results instanceof Array) && results.length) {
+                    if (!!handleStringEncoding) {
 
-                        if (Object.getPrototypeOf(results[0]).constructor.name === "RowDataPacket") {
-
-                            connectAndGetApi.decodeOkPacketsStrings(results);
-
-                        } else {
-
-                            for (let result of results) {
-
-                                if (result instanceof Array) {
-
-                                    connectAndGetApi.decodeOkPacketsStrings(result);
-
-                                }
-
-                            }
-
-                        }
+                        decodeResults(results);
 
                     }
 
                     resolve(results);
 
                 }
-            )
-        );
+                );
+
+            } else {
+
+                pool.getConnection((error, connection) => {
+
+                    if (!!error) {
+                        throw error;
+                    }
+
+                    connection.query("START TRANSACTION", error => {
+
+                        if (!!error) {
+
+                            connection.release();
+
+                            throw error;
+
+                        }
+
+                        connection.query(sql, (queryError, results) => {
+
+                            if (!!queryError) {
+
+                                connection.query("ROLLBACK", error => {
+
+                                    connection.release();
+
+                                    if (!!error) {
+                                        throw error;
+                                    }
+
+                                    reject(queryError);
+
+                                });
+
+                                return;
+
+                            }
+
+                            connection.query("COMMIT", error => {
+
+                                connection.release();
+
+                                if (!!error) {
+
+                                    throw error;
+
+                                }
+
+                                if (!!handleStringEncoding) {
+
+                                    decodeResults(results);
+
+                                }
+
+                                resolve(results)
+
+                            });
 
 
-    query(
-        [
-            "SET SESSION wait_timeout=31536000;",
-            "DROP FUNCTION IF EXISTS _ASSERT;",
-            "CREATE FUNCTION _ASSERT(bool INTEGER, message VARCHAR(256))",
-            "   RETURNS INTEGER DETERMINISTIC",
-            "BEGIN",
-            "    IF bool IS NULL OR bool = 0 THEN",
-            "        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;",
-            "    END IF;",
-            "    RETURN bool;",
-            "END;"
-        ].join("\n")
-    );
+                        });
 
-    return { query, esc, buildInsertQuery };
+
+                    });
+
+                })
+
+            }
+
+        });
+
+        const asyncLock = new AsyncLock();
+
+        return (sql: string, lockFor: Lock) => {
+
+            if (lockFor === undefined) {
+
+                return queryTransaction(sql);
+
+            } else {
+
+                return asyncLock.acquire(
+                    buildKeys(lockFor),
+                    () => queryTransaction(sql)
+                );
+
+            }
+
+        };
+
+    })();
+
+    query([
+        "DROP FUNCTION IF EXISTS _ASSERT;",
+        "CREATE FUNCTION _ASSERT(bool INTEGER, message VARCHAR(256))",
+        "   RETURNS INTEGER DETERMINISTIC",
+        "BEGIN",
+        "    IF bool IS NULL OR bool = 0 THEN",
+        "        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;",
+        "    END IF;",
+        "    RETURN bool;",
+        "END;"
+    ].join("\n")).catch(()=>{});
+
+    return { query, esc, buildInsertQuery, end };
 
 }
 
-export namespace connectAndGetApi {
 
-    export function decodeOkPacketsStrings(rows: any[]) {
+
+function decodeResults(results: any): void {
+
+    if (!(results instanceof Array) || !results.length) {
+        return;
+    }
+
+    const decodeOkPacketsStrings = (rows: any[]) => {
 
         for (let row of rows) {
 
@@ -146,9 +228,74 @@ export namespace connectAndGetApi {
 
         }
 
+    };
+
+
+    if (Object.getPrototypeOf(results[0]).constructor.name === "RowDataPacket") {
+
+        decodeOkPacketsStrings(results);
+
+    } else {
+
+        for (let result of results) {
+
+            if (result instanceof Array) {
+
+                decodeOkPacketsStrings(result);
+
+            }
+
+        }
+
     }
 
+
 }
+
+function buildKeys(lockFor: Lock): string[] {
+
+    const keys: string[] = [];
+
+    const push=(key: string, value: string | number)=> keys.push(`${key}=${value}`);
+
+    for (const key in lockFor) {
+
+        const value = lockFor[key];
+
+        if( value instanceof Array ){
+
+            const values= value;
+
+            for( const value of values){
+
+                push(key, value);
+
+            }
+
+        }else{
+
+            push(key, value);
+
+        }
+
+
+    }
+
+    return keys;
+
+};
+
+function isSelectOnly(sql: string): boolean {
+
+    return !sql.split(";")
+        .map(sql => sql.replace(/^[\n]+/, "").replace(/[\n]+$/, ""))
+        .filter(sql => !!sql)
+        .find(sql => !sql.match(/^SELECT/))
+        ;
+
+
+}
+
 
 export namespace bool {
 

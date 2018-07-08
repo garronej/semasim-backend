@@ -15,9 +15,6 @@ export type PushNotificationCredentials = {
 
 export type Platform = "android" | "iOS";
 
-export let send: (platform: Platform, token: string) => Promise<void> =
-    () => { throw new Error("PushSender not initialized") };
-
 export function launch(
     credentials: PushNotificationCredentials
 ) {
@@ -35,9 +32,18 @@ export function launch(
 
     const serviceAccount: fbAdmin.ServiceAccount = require(android.pathToServiceAccount);
 
-    fbAdmin.initializeApp({
+    const fbApp= fbAdmin.initializeApp({
         "credential": fbAdmin.credential.cert(serviceAccount)
     });
+
+    close= async ()=> {
+        
+        //NOTE: Api does not expose methods to track when completed.
+        apnProvider.shutdown();
+
+        await fbApp.delete();
+
+    };
 
     const sendByPlatform: { [platform: string]: (token: string) => Promise<void> } = {
         "android": async token => {
@@ -48,7 +54,7 @@ export function launch(
 
             try {
 
-                await fbAdmin.messaging().sendToDevice(token, payload, options);
+                await fbApp.messaging().sendToDevice(token, payload, options);
 
             } catch (error) {
 
@@ -59,7 +65,7 @@ export function launch(
         },
         "iOS": async token => {
 
-            let notification = new apn.Notification({
+            const notification = new apn.Notification({
                 "topic": `${iOS.appId}.voip`,
                 "expiry": Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
                 "payload": {}
@@ -82,4 +88,11 @@ export function launch(
     send = (platform, token) => sendByPlatform[platform](token);
 
 }
+
+export let close: ()=> Promise<void> = 
+    () => { throw new Error("PushSender not initialized"); };
+
+
+export let send: (platform: Platform, token: string) => Promise<void> =
+    () => { throw new Error("PushSender not initialized"); };
 

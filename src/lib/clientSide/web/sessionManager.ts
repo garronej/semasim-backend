@@ -6,24 +6,55 @@ import * as express from "express";
 import * as i from "../../../bin/installer";
 import * as networkTools from "../../../tools/networkTools";
 const MySQLStore= express_mysql_session(express_session);
+import * as logger from "logger";
+
+const debug= logger.debugFactory();
 
 export type Auth = { user: number; email: string; };
 
+export function beforeExit(){
+    return beforeExit.impl();
+}
+
+export namespace beforeExit {
+    export let impl= ()=> Promise.resolve();
+}
+
 export async function launch(): Promise<void> {
 
-    const connection = mysql.createConnection({
+    const pool= mysql.createPool({
         ...i.dbAuth,
         "database": "semasim_express_session",
-        "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan)
+        "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan),
+        "multipleStatements": true,
+        "connectionLimit": 50
     });
 
-    await new Promise<void>(
-        (resolve, reject) => connection.connect(
-            error => error ? reject(error) : resolve()
-        )
-    );
+    beforeExit.impl = async () => {
 
-    let sessionStore = new MySQLStore({}, connection);
+        debug("BeforeExit...");
+
+        try {
+
+            await new Promise<void>(
+                (resolve, reject) => pool.end(
+                    error => !error ? resolve() : reject(error)
+                )
+            );
+
+        } catch (error) {
+
+            debug(error);
+
+            throw error;
+
+        }
+
+        debug("BeforeExit success");
+
+    };
+
+    const sessionStore = new MySQLStore({}, pool);
 
     const sessionMiddleware: any = express_session({
         "secret": "xSoLe9d3=",
@@ -32,7 +63,7 @@ export async function launch(): Promise<void> {
         "saveUninitialized": false
     });
 
-    loadRequestSession= (req, res) => {
+    loadRequestSession = (req, res) => {
         return new Promise<void>(
             resolve => sessionMiddleware(req, res, () => resolve())
         )

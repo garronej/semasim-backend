@@ -4,20 +4,63 @@ import { Auth } from "./sessionManager";
 import * as i from "../../../bin/installer";
 import * as f from "../../../tools/mysqlCustom";
 import * as networkTools from "../../../tools/networkTools";
+import * as logger from "logger";
+
+const debug = logger.debugFactory();
 
 /** exported only for tests */
 export let query: f.Api["query"];
 let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
 
-/** Must be called and awaited before use */
-export async function launch(): Promise<void> {
+export function beforeExit() {
+    return beforeExit.impl();
+}
 
-    let api = await f.connectAndGetApi({
+export namespace beforeExit {
+    export let impl = () => Promise.resolve();
+}
+
+/** Must be called and awaited before use */
+export function launch(): void {
+
+    let localAddress: string | undefined;
+
+    try {
+
+        localAddress = networkTools.getInterfaceAddressInRange(i.semasim_lan)
+
+    } catch{
+
+        localAddress = undefined;
+
+    }
+
+    let api = f.createPoolAndGetApi({
         ...i.dbAuth,
         "database": "semasim_webphone",
-        "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan)
+        localAddress
     }, "HANDLE STRING ENCODING");
+
+    beforeExit.impl = async () => {
+
+        debug("Before exit...");
+
+        try {
+
+            api.end();
+
+        } catch (error) {
+
+            debug(error);
+
+            throw error;
+
+        }
+
+        debug("Before exit success");
+
+    };
 
     query = api.query;
     esc = api.esc;
@@ -66,24 +109,24 @@ export async function fetch(
         ";",
     ].join("\n");
 
-    let resp = await query(sql);
+    const resp = await query(sql, { user });
 
-    let [rowRoot] = resp[1];
-    let rowsInstance = resp[2];
-    let rowsChat = resp[3];
-    let rowsMessage = resp[4];
+    const [rowRoot] = resp[1];
+    const rowsInstance = resp[2];
+    const rowsChat = resp[3];
+    const rowsMessage = resp[4];
 
-    let webphoneData: feTypes.WebphoneData = {
+    const webphoneData: feTypes.WebphoneData = {
         "uaInstanceId": rowRoot["ua_instance"],
         email,
         "instances": []
     };
 
-    let instanceById = new Map<number, feTypes.WebphoneData.Instance>();
+    const instanceById = new Map<number, feTypes.WebphoneData.Instance>();
 
-    for (let rowInstance of rowsInstance) {
+    for (const rowInstance of rowsInstance) {
 
-        let instance: feTypes.WebphoneData.Instance = {
+        const instance: feTypes.WebphoneData.Instance = {
             "id_": rowInstance["id_"],
             "imsi": rowInstance["imsi"],
             "chats": []
@@ -95,9 +138,9 @@ export async function fetch(
 
     }
 
-    let chatById = new Map<number, feTypes.WebphoneData.Chat>();
+    const chatById = new Map<number, feTypes.WebphoneData.Chat>();
 
-    for (let rowChat of rowsChat) {
+    for (const rowChat of rowsChat) {
 
         let chat: feTypes.WebphoneData.Chat = {
             "id_": rowChat["id_"],
@@ -114,7 +157,7 @@ export async function fetch(
 
     }
 
-    for (let rowMessage of rowsMessage) {
+    for (const rowMessage of rowsMessage) {
 
         let message: feTypes.WebphoneData.Message;
 
@@ -212,7 +255,7 @@ export async function newInstance(
         }, "THROW ERROR")
     ].join("\n");
 
-    const resp = await query(sql);
+    const resp = await query(sql, { user });
 
     return {
         "id_": resp.pop().insertId,
@@ -246,7 +289,7 @@ export async function newChat(
     ].join("\n");
 
 
-    const resp = await query(sql);
+    const resp = await query(sql, { user, instance_id });
 
     return {
         "id_": resp.pop().insertId,
@@ -291,7 +334,7 @@ export async function updateChat(
         buildInsertQuery("chat", fields, "UPDATE")
     ].join("\n");
 
-    await query(sql);
+    await query(sql, { user, chat_id });
 
     return;
 
@@ -312,7 +355,7 @@ export async function destroyChat(
         `DELETE FROM chat WHERE id_= ${esc(chat_id)}`
     ].join("\n");
 
-    await query(sql);
+    await query(sql, { user, chat_id });
 
     return;
 
@@ -392,7 +435,7 @@ export async function newMessage(
         }, "THROW ERROR")
     ].join("\n");
 
-    let resp = await query(sql);
+    let resp = await query(sql, { user, chat_id });
 
     message.id_ = resp.pop().insertId;
 
@@ -426,7 +469,7 @@ export async function updateOutgoingMessageStatusToSendReportReceived(
         }, "UPDATE")
     ].join("\n");
 
-    await query(sql);
+    await query(sql, { user, message_id });
 
     return;
 }
@@ -457,7 +500,7 @@ export async function updateOutgoingMessageStatusToStatusReportReceived(
         }, "UPDATE")
     ].join("\n");
 
-    await query(sql);
+    await query(sql, { user, message_id });
 
     return;
 }

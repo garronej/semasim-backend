@@ -7,10 +7,14 @@ import * as tls from "tls";
 import * as net from "net";
 import * as dbRunningInstances from "./dbRunningInstances";
 import * as dbSemasim from "./dbSemasim";
-import { launch as clientSide_launch} from "./clientSide";
-import { launch as gatewaySide_launch} from "./gatewaySide";
+import * as clientSide from "./clientSide";
+import * as gatewaySide from "./gatewaySide";
 import { SyncEvent } from "ts-events-extended";
 import * as pushNotifications from "./pushNotifications";
+import * as logger from "logger";
+import { safePr } from "scripting-tools";
+
+const debug= logger.debugFactory();
 
 async function getEntryPoints(): Promise<getEntryPoints.EntryPoints>{
 
@@ -22,7 +26,7 @@ async function getEntryPoints(): Promise<getEntryPoints.EntryPoints>{
         return await evt.waitFor(2000);
     }catch{
 
-        console.log("no internet connection...default");
+        debug("no internet connection...default");
 
         return getEntryPoints.defaults;
     }
@@ -76,9 +80,9 @@ namespace getEntryPoints {
 
 function loadTlsCerts() {
 
-    let out = Object.assign({}, i.tlsPath);
+    const out = Object.assign({}, i.tlsPath);
 
-    for (let key in i.tlsPath) {
+    for (const key in i.tlsPath) {
         out[key] = fs.readFileSync(i.tlsPath[key], "utf8");
     }
 
@@ -86,19 +90,51 @@ function loadTlsCerts() {
 
 };
 
-//TODO: add a main script that call this function in /bin dir
-export async function launch() {
 
-    console.log("Launch!");
+export async function beforeExit(){
+
+    debug("BeforeExit...");
+
+    for( const server of beforeExit.servers ){
+        server.close();
+    }
+
+    await Promise.all(
+        [
+            pushNotifications.beforeExit(),
+            dbRunningInstances.beforeExit(),
+            clientSide.beforeExit(),
+            (async () => {
+
+                await safePr(gatewaySide.beforeExit(), 15000);
+
+                await dbSemasim.beforeExit();
+
+            })()
+        ].map(pr => safePr(pr))
+    );
+
+    debug("BeforeExit completed in time");
+
+}
+
+export namespace beforeExit {
+    export const servers = new Set<net.Server>();
+}
+
+//TODO: add a main script that call this function in /bin dir
+export async function launch(daemon_number: number) {
+
+    debug("Launch!");
 
     const tlsCerts = loadTlsCerts();
 
-    let interfaceAddress = networkTools
+    const interfaceAddress = networkTools
         .getInterfaceAddressInRange(i.semasim_lan);
 
-    let tasks: Promise<net.Server>[] = [];
+    const tasks: Promise<net.Server>[] = [];
 
-    for (let createServer of [
+    for (const createServer of [
         () => https.createServer(tlsCerts),
         () => http.createServer(),
         () => tls.createServer(tlsCerts),
@@ -109,12 +145,18 @@ export async function launch() {
         tasks[tasks.length] = new Promise(
             resolve => {
 
-                let server = createServer();
+                const server = createServer();
 
                 server
                     .once("error", error => { throw error; })
                     .listen(0, interfaceAddress)
-                    .once("listening", () => resolve(server))
+                    .once("listening", () => {
+
+                        beforeExit.servers.add(server);
+
+                        resolve(server);
+
+                    })
                     ;
 
             }
@@ -122,15 +164,18 @@ export async function launch() {
 
     }
 
-    let [entryPoints, servers] = await Promise.all([
+    dbSemasim.launch();
+
+    pushNotifications.launch();
+
+    dbRunningInstances.launch();
+
+    const [entryPoints, servers] = await Promise.all([
         getEntryPoints(),
-        Promise.all(tasks),
-        dbSemasim.launch(),
-        dbRunningInstances.launch(),
-        pushNotifications.launch()
+        Promise.all(tasks)
     ]);
 
-    clientSide_launch({
+    clientSide.launch({
         "https": {
             "server": servers[0] as https.Server,
             "spoofedLocal": entryPoints.https
@@ -149,17 +194,18 @@ export async function launch() {
 
     });
 
-    gatewaySide_launch({
+    gatewaySide.launch({
         "server": servers[3] as tls.Server,
         "spoofedLocal": entryPoints.sipGw
     });
 
-    let ports = servers.map(server => server.address().port);
+    const ports = servers.map(server => server.address().port);
 
-    console.log({ ports });
+    debug({ ports });
 
     dbRunningInstances.setRunningInstance({
         interfaceAddress,
+        daemon_number,
         "httpsPort": ports[0],
         "httpPort": ports[1],
         "sipUaPort": ports[2],

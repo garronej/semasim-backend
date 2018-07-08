@@ -5,9 +5,37 @@ import * as logger from "logger";
 
 const debug= logger.debugFactory();
 
+export function beforeExit(){
+    return beforeExit.impl();
+}
+
+export namespace beforeExit {
+    export let impl= ()=> Promise.resolve();
+}
+
 export function launch() {
 
     pushSender.launch(i.pushNotificationCredentials);
+
+    beforeExit.impl = async () => {
+
+        debug("BeforeExit...");
+
+        try {
+
+            await pushSender.close();
+
+        } catch (error) {
+
+            debug(error);
+
+            throw error;
+
+        }
+
+        debug("BeforeExit success");
+
+    };
 
 }
 
@@ -19,9 +47,9 @@ export async function send(
 
     if (target instanceof Array) {
 
-        let uas = target;
+        const uas = target;
 
-        let tasks: Promise<boolean>[] = [];
+        const tasks: Promise<boolean>[] = [];
 
         for (let ua of uas) {
 
@@ -34,9 +62,9 @@ export async function send(
 
     } else {
 
-        let ua = target;
+        const ua = target;
 
-        if( ua.platform === "web" ){
+        if (ua.platform === "web") {
 
             return true;
 

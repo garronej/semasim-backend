@@ -135,7 +135,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
     let handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "handler": async ({ imsi, name, number, auth }) =>{
 
-            const userSim= (await db.getUserSims(auth.user))
+            const userSim= (await db.getUserSims(auth))
                 .find(({ sim }) => sim.imsi === imsi);
 
             if( !userSim ){
@@ -201,7 +201,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
     const handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "handler": async ({ imsi, contactRef, newName, auth }) =>{
 
-            const userSim= (await db.getUserSims(auth.user))
+            const userSim= (await db.getUserSims(auth))
                 .find(({ sim }) => sim.imsi === imsi);
 
             if( !userSim ){
@@ -313,7 +313,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
         "handler": async ({ imsi, contactRef, auth }) =>{
 
 
-            const userSim= (await db.getUserSims(auth.user))
+            const userSim= (await db.getUserSims(auth))
                 .find(({ sim }) => sim.imsi === imsi);
 
             if( !userSim ){

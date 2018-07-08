@@ -1,6 +1,4 @@
-require("rejection-tracker").main(__dirname, "..", "..");
-
-//NOTE: must be run on load balancer.
+process.once("unhandledRejection", error => { throw error; });
 
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
@@ -96,9 +94,9 @@ export function generateSim(
 
     console.log("START TESTING...");
 
-    await db.launch(i.dbAuth.host);
+    await db.launch();
 
-    (await mysqlCustom.connectAndGetApi({
+    (await mysqlCustom.createPoolAndGetApi({
         ...i.dbAuth,
         "database": "semasim_express_session",
         "localAddress": i.dbAuth.host 
@@ -273,7 +271,7 @@ async function testMain() {
 
             assertSame(
                 await db.registerSim(
-                    user.user,
+                    user,
                     userSim.sim,
                     userSim.friendlyName,
                     userSim.password,
@@ -284,7 +282,7 @@ async function testMain() {
             );
 
             assertSame(
-                (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                 userSim
             );
 
@@ -309,7 +307,7 @@ async function testMain() {
                 );
 
                 assertSame(
-                    (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                    (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                     userSim
                 );
 
@@ -323,7 +321,7 @@ async function testMain() {
                     );
 
                     assertSame(
-                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                         userSim
                     );
 
@@ -340,7 +338,7 @@ async function testMain() {
                     );
 
                     assertSame(
-                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                         userSim
                     );
 
@@ -408,7 +406,7 @@ async function testMain() {
                         );
 
                         assertSame(
-                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                             userSim
                         );
 
@@ -443,7 +441,7 @@ async function testMain() {
                     );
 
                     assertSame(
-                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                         userSim
                     );
 
@@ -474,7 +472,7 @@ async function testMain() {
                         );
 
                         assertSame(
-                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                             userSim
                         );
 
@@ -512,7 +510,7 @@ async function testMain() {
                         );
 
                         assertSame(
-                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                             userSim
                         );
 
@@ -552,7 +550,7 @@ async function testMain() {
                         );
 
                         assertSame(
-                            (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                            (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                             userSim
                         );
 
@@ -565,7 +563,7 @@ async function testMain() {
                     await db.updateSimStorage(userSim.sim.imsi, userSim.sim.storage);
 
                     assertSame(
-                        (await db.getUserSims(user.user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
+                        (await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi)!,
                         userSim
                     );
 
@@ -576,7 +574,7 @@ async function testMain() {
         }
 
         assertSame(
-            await db.getUserSims(user.user),
+            await db.getUserSims(user),
             user.userSims
         );
 
@@ -613,7 +611,7 @@ async function testMain() {
 
     for (let user of [alice, bob, carol, dave]) {
 
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
 
     }
 
@@ -649,16 +647,16 @@ async function testMain() {
 
         assertSame(
             await db.setSimFriendlyName(
-                user.user,
+                user,
                 alice.userSims[0].sim.imsi,
                 user.userSims[user.userSims.length - 1].friendlyName
             ),
             user.uas
         );
 
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
 
-        assertSame(await db.getUserSims(alice.user), alice.userSims);
+        assertSame(await db.getUserSims(alice), alice.userSims);
 
         assertSame(
             await db.setSimOnline(
@@ -679,10 +677,10 @@ async function testMain() {
 
     alice.userSims[0].isOnline = false;
 
-    await db.setSimOffline(alice.userSims[0].sim.imsi);
+    await db.setSimsOffline([ alice.userSims[0].sim.imsi ]);
 
     for (let user of [alice, bob, carol, dave]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
     assertSame(
@@ -715,7 +713,7 @@ async function testMain() {
     );
 
     for (let user of [alice, bob, carol, dave]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
     alice.userSims[0].password = ttTesting.genHexStr(32);
@@ -736,14 +734,14 @@ async function testMain() {
     );
 
     for (let user of [alice, bob, carol, dave]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
     alice.userSims[0].friendlyName = ttTesting.genUtf8Str(11);
 
     assertSame(
         await db.setSimFriendlyName(
-            alice.user,
+            alice,
             alice.userSims[0].sim.imsi,
             alice.userSims[0].friendlyName
         ),
@@ -775,7 +773,7 @@ async function testMain() {
 
     assertSame(
         await db.stopSharingSim(
-            alice.user,
+            alice,
             alice.userSims[0].sim.imsi,
             [bob.email, carol.email]
         ),
@@ -783,7 +781,7 @@ async function testMain() {
     );
 
     for (let user of [alice, bob, carol, dave]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
     assertSame(
@@ -819,7 +817,7 @@ async function testMain() {
     );
 
     for (let user of [alice, dave]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
 
@@ -829,7 +827,7 @@ async function testMain() {
         .sharedWith.confirmed = [];
 
     assertSame(
-        await db.unregisterSim(dave.user, alice.userSims[0].sim.imsi),
+        await db.unregisterSim(dave, alice.userSims[0].sim.imsi),
         dave.uas
     );
 
@@ -849,7 +847,7 @@ async function testMain() {
     );
 
     for (let user of [alice, dave]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
     let eve = await genUser(unregisteredEmail);
@@ -860,7 +858,7 @@ async function testMain() {
         "sharingRequestMessage": sharingRequestMessage
     }));
 
-    assertSame(await db.getUserSims(eve.user), eve.userSims);
+    assertSame(await db.getUserSims(eve), eve.userSims);
 
     for (let _ of new Array(~~(Math.random() * 2) + 1)) {
 
@@ -876,14 +874,14 @@ async function testMain() {
 
     assertSame(
         await db.unregisterSim(
-            alice.user,
+            alice,
             alice.userSims.shift()!.sim.imsi
         ),
         alice.uas
     );
 
     for (let user of [alice, eve]) {
-        assertSame(await db.getUserSims(user.user), user.userSims);
+        assertSame(await db.getUserSims(user), user.userSims);
     }
 
     let dongles: dcTypes.Dongle.Usable[] = [
@@ -907,7 +905,7 @@ async function testMain() {
 
     assertSame(
         await db.filterDongleWithRegistrableSim(
-            alice.user,
+            alice,
             dongles
         ),
         [dongles[0]]
@@ -926,6 +924,8 @@ async function testUser() {
     let password = "fooBarBazBazBaz";
 
     let user = await db.createUserAccount(email, password);
+
+    const auth= { "user": user!, email };
 
     console.assert(typeof user === "number");
 
@@ -946,11 +946,11 @@ async function testUser() {
     );
 
     console.assert(
-        await db.deleteUser(user!)
+        await db.deleteUser(auth)
     );
 
     console.assert(
-        false === await db.deleteUser(220333)
+        false === await db.deleteUser({ "user": 220333, "email": "foo@bar.com" })
     );
 
     console.assert(
@@ -983,7 +983,7 @@ async function testUser() {
     );
 
     console.assert(
-        await db.deleteUser(user!)
+        await db.deleteUser({ "user": user!, email })
     );
 
     console.assert(

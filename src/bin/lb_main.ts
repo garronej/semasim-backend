@@ -19,7 +19,7 @@ scriptLib.createService({
             "pidfile_path": i.lb_pidfile_path,
             "srv_name": i.lb_srv_name,
             "assert_unix_user": "root",
-            "isQuiet": true
+            "isQuiet": false
         };
 
     },
@@ -72,7 +72,7 @@ scriptLib.createService({
 
             console.log({ entryPoints });
 
-            await db.launch(i.dbAuth.host);
+            db.launch();
 
             await db.cleanup();
 
@@ -87,11 +87,13 @@ scriptLib.createService({
             );
 
         },
-        "beforeExitTask": error => {
+        "beforeExitTask": async error => {
 
             if (!!error) {
                 console.log(error);
             }
+
+            await db.beforeExit();
 
             scriptLib.stopProcessSync(i.nginx_pidfile_path, "SIGTERM");
 

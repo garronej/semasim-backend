@@ -7,31 +7,72 @@ import { types as gwTypes } from "../semasim-gateway";
 import * as f from "../tools/mysqlCustom";
 
 import { types as dcTypes } from "chan-dongle-extended-client";
-import * as dcMisc  from "chan-dongle-extended-client/dist/lib/misc";
+import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
 import { types as feTypes } from "../semasim-frontend";
 import * as logger from "logger";
 
 import * as i from "../bin/installer";
 
-const debug= logger.debugFactory();
+const debug = logger.debugFactory();
+
+//TODO: For better lock each time providing user provide also email.
 
 /** exported only for tests */
 export let query: f.Api["query"];
 export let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
 
-/** Must be called and awaited before use */
-export async function launch(interfaceAddress?: string): Promise<void> {
+export function beforeExit() {
+    return beforeExit.impl();
+}
 
-    let api = await f.connectAndGetApi({
+export namespace beforeExit {
+    export let impl = () => Promise.resolve();
+}
+
+/** Must be called and before use */
+export function launch(): void {
+
+    let localAddress: string | undefined;
+
+    try {
+
+        localAddress = networkTools.getInterfaceAddressInRange(i.semasim_lan)
+
+    } catch{
+
+        localAddress = undefined;
+
+    }
+
+    const api = f.createPoolAndGetApi({
         ...i.dbAuth,
         "database": "semasim",
-        "localAddress": interfaceAddress || networkTools.getInterfaceAddressInRange(i.semasim_lan)
+        localAddress
     }, "HANDLE STRING ENCODING");
 
-    query= api.query;
-    esc= api.esc;
-    buildInsertQuery= api.buildInsertQuery;
+    beforeExit.impl = async () => {
+
+        debug("BeforeExit...");
+
+        try {
+
+            await api.end();
+
+        } catch (error) {
+
+            debug(error);
+
+            throw error;
+        }
+
+        debug("BeforeExit completed");
+
+    };
+
+    query = api.query;
+    esc = api.esc;
+    buildInsertQuery = api.buildInsertQuery;
 
 }
 
@@ -44,19 +85,25 @@ export async function flush() {
     ].join("\n"));
 }
 
-/** Return user.id_ or undefined */
+/** 
+ * Return user.id_ or undefined 
+ * 
+ * User not yet registered are created by the shareSim function
+ * those user have no salt and no password.
+ * 
+ * */
 export async function createUserAccount(
     email: string,
     password: string
 ): Promise<number | undefined> {
 
-    let salt = crypto.randomBytes(8).toString("hex");
+    const salt = crypto.randomBytes(8).toString("hex");
 
-    let hash = (new RIPEMD160()).update(`${password}${salt}`).digest("hex");
+    const hash = (new RIPEMD160()).update(`${password}${salt}`).digest("hex");
 
     email = email.toLowerCase();
 
-    let sql = [
+    const sql = [
         "INSERT INTO user",
         "   ( email, salt, hash )",
         "VALUES",
@@ -66,7 +113,7 @@ export async function createUserAccount(
         "   hash= IF(@update_record, VALUES(hash), hash)"
     ].join("\n");
 
-    let { insertId } = await query(sql);
+    const { insertId } = await query(sql, { email });
 
     return (insertId !== 0) ? insertId : undefined;
 
@@ -81,7 +128,7 @@ export async function authenticateUser(
     email = email.toLowerCase();
 
     let rows = await query(
-        `SELECT * FROM user WHERE email= ${esc(email)}`
+        `SELECT * FROM user WHERE email= ${esc(email)}`, { email }
     );
 
     if (!rows.length) {
@@ -99,15 +146,16 @@ export async function authenticateUser(
 
 }
 
+//TODO: Implement and when it's done enforce providing email for lock.
 export async function deleteUser(
-    user: number
+    auth: Auth
 ): Promise<boolean> {
 
-    let { affectedRows } = await query(
-        `DELETE FROM user WHERE id_ = ${esc(user)}`
-    );
+    const sql= `DELETE FROM user WHERE id_ = ${esc(auth.user)}`;
 
-    let isDeleted = affectedRows !== 0;
+    const { affectedRows } = await query(sql, { "email": auth.email });
+
+    const isDeleted = affectedRows !== 0;
 
     return isDeleted;
 
@@ -119,15 +167,15 @@ export async function getUserHash(
 
     email = email.toLowerCase();
 
-    let rows = await query(
-        `SELECT hash FROM user WHERE email= ${esc(email)}`
-    );
+    const sql= `SELECT hash FROM user WHERE email= ${esc(email)}`;
+
+    const rows = await query( sql, { email });
 
     if (!rows.length) {
         return undefined;
     }
 
-    let [{ hash }] = rows;
+    const [{ hash }] = rows;
 
     if (hash === "") {
         return undefined;
@@ -140,24 +188,27 @@ export async function getUserHash(
 /** Only request that is make with two SQL queries */
 export async function addGatewayLocation(ip: string) {
 
-    let { insertId } = await query(
-        buildInsertQuery("gateway_location", { ip }, "IGNORE")
+    const { insertId } = await query(
+        buildInsertQuery("gateway_location", { ip }, "IGNORE"),
+        { ip }
     );
 
-    if (!insertId) return;
+    if (!insertId) {
+        return;
+    }
 
     try {
 
-        let { countryIso, subdivisions, city } = await geoiplookup(ip);
+        const { countryIso, subdivisions, city } = await geoiplookup(ip);
 
-        let sql = buildInsertQuery("gateway_location", {
+        const sql = buildInsertQuery("gateway_location", {
             ip,
             "country_iso": countryIso || null,
             "subdivisions": subdivisions || null,
             "city": city || null
         }, "UPDATE");
 
-        await query(sql);
+        await query(sql, { ip });
 
     } catch (error) {
 
@@ -175,7 +226,7 @@ export async function addGatewayLocation(ip: string) {
  *  active dongles not registered
  */
 export async function filterDongleWithRegistrableSim(
-    user: number,
+    auth: Auth,
     dongles: Iterable<dcTypes.Dongle>
 ): Promise<dcTypes.Dongle[]> {
 
@@ -201,7 +252,7 @@ export async function filterDongleWithRegistrableSim(
         "FROM sim",
         "WHERE",
         dongleWithReadableIccid.map(({ sim }) => `iccid= ${esc(sim.iccid!)}`).join(" OR ")
-    ].join("\n"));
+    ].join("\n"), { "email": auth.email });
 
     let userByIccid: { [iccid: string]: number } = {};
 
@@ -219,7 +270,7 @@ export async function filterDongleWithRegistrableSim(
                 if (!registeredBy) {
                     return true;
                 } else {
-                    return (registeredBy === user) && dcTypes.Dongle.Locked.match(dongle);
+                    return (registeredBy === auth.user) && dcTypes.Dongle.Locked.match(dongle);
                 }
 
             }
@@ -272,7 +323,7 @@ export async function updateSimStorage(
 
     sql += `DELETE FROM contact WHERE sim=@sim_ref AND mem_index IS NOT NULL ${where_clause}`;
 
-    await query(sql);
+    await query(sql, { imsi });
 
 }
 
@@ -394,7 +445,7 @@ export async function createOrUpdateSimContact(
 
     sql += retrieveUasRegisteredToSim.sql;
 
-    const queryResults = await query(sql);
+    const queryResults = await query(sql, { imsi });
 
     return retrieveUasRegisteredToSim.parse(queryResults);
 
@@ -432,7 +483,7 @@ export async function deleteSimContact(
 
     sql += retrieveUasRegisteredToSim.sql;
 
-    const queryResults= await query(sql);
+    const queryResults = await query(sql, { imsi });
 
     return retrieveUasRegisteredToSim.parse(queryResults);
 
@@ -440,7 +491,7 @@ export async function deleteSimContact(
 
 /** return user UAs */
 export async function registerSim(
-    user: number,
+    auth: Auth,
     sim: dcTypes.Sim,
     friendlyName: string,
     password: string,
@@ -480,7 +531,7 @@ export async function registerSim(
             "number_max_length": sim.storage.infos.numberMaxLength,
             "storage_left": sim.storage.infos.storageLeft,
             "storage_digest": sim.storage.digest,
-            user,
+            "user": auth.user,
             password,
             "need_password_renewal": 0,
             "friendly_name": friendlyName,
@@ -509,10 +560,13 @@ export async function registerSim(
         "SELECT ua.*, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user.id_= ${esc(user)}`
+        `WHERE user.id_= ${esc(auth.user)}`
     ].join("\n");
 
-    const queryResults = await query(sql);
+    const queryResults = await query(
+        sql, 
+        { "email": auth.email, "imsi": sim.imsi }
+    );
 
     let userUas: gwTypes.Ua[] = [];
 
@@ -533,7 +587,7 @@ export async function registerSim(
 }
 
 export async function getUserSims(
-    user: number
+    auth: Auth
 ): Promise<feTypes.UserSim[]> {
 
     let sql = [
@@ -547,14 +601,14 @@ export async function getUserSims(
         "FROM sim",
         "INNER JOIN dongle ON dongle.id_= sim.dongle",
         "INNER JOIN gateway_location ON gateway_location.id_= sim.gateway_location",
-        `WHERE sim.user= ${esc(user)}`,
+        `WHERE sim.user= ${esc(auth.user)}`,
         ";",
         "SELECT",
         "   sim.imsi,",
         "   contact.*",
         "FROM contact",
         "INNER JOIN sim ON sim.id_= contact.sim",
-        `WHERE sim.user= ${esc(user)}`,
+        `WHERE sim.user= ${esc(auth.user)}`,
         ";",
         "SELECT",
         "   sim.imsi,",
@@ -563,7 +617,7 @@ export async function getUserSims(
         "FROM sim",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
         "INNER JOIN user ON user.id_= user_sim.user",
-        `WHERE sim.user= ${esc(user)}`,
+        `WHERE sim.user= ${esc(auth.user)}`,
         ";",
         "SELECT",
         "   sim.*,",
@@ -580,7 +634,7 @@ export async function getUserSims(
         "INNER JOIN gateway_location ON gateway_location.id_= sim.gateway_location",
         "INNER JOIN user ON user.id_= sim.user",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
-        `WHERE user_sim.user= ${esc(user)}`,
+        `WHERE user_sim.user= ${esc(auth.user)}`,
         ";",
         "SELECT",
         "   sim.imsi,",
@@ -588,7 +642,7 @@ export async function getUserSims(
         "FROM contact",
         "INNER JOIN sim ON sim.id_= contact.sim",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
-        `WHERE user_sim.user= ${esc(user)}`,
+        `WHERE user_sim.user= ${esc(auth.user)}`,
     ].join("\n");
 
     const [
@@ -597,7 +651,7 @@ export async function getUserSims(
         rowsSharedWith,
         rowsSimShared,
         rowsContactSimShared
-    ] = await query(sql);
+    ] = await query(sql, { "email": auth.email });
 
     const sharedWithBySim: {
         [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
@@ -658,11 +712,11 @@ export async function getUserSims(
     }
 
 
-    let userSims: feTypes.UserSim[] = [];
+    const userSims: feTypes.UserSim[] = [];
 
-    for (let row of [...rowsSimOwned, ...rowsSimShared]) {
+    for (const row of [...rowsSimOwned, ...rowsSimShared]) {
 
-        let sim: dcTypes.Sim = {
+        const sim: dcTypes.Sim = {
             "iccid": row["iccid"],
             "imsi": row["imsi"],
             "country": row["country_name"] ? ({
@@ -686,7 +740,7 @@ export async function getUserSims(
             }
         };
 
-        let dongle: feTypes.UserSim["dongle"] = {
+        const dongle: feTypes.UserSim["dongle"] = {
             "imei": row["imei"],
             "isVoiceEnabled": f.bool.dec(row["is_voice_enabled"]),
             "manufacturer": row["manufacturer"],
@@ -694,14 +748,14 @@ export async function getUserSims(
             "firmwareVersion": row["firmware_version"]
         };
 
-        let gatewayLocation: feTypes.UserSim.GatewayLocation = {
+        const gatewayLocation: feTypes.UserSim.GatewayLocation = {
             "ip": row["ip"],
             "countryIso": row["gw_country_iso"] || undefined,
             "subdivisions": row["subdivisions"] || undefined,
             "city": row["city"] || undefined
         };
 
-        let [friendlyName, ownership] = ((): [string, feTypes.SimOwnership] => {
+        const [friendlyName, ownership] = ((): [string, feTypes.SimOwnership] => {
 
             let ownerEmail = row["email"];
 
@@ -751,7 +805,7 @@ export async function getUserSims(
 
         })();
 
-        let userSim: feTypes.UserSim = {
+        const userSim: feTypes.UserSim = {
             sim,
             friendlyName,
             "password": row["password"],
@@ -774,7 +828,7 @@ export async function addOrUpdateUa(
     ua: gwTypes.Ua
 ) {
 
-    let sql = [
+    const sql = [
         "INSERT INTO ua",
         "   (instance, user, platform, push_token, software)",
         "SELECT",
@@ -792,7 +846,7 @@ export async function addOrUpdateUa(
         "   software= VALUES(software)"
     ].join("\n");
 
-    await query(sql);
+    await query(sql, { "email": ua.userEmail });
 
 }
 
@@ -851,7 +905,10 @@ export async function setSimOnline(
         retrieveUasRegisteredToSim.sql
     ].join("\n");
 
-    const queryResults = await query(sql);
+    const queryResults = await query(
+        sql, 
+        { imsi, "ip": gatewayIp }
+    );
 
     queryResults.shift();
 
@@ -868,27 +925,34 @@ export async function setSimOnline(
 
 }
 
-export async function setSimOffline(
-    imsi: string
-) {
-    await query(
-        `UPDATE sim SET is_online= 0 WHERE imsi= ${esc(imsi)}`
-    );
+export async function setSimsOffline(imsis: string[]): Promise<void> {
+
+    if (imsis.length === 0) {
+        return;
+    }
+
+    const sql = [
+        `UPDATE sim SET is_online= 0 WHERE`,
+        imsis.map(imsi => `imsi= ${esc(imsi)}`).join(" OR ")
+    ].join("\n");
+
+    await query(sql, { "imsi": imsis });
+
 }
 
 /** Return UAs that no longer use sim */
 export async function unregisterSim(
-    user: number,
+    auth: Auth,
     imsi: string
 ): Promise<gwTypes.Ua[]> {
 
     const sql = [
         `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
-        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
+        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(auth.user)}`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
         "WHERE",
-        `sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(user)} OR user_sim.user= ${esc(user)})`,
+        `sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(auth.user)} OR user_sim.user= ${esc(auth.user)})`,
         "GROUP BY sim.id_",
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
@@ -908,15 +972,15 @@ export async function unregisterSim(
         "WHERE",
         "   user_sim.sim= @sim_ref",
         "   AND user_sim.friendly_name IS NOT NULL",
-        `   AND ( @is_sim_owned OR user.id_= ${esc(user)})`,
+        `   AND ( @is_sim_owned OR user.id_= ${esc(auth.user)})`,
         ";",
         "DELETE FROM sim WHERE id_= @sim_ref AND @is_sim_owned",
         ";",
         "DELETE FROM user_sim",
-        `WHERE sim= @sim_ref AND user= ${esc(user)} AND NOT @is_sim_owned`
+        `WHERE sim= @sim_ref AND user= ${esc(auth.user)} AND NOT @is_sim_owned`
     ].join("\n");
 
-    const queryResults = await query(sql);
+    const queryResults = await query(sql, { "email": auth.email, imsi });
 
     queryResults.shift();
 
@@ -938,7 +1002,7 @@ export async function unregisterSim(
 
 }
 
-/** Return assert emails not empty */
+/** assert emails not empty */
 export async function shareSim(
     auth: Auth,
     imsi: string,
@@ -984,7 +1048,10 @@ export async function shareSim(
         "SELECT * from _user"
     ].join("\n");
 
-    const queryResults = await query(sql);
+    const queryResults = await query(
+        sql, 
+        { imsi, "email": [ auth.email, ...emails] }
+    );
 
     const userRows = queryResults.pop();
 
@@ -1011,7 +1078,7 @@ export async function shareSim(
 
 /** Return no longer registered UAs, assert email list not empty*/
 export async function stopSharingSim(
-    user: number,
+    auth: Auth,
     imsi: string,
     emails: string[]
 ): Promise<gwTypes.Ua[]> {
@@ -1023,7 +1090,7 @@ export async function stopSharingSim(
         "SELECT @sim_ref:=NULL, @ua_found:=NULL;",
         "SELECT @sim_ref:= id_",
         "FROM sim",
-        `WHERE imsi= ${esc(imsi)} AND user= ${esc(user)}`,
+        `WHERE imsi= ${esc(imsi)} AND user= ${esc(auth.user)}`,
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own SIM')",
         ";",
@@ -1054,7 +1121,10 @@ export async function stopSharingSim(
         "INNER JOIN _user_sim ON _user_sim.id_= user_sim.id_"
     ].join("\n");
 
-    const queryResults = await query(sql);
+    const queryResults = await query(
+        sql, 
+        { imsi, "email": auth.email }
+    );
 
     queryResults.shift();
 
@@ -1080,17 +1150,17 @@ export async function stopSharingSim(
 
 /** Return user UAs */
 export async function setSimFriendlyName(
-    user: number,
+    auth: Auth,
     imsi: string,
     friendlyName: string
 ): Promise<gwTypes.Ua[]> {
 
     const sql = [
         `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
-        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(user)}`,
+        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(auth.user)}`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
-        `WHERE sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(user)} OR user_sim.user= ${esc(user)})`,
+        `WHERE sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(auth.user)} OR user_sim.user= ${esc(auth.user)})`,
         "GROUP BY sim.id_",
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
@@ -1101,15 +1171,18 @@ export async function setSimFriendlyName(
         ";",
         "UPDATE user_sim",
         `SET friendly_name= ${esc(friendlyName)}, sharing_request_message= NULL`,
-        `WHERE sim= @sim_ref AND user= ${esc(user)} AND NOT @is_sim_owned`,
+        `WHERE sim= @sim_ref AND user= ${esc(auth.user)} AND NOT @is_sim_owned`,
         ";",
         "SELECT ua.*, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user= ${esc(user)}`
+        `WHERE user= ${esc(auth.user)}`
     ].join("\n");
 
-    const queryResults = await query(sql);
+    const queryResults = await query(
+        sql, 
+        { imsi, "email": auth.email }
+    );
 
     const uaRows = queryResults.pop();
 
@@ -1140,7 +1213,7 @@ export async function getSimOwner(
         "FROM user",
         "INNER JOIN sim ON sim.user= user.id_",
         `WHERE sim.imsi= ${esc(imsi)}`
-    ].join("\n"));
+    ].join("\n"), { imsi });
 
     if (!rows.length) {
         return undefined;

@@ -1,23 +1,90 @@
 import { SyncEvent } from "ts-events-extended";
 import * as f from "../tools/mysqlCustom";
 import * as i from "../bin/installer";
-import * as md5 from "md5";
 import * as networkTools from "../tools/networkTools";
+import * as logger from "logger";
+
+const debug= logger.debugFactory();
+
 
 /** exported only for tests */
 export let query: f.Api["query"];
 let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
 
-/** Must be called and awaited before use */
-export async function launch(interfaceAddress?: string): Promise<void> {
+export async function beforeExit(){
 
-    let api = await f.connectAndGetApi({
+    debug("BeforeExit...");
+
+    if( !beforeExit.end ){
+        debug("Was not yet init")
+        return;
+    }
+
+    if( !!beforeExit.timer_interval ){
+        clearInterval(beforeExit.timer_interval);
+    }
+
+    for( const timer of beforeExit.timer_timeouts ){
+        clearTimeout(timer);
+    }
+
+    if( !!beforeExit.ri ){
+
+        try{
+
+            await deleteRunningInstance(beforeExit.ri);
+
+        }catch(error){
+
+            debug(error);
+
+            throw error;
+
+        }
+
+    }
+
+    await beforeExit.end();
+
+    debug("BeforeExit success");
+
+}
+
+export namespace beforeExit {
+
+    export let end: f.Api["end"] | undefined = undefined;
+
+    export let  timer_timeouts= new Set<NodeJS.Timer>();
+    
+    export let timer_interval: NodeJS.Timer | undefined = undefined;
+
+    export let ri: RunningInstance.Id | undefined= undefined;
+
+};
+
+/** Must be called and awaited before use */
+export function launch(): void {
+
+    let localAddress: string | undefined;
+
+    try{
+
+        localAddress = networkTools.getInterfaceAddressInRange(i.semasim_lan)
+
+    }catch{
+
+        localAddress= undefined;
+
+    }
+
+    const api = f.createPoolAndGetApi({
         ...i.dbAuth,
         "database": "semasim_running_instances",
-        "localAddress": interfaceAddress ||
-            networkTools.getInterfaceAddressInRange(i.semasim_lan)
-    }, "HANDLE STRING ENCODING");
+        localAddress
+    }, undefined, 1);
+
+    beforeExit.end= api.end;
 
     query = api.query;
     esc = api.esc;
@@ -25,21 +92,66 @@ export async function launch(interfaceAddress?: string): Promise<void> {
 
 }
 
-export type RunningInstance = {
-    interfaceAddress: string;
+
+export type RunningInstance = RunningInstance.Id & ({
     httpsPort: number;
     httpPort: number;
     sipUaPort: number;
     sipGwPort: number;
     interInstancesPort: number;
-};
+});
+
+export namespace RunningInstance {
+
+    export type Id = {
+        interfaceAddress: string;
+        daemon_number: number;
+    };
+
+    export namespace Id {
+
+        const prefix = "cleanup_evt";
+
+        const regExp = new RegExp(`^${prefix}__(.+)$`);
+
+        export function buildEvtName(ri: Id): string {
+
+            return [
+                prefix,
+                ri.interfaceAddress.replace(/\./g, "_"),
+                `${ri.daemon_number}`
+            ].join("__");
+
+        }
+
+        export function parseEvtName(name: string): Id | undefined {
+
+            const match = name.match(regExp);
+
+            if (!match) {
+                return undefined;
+            }
+
+            const [a, b] = match[1].split("__");
+
+            return {
+                "interfaceAddress": a.replace(/_/g, "."),
+                "daemon_number": parseInt(b)
+            };
+
+        }
+
+
+
+    }
+
+
+}
 
 /** Only for test purpose */
 export async function flush() {
 
-    let sql = [
-        "DELETE FROM instance;"
-    ].join("\n");
+    const sql = "DELETE FROM instance;";
 
     await query(sql);
 
@@ -55,21 +167,17 @@ export async function cleanup() {
 
     for (let _event of res_events) {
 
-        let match = _event["Name"].match(/^cleanup_evt_(.+)$/);
+        const name = _event["Name"];
 
-        if (!match) {
+        const ri = RunningInstance.Id.parseEvtName(name);
+
+        if (!ri) {
             continue;
         }
 
         if (date_now > _event["Execute at"].getTime()) {
 
-            let id_ = match[1];
-
-            sql += [
-                `DROP EVENT ${_event["Name"]};`,
-                `DELETE FROM instance WHERE id_= ${esc(id_)};`,
-                ""
-            ].join("\n");
+            sql += deleteRunningInstance.buildSql(ri) + "\n";
 
         }
 
@@ -83,63 +191,105 @@ export async function cleanup() {
 
 }
 
-/** This function should be call ONCE by instance */
-export async function setRunningInstance(
-    runningInstance: RunningInstance
+export async function deleteRunningInstance(
+    ri: RunningInstance.Id
 ) {
 
-    let sqlTouch = [
-        "INSERT into touch (val)",
-        "SELECT max(val) + 1",
-        "FROM touch",
-        "ON DUPLICATE KEY UPDATE val = VALUES(val)"
-    ].join(" ");
+    await query([
+        deleteRunningInstance.buildSql(ri),
+        setRunningInstance.sqlTouchLock
+    ].join("\n"));
+
+}
+
+export namespace deleteRunningInstance {
+
+    export function buildSql(ri: RunningInstance.Id ){
+        return [
+        `DROP EVENT IF EXISTS ${RunningInstance.Id.buildEvtName(ri)};`,
+        `DELETE FROM instance WHERE interface_address=${esc(ri.interfaceAddress)} AND daemon_number=${esc(ri.daemon_number)};`
+        ].join("\n");
+    }
+
+}
+
+/** This function should be call ONCE by instance */
+export async function setRunningInstance(
+    ri: RunningInstance
+) {
+
+    beforeExit.ri = ri;
 
     //TODO: enable event_scheduler elsewhere so we dont need all privileges
     let sql = [
         "SET GLOBAL event_scheduler = ON",
         ";",
-        sqlTouch,
-        ";",
+        setRunningInstance.sqlTouchLock,
         ""
     ].join("\n");
 
-    let id_ = md5(
-        [JSON.stringify(runningInstance), Date.now()].join("")
-    );
-
     sql += buildInsertQuery("instance", {
-        id_,
-        "interface_address": runningInstance.interfaceAddress,
-        "https_port": runningInstance.httpsPort,
-        "http_port": runningInstance.httpPort,
-        "sip_ua_port": runningInstance.sipUaPort,
-        "sip_gw_port": runningInstance.sipGwPort,
-        "inter_instances_port": runningInstance.interInstancesPort
-    }, "THROW ERROR");
+        "interface_address": ri.interfaceAddress,
+        "daemon_number": ri.daemon_number,
+        "https_port": ri.httpsPort,
+        "http_port": ri.httpPort,
+        "sip_ua_port": ri.sipUaPort,
+        "sip_gw_port": ri.sipGwPort,
+        "inter_instances_port": ri.interInstancesPort
+    }, "UPDATE");
 
-    let sqlEvtInterval = "INTERVAL 7 SECOND";
+    const sqlEvtInterval = "INTERVAL 7 SECOND";
+
+    const evt_name = RunningInstance.Id.buildEvtName(ri);
 
     sql += [
         "",
-        `CREATE EVENT IF NOT EXISTS cleanup_evt_${id_}`,
+        `CREATE EVENT IF NOT EXISTS ${evt_name}`,
         "   ON SCHEDULE",
         `       AT CURRENT_TIMESTAMP + ${sqlEvtInterval}`,
         "   DO",
         "   BEGIN",
-        `       DELETE FROM instance WHERE id_ = ${esc(id_)};`,
-        `       ${sqlTouch};`,
+        `       DELETE FROM instance`,
+        `       WHERE interface_address=${esc(ri.interfaceAddress)}`,
+        `       AND daemon_number=${esc(ri.daemon_number)}`,
+        `       ;`,
+        `       ${setRunningInstance.sqlTouch}`,
         "   END;",
         "",
     ].join("\n");
 
     await query(sql);
 
-    setInterval(() => query([
-        `ALTER EVENT cleanup_evt_${id_}`,
+    beforeExit.timer_interval = setInterval(() => query([
+        `ALTER EVENT ${evt_name}`,
         "   ON SCHEDULE",
         `       AT CURRENT_TIMESTAMP + ${sqlEvtInterval}`
     ].join("\n")), 5000);
+
+}
+
+export namespace setRunningInstance {
+
+    export const sqlTouch = "UPDATE touch SET val=val+1;";
+
+    export const sqlTouchLock = [
+        "LOCK TABLES touch WRITE;",
+        sqlTouch,
+        "UNLOCK TABLES;"
+    ].join("\n");
+
+
+    /*
+        export const sqlTouch = [
+            "LOCK TABLE touch WRITE;\n",
+            "INSERT INTO touch (val)",
+            "SELECT max(val) + 1",
+            "FROM touch",
+            "ON DUPLICATE KEY UPDATE val = VALUES(val)",
+            ";",
+            "UNLOCK TABLES;\n"
+        ].join(" ");
+        */
 
 }
 
@@ -162,7 +312,7 @@ export function getEvtRunningInstances(): SyncEvent<RunningInstance[]> {
 
         while (true) {
 
-            let sql = [
+            const sql = [
                 "SELECT @current_touch_value:= val AS current_touch_value",
                 "FROM touch",
                 "WHERE id_= 'singleton'",
@@ -173,7 +323,7 @@ export function getEvtRunningInstances(): SyncEvent<RunningInstance[]> {
                 ";"
             ].join("\n");
 
-            let [[{ current_touch_value }], rows] = await query(sql);
+            const [[{ current_touch_value }], rows] = await query(sql);
 
             if (current_touch_value !== previousTouchValue) {
 
@@ -187,7 +337,21 @@ export function getEvtRunningInstances(): SyncEvent<RunningInstance[]> {
 
             previousTouchValue = current_touch_value;
 
-            await new Promise<void>(resolve => setTimeout(() => resolve(), 4000));
+            await new Promise<void>(
+                resolve => {
+
+                    const timer = setTimeout(() => {
+
+                        beforeExit.timer_timeouts.delete(timer);
+
+                        resolve();
+
+                    }, 4000);
+
+                    beforeExit.timer_timeouts.add(timer);
+
+                }
+            );
 
         }
 
@@ -204,6 +368,7 @@ export namespace getEvtRunningInstances {
     export const __rowsToRunningInstances = (rows): RunningInstance[] =>
         rows.map(row => ({
             "interfaceAddress": row["interface_address"],
+            "daemon_number": row["daemon_number"],
             "httpsPort": row["https_port"],
             "httpPort": row["http_port"],
             "sipUaPort": row["sip_ua_port"],
@@ -219,15 +384,22 @@ export namespace getEvtRunningInstances {
      * */
     export function trigger() {
 
-        setTimeout(
-            async () =>
+        const timer = setTimeout(
+            async () => {
+
+                beforeExit.timer_timeouts.delete(timer);
+
                 __evt!.post(
                     __rowsToRunningInstances(
                         await query("SELECT * FROM instance")
                     )
-                ),
+                );
+
+            },
             7000
         );
+
+        beforeExit.timer_timeouts.add(timer);
 
     }
 
