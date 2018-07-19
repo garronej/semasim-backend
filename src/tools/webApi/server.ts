@@ -132,11 +132,14 @@ export function init(initParams: InitParams): void {
 
             let response: any;
 
+            let dynamicallyDefinedContentType: undefined | string = undefined;
+
             try {
 
                 response = await handler(
                     params, session,
-                    req.connection.remoteAddress!, req
+                    req.connection.remoteAddress!, req,
+                    _contentType=> dynamicallyDefinedContentType= _contentType
                 );
 
             } catch (error) {
@@ -188,7 +191,7 @@ export function init(initParams: InitParams): void {
 
             res.status(misc.httpCodes.OK);
 
-            res.setHeader("Content-Type", contentType);
+            res.setHeader("Content-Type", dynamicallyDefinedContentType || contentType);
 
             res.send(data);
 

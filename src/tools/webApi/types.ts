@@ -1,14 +1,16 @@
 import * as express from "express";
 import { ContentTypeJSON_CUSTOM } from "./misc";
 
-export type PromiseOrSync<T>= T | Promise<T>;
+export type PromiseOrSync<T> = T | Promise<T>;
 
 export namespace Handler {
 
-    export type Method<Params, Response>= 
-        (params: Params, session: Express.Session, remoteAddress: string, req: express.Request) => PromiseOrSync<Response>;
-    
-    export type SanityCheck<Params>= 
+    export type Method<Params, Response> =
+        (params: Params, session: Express.Session,
+            remoteAddress: string, req: express.Request,
+            overwriteResponseContentType: (contentType: string) => void) => PromiseOrSync<Response>;
+
+    export type SanityCheck<Params> =
         (params: Params) => boolean;
 
     export type JSON<Params, Response> = {
