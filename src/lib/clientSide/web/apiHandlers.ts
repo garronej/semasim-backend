@@ -530,16 +530,76 @@ export const handlers: Handlers = {};
     //TODO: enable "Send DTMFs in SIP" disable "Send DTMFs in stream" in static config
     //TODO: remove response from declaration
     const methodName = "get-user-linphone-config";
-    type Params = { email_as_hex: string; password_as_hex: string; };;
+    type Params = { email_as_hex: string; password_as_hex: string; format?: "XML" | "INI" };;
 
     const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
-    const ov = ` overwrite="true" `;
     const domain = "semasim.com";
+
+    const toXml = (config: object): string => {
+
+        return [
+            `<?xml version="1.0" encoding="UTF-8"?>`,
+            [
+                `<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" `,
+                `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" `,
+                `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
+            ].join(""),
+            ...(() => {
+
+                const sections: string[] = [];
+
+                for (const keySection in config) {
+
+                    sections.push([
+                        `  <section name="${keySection}">`,
+                        ...(() => {
+
+                            const entries: string[] = [];
+
+                            for (const keyEntry in config[keySection]) {
+
+                                entries.push([
+                                    `    <entry name="${keyEntry}" overwrite="true">`,
+                                    entities.encode(config[keySection][keyEntry]),
+                                    `</entry>`
+                                ].join(""));
+
+                            }
+
+                            return entries;
+
+                        })(),
+                        `  </section>`
+                    ].join("\n"));
+
+                }
+
+                return sections;
+
+            })(),
+            `</config>`
+        ].join("\n");
+
+    };
+
+    const toIni = (config: object): string => {
+
+        return Object.keys(config).map(
+            keySection => [
+                `[${keySection}]`,
+                ...(Object.keys(config[keySection])
+                    .map(keyEntry => `${keyEntry}=${config[keySection][keyEntry]}`))
+            ].join("\n")
+        ).join("\n\n");
+
+    };
+
+    //text/plain
 
     const handler: Handler.Generic<Params> = {
         "needAuth": false,
-        "contentType": "application/xml",
+        "contentType": "application/xml; charset=utf-8",
         "sanityCheck": params => {
             try {
                 return (
@@ -550,10 +610,13 @@ export const handlers: Handlers = {};
                 return false;
             }
         },
-        "handler": async params => {
+        "handler": async (params, _session, _remoteAddress, _req, overwriteResponseContentType) => {
 
             const email = hexToUtf8(params.email_as_hex).toLowerCase();
             const password = hexToUtf8(params.password_as_hex);
+
+            const format = params.format || "XML";
+
 
             const user = await db.authenticateUser(email, password);
 
@@ -567,10 +630,10 @@ export const handlers: Handlers = {};
 
             }
 
-            const endpointEntries: string[] = [];
-            const contactEntries: string[] = [];
-
             const p_email = `enc_email=${gwTypes.misc.urlSafeB64.enc(email)}`;
+            const config: object = {};
+            let endpointCount = 0;
+            let contactCount = 0;
 
             for (const { sim, friendlyName, password, ownership, phonebook } of await db.getUserSims({ user, email })) {
 
@@ -578,64 +641,54 @@ export const handlers: Handlers = {};
                     continue;
                 }
 
-                endpointEntries[endpointEntries.length] = [
-                    `  <section name="nat_policy_${endpointEntries.length}">`,
-                    `    <entry name="ref" ${ov}>nat_policy_${endpointEntries.length}</entry>`,
-                    `    <entry name="stun_server" ${ov}>${domain}</entry>`,
-                    `    <entry name="protocols" ${ov}>stun,ice</entry>`,
-                    `  </section>`,
-                    `  <section name="proxy_${endpointEntries.length}">`,
-                    `    <entry name="reg_proxy" ${ov}>sip:${domain};transport=TLS</entry>`,
-                    `    <entry name="reg_route" ${ov}>sip:${domain};transport=TLS;lr</entry>`,
-                    `    <entry name="reg_expires" ${ov}>${21601}</entry>`,
-                    [
-                        `    <entry name="reg_identity" ${ov}>`,
-                        entities.encode(`"${friendlyName}" <sip:${sim.imsi}@${domain};transport=TLS;${p_email}>`),
-                        `</entry>`,
-                    ].join(""),
-                    `    <entry name="contact_parameters" ${ov}>${p_email}</entry>`, //TODO: See if it work with Ios, if not remove
-                    `    <entry name="reg_sendregister" ${ov}>1</entry>`,
-                    `    <entry name="publish" ${ov}>0</entry>`,
-                    `    <entry name="nat_policy_ref" ${ov}>nat_policy_${endpointEntries.length}</entry>`,
-                    `  </section>`,
-                    `  <section name="auth_info_${endpointEntries.length}">`,
-                    `    <entry name="username" ${ov}>${sim.imsi}</entry>`,
-                    `    <entry name="userid" ${ov}>${sim.imsi}</entry>`,
-                    `    <entry name="passwd" ${ov}>${password}</entry>`,
-                    `  </section>`
-                ].join("\n");
+                config[`nat_policy_${endpointCount}`] = {
+                    "ref": `nat_policy_${endpointCount}`,
+                    "stun_server": domain,
+                    "protocols": "stun,ice"
+                };
+
+                config[`proxy_${endpointCount}`] = {
+                    //"reg_proxy": `sip:${domain};transport=TLS`,
+                    "reg_proxy": `<sip:${domain};transport=TLS>`,
+                    "reg_route": `sip:${domain};transport=TLS;lr`,
+                    "reg_expires": `${21601}`,
+                    "reg_identity": `"${friendlyName}" <sip:${sim.imsi}@${domain};transport=TLS;${p_email}>`,
+                    "contact_parameters": p_email,
+                    "reg_sendregister": "1",
+                    "publish": "0",
+                    "nat_policy_ref": `nat_policy_${endpointCount}`,
+
+                };
+
+                config[`auth_info_${endpointCount}`] = {
+                    "username": sim.imsi,
+                    "userid": sim.imsi,
+                    "passwd": password
+                };
+
+                endpointCount++;
 
                 for (const contact of phonebook) {
 
-                    contactEntries[contactEntries.length] = [
-                        `  <section name="friend_${contactEntries.length}">`,
-                        [
-                            `    <entry name="url" ${ov}>`,
-                            entities.encode(
-                                `"${contact.name} (${friendlyName})" <sip:${contact.number_local_format}@${domain}>`
-                            ),
-                            `</entry>`
-                        ].join(""),
-                        `    <entry name="pol" ${ov}>accept</entry>`,
-                        `    <entry name="subscribe" ${ov}>0</entry>`,
-                        `  </section>`,
-                    ].join("\n");
+                    config[`friend_${contactCount}`] = {
+                        "url": `"${contact.name} (${friendlyName})" <sip:${contact.number_local_format}@${domain}>`,
+                        "pol": "accept",
+                        "subscribe": "0"
+                    };
+
+                    contactCount++;
 
                 }
 
             }
 
-            return Buffer.from([
-                `<?xml version="1.0" encoding="UTF-8"?>`,
-                [
-                    `<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" `,
-                    `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" `,
-                    `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
-                ].join(""),
-                ...endpointEntries,
-                ...contactEntries,
-                `</config>`
-            ].join("\n"), "utf8");
+            if( format === "INI" ){
+
+                overwriteResponseContentType("text/plain; charset=utf-8");
+
+            }
+
+            return Buffer.from(format==="XML"?toXml(config):toIni(config));
 
         }
     };
@@ -654,7 +707,7 @@ export const handlers: Handlers = {};
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
         "sanityCheck": (params) => params instanceof Object,
-        "handler": async () => Buffer.from( semasim_gateway_version, "utf8")
+        "handler": async () => Buffer.from(semasim_gateway_version, "utf8")
     };
 
     handlers[methodName] = handler;
@@ -718,7 +771,7 @@ import dw = d.webphoneData;
             typeof params.instance_id === "number" &&
             typeof params.contactNumber === "string" &&
             typeof params.contactName === "string" &&
-            ( typeof params.contactIndexInSim === "number" || params.contactIndexInSim === null )
+            (typeof params.contactIndexInSim === "number" || params.contactIndexInSim === null)
         ),
         "handler": (params, session) => dbw.newChat(
             sessionManager.getAuth(session)!.user,
@@ -795,11 +848,11 @@ import dw = d.webphoneData;
 
 (() => {
 
-    let methodName = dw.newMessage.methodName;
+    const methodName = dw.newMessage.methodName;
     type Params = dw.newMessage.Params;
     type Response = dw.newMessage.Response;
 
-    let handler: Handler.JSON<Params, Response> = {
+    const handler: Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
