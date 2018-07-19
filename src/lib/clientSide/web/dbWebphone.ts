@@ -361,11 +361,12 @@ export async function destroyChat(
 
 }
 
+/** Return id_ affected to the created message */
 export async function newMessage(
     user: number,
     chat_id: number,
     message: feTypes.WebphoneData.Message
-): Promise<feTypes.WebphoneData.Message> {
+): Promise<number> {
 
     let is_incoming: 0 | 1;
     let incoming_is_notification: 0 | 1 | null;
@@ -435,11 +436,10 @@ export async function newMessage(
         }, "THROW ERROR")
     ].join("\n");
 
-    let resp = await query(sql, { user, chat_id });
+    const resp = await query(sql, { user, chat_id });
 
-    message.id_ = resp.pop().insertId;
+    return resp.pop().insertId;
 
-    return message;
 
 }
 
