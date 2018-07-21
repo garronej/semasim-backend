@@ -90,6 +90,44 @@ export async function unlockDongle(
 
 }
 
+export async function rebootDongle(
+    imsi: string,
+    auth: web.Auth
+) {
+
+    const methodName = apiDeclaration.rebootDongle.methodName;
+    type Params = apiDeclaration.rebootDongle.Params;
+    type Response = apiDeclaration.rebootDongle.Response;
+
+    return (async (): Promise<Response> => {
+
+        const gatewaySideSocket = store.get({ imsi });
+
+        if (!gatewaySideSocket) {
+
+            return { "isSuccess": false };
+
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySideSocket,
+                methodName,
+                { imsi, auth },
+                { "timeout": 6 * 1000 }
+            );
+
+        } catch{
+
+            return { "isSuccess": false };
+
+        }
+
+    })();
+
+}
+
 export async function getSipPasswordAndDongle(
     imsi: string,
     gatewaySocketRemoteAddress?: string

@@ -31,6 +31,16 @@ export namespace unlockDongle {
 
 }
 
+export namespace rebootDongle {
+
+    export const methodName= "rebootDongle";
+
+    export type Params = { imsi: string; auth: web.Auth; };
+
+    export type Response= { isSuccess: boolean; };
+
+}
+
 export namespace getSipPasswordAndDongle {
 
     export const methodName= "getSipPasswordAndDongle";

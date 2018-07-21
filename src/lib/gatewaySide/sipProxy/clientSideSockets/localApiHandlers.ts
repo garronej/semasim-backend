@@ -93,6 +93,40 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
 })();
 
+
+(() => {
+
+    const methodName = apiDeclaration.rebootDongle.methodName;
+    type Params = apiDeclaration.rebootDongle.Params;
+    type Response = apiDeclaration.rebootDongle.Response;
+
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
+        "handler": async ({ imsi, auth }) =>{
+
+            const userSim= (await db.getUserSims(auth))
+                .find(({ sim }) => sim.imsi === imsi);
+
+            if( !userSim ){
+
+                debug("User does not have access to this dongle");
+                
+                return { "isSuccess": false };
+
+            }
+
+            await gatewaySockets.remoteApi.rebootDongle(imsi);
+
+            return { "isSuccess": true };
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
+
+
 (() => {
 
     const methodName = apiDeclaration.getSipPasswordAndDongle.methodName;

@@ -161,6 +161,51 @@ export async function unlockDongle(
 
 }
 
+export async function rebootDongle( imsi: string){
+
+    const methodName = apiDeclaration.rebootDongle.methodName;
+    type Params = apiDeclaration.rebootDongle.Params;
+    type Response = apiDeclaration.rebootDongle.Response;
+
+    const sanityCheck = (response: Response) => (
+        response instanceof Object &&
+        typeof response.isSuccess === "boolean"
+    );
+
+    return (async (): Promise<Response> => {
+
+        const gatewaySocket = store.byImsi.get(imsi);
+
+        if (!gatewaySocket) {
+
+            return { "isSuccess": false };
+
+        }
+
+        try {
+
+            return await sipLibrary.api.client.sendRequest<Params, Response>(
+                gatewaySocket,
+                methodName,
+                { imsi },
+                {
+                    "timeout": 5 * 1000,
+                    sanityCheck
+                }
+            );
+
+        } catch{
+
+            return { "isSuccess": false };
+
+        }
+
+    })();
+
+}
+
+
+
 export async function getSipPasswordAndDongle(
     imsi: string
 ) {

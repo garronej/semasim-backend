@@ -149,7 +149,7 @@ export const handlers: Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (params, session) => db.getUserSims(sessionManager.getAuth(session)!)
+        "handler": (_params, session) => db.getUserSims(sessionManager.getAuth(session)!)
     };
 
     handlers[methodName] = handler;
@@ -208,6 +208,38 @@ export const handlers: Handlers = {};
             }
 
             return result;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+})();
+
+(() => {
+
+    const methodName = d.rebootDongle.methodName;
+    type Params = d.rebootDongle.Params;
+    type Response = d.rebootDongle.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            dcSanityChecks.imsi(params.imsi)
+        ),
+        "handler": async ({ imsi }, session) => {
+
+            const { isSuccess }= await gatewaySideSockets.rebootDongle(
+                imsi, sessionManager.getAuth(session)!
+            );
+
+            if( !isSuccess ){
+                throw new Error("Reboot dongle error");
+            }
+
+            return undefined;
 
         }
     };
@@ -436,7 +468,7 @@ export const handlers: Handlers = {};
             );
 
             if (result === undefined) {
-                throw new Error("Unlock failed, internal error");
+                throw new Error("Create contact failed, internal error");
             }
 
             return result;
