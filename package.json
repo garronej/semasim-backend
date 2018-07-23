@@ -1,7 +1,7 @@
 {
   "name": "semasim-backend",
   "description": "Semasim backend server",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "scripts": {
     "postinstall": "cp $(readlink -e $(which node)) ./node",
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
@@ -39,7 +39,8 @@
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-sip": "github:garronej/ts-sip",
     "uuid": "^3.2.1",
-    "ws": "^4.0.0"
+    "ws": "^4.0.0",
+    "transfer-tools": "garronej/transfer-tools"
   },
   "devDependencies": {
     "@types/async-lock": "^1.1.0",
