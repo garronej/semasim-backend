@@ -1,10 +1,12 @@
-import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/gatewaySide/clientSideSockets";
+
+import * as apiDeclaration from "../../../sip_api_declarations/clientSideSockets";
 import * as sipLibrary from "ts-sip";
-import * as gatewaySockets from "../gatewaySockets/index_sipProxy";
-import { types as feTypes } from "../../../../semasim-frontend";
-import * as db from "../../../dbSemasim";
-import * as pushNotifications from "../../../pushNotifications";
-import { types as gwTypes } from "../../../../semasim-gateway";
+import * as gatewaySockets_remoteApi from "../gatewaySockets/remoteApiCaller";
+import { waitForUsableDongle as gatewaySockets_localApi_waitForUsableDongle } from "../gatewaySockets/localApiHandlers";
+import { types as feTypes } from "../../../semasim-frontend";
+import * as db from "../../dbSemasim";
+import * as pushNotifications from "../../pushNotifications";
+import { types as gwTypes } from "../../../semasim-gateway";
 
 import * as logger from "logger";
 
@@ -20,7 +22,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
     let handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "handler": ({ gatewaySocketRemoteAddress }) =>
-            gatewaySockets.remoteApi.getDongles(gatewaySocketRemoteAddress)
+            gatewaySockets_remoteApi.getDongles(gatewaySocketRemoteAddress)
     };
 
     handlers[methodName] = handler;
@@ -36,7 +38,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
     let handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "handler": async ({ imei, pin, gatewaySocketRemoteAddress, auth }) => {
 
-            let unlockResult = await gatewaySockets.remoteApi.unlockDongle(
+            let unlockResult = await gatewaySockets_remoteApi.unlockDongle(
                 gatewaySocketRemoteAddress, imei, pin
             );
 
@@ -54,7 +56,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             try {
 
-                var { dongle, simOwner } = await gatewaySockets.remoteApi.waitForUsableDongle(imei, 30000);
+                var { dongle, simOwner } = await gatewaySockets_localApi_waitForUsableDongle(imei, 30000);
 
             } catch{
 
@@ -114,7 +116,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             }
 
-            await gatewaySockets.remoteApi.rebootDongle(imsi);
+            await gatewaySockets_remoteApi.rebootDongle(imsi);
 
             return { "isSuccess": true };
 
@@ -135,7 +137,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
     let handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "handler": ({ imsi }) =>
-            gatewaySockets.remoteApi.getSipPasswordAndDongle(imsi)
+            gatewaySockets_remoteApi.getSipPasswordAndDongle(imsi)
     };
 
     handlers[methodName] = handler;
@@ -150,7 +152,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
     let handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "handler": async ({ imsi }) =>{
-            await gatewaySockets.remoteApi.reNotifySimOnline(imsi);
+            await gatewaySockets_remoteApi.reNotifySimOnline(imsi);
             return undefined;
         }
     };
@@ -196,7 +198,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if (userSim.sim.storage.infos.storageLeft !== 0) {
 
-                storageInfos = await gatewaySockets.remoteApi.createContact(imsi, name, number);
+                storageInfos = await gatewaySockets_remoteApi.createContact(imsi, name, number);
 
             }
 
@@ -286,7 +288,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if (contact.mem_index !== undefined) {
 
-                const resp = await gatewaySockets.remoteApi.updateContactName(imsi, contact.mem_index, newName);
+                const resp = await gatewaySockets_remoteApi.updateContactName(imsi, contact.mem_index, newName);
 
                 if (resp) {
 
@@ -386,7 +388,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if( contact.mem_index !== undefined ){
 
-                const resp= await gatewaySockets.remoteApi.deleteContact(imsi, contact.mem_index);
+                const resp= await gatewaySockets_remoteApi.deleteContact(imsi, contact.mem_index);
 
                 if( !resp ){
                     return { "isSuccess": false };

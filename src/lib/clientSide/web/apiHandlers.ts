@@ -7,7 +7,7 @@ import * as db from "../../dbSemasim";
 import { Handler, Handlers, internalErrorCustomHttpCode, httpCodes } from "../../../tools/webApi";
 import * as sessionManager from "./sessionManager";
 import * as dbw from "./dbWebphone";
-import * as gatewaySideSockets from "../sipProxy/gatewaySideSockets";
+import * as gatewaySideSockets_remoteApi from "../sipProxy/gatewaySideSockets/remoteApiCaller";
 import * as pushNotifications from "../../pushNotifications";
 
 import { types as gwTypes, version as semasim_gateway_version } from "../../../semasim-gateway";
@@ -173,7 +173,7 @@ export const handlers: Handlers = {};
         "handler": async (params, session, remoteAddress) =>
             db.filterDongleWithRegistrableSim(
                 sessionManager.getAuth(session)!,
-                await gatewaySideSockets.getDongles(remoteAddress)
+                await gatewaySideSockets_remoteApi.getDongles(remoteAddress)
             )
     };
 
@@ -199,7 +199,7 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imei, pin }, session, remoteAddress) => {
 
-            let result = await gatewaySideSockets.unlockDongle(
+            let result = await gatewaySideSockets_remoteApi.unlockDongle(
                 imei, pin, remoteAddress, sessionManager.getAuth(session)!
             );
 
@@ -231,7 +231,7 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imsi }, session) => {
 
-            const { isSuccess }= await gatewaySideSockets.rebootDongle(
+            const { isSuccess }= await gatewaySideSockets_remoteApi.rebootDongle(
                 imsi, sessionManager.getAuth(session)!
             );
 
@@ -266,7 +266,7 @@ export const handlers: Handlers = {};
 
             try {
 
-                var { dongle, sipPassword } = (await gatewaySideSockets.getSipPasswordAndDongle(
+                var { dongle, sipPassword } = (await gatewaySideSockets_remoteApi.getSipPasswordAndDongle(
                     imsi,
                     remoteAddress
                 ))!;
@@ -319,7 +319,7 @@ export const handlers: Handlers = {};
                 imsi
             );
 
-            gatewaySideSockets.reNotifySimOnline(imsi);
+            gatewaySideSockets_remoteApi.reNotifySimOnline(imsi);
 
             pushNotifications.send(affectedUas, "RELOAD CONFIG");
 
@@ -397,7 +397,7 @@ export const handlers: Handlers = {};
 
             if (noLongerRegisteredUas.length) {
 
-                gatewaySideSockets.reNotifySimOnline(imsi);
+                gatewaySideSockets_remoteApi.reNotifySimOnline(imsi);
 
                 pushNotifications.send(noLongerRegisteredUas, "RELOAD CONFIG");
 
@@ -463,7 +463,7 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imsi, name, number }, session) => {
 
-            const result = await gatewaySideSockets.createContact(
+            const result = await gatewaySideSockets_remoteApi.createContact(
                 imsi, name, number, sessionManager.getAuth(session)!
             );
 
@@ -502,7 +502,7 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imsi, contactRef, newName }, session, remoteAddress) => {
 
-            const result = await gatewaySideSockets.updateContactName(
+            const result = await gatewaySideSockets_remoteApi.updateContactName(
                 imsi, contactRef, newName, sessionManager.getAuth(session)!
             );
 
@@ -539,7 +539,7 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ imsi, contactRef }, session, remoteAddress) => {
 
-            const result = await gatewaySideSockets.deleteContact(
+            const result = await gatewaySideSockets_remoteApi.deleteContact(
                 imsi, contactRef, sessionManager.getAuth(session)!
             );
 

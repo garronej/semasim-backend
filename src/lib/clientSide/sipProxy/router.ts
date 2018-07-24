@@ -2,10 +2,8 @@ import { sipProxyMisc } from "../../../semasim-gateway";
 import * as sipLibrary from "ts-sip";
 import * as web from "../web";
 import * as clientSockets from "./clientSockets";
-import * as gatewaySideSockets from "./gatewaySideSockets/index_sipProxy";
+import * as gatewaySideSockets from "./gatewaySideSockets/store";
 import * as logger from "logger";
-
-//TODO: catch exceptions
 
 export function onUaConnection(
     clientSocket: sipLibrary.Socket,
@@ -65,6 +63,7 @@ export function onUaConnection(
 
         } catch (error) {
 
+            //TODO: Do not crash server! Except if we conclude that exception here is internal error (unlikely)
             throw error;
 
             //clientSocket.destroy();
@@ -117,6 +116,7 @@ export function onGwSideConnection(
 
         } catch(error) { 
 
+            //TODO: see above
             throw error;
 
         }

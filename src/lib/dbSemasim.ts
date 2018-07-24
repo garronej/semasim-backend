@@ -2,7 +2,7 @@ import * as RIPEMD160 from "ripemd160";
 import * as crypto from "crypto";
 import { Auth } from "./clientSide/web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
-import * as networkTools from "../tools/networkTools";
+import { networkTools } from "../semasim-load-balancer";
 import { types as gwTypes } from "../semasim-gateway";
 import * as f from "../tools/mysqlCustom";
 

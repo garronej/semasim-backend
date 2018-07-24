@@ -1,11 +1,11 @@
 
 import * as sipLibrary from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
-import * as dbSemasim from "../../../dbSemasim";
+import * as dbSemasim from "../../dbSemasim";
 import * as logger from "logger";
 
 const __set_of_imsi__= " set of imsi ";
-export const __set_of_imsi_on_close__ = " set of imsi on close ";
+const __set_of_imsi_on_close__ = " set of imsi on close ";
 
 export const byRemoteAddress = new Map<string, Set<sipLibrary.Socket>>();
 
@@ -108,3 +108,7 @@ export function unbindFromSim(
 
 }
 
+
+export function getSetOfImsiAtCloseTime(gatewaySocket: sipLibrary.Socket): Set<string> {
+    return gatewaySocket.misc[ __set_of_imsi_on_close__ ];
+}

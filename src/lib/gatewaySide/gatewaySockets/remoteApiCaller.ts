@@ -1,8 +1,6 @@
-import { SyncEvent } from "ts-events-extended";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
-import * as web from "../../../clientSide/web";
-import { declarationBackendSocketApi as apiDeclaration } from "../../../../semasim-gateway";
+import { apiDeclaration } from "../../../sip_api_declarations/backendSocket";
 import * as store from "./store";
 import * as sipLibrary from "ts-sip";
 
@@ -430,46 +428,4 @@ export async function deleteContact(
 }
 
 
-export async function waitForUsableDongle(
-    imei: string,
-    timeout: number
-): Promise<waitForUsableDongle.EventData> {
-
-    let evt = new SyncEvent<waitForUsableDongle.EventData>();
-
-    waitForUsableDongle.__waited.set(imei, evt);
-
-    let out: waitForUsableDongle.EventData | Error;
-
-    try {
-
-        out = await evt.waitFor(timeout);
-
-    } catch (error) {
-
-        out = error;
-
-    }
-
-    waitForUsableDongle.__waited.delete(imei);
-
-    if (out instanceof Error) {
-        throw out;
-    } else {
-        return out;
-    }
-
-}
-
-export namespace waitForUsableDongle {
-
-    export type EventData = {
-        dongle: dcTypes.Dongle.Usable;
-        simOwner: web.Auth | undefined;
-
-    };
-
-    export const __waited = new Map<string, SyncEvent<EventData>>();
-
-}
 

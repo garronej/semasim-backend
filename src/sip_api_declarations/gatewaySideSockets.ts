@@ -1,4 +1,4 @@
-import { types as gwTypes } from "../../../../semasim-gateway";
+import { types as gwTypes } from "../semasim-gateway";
 
 export namespace notifyRouteFor {
 

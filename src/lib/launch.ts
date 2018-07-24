@@ -1,18 +1,18 @@
-import * as networkTools from "../tools/networkTools";
+import { networkTools } from "../semasim-load-balancer";
 import * as i from "../bin/installer";
 import * as  https from "https";
 import * as http from "http";
 import * as fs from "fs";
 import * as tls from "tls";
 import * as net from "net";
-import * as dbRunningInstances from "./dbRunningInstances";
 import * as dbSemasim from "./dbSemasim";
-import * as clientSide from "./clientSide";
-import * as gatewaySide from "./gatewaySide";
+import * as clientSide from "./clientSide/launch";
+import * as gatewaySide from "./gatewaySide/init";
 import { SyncEvent } from "ts-events-extended";
 import * as pushNotifications from "./pushNotifications";
 import * as logger from "logger";
 import { safePr } from "scripting-tools";
+import * as loadBalancerSocket from "./loadBalancerSocket/launch";
 
 const debug= logger.debugFactory();
 
@@ -99,10 +99,11 @@ export async function beforeExit(){
         server.close();
     }
 
+    loadBalancerSocket.beforeExit();
+
     await Promise.all(
         [
             pushNotifications.beforeExit(),
-            dbRunningInstances.beforeExit(),
             clientSide.beforeExit(),
             (async () => {
 
@@ -123,7 +124,7 @@ export namespace beforeExit {
 }
 
 //TODO: add a main script that call this function in /bin dir
-export async function launch(daemon_number: number) {
+export async function launch(daemonNumber: number) {
 
     debug("Launch!");
 
@@ -168,7 +169,6 @@ export async function launch(daemon_number: number) {
 
     pushNotifications.launch();
 
-    dbRunningInstances.launch();
 
     const [entryPoints, servers] = await Promise.all([
         getEntryPoints(),
@@ -194,7 +194,7 @@ export async function launch(daemon_number: number) {
 
     });
 
-    gatewaySide.launch({
+    gatewaySide.init({
         "server": servers[3] as tls.Server,
         "spoofedLocal": entryPoints.sipGw
     });
@@ -203,14 +203,16 @@ export async function launch(daemon_number: number) {
 
     debug({ ports });
 
-    dbRunningInstances.setRunningInstance({
+    await loadBalancerSocket.launch({
         interfaceAddress,
-        daemon_number,
+        daemonNumber,
         "httpsPort": ports[0],
         "httpPort": ports[1],
         "sipUaPort": ports[2],
         "sipGwPort": ports[3],
         "interInstancesPort": ports[4]
     });
+
+    debug(`Instance ${daemonNumber} successfully launched`);
 
 }

@@ -1,5 +1,5 @@
 import { types as dcTypes } from "chan-dongle-extended-client";
-import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/gatewaySide/clientSideSockets";
+import * as apiDeclaration from "../../../../sip_api_declarations/clientSideSockets";
 import * as store from "./store";
 import * as sipLibrary from "ts-sip";
 import * as web from "../../../clientSide/web";

@@ -1,6 +1,6 @@
-import { types as gwTypes } from "../../../../semasim-gateway";
+import { types as gwTypes } from "../../../semasim-gateway";
 import * as sipLibrary from "ts-sip";
-import * as apiDeclaration from "../../../sipApiDeclarations/semasimBackend/clientSide/gatewaySideSockets";
+import * as apiDeclaration from "../../../sip_api_declarations/gatewaySideSockets";
 import * as store from "./store";
 
 export async function notifyRouteFor(

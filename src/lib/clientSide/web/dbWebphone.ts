@@ -3,7 +3,7 @@ import { types as feTypes } from "../../../semasim-frontend";
 import { Auth } from "./sessionManager";
 import * as i from "../../../bin/installer";
 import * as f from "../../../tools/mysqlCustom";
-import * as networkTools from "../../../tools/networkTools";
+import { networkTools } from "../../../semasim-load-balancer";
 import * as logger from "logger";
 
 const debug = logger.debugFactory();

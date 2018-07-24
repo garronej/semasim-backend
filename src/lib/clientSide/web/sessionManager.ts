@@ -4,7 +4,7 @@ import * as express_mysql_session from "express-mysql-session";
 import * as http from "http";
 import * as express from "express";
 import * as i from "../../../bin/installer";
-import * as networkTools from "../../../tools/networkTools";
+import { networkTools } from "../../../semasim-load-balancer";
 const MySQLStore= express_mysql_session(express_session);
 import * as logger from "logger";
 

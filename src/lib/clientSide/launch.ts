@@ -2,9 +2,9 @@ import * as https from "https";
 import * as tls from "tls";
 import * as net from "net";
 import * as http from "http";
-import * as sipProxy from "./sipProxy";
+import * as sipProxy from "./sipProxy/init";
 import * as WebSocket from "ws";
-import * as web from "./web";
+import * as web from "./web/launch";
 
 export type Server<T> = {
     server: T;

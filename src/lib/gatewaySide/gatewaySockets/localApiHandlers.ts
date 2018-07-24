@@ -1,14 +1,18 @@
-import {declarationGatewaySocketApi as apiDeclaration} from "../../../../semasim-gateway";
-import { types as gwTypes } from "../../../../semasim-gateway";
+import { apiDeclaration } from "../../../sip_api_declarations/gatewaySockets";
+import { types as gwTypes } from "../../../semasim-gateway";
 import * as sipLibrary from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as store from "./store";
-import * as dbSemasim from "../../../dbSemasim";
+import * as dbSemasim from "../../dbSemasim";
 import * as remoteApi from "./remoteApiCaller";
-import * as clientSideSockets from "../clientSideSockets/index_sipProxy";
-import * as pushNotifications from "../../../pushNotifications";
+import * as clientSideSockets_remoteApi from "../clientSideSockets/remoteApiCaller";
+import * as pushNotifications from "../../pushNotifications";
+import { SyncEvent } from "ts-events-extended";
+import * as web from "../../clientSide/web";
+import { types as dcTypes } from "chan-dongle-extended-client";
 
 export const handlers: sipLibrary.api.Server.Handlers = {};
+
 
 (() => {
 
@@ -47,7 +51,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             } else {
 
-                const { rejectedSims } =await clientSideSockets.remoteApi.notifyRouteFor({ 
+                const { rejectedSims } =await clientSideSockets_remoteApi.notifyRouteFor({ 
                     "sims": [ imsi ] 
                 });
 
@@ -63,7 +67,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
                 imsi, password, fromSocket.remoteAddress, simDongle
             );
 
-            const evtUsableDongle = remoteApi.waitForUsableDongle.__waited.get(simDongle.imei);
+            const evtUsableDongle = waitForUsableDongle.__waited.get(simDongle.imei);
 
             if (evtUsableDongle) {
 
@@ -136,6 +140,49 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
 })();
 
+export async function waitForUsableDongle(
+    imei: string,
+    timeout: number
+): Promise<waitForUsableDongle.EventData> {
+
+    let evt = new SyncEvent<waitForUsableDongle.EventData>();
+
+    waitForUsableDongle.__waited.set(imei, evt);
+
+    let out: waitForUsableDongle.EventData | Error;
+
+    try {
+
+        out = await evt.waitFor(timeout);
+
+    } catch (error) {
+
+        out = error;
+
+    }
+
+    waitForUsableDongle.__waited.delete(imei);
+
+    if (out instanceof Error) {
+        throw out;
+    } else {
+        return out;
+    }
+
+}
+
+export namespace waitForUsableDongle {
+
+    export type EventData = {
+        dongle: dcTypes.Dongle.Usable;
+        simOwner: web.Auth | undefined;
+
+    };
+
+    export const __waited = new Map<string, SyncEvent<EventData>>();
+
+}
+
 (() => {
 
     const methodName = apiDeclaration.notifySimOffline.methodName;
@@ -157,7 +204,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             store.unbindFromSim(imsi, fromSocket);
 
-            clientSideSockets.remoteApi.notifyLostRouteFor({ "sims": [ imsi ] });
+            clientSideSockets_remoteApi.notifyLostRouteFor({ "sims": [ imsi ] });
 
             await dbSemasim.setSimsOffline([ imsi ]);
 
@@ -211,7 +258,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
             switch (contact.uaSim.ua.platform) {
                 case "iOS":
 
-                    let prReached= clientSideSockets.remoteApi.qualifyContact(contact);
+                    let prReached= clientSideSockets_remoteApi.qualifyContact(contact);
 
                     let reachableWithoutPush = await Promise.race([
                         new Promise<false>(resolve => setTimeout(() => resolve(false), 750)),
@@ -237,7 +284,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                 case "android":
 
-                    if (await clientSideSockets.remoteApi.qualifyContact(contact)) {
+                    if (await clientSideSockets_remoteApi.qualifyContact(contact)) {
 
                         return "REACHABLE";
 
@@ -250,7 +297,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                 case "web":
 
-                    return (await clientSideSockets.remoteApi.qualifyContact(contact)) ?
+                    return (await clientSideSockets_remoteApi.qualifyContact(contact)) ?
                         "REACHABLE" : "UNREACHABLE";
 
             }
@@ -277,7 +324,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             if (contact.uaSim.ua.platform !== "android") {
 
-                await clientSideSockets.remoteApi.destroyClientSocket(contact);
+                await clientSideSockets_remoteApi.destroyClientSocket(contact);
 
             }
 

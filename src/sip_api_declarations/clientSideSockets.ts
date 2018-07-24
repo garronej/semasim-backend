@@ -1,7 +1,7 @@
 import { types as dcTypes } from "chan-dongle-extended-client";
-import * as web from "../../../clientSide/web";
+import * as web from "../lib/clientSide/web";
 
-import { webApiDeclaration } from "../../../../semasim-frontend";
+import { webApiDeclaration } from "../../../semasim-frontend";
 
 export namespace getDongles {
 

@@ -1,11 +1,13 @@
 import * as net from "net";
-import { sipProxyMisc } from "../../../semasim-gateway";
+import { sipProxyMisc } from "../../semasim-gateway";
 import * as sipLibrary from "ts-sip";
-import * as networkTools from "../../../tools/networkTools";
-import * as clientSideSockets from "./clientSideSockets/index_sipProxy";
-import * as gatewaySockets from "./gatewaySockets/index_sipProxy";
-import * as i from "../../../bin/installer";
+import { networkTools } from "../../semasim-load-balancer";
+import * as clientSideSockets from "./clientSideSockets/store";
+import * as gatewaySockets from "./gatewaySockets/store";
+import * as i from "../../bin/installer";
 import * as logger from "logger";
+
+const debug= logger.debugFactory();
 
 export function createClientSideSocket(
     remoteAddress: string,
@@ -13,6 +15,9 @@ export function createClientSideSocket(
 ): sipLibrary.Socket | undefined {
 
     if (!!clientSideSockets.get({ remoteAddress, remotePort })) {
+
+        debug("Load balancer notified a running instance as up but we already had it");
+        
         return undefined;
     }
 
