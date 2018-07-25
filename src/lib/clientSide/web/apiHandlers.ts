@@ -673,6 +673,14 @@ export const handlers: Handlers = {};
                     continue;
                 }
 
+                if( endpointCount === 0 ){
+
+                    config["sip"]= { 
+                        "default_proxy": `${endpointCount}` 
+                    };
+
+                }
+
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
                     "stun_server": domain,
