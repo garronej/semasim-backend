@@ -6,9 +6,11 @@ import * as remoteApi from "./remoteApiCaller";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as logger from "logger";
 
-export let beforeExit: ()=> void= ()=> {};
+const debug = logger.debugFactory();
 
-export async function launch(thisRunningInstance: types.RunningInstance){
+export let beforeExit: () => void = () => { };
+
+export async function launch(thisRunningInstance: types.RunningInstance) {
 
     const loadBalancerSocket = new sipLibrary.Socket(
         net.connect({
@@ -18,19 +20,9 @@ export async function launch(thisRunningInstance: types.RunningInstance){
         })
     );
 
+
     const idString = "loadBalancerSocket";
 
-    loadBalancerSocket.enableLogger({
-        "socketId": idString,
-        "remoteEndId": "LB",
-        "localEndId": `I${thisRunningInstance.daemonNumber}`,
-        "connection": true,
-        "error": true,
-        "close": true,
-        "incomingTraffic": false,
-        "outgoingTraffic": false,
-        "ignoreApiTraffic": true
-    }, logger.log);
 
     (new sipLibrary.api.Server(
         localApiHandlers,
@@ -42,28 +34,88 @@ export async function launch(thisRunningInstance: types.RunningInstance){
     )).startListening(loadBalancerSocket);
 
     sipLibrary.api.client.enableErrorLogging(
-        loadBalancerSocket, 
+        loadBalancerSocket,
         sipLibrary.api.client.getDefaultErrorLogger({
             idString,
             "log": logger.log
         })
     );
 
-    loadBalancerSocket.evtClose.attachOnce(
-        () => Promise.reject(new Error("Load balancer connection lost"))
-    );
 
-    try {
 
-        await loadBalancerSocket.evtConnect.waitFor(2000);
+    beforeExit = () => loadBalancerSocket.destroy("Before exit (not connected yet)");
 
-    } catch{
+    const hasConnect = await (async () => {
 
-        throw new Error("Can't connect to load balancer");
+        const boundTo = [];
+
+        const hasConnect = await Promise.race([
+            new Promise<true>(resolve => loadBalancerSocket.evtConnect.attachOnce(boundTo, () => resolve(true))),
+            new Promise<false>(resolve => loadBalancerSocket.evtClose.attachOnce(boundTo, () => resolve(false)))
+        ]);
+
+        loadBalancerSocket.evtConnect.detach(boundTo);
+        loadBalancerSocket.evtClose.detach(boundTo);
+
+        return hasConnect;
+
+    })();
+
+    if (!hasConnect) {
+
+        debug("Load balancer seems to be down, retrying");
+
+        let timer: NodeJS.Timer;
+
+        beforeExit= ()=> clearTimeout(timer);
+
+        await new Promise(resolve=> timer= setTimeout(resolve, 3000));
+
+        await launch(thisRunningInstance);
+
+        return;
 
     }
 
-    beforeExit = () => loadBalancerSocket.destroy("Before exit");
+    debug("Connection established with load balancer");
+
+    (() => {
+
+        const boundTo = [];
+
+        beforeExit = () => {
+
+            debug("Before exit");
+
+            loadBalancerSocket.evtClose.detach(boundTo);
+
+            loadBalancerSocket.destroy("Before exit!");
+
+        };
+
+        loadBalancerSocket.evtClose.attachOnce(boundTo,() => {
+
+            debug("Connection lost with load balancer, making process restart");
+
+            process.emit("beforeExit", process.exitCode = 0);
+
+        });
+
+    })();
+
+
+    loadBalancerSocket.enableLogger({
+        "socketId": idString,
+        "remoteEndId": "LB",
+        "localEndId": `I${thisRunningInstance.daemonNumber}`,
+        "connection": false,
+        "error": true,
+        "close": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
+        "ignoreApiTraffic": true
+    }, logger.log);
+
 
     await remoteApi.notifyIdentity(thisRunningInstance, loadBalancerSocket);
 

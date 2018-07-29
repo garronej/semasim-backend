@@ -95,11 +95,11 @@ export async function beforeExit(){
 
     debug("BeforeExit...");
 
+    loadBalancerSocket.beforeExit();
+
     for( const server of beforeExit.servers ){
         server.close();
     }
-
-    loadBalancerSocket.beforeExit();
 
     await Promise.all(
         [
