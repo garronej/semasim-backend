@@ -673,6 +673,8 @@ export const handlers: Handlers = {};
                     continue;
                 }
 
+                /*
+
                 if( endpointCount === 0 ){
 
                     config["sip"]= { 
@@ -680,6 +682,8 @@ export const handlers: Handlers = {};
                     };
 
                 }
+
+                */
 
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,

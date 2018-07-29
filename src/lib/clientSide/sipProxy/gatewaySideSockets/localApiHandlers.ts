@@ -2,6 +2,7 @@ import * as apiDeclaration from "../../../../sip_api_declarations/gatewaySideSoc
 import * as sipLibrary from "ts-sip";
 import * as store from "./store";
 import * as clientSockets from "../clientSockets";
+import * as util from "util";
 
 export const handlers: sipLibrary.api.Server.Handlers = {};
 
@@ -152,7 +153,9 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                                 } catch{
 
-                                    clientSocket!.destroy();
+                                    clientSocket!.destroy(
+                                        `client sent a SIP message that made isResponse throw: ${util.inspect(sipResponse, { "depth": 7 })}`
+                                    );
 
                                     return false;
 
@@ -165,10 +168,10 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                     return true;
 
-                } catch (error) {
+                } catch {
 
                     if (!clientSocket.evtClose.postCount) {
-                        clientSocket.destroy();
+                        clientSocket.destroy("Remote did sent response to a qualify request");
                     }
 
                     return false;
@@ -194,13 +197,16 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
     type Params = apiDeclaration.destroyClientSocket.Params;
     type Response = apiDeclaration.destroyClientSocket.Response;
 
-    let handler: sipLibrary.api.Server.Handler<Params, Response>= {
-        "handler": contact=>{
+    let handler: sipLibrary.api.Server.Handler<Params, Response> = {
+        "handler": contact => {
 
-            let clientSocket=clientSockets.get(contact.connectionId);
+            const clientSocket = clientSockets.get(contact.connectionId);
 
-            if( clientSocket ){
-                clientSocket.destroy();
+            if (!!clientSocket) {
+                clientSocket.destroy([
+                    "Gateway side socket local API was asked to destroy the client socket",
+                    "( probably to force the contact to re register )"
+                ].join(""));
             }
 
             return Promise.resolve(undefined);
@@ -208,6 +214,6 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
         }
     };
 
-    handlers[methodName]= handler;
+    handlers[methodName] = handler;
 
 })();

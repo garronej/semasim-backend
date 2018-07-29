@@ -71,11 +71,9 @@ export function init({ server, spoofedLocal }: {
             boundTo,
             () => {
 
-                debug(`Load balancer notify that ${interfaceAddress} ${runningInstance.daemonNumber}`);
-
                 clientSideSocket.evtClose.detach(boundTo);
 
-                clientSideSocket.destroy();
+                clientSideSocket.destroy("Load balancer notified that this instance was down");
 
             });
 

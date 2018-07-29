@@ -10,7 +10,6 @@ export let beforeExit: ()=> void= ()=> {};
 
 export async function launch(thisRunningInstance: types.RunningInstance){
 
-
     const loadBalancerSocket = new sipLibrary.Socket(
         net.connect({
             "host": types.address,
@@ -20,6 +19,18 @@ export async function launch(thisRunningInstance: types.RunningInstance){
     );
 
     const idString = "loadBalancerSocket";
+
+    loadBalancerSocket.enableLogger({
+        "socketId": idString,
+        "remoteEndId": "LB",
+        "localEndId": `I${thisRunningInstance.daemonNumber}`,
+        "connection": true,
+        "error": true,
+        "close": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
+        "ignoreApiTraffic": true
+    }, logger.log);
 
     (new sipLibrary.api.Server(
         localApiHandlers,
@@ -52,9 +63,8 @@ export async function launch(thisRunningInstance: types.RunningInstance){
 
     }
 
-    beforeExit = () => loadBalancerSocket.destroy();
+    beforeExit = () => loadBalancerSocket.destroy("Before exit");
 
     await remoteApi.notifyIdentity(thisRunningInstance, loadBalancerSocket);
-
 
 }

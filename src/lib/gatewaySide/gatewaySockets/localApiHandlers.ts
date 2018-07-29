@@ -13,6 +13,17 @@ import { types as dcTypes } from "chan-dongle-extended-client";
 
 export const handlers: sipLibrary.api.Server.Handlers = {};
 
+/** Will cause the socket to be destroyed */
+const abortIfSocketClosed = (fromSocket: sipLibrary.Socket, whileDoingWhat: string) => {
+
+    if (fromSocket.evtClose.postCount !== 0) {
+
+        throw new Error(`Socket has closed while ${whileDoingWhat}`);
+
+    }
+
+};
+
 
 (() => {
 
@@ -20,7 +31,7 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
     type Params = apiDeclaration.notifySimOnline.Params;
     type Response = apiDeclaration.notifySimOnline.Response;
 
-    let handler: sipLibrary.api.Server.Handler<Params, Response> = {
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
@@ -37,13 +48,14 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
         ),
         "handler": async (params, fromSocket) => {
 
-            let {
+            const {
                 imsi, storageDigest, password, simDongle
             } = params;
 
-            let currentSocket= store.byImsi.get(imsi);
 
-            if (currentSocket) {
+            const currentSocket = store.byImsi.get(imsi);
+
+            if (!!currentSocket) {
 
                 if (currentSocket !== fromSocket) {
                     throw new Error("Hacked gateway");
@@ -51,21 +63,30 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
             } else {
 
-                const { rejectedSims } =await clientSideSockets_remoteApi.notifyRouteFor({ 
-                    "sims": [ imsi ] 
+                store.bindToSim(imsi, fromSocket);
+
+                const { rejectedSims } = await clientSideSockets_remoteApi.notifyRouteFor({
+                    "sims": [imsi]
                 });
 
-                if( !!rejectedSims.length ){
-                    throw new Error("Hacked gateway");
+                if (!!rejectedSims.length) {
+
+                    store.unbindFromSim(imsi, fromSocket);
+
+                    //NOTE: Will close the socket.
+                    throw new Error("Hacked gateway, notify sim online");
+
                 }
 
-                store.bindToSim(imsi, fromSocket);
+                abortIfSocketClosed(fromSocket,"notifying route for sim");
 
             }
 
-            let resp = await dbSemasim.setSimOnline(
+            const resp = await dbSemasim.setSimOnline(
                 imsi, password, fromSocket.remoteAddress, simDongle
             );
+
+            abortIfSocketClosed(fromSocket,"setting SIM online");
 
             const evtUsableDongle = waitForUsableDongle.__waited.get(simDongle.imei);
 
@@ -110,7 +131,9 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                 const dongle_password = await remoteApi.getSipPasswordAndDongle(imsi);
 
-                if( !dongle_password ){
+                abortIfSocketClosed(fromSocket,"getting sim password and dongle");
+
+                if (!dongle_password) {
 
                     /*
                     Should happen only when the dongle is connected and immediately disconnected
@@ -123,12 +146,19 @@ export const handlers: sipLibrary.api.Server.Handlers = {};
 
                 await dbSemasim.updateSimStorage(imsi, dongle_password.dongle.sim.storage);
 
+                abortIfSocketClosed(fromSocket,"updating sim storage");
+
             }
 
             await pushNotifications.send(
                 resp.uasRegisteredToSim,
                 (!wasStorageUpToDate || resp.passwordStatus === "RENEWED") ?
                     "RELOAD CONFIG" : undefined
+            );
+
+            abortIfSocketClosed(
+                fromSocket,
+                `sending push notification to ${resp.uasRegisteredToSim.filter(({ platform }) => platform !== "web").length} devices`
             );
 
             return { "status": "OK" };
@@ -145,7 +175,7 @@ export async function waitForUsableDongle(
     timeout: number
 ): Promise<waitForUsableDongle.EventData> {
 
-    let evt = new SyncEvent<waitForUsableDongle.EventData>();
+    const evt = new SyncEvent<waitForUsableDongle.EventData>();
 
     waitForUsableDongle.__waited.set(imei, evt);
 
@@ -189,24 +219,26 @@ export namespace waitForUsableDongle {
     type Params = apiDeclaration.notifySimOffline.Params;
     type Response = apiDeclaration.notifySimOffline.Response;
 
-    let handler: sipLibrary.api.Server.Handler<Params, Response> = {
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)
         ),
         "handler": async ({ imsi }, fromSocket) => {
 
-            let currentSocket= store.byImsi.get(imsi);
+            let currentSocket = store.byImsi.get(imsi);
 
-            if ( currentSocket !== fromSocket) {
-                throw new Error("Hacked Client");
+            if (currentSocket !== fromSocket) {
+                throw new Error("Hacked Client notify sim offline");
             }
 
             store.unbindFromSim(imsi, fromSocket);
 
-            clientSideSockets_remoteApi.notifyLostRouteFor({ "sims": [ imsi ] });
+            clientSideSockets_remoteApi.notifyLostRouteFor({ "sims": [imsi] });
 
-            await dbSemasim.setSimsOffline([ imsi ]);
+            await dbSemasim.setSimsOffline([imsi]);
+
+            abortIfSocketClosed(fromSocket, "settingSimOffline");
 
             return undefined;
 
@@ -218,20 +250,22 @@ export namespace waitForUsableDongle {
 })();
 
 
-//TODO: this should be handled on client connection
+//TODO: this should be handled on client connection, REALLY DO IT.
 (() => {
 
     const methodName = apiDeclaration.notifyNewOrUpdatedUa.methodName;
     type Params = apiDeclaration.notifyNewOrUpdatedUa.Params;
     type Response = apiDeclaration.notifyNewOrUpdatedUa.Response;
 
-    let handler: sipLibrary.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params => 
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params =>
             gwTypes.misc.sanityChecks.ua(params)
         ,
-        "handler": async ua => {
+        "handler": async (ua, fromSocket) => {
 
             await dbSemasim.addOrUpdateUa(ua);
+
+            abortIfSocketClosed(fromSocket, "adding or updating UA");
 
             return undefined;
 
@@ -248,58 +282,81 @@ export namespace waitForUsableDongle {
     type Params = apiDeclaration.wakeUpContact.Params;
     type Response = apiDeclaration.wakeUpContact.Response;
 
-    let handler: sipLibrary.api.Server.Handler<Params, Response> = {
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
             gwTypes.misc.sanityChecks.contact(params.contact)
         ),
-        "handler": async ({ contact }) => {
+        "handler": async ({ contact }, fromSocket) => {
 
             switch (contact.uaSim.ua.platform) {
-                case "iOS":
+                case "iOS": return await (async () => {
 
-                    let prReached= clientSideSockets_remoteApi.qualifyContact(contact);
+                    const prIsReached = clientSideSockets_remoteApi.qualifyContact(contact);
 
-                    let reachableWithoutPush = await Promise.race([
+                    const isReachableWithoutPush = await Promise.race([
                         new Promise<false>(resolve => setTimeout(() => resolve(false), 750)),
-                        prReached
+                        prIsReached
                     ]);
 
-                    if (reachableWithoutPush) {
+                    abortIfSocketClosed(fromSocket, "trying to qualify IOS device ( with short timeout )");
+
+                    if (isReachableWithoutPush) {
                         return "REACHABLE";
                     }
 
                     let prIsSendPushSuccess = pushNotifications.send(contact.uaSim.ua);
 
-                    if (await prReached) {
+                    const isReached = await prIsReached;
+
+                    abortIfSocketClosed(fromSocket, "trying to qualify IOS device");
+
+                    if (isReached) {
 
                         return "REACHABLE";
 
                     } else {
 
-                        return (await prIsSendPushSuccess) ?
-                            "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
+                        const isSendPushSuccess = await prIsSendPushSuccess;
+
+                        abortIfSocketClosed(fromSocket, "sending push notification (IOS)");
+
+                        return isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
 
                     }
 
-                case "android":
+                })();
+                case "android": return await (async () => {
 
-                    if (await clientSideSockets_remoteApi.qualifyContact(contact)) {
+                    const isReached = await clientSideSockets_remoteApi.qualifyContact(contact);
+
+                    abortIfSocketClosed(fromSocket, "trying to qualify Android device");
+
+                    if (isReached) {
 
                         return "REACHABLE";
 
                     } else {
 
-                        return (await pushNotifications.send(contact.uaSim.ua)) ?
-                            "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
+                        const isSendPushSuccess = await pushNotifications.send(contact.uaSim.ua);
+
+                        abortIfSocketClosed(fromSocket, "sending push notification (Android)");
+
+                        return isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
 
                     }
 
-                case "web":
+                })();
+                case "web": return await (async () => {
 
-                    return (await clientSideSockets_remoteApi.qualifyContact(contact)) ?
-                        "REACHABLE" : "UNREACHABLE";
+                    const isReached = await clientSideSockets_remoteApi.qualifyContact(contact);
 
+                    abortIfSocketClosed(fromSocket, "trying to qualify Web client");
+
+                    return isReached ? "REACHABLE" : "UNREACHABLE";
+
+
+                })();
             }
 
         }
@@ -315,25 +372,30 @@ export namespace waitForUsableDongle {
     type Params = apiDeclaration.forceContactToReRegister.Params;
     type Response = apiDeclaration.forceContactToReRegister.Response;
 
-    let handler: sipLibrary.api.Server.Handler<Params, Response> = {
+    const handler: sipLibrary.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
             gwTypes.misc.sanityChecks.contact(params.contact)
         ),
-        "handler": async ({ contact }) => {
+        "handler": async ({ contact }, fromSocket) => {
 
             if (contact.uaSim.ua.platform !== "android") {
 
                 await clientSideSockets_remoteApi.destroyClientSocket(contact);
 
+                abortIfSocketClosed(fromSocket, `Destroying ${contact.uaSim.ua.platform} socket (forcing contact to re register)`);
+
             }
 
-            return pushNotifications.send(contact.uaSim.ua)
+            const isSendPushSuccess= pushNotifications.send(contact.uaSim.ua)
+
+            abortIfSocketClosed(fromSocket, `Sending ${contact.uaSim.ua.platform} push notification (forcing to re register)`);
+
+            return isSendPushSuccess;
 
         }
     };
 
     handlers[methodName] = handler;
-
 
 })();

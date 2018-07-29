@@ -6,6 +6,7 @@ import * as clientSideSockets from "./clientSideSockets/store";
 import * as gatewaySockets from "./gatewaySockets/store";
 import * as i from "../../bin/installer";
 import * as logger from "logger";
+import * as util from "util";
 
 const debug= logger.debugFactory();
 
@@ -17,11 +18,12 @@ export function createClientSideSocket(
     if (!!clientSideSockets.get({ remoteAddress, remotePort })) {
 
         debug("Load balancer notified a running instance as up but we already had it");
-        
+
         return undefined;
+
     }
 
-    let clientSideSocket = new sipLibrary.Socket(
+    const clientSideSocket = new sipLibrary.Socket(
         net.connect({
             "host": remoteAddress,
             "port": remotePort,
@@ -44,41 +46,31 @@ export function createClientSideSocket(
 
     clientSideSockets.set({ remoteAddress, remotePort }, clientSideSocket);
 
-
+    //NOTE: Client side is a trusted party, if there is an error it's on us.
     const onPacket = (sipPacketReceived: sipLibrary.Packet) => {
 
-        try {
+        const gatewaySocket = gatewaySockets.byImsi.get(
+            sipProxyMisc.readImsi(sipPacketReceived)
+        );
 
-            const gatewaySocket = gatewaySockets.byImsi.get(
-                sipProxyMisc.readImsi(sipPacketReceived)
-            );
-
-            if (!gatewaySocket) {
-                return;
-            }
-
-            gatewaySocket.write(
-                gatewaySocket.buildNextHopPacket(sipPacketReceived)
-            );
-
-        } catch(error){ 
-
-            throw error;
-
+        if (!gatewaySocket) {
+            return;
         }
+
+        gatewaySocket.write(
+            gatewaySocket.buildNextHopPacket(sipPacketReceived)
+        );
+
 
     };
 
     clientSideSocket.evtRequest.attach(onPacket);
     clientSideSocket.evtResponse.attach(onPacket);
 
-
     return clientSideSocket;
 
 }
 
-
-//TODO: catch errors
 export function onGwConnection(
     gatewaySocket: sipLibrary.Socket
 ) {
@@ -114,7 +106,7 @@ export function onGwConnection(
 
             }
 
-            let clientSideSocket = clientSideSockets.get({
+            const clientSideSocket = clientSideSockets.get({
                 "remoteAddress": wrap.host!,
                 "remotePort": wrap.port
             });
@@ -127,11 +119,13 @@ export function onGwConnection(
                 clientSideSocket.buildNextHopPacket(sipPacketReceived)
             );
 
-        } catch(error){
+        } catch (error) {
 
-            throw error;
-
-            //gatewaySocket.destroy();
+            gatewaySocket.destroy([
+                "Gateway sent data that made the sip router throw",
+                `error: ${util.format(error)}`,
+                util.inspect({ sipPacketReceived }, { "depth": 7 })
+            ].join("\n"));
 
         }
 

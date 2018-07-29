@@ -78,7 +78,7 @@ scriptLib.createService({
                                 `mv ${logfile_path}`,
                                 path.join(
                                     path.dirname(logfile_path),
-                                    `crash_${path.basename(logfile_path)}`
+                                    `crash_${Date.now()}_${path.basename(logfile_path)}`
                                 )
                             ].join(" "));
 

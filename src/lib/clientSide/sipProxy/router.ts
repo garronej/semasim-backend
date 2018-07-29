@@ -4,6 +4,7 @@ import * as web from "../web";
 import * as clientSockets from "./clientSockets";
 import * as gatewaySideSockets from "./gatewaySideSockets/store";
 import * as logger from "logger";
+import * as util from "util";
 
 export function onUaConnection(
     clientSocket: sipLibrary.Socket,
@@ -26,7 +27,7 @@ export function onUaConnection(
     if (clientSocket.protocol === "WSS") {
 
         if (!auth) {
-            clientSocket.destroy();
+            clientSocket.destroy("User is not authenticated ( no auth for this websocket)");
             return;
         }
 
@@ -42,7 +43,7 @@ export function onUaConnection(
 
         try {
 
-            let gatewaySideSocket = gatewaySideSockets.get({
+            const gatewaySideSocket = gatewaySideSockets.get({
                 "imsi": sipProxyMisc.readImsi(sipPacketReceived)
             });
 
@@ -51,7 +52,7 @@ export function onUaConnection(
                 return;
             }
 
-            let sipPacket = gatewaySideSocket.buildNextHopPacket(sipPacketReceived);
+            const sipPacket = gatewaySideSocket.buildNextHopPacket(sipPacketReceived);
 
             if (sipLibrary.matchRequest(sipPacket)) {
 
@@ -63,10 +64,11 @@ export function onUaConnection(
 
         } catch (error) {
 
-            //TODO: Do not crash server! Except if we conclude that exception here is internal error (unlikely)
-            throw error;
-
-            //clientSocket.destroy();
+            clientSocket.destroy([
+                "Client device sent data that made the sip router throw",
+                `error: ${util.format(error)}`,
+                util.inspect({ sipPacketReceived }, { "depth": 7 })
+            ].join("\n"));
 
         }
 
@@ -98,28 +100,21 @@ export function onGwSideConnection(
 
     gatewaySideSockets.add(gatewaySideSocket);
 
+    // NOTE: Here we do not need to handle exception as gwSide is a trustable party. 
     const onSipPacket = (sipPacketReceived: sipLibrary.Packet) => {
 
-        try {
+        const clientSocket = clientSockets.get(
+            sipProxyMisc.cid.read(sipPacketReceived)
+        );
 
-            let clientSocket = clientSockets.get(
-                sipProxyMisc.cid.read(sipPacketReceived)
-            );
-
-            if (!clientSocket) {
-                return;
-            }
-
-            clientSocket.write(
-                clientSocket.buildNextHopPacket(sipPacketReceived)
-            );
-
-        } catch(error) { 
-
-            //TODO: see above
-            throw error;
-
+        if (!clientSocket) {
+            return;
         }
+
+        clientSocket.write(
+            clientSocket.buildNextHopPacket(sipPacketReceived)
+        );
+
 
     };
 
