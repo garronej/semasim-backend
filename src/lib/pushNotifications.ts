@@ -86,7 +86,8 @@ export async function send(
 
                 await pushSender.send(
                     ua.platform as pushSender.Platform,
-                    ua.pushToken
+                    ua.pushToken,
+                    { "reload_config": !!reloadConfig ? "1" : "0" }
                 );
 
             } catch{

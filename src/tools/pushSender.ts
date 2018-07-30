@@ -45,10 +45,10 @@ export function launch(
 
     };
 
-    const sendByPlatform: { [platform: string]: (token: string) => Promise<void> } = {
-        "android": async token => {
+    const sendByPlatform: { [platform: string]: (token: string, data?: Record<string,string>) => Promise<void> } = {
+        "android": async (token, data) => {
 
-            const payload: fbAdmin.messaging.MessagingPayload = { "data": {} };
+            const payload: fbAdmin.messaging.MessagingPayload = { "data": data || {} };
 
             const options: fbAdmin.messaging.MessagingOptions = { "priority": "high" };
 
@@ -64,6 +64,8 @@ export function launch(
 
         },
         "iOS": async token => {
+
+            //TODO: Implement data payload.
 
             const notification = new apn.Notification({
                 "topic": `${iOS.appId}.voip`,
@@ -85,7 +87,7 @@ export function launch(
         }
     };
 
-    send = (platform, token) => sendByPlatform[platform](token);
+    send = (platform, token, data) => sendByPlatform[platform](token, data);
 
 }
 
@@ -93,6 +95,6 @@ export let close: ()=> Promise<void> =
     () => { throw new Error("PushSender not initialized"); };
 
 
-export let send: (platform: Platform, token: string) => Promise<void> =
+export let send: (platform: Platform, token: string, data?: Record<string,string>) => Promise<void> =
     () => { throw new Error("PushSender not initialized"); };
 
