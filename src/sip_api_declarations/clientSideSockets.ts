@@ -1,7 +1,7 @@
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as web from "../lib/clientSide/web";
+import { types as feTypes } from "../semasim-frontend";
 
-import { webApiDeclaration } from "../../../semasim-frontend";
 
 export namespace getDongles {
 
@@ -26,8 +26,8 @@ export namespace unlockDongle {
         auth: web.Auth
     };
 
-    export type Response = 
-        webApiDeclaration.unlockSim.Response | undefined;
+
+    export type Response = feTypes.unlockSim_Response | undefined;
 
 }
 
