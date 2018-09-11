@@ -8,9 +8,8 @@ import assertSame = ttTesting.assertSame;
 import { types as gwTypes } from "../semasim-gateway";
 import { types as feTypes } from "../semasim-frontend";
 import * as i from "../bin/installer";
-
+import { geoiplookup } from "../tools/geoiplookup";
 import * as mysqlCustom from "../tools/mysqlCustom";
-
 import * as db from "../lib/dbSemasim";
 
 export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`): gwTypes.Ua => ({
@@ -21,16 +20,35 @@ export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`)
     "userEmail": email
 });
 
-function genUniqNumber(): string{
+namespace genUniq {
 
-    const c= `${genUniqNumber.counter++}`;
+    let counter = 1;
 
-    return "+33" + (new Array(8-c.length)).fill("0").join("") + c;
+    export function phoneNumber(): string {
 
-}
+        const c = `${counter++}`;
 
-namespace genUniqNumber {
-    export let counter= 0;
+        return "+33" + (new Array(8 - c.length)).fill("0").join("") + c;
+
+    }
+
+    /** Same function for imei  */
+    export function imsi(): string {
+
+        const c = `${counter++}`;
+
+        return (new Array(15 - c.length)).fill("0").join("") + c;
+
+    }
+
+    export function iccid(): string {
+
+        const c = `${counter++}`;
+
+        return (new Array(22 - c.length)).fill("0").join("") + c;
+
+    }
+
 }
 
 export function generateSim(
@@ -39,8 +57,8 @@ export function generateSim(
 ): dcTypes.Sim {
 
     const sim: dcTypes.Sim = {
-        "imsi": ttTesting.genDigits(15),
-        "iccid": ttTesting.genDigits(22),
+        "imsi": genUniq.imsi(),
+        "iccid": genUniq.iccid(),
         "country": Date.now() % 2 === 0 ?
             undefined : ({
                 "name": "France",
@@ -53,7 +71,7 @@ export function generateSim(
         },
         "storage": {
             "number": Date.now() % 2 === 0 ?
-                undefined : genUniqNumber(),
+                undefined : genUniq.phoneNumber(),
             "infos": {
                 "contactNameMaxLength": 15,
                 "numberMaxLength": 20,
@@ -73,7 +91,7 @@ export function generateSim(
         sim.storage.contacts.push({
             index,
             "name": ttTesting.genHexStr(5),
-            "number": genUniqNumber()
+            "number": genUniq.phoneNumber()
         });
 
     }
@@ -99,7 +117,7 @@ export function generateSim(
     (await mysqlCustom.createPoolAndGetApi({
         ...i.dbAuth,
         "database": "semasim_express_session",
-        "localAddress": i.dbAuth.host 
+        "localAddress": i.dbAuth.host
     })).query("DELETE FROM sessions");
 
     await testUser();
@@ -159,7 +177,7 @@ function createUserSimProxy(
         },
         "phonebook": {
             "enumerable": true,
-            "get": ()=> userSim.phonebook
+            "get": () => userSim.phonebook
         }
     });
 
@@ -180,18 +198,17 @@ async function testMain() {
             "uas": [] as gwTypes.Ua[]
         });
 
-    let alice = await genUser();
-    let bob = await genUser();
-    let carol = await genUser();
-    let dave = await genUser();
+    let alice = await genUser("alice@foo.com");
+    let bob = await genUser("bob@foo.com");
+    let carol = await genUser("carol@foo.com");
+    let dave = await genUser("dave@foo.com");
 
     let unregisteredEmail = "eve@foobar.com";
 
-
     for (let user of [alice, bob, carol, dave]) {
 
-        for (let _ of new Array(~~(Math.random() * 10) + 1)) {
-        //for (let _ of [ null, null ]) {
+        for (const _ of new Array(~~(Math.random() * 10) + 1)) {
+        //for (let _ of [ null ]) {
 
             if (user === carol) {
                 break;
@@ -206,13 +223,13 @@ async function testMain() {
         }
 
         for (let _ of new Array(~~(Math.random() * 5) + 2)) {
-        //for (let _ of [null]) {
+            //for (let _ of [null]) {
 
-            if (user === dave){
-                 break;
+            if (user === dave) {
+                break;
             }
 
-            const userSim = (() => {
+            const userSim = await (async () => {
 
                 const sim = generateSim();
 
@@ -221,18 +238,34 @@ async function testMain() {
                     "friendlyName": ttTesting.genUtf8Str(12),
                     "password": ttTesting.genHexStr(32),
                     "dongle": {
-                        "imei": ttTesting.genDigits(15),
+                        "imei": genUniq.imsi(),
                         "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
                         "manufacturer": ttTesting.genUtf8Str(7),
                         "model": ttTesting.genUtf8Str(7),
                         "firmwareVersion": `1.${ttTesting.genDigits(3)}.${ttTesting.genDigits(3)}`
                     },
-                    "gatewayLocation": {
-                        "ip": genIp(),
-                        "countryIso": undefined,
-                        "subdivisions": undefined,
-                        "city": undefined
-                    },
+                    "gatewayLocation": await (async () => {
+
+                        const ip = genIp();
+
+                        try{
+
+                            const { countryIso, subdivisions, city } = await geoiplookup(ip);
+
+                            return { ip, countryIso, subdivisions, city };
+
+                        }catch{
+
+                            return { 
+                                ip, 
+                                "countryIso": undefined, 
+                                "subdivisions": undefined, 
+                                "city": undefined 
+                            };
+
+                        }
+
+                    })(),
                     "isOnline": true,
                     "ownership": {
                         "status": "OWNED",
@@ -289,7 +322,7 @@ async function testMain() {
             for (let i = 0; i < 7; i++) {
 
                 const name = ttTesting.genUtf8Str(30);
-                const number_raw = genUniqNumber();
+                const number_raw = genUniq.phoneNumber();
                 const number_local_format = dcMisc.toNationalNumber(number_raw, userSim.sim.imsi);
 
                 const c: feTypes.UserSim.Contact = {
@@ -372,7 +405,7 @@ async function testMain() {
 
                     const name_as_stored = ttTesting.genHexStr(12);
 
-                    const number_raw = genUniqNumber();
+                    const number_raw = genUniq.phoneNumber();
 
                     userSim.sim.storage.contacts.push({
                         "index": mem_index,
@@ -522,7 +555,7 @@ async function testMain() {
 
                     const updatedContact = userSim.sim.storage.contacts[1];
 
-                    updatedContact.number = genUniqNumber();
+                    updatedContact.number = genUniq.phoneNumber();
 
                     dcMisc.updateStorageDigest(userSim.sim.storage);
 
@@ -595,7 +628,6 @@ async function testMain() {
 
     }
 
-    //TODO: compare emails that we get
     assertSame(
         await db.shareSim(
             { "user": alice.user, "email": alice.email },
@@ -604,7 +636,7 @@ async function testMain() {
             sharingRequestMessage
         ),
         {
-            "registered": [bob.email, carol.email, dave.email],
+            "registered": [bob, carol, dave].map(({ user, email })=> ({ user, email })),
             "notRegistered": [unregisteredEmail]
         }
     );
@@ -662,6 +694,7 @@ async function testMain() {
             await db.setSimOnline(
                 alice.userSims[0].sim.imsi,
                 alice.userSims[0].password,
+                ttTesting.genHexStr(32),
                 alice.userSims[0].gatewayLocation.ip,
                 alice.userSims[0].dongle
             ),
@@ -669,6 +702,7 @@ async function testMain() {
                 "isSimRegistered": true,
                 "storageDigest": alice.userSims[0].sim.storage.digest,
                 "passwordStatus": "UNCHANGED",
+                "gatewayLocation": alice.userSims[0].gatewayLocation,
                 uasRegisteredToSim
             }
         );
@@ -677,7 +711,12 @@ async function testMain() {
 
     alice.userSims[0].isOnline = false;
 
-    await db.setSimsOffline([ alice.userSims[0].sim.imsi ]);
+    assertSame(
+        await db.setSimsOffline([alice.userSims[0].sim.imsi]),
+        {
+            [alice.userSims[0].sim.imsi]: uasRegisteredToSim
+        }
+    );
 
     for (let user of [alice, bob, carol, dave]) {
         assertSame(await db.getUserSims(user), user.userSims);
@@ -687,6 +726,7 @@ async function testMain() {
         await db.setSimOnline(
             ttTesting.genDigits(15),
             alice.userSims[0].password,
+            ttTesting.genHexStr(32),
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
@@ -701,6 +741,7 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
+            ttTesting.genHexStr(32),
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
@@ -708,6 +749,7 @@ async function testMain() {
             "isSimRegistered": true,
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
+            "gatewayLocation": alice.userSims[0].gatewayLocation,
             "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
         }
     );
@@ -722,13 +764,15 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
+            ttTesting.genHexStr(32),
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
         {
             "isSimRegistered": true,
             "storageDigest": alice.userSims[0].sim.storage.digest,
-            "passwordStatus": "RENEWED",
+            "passwordStatus": "WAS DIFFERENT",
+            "gatewayLocation": alice.userSims[0].gatewayLocation,
             "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
         }
     );
@@ -784,42 +828,35 @@ async function testMain() {
         assertSame(await db.getUserSims(user), user.userSims);
     }
 
-    assertSame(
-        await db.setSimOnline(
-            alice.userSims[0].sim.imsi,
-            alice.userSims[0].password,
-            alice.userSims[0].gatewayLocation.ip,
-            alice.userSims[0].dongle
-        ),
-        {
-            "isSimRegistered": true,
-            "storageDigest": alice.userSims[0].sim.storage.digest,
-            "passwordStatus": "NEED RENEWAL",
-            "uasRegisteredToSim": [...alice.uas, ...dave.uas]
+    {
+
+        const replacementPassword = ttTesting.genHexStr(32);
+
+        assertSame(
+            await db.setSimOnline(
+                alice.userSims[0].sim.imsi,
+                alice.userSims[0].password,
+                replacementPassword,
+                alice.userSims[0].gatewayLocation.ip,
+                alice.userSims[0].dongle
+            ),
+            {
+                "isSimRegistered": true,
+                "storageDigest": alice.userSims[0].sim.storage.digest,
+                "passwordStatus": "PASSWORD REPLACED",
+                "gatewayLocation": alice.userSims[0].gatewayLocation,
+                "uasRegisteredToSim": [...alice.uas, ...dave.uas]
+            }
+        );
+
+        alice.userSims[0].password = replacementPassword;
+
+
+        for (let user of [alice, dave]) {
+            assertSame(await db.getUserSims(user), user.userSims);
         }
-    );
 
-    alice.userSims[0].password = ttTesting.genHexStr(32);
-
-    assertSame(
-        await db.setSimOnline(
-            alice.userSims[0].sim.imsi,
-            alice.userSims[0].password,
-            alice.userSims[0].gatewayLocation.ip,
-            alice.userSims[0].dongle
-        ),
-        {
-            "isSimRegistered": true,
-            "storageDigest": alice.userSims[0].sim.storage.digest,
-            "passwordStatus": "RENEWED",
-            "uasRegisteredToSim": [...alice.uas, ...dave.uas]
-        }
-    );
-
-    for (let user of [alice, dave]) {
-        assertSame(await db.getUserSims(user), user.userSims);
     }
-
 
     dave.userSims.pop();
 
@@ -835,6 +872,7 @@ async function testMain() {
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
+            ttTesting.genHexStr(32),
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
@@ -842,6 +880,7 @@ async function testMain() {
             "isSimRegistered": true,
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
+            "gatewayLocation": alice.userSims[0].gatewayLocation,
             "uasRegisteredToSim": alice.uas
         }
     );
@@ -925,7 +964,7 @@ async function testUser() {
 
     let user = await db.createUserAccount(email, password);
 
-    const auth= { "user": user!, email };
+    const auth = { "user": user!, email };
 
     console.assert(typeof user === "number");
 

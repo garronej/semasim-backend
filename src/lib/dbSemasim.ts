@@ -1,8 +1,7 @@
 import * as RIPEMD160 from "ripemd160";
 import * as crypto from "crypto";
-import { Auth } from "./clientSide/web/sessionManager";
+import { Auth } from "./web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
-import { networkTools } from "../semasim-load-balancer";
 import { types as gwTypes } from "../semasim-gateway";
 import * as f from "../tools/mysqlCustom";
 
@@ -22,53 +21,14 @@ export let query: f.Api["query"];
 export let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
 
-export function beforeExit() {
-    return beforeExit.impl();
-}
-
-export namespace beforeExit {
-    export let impl = () => Promise.resolve();
-}
-
 /** Must be called and before use */
-export function launch(): void {
-
-    let localAddress: string | undefined;
-
-    try {
-
-        localAddress = networkTools.getInterfaceAddressInRange(i.semasim_lan)
-
-    } catch{
-
-        localAddress = undefined;
-
-    }
+export function launch(localAddress?: string): void {
 
     const api = f.createPoolAndGetApi({
         ...i.dbAuth,
         "database": "semasim",
         localAddress
     }, "HANDLE STRING ENCODING");
-
-    beforeExit.impl = async () => {
-
-        debug("BeforeExit...");
-
-        try {
-
-            await api.end();
-
-        } catch (error) {
-
-            debug(error);
-
-            throw error;
-        }
-
-        debug("BeforeExit completed");
-
-    };
 
     query = api.query;
     esc = api.esc;
@@ -161,6 +121,7 @@ export async function deleteUser(
 
 }
 
+//TODO: use in password recovery
 export async function getUserHash(
     email: string
 ): Promise<string | undefined> {
@@ -231,7 +192,7 @@ export async function filterDongleWithRegistrableSim(
 ): Promise<dcTypes.Dongle[]> {
 
     let registrableDongles: dcTypes.Dongle[] = [];
-    let dongleWithReadableIccid: dcTypes.Dongle[] = []
+    const dongleWithReadableIccid: dcTypes.Dongle[] = []
 
     for (let dongle of dongles) {
 
@@ -330,7 +291,11 @@ export async function updateSimStorage(
 /** 
  * Asserts: 
  * 1) The sql query will will not be updated after.
- * 2) @sim_ref is set to the sim id_ is NULL parse returns empty array.
+ * 2) @sim_ref is set to the sim id_ if NULL parse returns empty array.
+ * 
+ * Note before making any changes check setSimOffline function that
+ * use this in a totally implementation dependent fashion. ( ugly I know )
+ *
  */
 namespace retrieveUasRegisteredToSim {
 
@@ -824,6 +789,7 @@ export async function getUserSims(
 
 }
 
+//TODO: Deal without it.
 export async function addOrUpdateUa(
     ua: gwTypes.Ua
 ) {
@@ -850,33 +816,31 @@ export async function addOrUpdateUa(
 
 }
 
+//TODO: test!
 export async function setSimOnline(
     imsi: string,
     password: string,
-    gatewayIp: string,
+    replacementPassword: string,
+    gatewayAddress: string,
     dongle: feTypes.UserSim["dongle"]
 ): Promise<{
     isSimRegistered: false;
 } | {
     isSimRegistered: true;
     storageDigest: string;
-    passwordStatus: "UNCHANGED" | "RENEWED" | "NEED RENEWAL";
+    passwordStatus: "UNCHANGED" | "WAS DIFFERENT" | "PASSWORD REPLACED";
+    gatewayLocation: feTypes.UserSim.GatewayLocation;
     uasRegisteredToSim: gwTypes.Ua[];
 }> {
 
     const sql = [
-        "SELECT @sim_ref:=NULL, @password_status:=NULL, @dongle_ref:=NULL, @gateway_location_ref:=NULL;",
-        "SELECT",
-        "@sim_ref:= id_,",
+        `SELECT @sim_ref:=NULL, @password_status:=NULL, @dongle_ref:=NULL, @gateway_location_ref:=NULL;`,
+        `SELECT`,
+        `@sim_ref:= id_,`,
         `storage_digest,`,
-        [
-            "@password_status:= ",
-            `IF(password= ${esc(password)}, `,
-            "IF(need_password_renewal, 'NEED RENEWAL', 'UNCHANGED'), ",
-            "'RENEWED') AS password_status"
-        ].join(""),
+        `@password_status:=IF(need_password_renewal,'PASSWORD REPLACED',IF(password=${esc(password)},'UNCHANGED','WAS DIFFERENT')) AS password_status`,
         "FROM sim",
-        `WHERE imsi= ${esc(imsi)}`,
+        `WHERE imsi=${esc(imsi)}`,
         ";",
         buildInsertQuery("dongle", {
             "imei": dongle.imei,
@@ -885,21 +849,21 @@ export async function setSimOnline(
             "model": dongle.model,
             "firmware_version": dongle.firmwareVersion
         }, "UPDATE"),
-        "SELECT @dongle_ref:= id_",
+        "SELECT @dongle_ref:=id_",
         "FROM dongle",
         `WHERE imei= ${dongle.imei}`,
         ";",
-        "SELECT @gateway_location_ref:= id_",
+        "SELECT @gateway_location_ref:=id_, country_iso, subdivisions, city",
         "FROM gateway_location",
-        `WHERE ip= ${esc(gatewayIp)}`,
+        `WHERE ip=${esc(gatewayAddress)}`,
         ";",
         "UPDATE sim",
         "SET",
-        "   is_online= 1,",
-        `   password= ${esc(password)},`,
-        "   dongle= @dongle_ref,",
-        "   gateway_location= @gateway_location_ref,",
-        "   need_password_renewal= (@password_status= 'NEED RENEWAL')",
+        "   is_online=1,",
+        `   password=IF(@password_status='PASSWORD REPLACED',${esc(replacementPassword)},${esc(password)}),`,
+        "   dongle=@dongle_ref,",
+        "   gateway_location=@gateway_location_ref,",
+        "   need_password_renewal=0",
         "WHERE id_= @sim_ref",
         ";",
         retrieveUasRegisteredToSim.sql
@@ -907,7 +871,7 @@ export async function setSimOnline(
 
     const queryResults = await query(
         sql, 
-        { imsi, "ip": gatewayIp }
+        { imsi, "ip": gatewayAddress }
     );
 
     queryResults.shift();
@@ -920,23 +884,65 @@ export async function setSimOnline(
         "isSimRegistered": true,
         "passwordStatus": queryResults[0][0]["password_status"],
         "storageDigest": queryResults[0][0]["storage_digest"],
+        "gatewayLocation": {
+            "ip": gatewayAddress,
+            "countryIso": queryResults[3][0]["country_iso"] || undefined,
+            "subdivisions": queryResults[3][0]["subdivisions"] || undefined,
+            "city": queryResults[3][0]["city"] || undefined
+        },
         "uasRegisteredToSim": retrieveUasRegisteredToSim.parse(queryResults)
     };
 
 }
 
-export async function setSimsOffline(imsis: string[]): Promise<void> {
+//TODO: Test return values of this function!
+/** Return userSims by imsi */
+export async function setSimsOffline(
+    imsis: string[],
+    doNotFetchUas: false | "DO NOT FETCH UAS" = false
+): Promise<{ [imsi: string]: gwTypes.Ua[]; }> {
 
     if (imsis.length === 0) {
-        return;
+        return {};
     }
 
-    const sql = [
+    let sql = [
         `UPDATE sim SET is_online= 0 WHERE`,
-        imsis.map(imsi => `imsi= ${esc(imsi)}`).join(" OR ")
+        imsis.map(imsi => `imsi= ${esc(imsi)}`).join(" OR "),
+        ";",
+        ""
     ].join("\n");
 
-    await query(sql, { "imsi": imsis });
+    if( !!doNotFetchUas ){
+        return {};
+    }
+
+    sql += `SELECT @sim_ref:=NULL;`;
+
+    for (const imsi of imsis) {
+
+        sql += [
+            ``,
+            `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)};`,
+            retrieveUasRegisteredToSim.sql + ";",
+            ``
+        ].join("\n");
+
+    }
+
+    const queryResults = await query(sql, { "imsi": imsis });
+
+    const out: { [imsi: string]: gwTypes.Ua[]; }= {};
+
+    for( let i = imsis.length - 1; i>= 0; i-- ){
+
+        const imsi= imsis[i];
+
+        out[imsi] = retrieveUasRegisteredToSim.parse(queryResults);
+
+    }
+
+    return out;
 
 }
 
@@ -1002,13 +1008,17 @@ export async function unregisterSim(
 
 }
 
-/** assert emails not empty */
+//TODO: test changed
+/** assert emails not empty, return affected user email */
 export async function shareSim(
     auth: Auth,
     imsi: string,
     emails: string[],
     sharingRequestMessage: string | undefined
-): Promise<feTypes.AffectedUsers> {
+): Promise<{
+    registered: Auth[];
+    notRegistered: string[]; /** list of emails */
+}> {
 
     emails = emails
         .map(email => email.toLowerCase())
@@ -1049,25 +1059,28 @@ export async function shareSim(
     ].join("\n");
 
     const queryResults = await query(
-        sql, 
-        { imsi, "email": [ auth.email, ...emails] }
+        sql,
+        { imsi, "email": [auth.email, ...emails] }
     );
 
     const userRows = queryResults.pop();
 
     const affectedUsers = {
-        "registered": [] as string[],
+        "registered": [] as Auth[],
         "notRegistered": [] as string[]
     };
 
     for (const row of userRows) {
 
-        let email = row["email"];
+        const auth: Auth= {
+            "user": row["id_"],
+            "email": row["email"]
+        };
 
         if (row["is_registered"] === 1) {
-            affectedUsers.registered.push(email);
+            affectedUsers.registered.push(auth);
         } else {
-            affectedUsers.notRegistered.push(email);
+            affectedUsers.notRegistered.push(auth.email);
         }
 
     }
@@ -1122,7 +1135,7 @@ export async function stopSharingSim(
     ].join("\n");
 
     const queryResults = await query(
-        sql, 
+        sql,
         { imsi, "email": auth.email }
     );
 
@@ -1180,7 +1193,7 @@ export async function setSimFriendlyName(
     ].join("\n");
 
     const queryResults = await query(
-        sql, 
+        sql,
         { imsi, "email": auth.email }
     );
 

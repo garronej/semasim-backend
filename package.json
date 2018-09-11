@@ -7,7 +7,6 @@
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
     "start": "sudo ./node ./dist/bin/main.js",
-    "lb": "sudo ./node ./dist/bin/lb_main.js",
     "test": "./node ./dist/test/db"
   },
   "repository": {
@@ -50,6 +49,6 @@
     "@types/node": "^8.9.1",
     "@types/uuid": "^3.4.3",
     "@types/ws": "^4.0.0",
-    "typescript": "^2.9.2"
+    "typescript": "^3.0.1"
   }
 }

@@ -1,86 +1,147 @@
-import { networkTools } from "../semasim-load-balancer";
-import * as i from "../bin/installer";
-import * as  https from "https";
+import * as https from "https";
 import * as http from "http";
 import * as fs from "fs";
 import * as tls from "tls";
 import * as net from "net";
+import * as ws from "ws";
+
+//NOTE: Must be located before importing files that may use it.
+export const getLocalRunningInstance= ()=> runningInstance!;
+
+import { networkTools, types as lbTypes } from "../semasim-load-balancer";
+import * as i from "../bin/installer";
 import * as dbSemasim from "./dbSemasim";
-import * as clientSide from "./clientSide/launch";
-import * as gatewaySide from "./gatewaySide/init";
-import { SyncEvent } from "ts-events-extended";
+import * as dbWebphone from "./dbWebphone";
 import * as pushNotifications from "./pushNotifications";
 import * as logger from "logger";
-import { safePr } from "scripting-tools";
-import * as loadBalancerSocket from "./loadBalancerSocket/launch";
+import * as backendConnections from "./toBackend/connections";
+import * as gatewayConnections from "./toGateway/connections";
+import * as uaConnections from "./toUa/connections";
+import * as loadBalancerConnection from "./toLoadBalancer/connection";
+import * as web from "./web/launch";
 
-const debug= logger.debugFactory();
+const debug = logger.debugFactory();
 
-async function getEntryPoints(): Promise<getEntryPoints.EntryPoints>{
+export async function beforeExit() {
 
-    let evt= new SyncEvent<getEntryPoints.EntryPoints>();
+    debug("BeforeExit...");
 
-    getEntryPoints.fetch().then(entryPoints=> evt.post(entryPoints));
+    await dbSemasim.setSimsOffline(
+        gatewayConnections.getImsis(),
+        "DO NOT FETCH UAS"
+    );
 
-    try{ 
-        return await evt.waitFor(2000);
-    }catch{
-
-        debug("no internet connection...default");
-
-        return getEntryPoints.defaults;
-    }
-
-}
-
-namespace getEntryPoints {
-
-    const _wrap = (address: string, port: number) => ({ address, port });
-
-    /** In case we do not have internet connection */
-    export const defaults = (() => {
-
-        let address1 = "52.58.64.189";
-        let sipSrv_port = 443;
-        let address2 = "52.57.54.73";
-
-        return {
-            "https": _wrap(address1, 443),
-            "http": _wrap(address1, 80),
-            "sipUa": _wrap(address2, sipSrv_port),
-            "sipGw": _wrap(address2, 80)
-        };
-
-    })();
-
-    export type EntryPoints= typeof defaults;
-
-    export async function fetch(): Promise<EntryPoints> {
-
-        /* CNAME www.semasim.com => A semasim.com => '52.58.64.189' */
-        const address1 = await networkTools.resolve4("www.semasim.com");
-
-        /* SRV _sips._tcp.semasim.com => [ { name: 'sip.semasim.com,port', port: 443 } ] */
-        const [sipSrv] = await networkTools.resolveSrv("_sips._tcp.semasim.com");
-
-        /* A _sips._tcp.semasim.com => '52.57.54.73' */
-        const address2 = await networkTools.resolve4(sipSrv.name);
-
-        return {
-            "https": _wrap(address1, 443),
-            "http": _wrap(address1, 80),
-            "sipUa": _wrap(address2, sipSrv.port),
-            "sipGw": _wrap(address2, 80)
-        };
-
-    }
-
+    debug("BeforeExit completed in time");
 
 }
 
-function loadTlsCerts() {
+let runningInstance: lbTypes.RunningInstance;
 
-    const out = Object.assign({}, i.tlsPath);
+export async function launch(daemonNumber: number) {
+
+    debug("Launch!");
+
+    const tlsCerts = getTlsCerts();
+
+    const interfaceAddress = networkTools.getInterfaceAddressInRange(i.semasim_lan);
+
+    const servers: [https.Server, http.Server, tls.Server, tls.Server, net.Server] = [
+        https.createServer(tlsCerts),
+        http.createServer(),
+        tls.createServer(tlsCerts),
+        tls.createServer(tlsCerts),
+        net.createServer()
+    ];
+
+    const [spoofedLocalAddressAndPort] = await Promise.all([
+        getSpoofedLocalAddressAndPort(),
+        Promise.all(servers.map(
+            server => new Promise(
+                resolve => server
+                    .once("error", error => { throw error; })
+                    .listen(0, interfaceAddress)
+                    .once("listening", () => resolve(server))
+            )))]
+    );
+
+    runningInstance= {
+        interfaceAddress,
+        daemonNumber,
+        ...(() => {
+
+            const ports = servers.map(server => server.address().port);
+
+            return {
+                "httpsPort": ports[0],
+                "httpPort": ports[1],
+                "sipUaPort": ports[2],
+                "sipGwPort": ports[3],
+                "interInstancesPort": ports[4]
+            };
+
+        })()
+    };
+
+    dbSemasim.launch(interfaceAddress);
+
+    dbWebphone.launch(interfaceAddress);
+
+    pushNotifications.launch();
+
+    loadBalancerConnection.connect();
+
+    web.launch(servers[0], servers[1]);
+
+    uaConnections.listen(
+        new ws.Server({ "server": servers[0] }),
+        spoofedLocalAddressAndPort.https
+    );
+
+    uaConnections.listen(
+        servers[2],
+        spoofedLocalAddressAndPort.sipUa
+    );
+
+    gatewayConnections.listen(
+        servers[3],
+        spoofedLocalAddressAndPort.sipGw
+    );
+
+    backendConnections.listen(
+        servers[4]
+    );
+
+    debug(`Instance ${daemonNumber} successfully launched`);
+
+}
+
+
+async function getSpoofedLocalAddressAndPort() {
+
+    /* CNAME www.semasim.com => A semasim.com => '52.58.64.189' */
+    const address1 = await networkTools.resolve4("www.semasim.com");
+
+    /* SRV _sips._tcp.semasim.com => [ { name: 'sip.semasim.com,port', port: 443 } ] */
+    const [sipSrv] = await networkTools.resolveSrv("_sips._tcp.semasim.com");
+
+    /* A _sips._tcp.semasim.com => '52.57.54.73' */
+    const address2 = await networkTools.resolve4(sipSrv.name);
+
+    const _wrap = (localAddress: string, localPort: number) => ({ localAddress, localPort });
+
+    return {
+        "https": _wrap(address1, 443),
+        "http": _wrap(address1, 80),
+        "sipUa": _wrap(address2, sipSrv.port),
+        "sipGw": _wrap(address2, 80)
+    };
+
+}
+
+
+function getTlsCerts() {
+
+    const out = { ...i.tlsPath };
 
     for (const key in i.tlsPath) {
         out[key] = fs.readFileSync(i.tlsPath[key], "utf8");
@@ -90,129 +151,3 @@ function loadTlsCerts() {
 
 };
 
-
-export async function beforeExit(){
-
-    debug("BeforeExit...");
-
-    loadBalancerSocket.beforeExit();
-
-    for( const server of beforeExit.servers ){
-        server.close();
-    }
-
-    await Promise.all(
-        [
-            pushNotifications.beforeExit(),
-            clientSide.beforeExit(),
-            (async () => {
-
-                await safePr(gatewaySide.beforeExit(), 15000);
-
-                await dbSemasim.beforeExit();
-
-            })()
-        ].map(pr => safePr(pr))
-    );
-
-    debug("BeforeExit completed in time");
-
-}
-
-export namespace beforeExit {
-    export const servers = new Set<net.Server>();
-}
-
-//TODO: add a main script that call this function in /bin dir
-export async function launch(daemonNumber: number) {
-
-    debug("Launch!");
-
-    const tlsCerts = loadTlsCerts();
-
-    const interfaceAddress = networkTools
-        .getInterfaceAddressInRange(i.semasim_lan);
-
-    const tasks: Promise<net.Server>[] = [];
-
-    for (const createServer of [
-        () => https.createServer(tlsCerts),
-        () => http.createServer(),
-        () => tls.createServer(tlsCerts),
-        () => tls.createServer(tlsCerts),
-        () => net.createServer()
-    ]) {
-
-        tasks[tasks.length] = new Promise(
-            resolve => {
-
-                const server = createServer();
-
-                server
-                    .once("error", error => { throw error; })
-                    .listen(0, interfaceAddress)
-                    .once("listening", () => {
-
-                        beforeExit.servers.add(server);
-
-                        resolve(server);
-
-                    })
-                    ;
-
-            }
-        );
-
-    }
-
-    dbSemasim.launch();
-
-    pushNotifications.launch();
-
-
-    const [entryPoints, servers] = await Promise.all([
-        getEntryPoints(),
-        Promise.all(tasks)
-    ]);
-
-    clientSide.launch({
-        "https": {
-            "server": servers[0] as https.Server,
-            "spoofedLocal": entryPoints.https
-        },
-        "http": {
-            "server": servers[1] as http.Server,
-            "spoofedLocal": entryPoints.http
-        },
-        "sips": {
-            "server": servers[2] as tls.Server,
-            "spoofedLocal": entryPoints.sipUa
-        },
-        "sip": {
-            "server": servers[4] as net.Server
-        }
-
-    });
-
-    gatewaySide.init({
-        "server": servers[3] as tls.Server,
-        "spoofedLocal": entryPoints.sipGw
-    });
-
-    const ports = servers.map(server => server.address().port);
-
-    debug({ ports });
-
-    await loadBalancerSocket.launch({
-        interfaceAddress,
-        daemonNumber,
-        "httpsPort": ports[0],
-        "httpPort": ports[1],
-        "sipUaPort": ports[2],
-        "sipGwPort": ports[3],
-        "interInstancesPort": ports[4]
-    });
-
-    debug(`Instance ${daemonNumber} successfully launched`);
-
-}

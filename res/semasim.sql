@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Mar 05 Juin 2018 à 08:01
+-- Généré le :  Mer 05 Septembre 2018 à 19:15
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -19,6 +19,50 @@ SET time_zone = "+00:00";
 --
 -- Base de données :  `semasim`
 --
+CREATE DATABASE IF NOT EXISTS `semasim` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+USE `semasim`;
+
+DELIMITER $$
+--
+-- Fonctions
+--
+CREATE DEFINER=`semasim`@`localhost` FUNCTION `assert`(doit INTEGER, message VARCHAR(256)) RETURNS int(11)
+    DETERMINISTIC
+BEGIN                                                                                      
+    IF doit IS NULL OR doit = 0 THEN                                                       
+        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;                                
+    END IF;                                                                                
+    RETURN doit;                                                                           
+END$$
+
+CREATE DEFINER=`semasim`@`localhost` FUNCTION `assert2`(doit INTEGER, message VARCHAR(256)) RETURNS int(11)
+    DETERMINISTIC
+BEGIN                                                                                      
+    IF doit IS NULL OR doit = 0 THEN                                                       
+        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;                                
+    END IF;                                                                                
+    RETURN doit;                                                                           
+END$$
+
+CREATE DEFINER=`semasim`@`localhost` FUNCTION `checkit`(doit INTEGER, message VARCHAR(256)) RETURNS int(11)
+    DETERMINISTIC
+BEGIN                                                                                      
+    IF doit IS NULL OR doit = 0 THEN                                                       
+        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;                                
+    END IF;                                                                                
+    RETURN doit;                                                                           
+END$$
+
+CREATE DEFINER=`semasim`@`172.31.16.0/255.255.240.0` FUNCTION `_ASSERT`(bool INTEGER, message VARCHAR(256)) RETURNS int(11)
+    DETERMINISTIC
+BEGIN
+    IF bool IS NULL OR bool = 0 THEN
+        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;
+    END IF;
+    RETURN bool;
+END$$
+
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -34,7 +78,7 @@ CREATE TABLE IF NOT EXISTS `contact` (
   `number_local_format` varchar(30) COLLATE utf8_bin NOT NULL,
   `name_as_stored` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `name` varchar(126) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=5769 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -49,7 +93,7 @@ CREATE TABLE IF NOT EXISTS `dongle` (
   `manufacturer` varchar(30) COLLATE utf8_bin NOT NULL,
   `model` varchar(30) COLLATE utf8_bin NOT NULL,
   `firmware_version` varchar(30) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -63,7 +107,7 @@ CREATE TABLE IF NOT EXISTS `gateway_location` (
   `country_iso` varchar(5) COLLATE utf8_bin DEFAULT NULL,
   `subdivisions` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `city` varchar(50) COLLATE utf8_bin DEFAULT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -92,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `sim` (
   `need_password_renewal` tinyint(1) NOT NULL,
   `friendly_name` varchar(126) COLLATE utf8_bin NOT NULL,
   `is_online` tinyint(1) NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -107,7 +151,7 @@ CREATE TABLE IF NOT EXISTS `ua` (
   `platform` varchar(10) COLLATE utf8_bin NOT NULL,
   `push_token` varchar(1024) COLLATE utf8_bin NOT NULL,
   `software` varchar(255) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -120,7 +164,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `email` varchar(150) COLLATE utf8_bin NOT NULL,
   `salt` varchar(16) COLLATE utf8_bin NOT NULL,
   `hash` varchar(40) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=70 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -190,32 +234,32 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=5769;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=46;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=51;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=28;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=32;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=30;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=70;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --

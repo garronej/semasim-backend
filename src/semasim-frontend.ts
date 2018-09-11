@@ -3,8 +3,8 @@
 
 import * as types from "../../semasim-frontend/shared/dist/lib/types";
 import * as webApiDeclaration from "../../semasim-frontend/shared/dist/web_api_declaration";
-import * as api_decl_backendClientSideSocket from "../../semasim-frontend/shared/dist/sip_api_declarations/backendClientSideSocket";
-import * as api_decl_clientSockets from "../../semasim-frontend/shared/dist/sip_api_declarations/clientSockets";
+import * as api_decl_backendToUa from "../../semasim-frontend/shared/dist/sip_api_declarations/backendToUa";
+import * as api_decl_uaToBackend from "../../semasim-frontend/shared/dist/sip_api_declarations/uaToBackend";
 
 import * as fs from "fs";
 import * as path from "path";
@@ -37,6 +37,6 @@ export {
     types,
     pagesHtml,
     pathToStatic,
-    api_decl_backendClientSideSocket,
-    api_decl_clientSockets
+    api_decl_backendToUa,
+    api_decl_uaToBackend
 };

@@ -50,9 +50,10 @@ export function createPoolAndGetApi(
     const buildInsertQuery: Api["buildInsertQuery"] =
         (table, obj, onDuplicateKeyAction) => {
 
-            let keys = Object.keys(obj);
+            const keys = Object.keys(obj)
+                .filter(key => obj[key] !== undefined);
 
-            let backtickKeys = keys.map(key => "`" + key + "`");
+            const backtickKeys = keys.map(key => "`" + key + "`");
 
             let sqlLinesArray = [
                 `INSERT ${(onDuplicateKeyAction === "IGNORE") ? "IGNORE " : ""}INTO \`${table}\` ( ${backtickKeys.join(", ")} )`,

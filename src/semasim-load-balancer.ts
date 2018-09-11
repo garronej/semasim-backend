@@ -3,13 +3,11 @@ import * as networkTools from "../../semasim-load-balancer/dist/tools/networkToo
 
 import * as types from "../../semasim-load-balancer/dist/lib/types";
 
-import * as api_decl_instanceSockets from "../../semasim-load-balancer/dist/sip_api_declarations/instanceSockets";
-import * as api_decl_loadBalancerSocket from "../../semasim-load-balancer/dist/sip_api_declarations/loadBalancerSocket";
+import * as api_decl_loadBalancerToBackend from "../../semasim-load-balancer/dist/sip_api_declarations/loadBalancerToBackend";
 
 //TODO: import Load balancer api.
 
 export { 
     networkTools, types,
-    api_decl_instanceSockets, 
-    api_decl_loadBalancerSocket, 
+    api_decl_loadBalancerToBackend
 };

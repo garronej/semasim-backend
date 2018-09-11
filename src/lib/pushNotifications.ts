@@ -1,41 +1,13 @@
-import { types as gwTypes } from "../semasim-gateway";
+import { types as gwTypes, misc as gwMisc } from "../semasim-gateway";
 import * as pushSender from "../tools/pushSender";
 import * as i from "../bin/installer";
 import * as logger from "logger";
 
 const debug= logger.debugFactory();
 
-export function beforeExit(){
-    return beforeExit.impl();
-}
-
-export namespace beforeExit {
-    export let impl= ()=> Promise.resolve();
-}
-
 export function launch() {
 
     pushSender.launch(i.pushNotificationCredentials);
-
-    beforeExit.impl = async () => {
-
-        debug("BeforeExit...");
-
-        try {
-
-            await pushSender.close();
-
-        } catch (error) {
-
-            debug(error);
-
-            throw error;
-
-        }
-
-        debug("BeforeExit success");
-
-    };
 
 }
 
@@ -117,7 +89,7 @@ namespace pending {
     export function get(
         ua: gwTypes.Ua
     ) {
-        return map.get(gwTypes.misc.generateUaId(ua));
+        return map.get(gwMisc.generateUaId(ua));
     }
 
     export function set(
@@ -125,7 +97,7 @@ namespace pending {
         prIsSent: Promise<boolean>
     ) {
 
-        let uaId = gwTypes.misc.generateUaId(ua);
+        let uaId = gwMisc.generateUaId(ua);
 
         switch (ua.platform) {
             case "iOS":
