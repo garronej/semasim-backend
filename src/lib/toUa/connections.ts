@@ -24,7 +24,7 @@ export function listen(
 
         server.on("secureConnection",
             tlsSocket => registerSocket(
-                new sip.Socket(tlsSocket, spoofedLocalAddressAndPort),
+                new sip.Socket( tlsSocket, false, spoofedLocalAddressAndPort),
                 undefined
             )
         );
@@ -33,11 +33,15 @@ export function listen(
 
         server.on("connection",
             async (webSocket, req) => registerSocket(
-                new sip.Socket(webSocket, {
-                    ...spoofedLocalAddressAndPort,
-                    "remoteAddress": req.socket.remoteAddress!,
-                    "remotePort": req.socket.remotePort!
-                }),
+                new sip.Socket(
+                    webSocket,
+                    false,
+                    {
+                        ...spoofedLocalAddressAndPort,
+                        "remoteAddress": req.socket.remoteAddress!,
+                        "remotePort": req.socket.remotePort!
+                    }
+                ),
                 await sessionManager.getAuth(req)
             )
         );

@@ -31,6 +31,7 @@ export function listen(
 
         const socket = new sip.Socket(
             tlsSocket,
+            false,
             spoofedLocalAddressAndPort
         );
 

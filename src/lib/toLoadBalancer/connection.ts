@@ -15,7 +15,8 @@ export async function connect() {
             "host": lbTypes.address,
             "port": lbTypes.port,
             "localAddress": getLocalRunningInstance().interfaceAddress
-        })
+        }),
+        true
     );
 
     sip.api.client.enableKeepAlive(loadBalancerSocket);

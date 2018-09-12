@@ -26,11 +26,10 @@ export function listen(server: net.Server) {
         "connection",
         netSocket => {
 
-            const socket = new sip.Socket(netSocket);
+            const socket = new sip.Socket(netSocket, true);
 
             registerSocket(socket);
 
-            //TODO: enable possibility in ts-sip to disable flood 
             remoteApiCaller.notifyRoute({
                 "type": "ADD",
                 "imsis": gatewayConnections.getImsis(),
@@ -54,7 +53,8 @@ export function connect(
             "host": runningInstance.interfaceAddress,
             "port": runningInstance.interInstancesPort,
             "localAddress": getLocalRunningInstance().interfaceAddress
-        })
+        }),
+        true
     );
 
     //TODO: make sure it's ok to define api listener after connect
