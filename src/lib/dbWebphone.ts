@@ -162,7 +162,7 @@ export async function getOrCreateInstance(
         `FROM message`,
         `INNER JOIN chat ON chat.id_=message.chat`,
         `WHERE chat.instance=@instance_ref`,
-        "ORDER BY message.time",
+        `ORDER BY message.time DESC`,
         `LIMIT 20`
     ].join("\n");
 
@@ -194,9 +194,17 @@ export async function getOrCreateInstance(
 
     }
 
+    const chats= Array.from(chatById.values());
+
+    for( const chat of chats ){
+
+        chat.messages.reverse();
+
+    }
+
     return {
         "instance_id": resp[2][0]["id_"],
-        "chats": Array.from(chatById.values())
+        chats
     };
 
 }
@@ -254,7 +262,7 @@ export async function fetchOlderMessages(
         `SELECT *`,
         `FROM message`,
         `WHERE chat=${esc(chat_id)} AND time < @older_than_time`,
-        "ORDER BY message.time",
+        `ORDER BY message.time DESC`,
         `LIMIT 100`
     ].join("\n");
 
@@ -263,6 +271,7 @@ export async function fetchOlderMessages(
     return resp
         .pop()
         .map(row => parseMessage(row).message)
+        .reverse()
         ;
 
 }
