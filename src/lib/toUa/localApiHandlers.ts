@@ -145,18 +145,35 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const auth = connections.getAuth(socket);
 
-            const affectedUas = await dbSemasim.unregisterSim(
+            const { affectedUas, owner } = await dbSemasim.unregisterSim(
                 auth,
                 imsi
             );
 
-            remoteApiCaller.notifySimPermissionLost(
-                imsi,
-                affectedUas
-                    .filter(({ platform }) => platform === "web")
-                    .map(({ userEmail }) => userEmail)
-                    .filter(email => email !== auth.email)
-            );
+            if (owner.user === auth.user) {
+
+                /*
+                notify sim permission lost to every user
+                who shared this sim ( the owner of the sim excluded )
+                */
+                remoteApiCaller.notifySimPermissionLost(
+                    imsi,
+                    affectedUas
+                        .filter(({ platform }) => platform === "web")
+                        .map(({ userEmail }) => userEmail)
+                        .filter(email => email !== auth.email)
+                );
+
+            } else {
+
+                remoteApiCaller.notifySharedSimUnregistered(
+                    { imsi, "email": auth.email}, 
+                    owner.email
+                );
+
+            }
+
+
 
             pushNotifications.send(affectedUas, "RELOAD CONFIG");
 
@@ -257,7 +274,6 @@ export const handlers: sip.api.Server.Handlers = {};
     handlers[methodName] = handler;
 
 }
-
 
 {
 
@@ -399,16 +415,12 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const auth = connections.getAuth(socket);
 
-            await dbSemasim.unregisterSim(auth, imsi);
+            const { owner } = await dbSemasim.unregisterSim(auth, imsi);
 
-            dbSemasim.getSimOwner(imsi)
-                .then(auth => auth!)
-                .then(({ email: ownerEmail }) =>
-                    remoteApiCaller.notifySharingRequestResponse(
-                        { imsi, "email": auth.email, "isAccepted": false },
-                        ownerEmail
-                    )
-                );
+            remoteApiCaller.notifySharingRequestResponse(
+                { imsi, "email": auth.email, "isAccepted": false },
+                owner.email
+            );
 
             return undefined;
 

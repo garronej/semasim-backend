@@ -126,7 +126,7 @@ export function generateSim(
 
     await db.flush();
 
-    console.log("ALL DB TESTS PASSED!");
+    console.log("ALL DB TESTS PASSED");
 
     process.exit(0);
 
@@ -865,7 +865,10 @@ async function testMain() {
 
     assertSame(
         await db.unregisterSim(dave, alice.userSims[0].sim.imsi),
-        dave.uas
+        { 
+            "affectedUas": dave.uas,  
+            "owner": { "user": alice.user, "email": alice.email } 
+        }
     );
 
     assertSame(
@@ -916,7 +919,10 @@ async function testMain() {
             alice,
             alice.userSims.shift()!.sim.imsi
         ),
-        alice.uas
+        { 
+            "affectedUas": alice.uas, 
+            "owner": { "user": alice.user, "email": alice.email } 
+        }
     );
 
     for (let user of [alice, eve]) {

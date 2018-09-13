@@ -946,15 +946,14 @@ export async function setSimsOffline(
 
 }
 
-/** Return UAs that no longer use sim */
 export async function unregisterSim(
     auth: Auth,
     imsi: string
-): Promise<gwTypes.Ua[]> {
+): Promise<{ affectedUas: gwTypes.Ua[]; owner: Auth; }> {
 
     const sql = [
-        `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
-        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(auth.user)}`,
+        `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL, @sim_owner:=NULL;`,
+        `SELECT @sim_ref:= sim.id_, @is_sim_owned:=sim.user=${esc(auth.user)}, @sim_owner:=sim.user AS sim_owner`,
         "FROM sim",
         "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
         "WHERE",
@@ -962,6 +961,8 @@ export async function unregisterSim(
         "GROUP BY sim.id_",
         ";",
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
+        ";",
+        "SELECT email AS sim_owner_email FROM user WHERE id_=@sim_owner",
         ";",
         "SELECT",
         "   ua.*, user.email",
@@ -992,7 +993,7 @@ export async function unregisterSim(
 
     const affectedUas: gwTypes.Ua[] = [];
 
-    for (const row of [ ...queryResults[2], ...queryResults[3]]) {
+    for (const row of [ ...queryResults[3], ...queryResults[4]]) {
 
         affectedUas.push({
             "instance": row["instance"],
@@ -1004,7 +1005,13 @@ export async function unregisterSim(
 
     }
 
-    return affectedUas;
+    return { 
+        affectedUas, 
+        "owner": {
+            "user": queryResults[0][0]["sim_owner"],
+            "email": queryResults[2][0]["sim_owner_email"]
+        }
+    };
 
 }
 

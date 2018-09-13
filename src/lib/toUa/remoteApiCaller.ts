@@ -250,8 +250,8 @@ export const notifySharedSimUnregistered = (() => {
 
     })();
 
-    return (params: Params, emails: string[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, emails);
+    return (params: Params, email: string): Promise<void> =>
+        multicast<Params, Response>(methodName, params, [ email ]);
 
 })();
 
