@@ -913,30 +913,34 @@ export async function setSimsOffline(
         ""
     ].join("\n");
 
-    if( !!doNotFetchUas ){
-        return {};
-    }
+    if (!doNotFetchUas) {
 
-    sql += `SELECT @sim_ref:=NULL;`;
+        sql += `SELECT @sim_ref:=NULL;`;
 
-    for (const imsi of imsis) {
+        for (const imsi of imsis) {
 
-        sql += [
-            ``,
-            `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)};`,
-            retrieveUasRegisteredToSim.sql + ";",
-            ``
-        ].join("\n");
+            sql += [
+                ``,
+                `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)};`,
+                retrieveUasRegisteredToSim.sql + ";",
+                ``
+            ].join("\n");
+
+        }
 
     }
 
     const queryResults = await query(sql, { "imsi": imsis });
 
-    const out: { [imsi: string]: gwTypes.Ua[]; }= {};
+    if (!!doNotFetchUas) {
+        return {};
+    }
 
-    for( let i = imsis.length - 1; i>= 0; i-- ){
+    const out: { [imsi: string]: gwTypes.Ua[]; } = {};
 
-        const imsi= imsis[i];
+    for (let i = imsis.length - 1; i >= 0; i--) {
+
+        const imsi = imsis[i];
 
         out[imsi] = retrieveUasRegisteredToSim.parse(queryResults);
 
@@ -1005,8 +1009,8 @@ export async function unregisterSim(
 
     }
 
-    return { 
-        affectedUas, 
+    return {
+        affectedUas,
         "owner": {
             "user": queryResults[0][0]["sim_owner"],
             "email": queryResults[2][0]["sim_owner_email"]
@@ -1079,7 +1083,7 @@ export async function shareSim(
 
     for (const row of userRows) {
 
-        const auth: Auth= {
+        const auth: Auth = {
             "user": row["id_"],
             "email": row["email"]
         };
