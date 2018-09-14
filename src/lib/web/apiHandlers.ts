@@ -47,7 +47,7 @@ export const handlers: Handlers = {};
             }
 
             dbSemasim.addOrUpdateUa({
-                "instance": getUserWebUaInstanceId(user),
+                "instance": `"<urn:${getUserWebUaInstanceId(user)}>"`,
                 "userEmail": email,
                 "platform": "web",
                 "pushToken": "",

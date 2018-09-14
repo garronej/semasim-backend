@@ -105,8 +105,8 @@ function registerSocket(socket: sip.Socket) {
         "connection": true,
         "error": true,
         "close": true,
-        "incomingTraffic": true,
-        "outgoingTraffic": true,
+        "incomingTraffic": false,
+        "outgoingTraffic": false,
         "colorizedTraffic": undefined,
         "ignoreApiTraffic": true
     }, logger.log);

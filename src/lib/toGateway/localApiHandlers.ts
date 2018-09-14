@@ -162,7 +162,7 @@ export const handlers: sip.api.Server.Handlers = {};
                             hasInternalSimStorageChanged,
                             "password": (()=>{
                                 switch(dbResp.passwordStatus){
-                                    case "UNCHANGED": ;
+                                    case "UNCHANGED":
                                     case "WAS DIFFERENT": return password;
                                     case "PASSWORD REPLACED": return replacementPassword;
                                 };
