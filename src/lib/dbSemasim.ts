@@ -895,7 +895,7 @@ export async function setSimOnline(
 
 }
 
-//TODO: Test return values of this function!
+//TODO: This function is only partially tested.
 /** Return userSims by imsi */
 export async function setSimsOffline(
     imsis: string[],

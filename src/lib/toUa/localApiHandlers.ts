@@ -627,11 +627,10 @@ export const handlers: sip.api.Server.Handlers = {};
 
             }
 
-            const uasRegisteredToSim: gwTypes.Ua[] =
+            const uasRegisteredToSim =
                 await dbSemasim.createOrUpdateSimContact(
                     imsi, newName, contact.number_raw, storageInfos
                 );
-
 
             pushNotifications.send(uasRegisteredToSim, "RELOAD CONFIG");
 

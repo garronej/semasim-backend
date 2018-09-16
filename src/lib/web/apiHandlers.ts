@@ -10,9 +10,11 @@ import {
 import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
 
+
 import { 
     version as semasim_gateway_version ,
-    misc as gwMisc
+    misc as gwMisc,
+    types as gwTypes
 } from "../../semasim-gateway";
 
 import * as html_entities from "html-entities";
@@ -46,7 +48,7 @@ export const handlers: Handlers = {};
                 return "EMAIL NOT AVAILABLE";
             }
 
-            dbSemasim.addOrUpdateUa({
+            await dbSemasim.addOrUpdateUa({
                 "instance": `"<urn:${getUserWebUaInstanceId(user)}>"`,
                 "userEmail": email,
                 "platform": "web",
@@ -153,14 +155,15 @@ export const handlers: Handlers = {};
 
 {
 
-    //TODO: enable "Send DTMFs in SIP" disable "Send DTMFs in stream" in static config
-    //TODO: remove response from declaration
     const methodName = "get-user-linphone-config";
     type Params = { email_as_hex: string; password_as_hex: string; format?: "XML" | "INI" };;
 
     const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
-    const domain = "semasim.com";
+    const substitute4BytesChar = (str: string) => Array.from(str)
+        .map(c => Buffer.from(c, "utf8").length <= 3 ? c : "?")
+        .join("")
+        ;
 
     const toXml = (config: object): string => {
 
@@ -230,7 +233,12 @@ export const handlers: Handlers = {};
             try {
                 return (
                     gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
-                    typeof hexToUtf8(params.password_as_hex) === "string"
+                    !!hexToUtf8(params.password_as_hex) &&
+                    (
+                        params.format === undefined ||
+                        params.format === "INI" ||
+                        params.format === "XML"
+                    )
                 );
             } catch {
                 return false;
@@ -281,16 +289,21 @@ export const handlers: Handlers = {};
 
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
-                    "stun_server": domain,
+                    "stun_server": "semasim.com",
                     "protocols": "stun,ice"
                 };
 
+                //TODO: It's dirty to have this here, do we even need XML anymore?
+                const safeFriendlyName = substitute4BytesChar(
+                    format === "XML" ? friendlyName : friendlyName.replace(/"/g, `\\"`)
+                );
+
                 config[`proxy_${endpointCount}`] = {
                     //"reg_proxy": `sip:${domain};transport=TLS`,
-                    "reg_proxy": `<sip:${domain};transport=TLS>`,
-                    "reg_route": `sip:${domain};transport=TLS;lr`,
+                    "reg_proxy": `<sip:semasim.com;transport=TLS>`,
+                    "reg_route": `sip:semasim.com;transport=TLS;lr`,
                     "reg_expires": `${21601}`,
-                    "reg_identity": `"${friendlyName}" <sip:${sim.imsi}@${domain};transport=TLS;${p_email}>`,
+                    "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS;${p_email}>`,
                     "contact_parameters": p_email,
                     "reg_sendregister": "1",
                     "publish": "0",
@@ -307,8 +320,13 @@ export const handlers: Handlers = {};
 
                 for (const contact of phonebook) {
 
+                    //TODO: It's dirty to have this here.
+                    const safeContactName = substitute4BytesChar(
+                        format === "XML" ? contact.name : contact.name.replace(/"/g, `\\"`)
+                    );
+
                     config[`friend_${contactCount}`] = {
-                        "url": `"${contact.name} (${friendlyName})" <sip:${contact.number_local_format}@${domain}>`,
+                        "url": `"${safeContactName} (${safeFriendlyName})" <sip:${contact.number_local_format}@semasim.com>`,
                         "pol": "accept",
                         "subscribe": "0"
                     };
@@ -325,7 +343,10 @@ export const handlers: Handlers = {};
 
             }
 
-            return Buffer.from(format === "XML" ? toXml(config) : toIni(config));
+            return Buffer.from(
+                format === "XML" ? toXml(config) : toIni(config),
+                "utf8"
+            );
 
         }
     };
@@ -349,4 +370,69 @@ export const handlers: Handlers = {};
     handlers[methodName] = handler;
 
 }
+
+{
+
+    const methodName = "declare-ua";
+
+    type Params = {
+        platform: gwTypes.Ua.Platform;
+        email_as_hex: string;
+        password_as_hex: string;
+        uuid: string;
+        push_token_as_hex: string;
+    };;
+
+    const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
+
+    const handler: Handler.Generic<Params> = {
+        "needAuth": false,
+        "contentType": "text/plain; charset=utf-8",
+        "sanityCheck": params => {
+            try {
+                return (
+                    gwMisc.sanityChecks.platform(params.platform) &&
+                    gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
+                    !!hexToUtf8(params.password_as_hex) &&
+                    typeof params.uuid === "string" &&
+                    !!hexToUtf8(params.push_token_as_hex)
+                );
+            } catch {
+                return false;
+            }
+        },
+        "handler": async params => {
+
+            const email = hexToUtf8(params.email_as_hex).toLowerCase();
+            const password = hexToUtf8(params.password_as_hex);
+
+            const user = await dbSemasim.authenticateUser(email, password);
+
+            if (!user) {
+
+                const error = new Error("User not authenticated");
+
+                internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
+
+                throw error;
+
+            }
+
+            await dbSemasim.addOrUpdateUa({
+                "instance": `"<urn:uuid:${params.uuid}>"`,
+                "userEmail": email,
+                "platform": params.platform,
+                "pushToken": hexToUtf8(params.push_token_as_hex),
+                "software": ""
+            });
+
+            return Buffer.from("UA SUCCESSFULLY REGISTERED", "utf8");
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
 
