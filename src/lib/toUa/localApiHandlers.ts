@@ -112,7 +112,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 socket.remoteAddress
             );
 
-            pushNotifications.send(userUas, "RELOAD CONFIG");
+            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
 
             //NOTE: Here we break the rule of gathering all db request
             //but as sim registration is not a so common operation it's not
@@ -173,9 +173,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
             }
 
-
-
-            pushNotifications.send(affectedUas, "RELOAD CONFIG");
+            pushNotifications.send(affectedUas, { "type": "RELOAD CONFIG" });
 
             gatewayRemoteApiCaller.reNotifySimOnline(imsi);
 
@@ -307,8 +305,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
             remoteApiCaller.notifySimPermissionLost(imsi, emails);
 
-            pushNotifications.send(noLongerRegisteredUas, "RELOAD CONFIG");
-
+            pushNotifications.send(noLongerRegisteredUas, { "type": "RELOAD CONFIG" });
 
             return undefined;
 
@@ -342,7 +339,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 friendlyName
             );
 
-            pushNotifications.send(userUas, "RELOAD CONFIG");
+            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
 
             return undefined;
 
@@ -375,7 +372,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 friendlyName
             );
 
-            pushNotifications.send(userUas, "RELOAD CONFIG");
+            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
 
             return dbSemasim.getUserSims(auth)
                 .then(userSims => userSims
@@ -487,7 +484,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 imsi, name, number, storageInfos
             );
 
-            pushNotifications.send(uasRegisteredToSim, "RELOAD CONFIG");
+            pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
 
             remoteApiCaller.notifyContactCreatedOrUpdated(
                 {
@@ -632,7 +629,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     imsi, newName, contact.number_raw, storageInfos
                 );
 
-            pushNotifications.send(uasRegisteredToSim, "RELOAD CONFIG");
+            pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
 
             remoteApiCaller.notifyContactCreatedOrUpdated(
                 {
@@ -777,7 +774,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     .filter(email => email !== auth.email)
             );
 
-            pushNotifications.send(uasRegisteredToSim, "RELOAD CONFIG");
+            pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
 
             return { "new_digest": storage !== undefined ? storage.new_digest : undefined };
 

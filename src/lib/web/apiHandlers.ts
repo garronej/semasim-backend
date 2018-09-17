@@ -269,7 +269,7 @@ export const handlers: Handlers = {};
             let contactCount = 0;
 
             for (
-                const { sim, friendlyName, password, ownership, phonebook }
+                const { sim, friendlyName, password, ownership, phonebook, isOnline }
                 of await dbSemasim.getUserSims({ user, email })
             ) {
 
@@ -305,7 +305,7 @@ export const handlers: Handlers = {};
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS;${p_email}>`,
                     "contact_parameters": p_email,
-                    "reg_sendregister": "1",
+                    "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
                 };

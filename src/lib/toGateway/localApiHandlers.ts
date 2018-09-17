@@ -153,7 +153,8 @@ export const handlers: sip.api.Server.Handlers = {};
                     pushNotifications.send(
                         dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"),
                         (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
-                            "RELOAD CONFIG" : undefined
+                            { "type": "RELOAD CONFIG" } : 
+                            { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi }
                     );
 
                     uaRemoteApiCaller.notifySimOnline(
@@ -296,7 +297,12 @@ export const handlers: sip.api.Server.Handlers = {};
             params instanceof Object &&
             gwMisc.sanityChecks.contact(params.contact)
         ),
-        "handler": async ({ contact }, fromSocket) => {
+        "handler": async ({ contact }) => {
+
+            const pushPayload: pushNotifications.Payload= { 
+                "type": "WAKE UP", 
+                "imsi": contact.uaSim.imsi 
+            };
 
             const prIsReached = backendRemoteApiCaller.qualifyContact(contact);
 
@@ -314,7 +320,10 @@ export const handlers: sip.api.Server.Handlers = {};
                         return "REACHABLE";
                     }
 
-                    let prIsSendPushSuccess = pushNotifications.send(contact.uaSim.ua);
+                    const prIsSendPushSuccess = pushNotifications.send(
+                        [ contact.uaSim.ua ], 
+                        pushPayload
+                    );
 
                     const isReached = await prIsReached;
 
@@ -339,8 +348,10 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     } else {
 
-                        const isSendPushSuccess = await pushNotifications.send(contact.uaSim.ua);
-
+                        const isSendPushSuccess = await pushNotifications.send(
+                            [ contact.uaSim.ua ], 
+                            pushPayload
+                        );
 
                         return isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
 
@@ -366,6 +377,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
     const methodName = apiDeclaration.forceContactToReRegister.methodName;
     type Params = apiDeclaration.forceContactToReRegister.Params;
+    //TODO: should be undefined not boolean
     type Response = apiDeclaration.forceContactToReRegister.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
@@ -375,15 +387,21 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ contact }) => {
 
-            if (contact.uaSim.ua.platform === "iOS") {
+            /*
+             * NOTE IMPLEMENTATION IOS: 
+             * 
+             * Until commit 53957ba1e4344593caf42feba24df48520c2f954 we
+             * destroyed the asterisk socket.
+             * Should be handled client side.
+             * 
+             */
 
-                await backendRemoteApiCaller.destroyUaSocket(contact);
+            await pushNotifications.send(
+                [ contact.uaSim.ua ], 
+                { "type": "RE REGISTER ON NEW CONNECTION"  }
+            );
 
-            }
-
-            const isSendPushSuccess = pushNotifications.send(contact.uaSim.ua);
-
-            return isSendPushSuccess;
+            return true;
 
         }
     };

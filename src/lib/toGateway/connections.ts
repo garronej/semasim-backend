@@ -6,6 +6,7 @@ import * as logger from "logger";
 import * as tls from "tls";
 import * as router from "./router";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
+import * as pushNotifications from "../pushNotifications";
 
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 
@@ -105,11 +106,16 @@ export function listen(
             }
 
             dbSemasim.setSimsOffline(imsis)
-                .then(uas => {
+                .then(uasByImsi => {
 
-                    for (const imsi in uas) {
+                    for (const imsi in uasByImsi) {
 
-                        uaRemoteApiCaller.notifySimOffline(imsi, uas[imsi]);
+                        uaRemoteApiCaller.notifySimOffline(imsi, uasByImsi[imsi]);
+
+                        pushNotifications.send(
+                            uasByImsi[imsi],
+                            { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi }
+                        );
 
                     }
 
@@ -172,7 +178,16 @@ export function unbindFromImsi(
     if (socket.evtClose.postCount === 0) {
 
         dbSemasim.setSimsOffline([imsi])
-            .then(({ [imsi]: uas }) => uaRemoteApiCaller.notifySimOffline(imsi, uas))
+            .then(({ [imsi]: uas }) => {
+
+                uaRemoteApiCaller.notifySimOffline(imsi, uas);
+
+                pushNotifications.send(
+                    uas,
+                    { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi }
+                );
+
+            })
             ;
 
         backendRemoteApiCaller.notifyRoute({

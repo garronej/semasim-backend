@@ -15,9 +15,13 @@ export type PushNotificationCredentials = {
 
 export type Platform = "android" | "iOS";
 
-export function launch(
-    credentials: PushNotificationCredentials
-) {
+let sendByPlatform: { 
+    [platform: string]: (tokens: string[], data?: Record<string, string>) => Promise<void> 
+} | undefined = undefined;
+
+let _close: (()=> Promise<void>) | undefined = undefined;
+
+export function launch( credentials: PushNotificationCredentials) {
 
     const { android, iOS } = credentials;
 
@@ -36,7 +40,7 @@ export function launch(
         "credential": fbAdmin.credential.cert(serviceAccount)
     });
 
-    close= async ()=> {
+    _close= async ()=> {
         
         //NOTE: Api does not expose methods to track when completed.
         apnProvider.shutdown();
@@ -45,8 +49,8 @@ export function launch(
 
     };
 
-    const sendByPlatform: { [platform: string]: (token: string, data?: Record<string,string>) => Promise<void> } = {
-        "android": async (token, data) => {
+     sendByPlatform  = {
+        "android": async (tokens, data) => {
 
             const payload: fbAdmin.messaging.MessagingPayload = { "data": data || {} };
 
@@ -54,7 +58,7 @@ export function launch(
 
             try {
 
-                await fbApp.messaging().sendToDevice(token, payload, options);
+                await fbApp.messaging().sendToDevice(tokens, payload, options);
 
             } catch (error) {
 
@@ -63,7 +67,7 @@ export function launch(
             }
 
         },
-        "iOS": async token => {
+        "iOS": async tokens => {
 
             //TODO: Implement data payload.
 
@@ -73,7 +77,7 @@ export function launch(
                 "payload": {}
             });
 
-            const { failed } = await apnProvider.send(notification, token);
+            const { failed } = await apnProvider.send(notification, tokens);
 
             if (failed.length) {
 
@@ -87,14 +91,32 @@ export function launch(
         }
     };
 
-    send = (platform, token, data) => sendByPlatform[platform](token, data);
+}
+
+
+export function close(): Promise<void> {
+
+    if( _close === undefined ){
+
+        throw new Error("PushSender not initialized");
+
+    }
+
+    return _close();
 
 }
 
-export let close: ()=> Promise<void> = 
-    () => { throw new Error("PushSender not initialized"); };
 
 
-export let send: (platform: Platform, token: string, data?: Record<string,string>) => Promise<void> =
-    () => { throw new Error("PushSender not initialized"); };
+export function send(platform: Platform, tokens: string[], data?: Record<string,string>): Promise<void> {
+
+    if( sendByPlatform === undefined ){
+
+        throw new Error("PushSender not initialized");
+
+    }
+
+    return sendByPlatform[platform](tokens, data);
+
+}
 

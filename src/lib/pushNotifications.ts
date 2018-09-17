@@ -1,9 +1,6 @@
-import { types as gwTypes, misc as gwMisc } from "../semasim-gateway";
+import { types as gwTypes } from "../semasim-gateway";
 import * as pushSender from "../tools/pushSender";
 import * as i from "../bin/installer";
-import * as logger from "logger";
-
-const debug= logger.debugFactory();
 
 export function launch() {
 
@@ -11,106 +8,62 @@ export function launch() {
 
 }
 
+export type Payload =
+    Payload.ReloadConfig |
+    Payload.WakeUp |
+    Payload.ReRegisterOnNewConnection |
+    Payload.SimConnectivity ;
+
+
+export namespace Payload {
+
+    export type ReloadConfig = {
+        type: "RELOAD CONFIG";
+    };
+
+    export type WakeUp = {
+        type: "WAKE UP";
+        imsi: string;
+    };
+
+    export type ReRegisterOnNewConnection = {
+        type: "RE REGISTER ON NEW CONNECTION";
+    };
+
+    export type SimConnectivity = {
+        type: "SIM CONNECTIVITY";
+        isOnline: "0" | "1";
+        imsi: string;
+    };
+
+}
+
 /** Return true if everything goes as expected */
 export async function send(
-    target: gwTypes.Ua | gwTypes.Ua[],
-    reloadConfig: "RELOAD CONFIG" | undefined = undefined
-): Promise<boolean> {
+    uas: gwTypes.Ua[],
+    payload: Payload
+): Promise<void> {
 
-    if (target instanceof Array) {
+    /*
+     * NOTE IMPLEMENTATION IOS: 
+     * 
+     * Until commit 53957ba1e4344593caf42feba24df48520c2f954 we had
+     * a mechanism that prevented to send multiple push notification 
+     * simultaneously to the same UA.
+     * For android we had no delay, for iOS we had 10 seconds.
+     * 
+     */
 
-        const uas = target;
+    const mobileUas= uas.filter(({ platform })=> platform !== "web");
 
-        const tasks: Promise<boolean>[] = [];
+    const androidUas= mobileUas.filter(({ platform }) => platform === "android" );
+    const iosUas= mobileUas.filter(({ platform })=> platform === "iOS" );
 
-        for (let ua of uas) {
-
-            tasks[tasks.length] = send(ua, reloadConfig);
-
-        }
-
-        return (await Promise.all(tasks))
-            .reduce((r, elem) => r && elem, true);
-
-    } else {
-
-        const ua = target;
-
-        if (ua.platform === "web") {
-
-            return true;
-
-        }
-
-        let prIsSent = pending.get(ua);
-
-        if (prIsSent) {
-
-            debug("avoid sending push as it was recently sent");
-
-            return prIsSent;
-
-        }
-
-        prIsSent = (async () => {
-
-            try {
-
-                await pushSender.send(
-                    ua.platform as pushSender.Platform,
-                    ua.pushToken,
-                    { "reload_config": !!reloadConfig ? "1" : "0" }
-                );
-
-            } catch{
-
-                return false;
-
-            }
-
-            return true;
-
-        })();
-
-        pending.set(ua, prIsSent);
-
-        return prIsSent;
-
-    }
-
+    return Promise.all([
+        pushSender.send("android", androidUas.map(({ pushToken })=> pushToken ), payload),
+        pushSender.send("iOS", iosUas.map(({ pushToken })=> pushToken ), payload)
+    ]).then(()=> {});
 
 }
 
-namespace pending {
-
-    /** UaId => prIsSent */
-    const map = new Map<string, Promise<boolean>>();
-
-    export function get(
-        ua: gwTypes.Ua
-    ) {
-        return map.get(gwMisc.generateUaId(ua));
-    }
-
-    export function set(
-        ua: gwTypes.Ua,
-        prIsSent: Promise<boolean>
-    ) {
-
-        let uaId = gwMisc.generateUaId(ua);
-
-        switch (ua.platform) {
-            case "iOS":
-                setTimeout(() => map.delete(uaId), 10000);
-                break;
-            case "android":
-                prIsSent.then(() => map.delete(uaId))
-                break;
-        }
-
-        map.set(uaId, prIsSent);
-
-    }
-
-}
 
