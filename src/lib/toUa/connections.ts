@@ -103,8 +103,8 @@ function registerSocket(
         "connection": true,
         "error": true,
         "close": true,
-        "incomingTraffic": false,
-        "outgoingTraffic": false,
+        "incomingTraffic": true,
+        "outgoingTraffic": true,
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
     }, logger.log);

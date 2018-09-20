@@ -9,6 +9,7 @@ import {
 } from "../../tools/webApi";
 import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
+import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 
 
 import { 
@@ -299,7 +300,6 @@ export const handlers: Handlers = {};
                 );
 
                 config[`proxy_${endpointCount}`] = {
-                    //"reg_proxy": `sip:${domain};transport=TLS`,
                     "reg_proxy": `<sip:semasim.com;transport=TLS>`,
                     "reg_route": `sip:semasim.com;transport=TLS;lr`,
                     "reg_expires": `${21601}`,
@@ -326,7 +326,7 @@ export const handlers: Handlers = {};
                     );
 
                     config[`friend_${contactCount}`] = {
-                        "url": `"${safeContactName} (${safeFriendlyName})" <sip:${contact.number_local_format}@semasim.com>`,
+                        "url": `"${safeContactName}" <sip:${contact.number_local_format}@semasim.com;imsi=${sim.imsi}>`,
                         "pol": "accept",
                         "subscribe": "0"
                     };
@@ -435,4 +435,57 @@ export const handlers: Handlers = {};
 
 }
 
+{
 
+    const methodName = "is-sim-online";
+
+    type Params = {
+        email_as_hex: string;
+        password_as_hex: string;
+        imsi: string;
+    };
+
+    const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
+
+    const handler: Handler.Generic<Params> = {
+        "needAuth": false,
+        "contentType": "text/plain; charset=utf-8",
+        "sanityCheck": params => {
+            try {
+                return (
+                    gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
+                    !!hexToUtf8(params.password_as_hex) &&
+                    dcSanityChecks.imsi(params.imsi)
+                );
+            } catch {
+                return false;
+            }
+        },
+        "handler": async params => {
+
+            const email = hexToUtf8(params.email_as_hex).toLowerCase();
+            const password = hexToUtf8(params.password_as_hex);
+
+            const user = await dbSemasim.authenticateUser(email, password);
+
+            if (!user) {
+
+                const error = new Error("User not authenticated");
+
+                internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
+
+                throw error;
+
+            }
+
+            return dbSemasim.getUserSims({ user, email }).then(
+                userSims => userSims.find(({ sim }) => sim.imsi === params.imsi)
+            ).then(userSim => !userSim ? false : userSim.isOnline)
+                .then(isOnline => Buffer.from(isOnline ? "1" : "0", "utf8"));
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
