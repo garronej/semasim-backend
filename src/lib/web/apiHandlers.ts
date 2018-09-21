@@ -316,8 +316,6 @@ export const handlers: Handlers = {};
                     "passwd": password
                 };
 
-                endpointCount++;
-
                 for (const contact of phonebook) {
 
                     //TODO: It's dirty to have this here.
@@ -326,7 +324,7 @@ export const handlers: Handlers = {};
                     );
 
                     config[`friend_${contactCount}`] = {
-                        "url": `"${safeContactName}" <sip:${contact.number_local_format}@semasim.com;imsi=${sim.imsi}>`,
+                        "url": `"${safeContactName} (proxy_${endpointCount})" <sip:${contact.number_local_format}@semasim.com>`,
                         "pol": "accept",
                         "subscribe": "0"
                     };
@@ -334,6 +332,8 @@ export const handlers: Handlers = {};
                     contactCount++;
 
                 }
+                
+                endpointCount++;
 
             }
 
