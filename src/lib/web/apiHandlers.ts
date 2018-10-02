@@ -299,12 +299,21 @@ export const handlers: Handlers = {};
                     format === "XML" ? friendlyName : friendlyName.replace(/"/g, `\\"`)
                 );
 
+                /** 
+                 * iso does not really need to be in the contact parameters.
+                 * The gateway already know the SIM's origin country.
+                 * We set it here however to inform linphone about it,
+                 * linphone does not have the lib to parse IMSI so
+                 * we need to provide this info.
+                 * The fact that the iso travel in the sip messages
+                 * is just a side effect.
+                 * */
                 config[`proxy_${endpointCount}`] = {
                     "reg_proxy": `<sip:semasim.com;transport=TLS>`,
                     "reg_route": `sip:semasim.com;transport=TLS;lr`,
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS;${p_email}>`,
-                    "contact_parameters": p_email,
+                    "contact_parameters": `${p_email};iso=${sim.country?sim.country.iso:"undefined"}`,
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
@@ -324,7 +333,7 @@ export const handlers: Handlers = {};
                     );
 
                     config[`friend_${contactCount}`] = {
-                        "url": `"${safeContactName} (proxy_${endpointCount})" <sip:${contact.number_local_format}@semasim.com>`,
+                        "url": `"${safeContactName} (proxy_${endpointCount})" <sip:${contact.number_raw}@semasim.com>`,
                         "pol": "accept",
                         "subscribe": "0"
                     };
