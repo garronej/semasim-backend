@@ -277,8 +277,7 @@ async function testMain() {
                     "phonebook": sim.storage.contacts.map(c => ({
                         "mem_index": c.index,
                         "name": c.name,
-                        "number_raw": c.number,
-                        "number_local_format": dcMisc.toNationalNumber(c.number, sim.imsi)
+                        "number_raw": c.number
                     }))
                 };
 
@@ -323,13 +322,11 @@ async function testMain() {
 
                 const name = ttTesting.genUtf8Str(30);
                 const number_raw = genUniq.phoneNumber();
-                const number_local_format = dcMisc.toNationalNumber(number_raw, userSim.sim.imsi);
 
                 const c: feTypes.UserSim.Contact = {
                     "mem_index": undefined,
                     name,
-                    number_raw,
-                    number_local_format
+                    number_raw
                 };
 
                 userSim.phonebook.push(c);
@@ -418,8 +415,7 @@ async function testMain() {
                     userSim.phonebook.push({
                         mem_index,
                         name,
-                        number_raw,
-                        "number_local_format": dcMisc.toNationalNumber(number_raw, userSim.sim.imsi)
+                        number_raw
                     });
 
                     userSim.sim.storage.infos.storageLeft--;
@@ -564,7 +560,6 @@ async function testMain() {
                     //storage number updated => full name updated.
                     c.name = updatedContact.name;
                     c.number_raw = updatedContact.number;
-                    c.number_local_format = dcMisc.toNationalNumber(c.number_raw, userSim.sim.imsi);
 
                     if (isStepByStep) {
 

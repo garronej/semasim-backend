@@ -69,7 +69,9 @@ export async function launch(daemonNumber: number) {
         daemonNumber,
         ...(() => {
 
-            const ports = servers.map(server => server.address().port);
+            const ports = servers.map(
+                server => (server.address() as net.AddressInfo).port
+            );
 
             return {
                 "httpsPort": ports[0],

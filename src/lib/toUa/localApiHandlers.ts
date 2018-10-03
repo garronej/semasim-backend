@@ -491,7 +491,6 @@ export const handlers: sip.api.Server.Handlers = {};
                     imsi,
                     name,
                     "number_raw": number,
-                    "number_local_format": "",
                     "storage": storageInfos !== undefined ? ({
                         "mem_index": storageInfos.mem_index,
                         "name_as_stored": storageInfos.name_as_stored,
@@ -504,14 +503,12 @@ export const handlers: sip.api.Server.Handlers = {};
                     .filter(email => email !== auth.email)
             );
 
+            //TODO: see wtf with number local format here why the hell there isnt new_digest.
             return storageInfos !== undefined ? ({
                 "mem_index": storageInfos.mem_index,
-                "number_local_format": "",
-                "name_as_stored_in_sim": storageInfos.name_as_stored
-            }) : ({
-                "mem_index": null,
-                "number_local_format": ""
-            });
+                "name_as_stored_in_sim": storageInfos.name_as_stored,
+                "new_digest": storageInfos.new_storage_digest
+            }) : undefined;
 
         }
     };
@@ -636,7 +633,6 @@ export const handlers: sip.api.Server.Handlers = {};
                     imsi,
                     "name": newName,
                     "number_raw": contact.number_raw,
-                    "number_local_format": contact.number_local_format,
                     "storage": storageInfos !== undefined ? ({
                         "mem_index": storageInfos.mem_index,
                         "name_as_stored": storageInfos.name_as_stored,

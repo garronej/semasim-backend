@@ -6,7 +6,6 @@ import { types as gwTypes } from "../semasim-gateway";
 import * as f from "../tools/mysqlCustom";
 
 import { types as dcTypes } from "chan-dongle-extended-client";
-import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
 import { types as feTypes } from "../semasim-frontend";
 import * as logger from "logger";
 
@@ -271,8 +270,7 @@ export async function updateSimStorage(
                 "mem_index": index,
                 "name_as_stored": name,
                 "number_raw": number,
-                "name": { "@": "new_name" },
-                "number_local_format": dcMisc.toNationalNumber(number, imsi)
+                "name": { "@": "new_name" }
             }, "UPDATE")
         ].join("\n");
 
@@ -360,8 +358,6 @@ export async function createOrUpdateSimContact(
         ""
     ].join("\n");
 
-    const number_local_format = dcMisc.toNationalNumber(number_raw, imsi);
-
     if (!!storageInfos) {
 
         const { mem_index, name_as_stored, new_storage_digest } = storageInfos;
@@ -384,8 +380,7 @@ export async function createOrUpdateSimContact(
                 mem_index,
                 name_as_stored,
                 number_raw,
-                name,
-                number_local_format
+                name
             }, "UPDATE")
         ].join("\n");
 
@@ -400,8 +395,8 @@ export async function createOrUpdateSimContact(
             `SET name=${esc(name)}`,
             "WHERE @contact_ref IS NOT NULL AND id_=@contact_ref",
             ";",
-            "INSERT INTO contact (sim, number_raw, number_local_format, name)",
-            `SELECT @sim_ref, ${esc(number_raw)}, ${esc(number_local_format)}, ${esc(name)}`,
+            "INSERT INTO contact (sim, number_raw, name)",
+            `SELECT @sim_ref, ${esc(number_raw)}, ${esc(name)}`,
             "FROM DUAL WHERE @contact_ref IS NULL",
             ";"
         ].join("\n");
@@ -514,7 +509,6 @@ export async function registerSim(
             "sim": { "@": "sim_ref" },
             "mem_index": contact.index,
             "number_raw": contact.number,
-            "number_local_format": dcMisc.toNationalNumber(contact.number, sim.imsi),
             "name_as_stored": contact.name,
             "name": contact.name
         }, "THROW ERROR");
@@ -670,8 +664,7 @@ export async function getUserSims(
         phonebookBySim[imsi].push({
             mem_index,
             "name": row["name"],
-            "number_raw": row["number_raw"],
-            "number_local_format": row["number_local_format"]
+            "number_raw": row["number_raw"]
         });
 
     }

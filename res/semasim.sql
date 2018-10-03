@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Client :  localhost
--- Généré le :  Mer 05 Septembre 2018 à 19:15
+-- Généré le :  Mer 03 Octobre 2018 à 08:57
 -- Version du serveur :  5.5.55-0+deb8u1
 -- Version de PHP :  5.6.30-0+deb8u1
 
@@ -19,8 +19,6 @@ SET time_zone = "+00:00";
 --
 -- Base de données :  `semasim`
 --
-CREATE DATABASE IF NOT EXISTS `semasim` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
-USE `semasim`;
 
 DELIMITER $$
 --
@@ -75,10 +73,9 @@ CREATE TABLE IF NOT EXISTS `contact` (
   `sim` int(11) NOT NULL,
   `mem_index` smallint(6) DEFAULT NULL,
   `number_raw` varchar(30) COLLATE utf8_bin NOT NULL,
-  `number_local_format` varchar(30) COLLATE utf8_bin NOT NULL,
   `name_as_stored` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `name` varchar(126) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=7009 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -93,7 +90,7 @@ CREATE TABLE IF NOT EXISTS `dongle` (
   `manufacturer` varchar(30) COLLATE utf8_bin NOT NULL,
   `model` varchar(30) COLLATE utf8_bin NOT NULL,
   `firmware_version` varchar(30) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=99 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -107,7 +104,7 @@ CREATE TABLE IF NOT EXISTS `gateway_location` (
   `country_iso` varchar(5) COLLATE utf8_bin DEFAULT NULL,
   `subdivisions` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `city` varchar(50) COLLATE utf8_bin DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=95 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -136,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `sim` (
   `need_password_renewal` tinyint(1) NOT NULL,
   `friendly_name` varchar(126) COLLATE utf8_bin NOT NULL,
   `is_online` tinyint(1) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -151,7 +148,7 @@ CREATE TABLE IF NOT EXISTS `ua` (
   `platform` varchar(10) COLLATE utf8_bin NOT NULL,
   `push_token` varchar(1024) COLLATE utf8_bin NOT NULL,
   `software` varchar(255) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=159 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -164,7 +161,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `email` varchar(150) COLLATE utf8_bin NOT NULL,
   `salt` varchar(16) COLLATE utf8_bin NOT NULL,
   `hash` varchar(40) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=70 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -178,7 +175,7 @@ CREATE TABLE IF NOT EXISTS `user_sim` (
   `sim` int(11) NOT NULL,
   `friendly_name` varchar(124) COLLATE utf8_bin DEFAULT NULL,
   `sharing_request_message` text COLLATE utf8_bin
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 --
 -- Index pour les tables exportées
@@ -234,37 +231,37 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=7009;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=99;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=95;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=51;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=159;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=70;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=57;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=3;
 --
 -- Contraintes pour les tables exportées
 --

@@ -320,7 +320,7 @@ export const handlers: sip.api.Server.Handlers = {};
                         return "REACHABLE";
                     }
 
-                    const prIsSendPushSuccess = pushNotifications.send(
+                    const prPushNotificationSent = pushNotifications.send(
                         [ contact.uaSim.ua ], 
                         pushPayload
                     );
@@ -333,9 +333,9 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     } else {
 
-                        const isSendPushSuccess = await prIsSendPushSuccess;
+                        await prPushNotificationSent;
 
-                        return isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
+                        return "PUSH_NOTIFICATION_SENT";
 
                     }
 
@@ -348,12 +348,12 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     } else {
 
-                        const isSendPushSuccess = await pushNotifications.send(
+                        await pushNotifications.send(
                             [ contact.uaSim.ua ], 
                             pushPayload
                         );
 
-                        return isSendPushSuccess ? "PUSH_NOTIFICATION_SENT" : "UNREACHABLE";
+                        return "PUSH_NOTIFICATION_SENT";
 
                     }
 
