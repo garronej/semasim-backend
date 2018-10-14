@@ -12,6 +12,7 @@ import { networkTools, types as lbTypes } from "../semasim-load-balancer";
 import * as i from "../bin/installer";
 import * as dbSemasim from "./dbSemasim";
 import * as dbWebphone from "./dbWebphone";
+import * as dbTurn from "./dbTurn";
 import * as pushNotifications from "./pushNotifications";
 import * as logger from "logger";
 import * as backendConnections from "./toBackend/connections";
@@ -87,6 +88,8 @@ export async function launch(daemonNumber: number) {
     dbSemasim.launch(interfaceAddress);
 
     dbWebphone.launch(interfaceAddress);
+
+    dbTurn.launch(interfaceAddress);
 
     pushNotifications.launch();
 

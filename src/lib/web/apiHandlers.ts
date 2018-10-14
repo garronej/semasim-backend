@@ -1,6 +1,7 @@
 
 import { webApiDeclaration as apiDeclaration } from "../../semasim-frontend";
 import * as dbSemasim from "../dbSemasim";
+import * as dbTurn from "../dbTurn";
 import { 
     Handler, 
     Handlers, 
@@ -50,7 +51,7 @@ export const handlers: Handlers = {};
             }
 
             await dbSemasim.addOrUpdateUa({
-                "instance": `"<urn:${getUserWebUaInstanceId(user)}>"`,
+                "instance": getUserWebUaInstanceId(user),
                 "userEmail": email,
                 "platform": "web",
                 "pushToken": "",
@@ -157,7 +158,13 @@ export const handlers: Handlers = {};
 {
 
     const methodName = "get-user-linphone-config";
-    type Params = { email_as_hex: string; password_as_hex: string; format?: "XML" | "INI" };;
+
+    type Params = { 
+        email_as_hex: string; 
+        password_as_hex: string; 
+        uuid: string; 
+        format?: "XML" | "INI" 
+    };
 
     const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
@@ -235,6 +242,7 @@ export const handlers: Handlers = {};
                 return (
                     gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
                     !!hexToUtf8(params.password_as_hex) &&
+                    typeof params.uuid === "string" &&
                     (
                         params.format === undefined ||
                         params.format === "INI" ||
@@ -249,6 +257,8 @@ export const handlers: Handlers = {};
 
             const email = hexToUtf8(params.email_as_hex).toLowerCase();
             const password = hexToUtf8(params.password_as_hex);
+
+            const turnAuth= await dbTurn.renewAndGetCred(`"<urn:uuid:${params.uuid}>"`);
 
             const format = params.format || "XML";
 
@@ -279,19 +289,38 @@ export const handlers: Handlers = {};
                 }
 
                 /*
-                if( endpointCount === 0 ){
-
-                    config["sip"]= { 
-                        "default_proxy": `${endpointCount}` 
-                    };
-
-                }
-                */
-
+                 * If we believe what is stated here 
+                 * https://www.slideshare.net/saghul/ice-4414037
+                 * The UDP relay is required only when 
+                 * both the gateway and the client 
+                 * are behind symmetric NATs.
+                 * But so far we do not provide TURN
+                 * access to the gateway because there is no
+                 * way to renew the password.
+                 * In other word we force the user to connect
+                 * he's gateway NOT behind a symmetric NAT
+                 * and thus the UDP relay will never be mandatory.
+                 * Given the fact that linphone does not implement
+                 * TURN relay via TCP and TLS we can disable turn
+                 * all together.
+                 * We leave the everything set up for TURN and
+                 * just remove "turn" from protocol this way 
+                 * if we ever move on ont the gateway side we can quickly
+                 * restore everything.
+                 * 
+                 * The problems we currently have when we enable turn are:
+                 * -On coturn log we sometime have a bunch of those lines:
+                 * 7: session 0...01: realm <semasim> user <cc4...d014>: incoming packet message processed, 
+                 * error 437: Mismatched allocation: wrong transaction ID
+                 * Then linphone does not offer ANY candidate.
+                 * -Outgoing calls are always relayed.
+                 */
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
                     "stun_server": "semasim.com",
-                    "protocols": "stun,ice"
+                    //"protocols": "stun,turn,ice",
+                    "protocols": "stun,ice",
+                    "stun_server_username": turnAuth.username
                 };
 
                 //TODO: It's dirty to have this here, do we even need XML anymore?
@@ -313,7 +342,7 @@ export const handlers: Handlers = {};
                     "reg_route": `sip:semasim.com;transport=TLS;lr`,
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS;${p_email}>`,
-                    "contact_parameters": `${p_email};iso=${sim.country?sim.country.iso:"undefined"}`,
+                    "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"}`,
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
@@ -341,10 +370,17 @@ export const handlers: Handlers = {};
                     contactCount++;
 
                 }
-                
+
                 endpointCount++;
 
             }
+
+            config[`auth_info_${endpointCount}`] = {
+                "username": turnAuth.username,
+                "userid": turnAuth.username,
+                "passwd": turnAuth.credential,
+                "realm": "semasim"
+            };
 
             if (format === "INI") {
 

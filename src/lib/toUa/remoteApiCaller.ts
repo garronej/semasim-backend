@@ -297,3 +297,26 @@ export const notifyLoggedFromOtherTab = (() => {
     return f;
 
 })();
+
+export const notifyIceServer = (() => {
+
+    const methodName = apiDeclaration.notifyIceServer.methodName;
+    type Params = apiDeclaration.notifyIceServer.Params;
+    type Response = apiDeclaration.notifyIceServer.Response;
+
+    return async (uaSocket: sip.Socket, iceServer: Params): Promise<void> => {
+
+        return sip.api.client.sendRequest<Params, Response>(
+            uaSocket,
+            methodName,
+            iceServer,
+            {
+                "timeout": 3 * 1000,
+                "sanityCheck": response => response === undefined
+            }
+        ).catch(() => { });
+
+    };
+
+}) ();
+

@@ -503,7 +503,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     .filter(email => email !== auth.email)
             );
 
-            //TODO: see wtf with number local format here why the hell there isnt new_digest.
+            //TODO: see wtf with number local format here why the hell there isn't new_digest.
             return storageInfos !== undefined ? ({
                 "mem_index": storageInfos.mem_index,
                 "name_as_stored_in_sim": storageInfos.name_as_stored,
@@ -783,10 +783,11 @@ export const handlers: sip.api.Server.Handlers = {};
 
 //Web UA data
 
+/** 
+ format: `"<urn:uuid:f0c12631-a721-3da9-aa41-7122952b90ba>"`
+*/
 export function getUserWebUaInstanceId(user: number): string {
-
-    return `uuid:${uuidv3(`${user}`, "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9")}`;
-
+    return `"<urn:uuid:${uuidv3(`${user}`, "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9")}>"`;
 }
 
 {

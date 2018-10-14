@@ -52,6 +52,10 @@ export function launch( credentials: PushNotificationCredentials) {
      sendByPlatform  = {
         "android": async (tokens, data) => {
 
+            if( tokens.length === 0 ){
+                return;
+            }
+
             const payload: fbAdmin.messaging.MessagingPayload = { "data": data || {} };
 
             const options: fbAdmin.messaging.MessagingOptions = { "priority": "high" };
@@ -68,6 +72,10 @@ export function launch( credentials: PushNotificationCredentials) {
 
         },
         "iOS": async tokens => {
+
+            if( tokens.length === 0 ){
+                return;
+            }
 
             //TODO: Implement data payload.
 

@@ -9,9 +9,10 @@ import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import * as backendConnections from "../toBackend/connections";
 import * as remoteApiCaller from "./remoteApiCaller";
 import * as logger from "logger";
-import { handlers as localApiHandlers } from "./localApiHandlers";
+import { handlers as localApiHandlers, getUserWebUaInstanceId } from "./localApiHandlers";
 import * as dbSemasim from "../dbSemasim";
 import { types as feTypes } from "../../semasim-frontend";
+import * as dbTurn from "../dbTurn";
 
 export function listen(
     server: ws.Server | tls.Server,
@@ -131,7 +132,7 @@ function registerSocket(
             !!backendConnections.getBindedToEmail(auth.email)
         ) {
 
-            //NOTE: this request will lend before notify new route so we do not risk to close the new socket.
+            //NOTE: this request will end before notify new route so we do not risk to close the new socket.
             remoteApiCaller.notifyLoggedFromOtherTab(auth.email);
 
         }
@@ -156,6 +157,27 @@ function registerSocket(
                             userSim, auth.email
                         )
                     )
+            );
+
+            /*
+            We comment out the transport udp as it should never be
+            useful as long as the gateway does not have TURN enabled.
+            */
+            dbTurn.renewAndGetCred(getUserWebUaInstanceId(auth.user)).then(
+                ({ username, credential }) => remoteApiCaller.notifyIceServer(
+                    socket,
+                    {
+                        "urls": [
+                            "stun:turn.semasim.com:19302",
+                            //"turn:turn.semasim.com:19302?transport=udp",
+                            "turn:turn.semasim.com:19302?transport=tcp",
+                            "turns:turn.semasim.com:443?transport=tcp"
+                        ],
+                        username, credential,
+                        "credentialType": "password"
+                    }
+                )
+
             );
 
         }
@@ -189,6 +211,12 @@ function registerSocket(
             "uaAddresses": getByAddress(socket.remoteAddress).size === 0 ?
                 [socket.remoteAddress] : undefined,
         });
+
+        if( !!auth ){
+
+            dbTurn.renewAndGetCred( getUserWebUaInstanceId(auth.user));
+
+        }
 
     });
 
