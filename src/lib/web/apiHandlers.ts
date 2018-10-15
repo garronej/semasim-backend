@@ -1,7 +1,6 @@
 
 import { webApiDeclaration as apiDeclaration } from "../../semasim-frontend";
 import * as dbSemasim from "../dbSemasim";
-import * as dbTurn from "../dbTurn";
 import { 
     Handler, 
     Handlers, 
@@ -10,7 +9,6 @@ import {
 } from "../../tools/webApi";
 import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
-import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 
 
 import { 
@@ -18,9 +16,6 @@ import {
     misc as gwMisc,
     types as gwTypes
 } from "../../semasim-gateway";
-
-import * as html_entities from "html-entities";
-const entities = new html_entities.XmlEntities;
 
 export const handlers: Handlers = {};
 
@@ -157,14 +152,35 @@ export const handlers: Handlers = {};
 
 {
 
-    const methodName = "get-user-linphone-config";
+    const methodName = "version";
+    type Params = {};
+
+    const handler: Handler.Generic<Params> = {
+        "needAuth": false,
+        "contentType": "text/plain; charset=utf-8",
+        "sanityCheck": (params) => params instanceof Object,
+        "handler": async () => Buffer.from(semasim_gateway_version, "utf8")
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = "linphonerc";
 
     type Params = { 
         email_as_hex: string; 
         password_as_hex: string; 
+    } | {
+        email_as_hex: string; 
+        password_as_hex: string; 
         uuid: string; 
-        format?: "XML" | "INI" 
+        platform: gwTypes.Ua.Platform;
+        push_token_as_hex: string;
     };
+
 
     const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
@@ -173,94 +189,40 @@ export const handlers: Handlers = {};
         .join("")
         ;
 
-    const toXml = (config: object): string => {
+    const toIni = (config: object): string => Object.keys(config).map(
+        keySection => [
+            `[${keySection}]`,
+            ...(Object.keys(config[keySection])
+                .map(keyEntry => `${keyEntry}=${config[keySection][keyEntry]}`))
+        ].join("\n")
+    ).join("\n\n");
 
-        return [
-            `<?xml version="1.0" encoding="UTF-8"?>`,
-            [
-                `<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" `,
-                `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" `,
-                `xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">`,
-            ].join(""),
-            ...(() => {
-
-                const sections: string[] = [];
-
-                for (const keySection in config) {
-
-                    sections.push([
-                        `  <section name="${keySection}">`,
-                        ...(() => {
-
-                            const entries: string[] = [];
-
-                            for (const keyEntry in config[keySection]) {
-
-                                entries.push([
-                                    `    <entry name="${keyEntry}" overwrite="true">`,
-                                    entities.encode(config[keySection][keyEntry]),
-                                    `</entry>`
-                                ].join(""));
-
-                            }
-
-                            return entries;
-
-                        })(),
-                        `  </section>`
-                    ].join("\n"));
-
-                }
-
-                return sections;
-
-            })(),
-            `</config>`
-        ].join("\n");
-
-    };
-
-    const toIni = (config: object): string => {
-
-        return Object.keys(config).map(
-            keySection => [
-                `[${keySection}]`,
-                ...(Object.keys(config[keySection])
-                    .map(keyEntry => `${keyEntry}=${config[keySection][keyEntry]}`))
-            ].join("\n")
-        ).join("\n\n");
-
-    };
 
     //text/plain
 
     const handler: Handler.Generic<Params> = {
         "needAuth": false,
-        "contentType": "application/xml; charset=utf-8",
+        "contentType": "text/plain; charset=utf-8",
         "sanityCheck": params => {
             try {
                 return (
                     gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
                     !!hexToUtf8(params.password_as_hex) &&
-                    typeof params.uuid === "string" &&
+                    !("uuid" in params) ||
                     (
-                        params.format === undefined ||
-                        params.format === "INI" ||
-                        params.format === "XML"
+                        "uuid" in params &&
+                        gwMisc.sanityChecks.platform(params.platform) &&
+                        !!hexToUtf8(params.password_as_hex)
                     )
                 );
             } catch {
                 return false;
             }
         },
-        "handler": async (params, _session, _remoteAddress, _req, overwriteResponseContentType) => {
+        "handler": async params => {
 
             const email = hexToUtf8(params.email_as_hex).toLowerCase();
             const password = hexToUtf8(params.password_as_hex);
-
-            const turnAuth= await dbTurn.renewAndGetCred(`"<urn:uuid:${params.uuid}>"`);
-
-            const format = params.format || "XML";
 
             const user = await dbSemasim.authenticateUser(email, password);
 
@@ -271,6 +233,19 @@ export const handlers: Handlers = {};
                 internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
 
                 throw error;
+
+            }
+
+            if ("uuid" in params) {
+
+                await dbSemasim.addOrUpdateUa({
+                    "instance": `"<urn:uuid:${params.uuid}>"`,
+                    "userEmail": email,
+                    "platform": params.platform,
+                    "pushToken": hexToUtf8(params.push_token_as_hex),
+                    //TODO: Remove this field from project.
+                    "software": ""
+                });
 
             }
 
@@ -288,45 +263,14 @@ export const handlers: Handlers = {};
                     continue;
                 }
 
-                /*
-                 * If we believe what is stated here 
-                 * https://www.slideshare.net/saghul/ice-4414037
-                 * The UDP relay is required only when 
-                 * both the gateway and the client 
-                 * are behind symmetric NATs.
-                 * But so far we do not provide TURN
-                 * access to the gateway because there is no
-                 * way to renew the password.
-                 * In other word we force the user to connect
-                 * he's gateway NOT behind a symmetric NAT
-                 * and thus the UDP relay will never be mandatory.
-                 * Given the fact that linphone does not implement
-                 * TURN relay via TCP and TLS we can disable turn
-                 * all together.
-                 * We leave the everything set up for TURN and
-                 * just remove "turn" from protocol this way 
-                 * if we ever move on ont the gateway side we can quickly
-                 * restore everything.
-                 * 
-                 * The problems we currently have when we enable turn are:
-                 * -On coturn log we sometime have a bunch of those lines:
-                 * 7: session 0...01: realm <semasim> user <cc4...d014>: incoming packet message processed, 
-                 * error 437: Mismatched allocation: wrong transaction ID
-                 * Then linphone does not offer ANY candidate.
-                 * -Outgoing calls are always relayed.
-                 */
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
                     "stun_server": "semasim.com",
-                    //"protocols": "stun,turn,ice",
-                    "protocols": "stun,ice",
-                    "stun_server_username": turnAuth.username
+                    "protocols": "stun,ice"
                 };
 
                 //TODO: It's dirty to have this here, do we even need XML anymore?
-                const safeFriendlyName = substitute4BytesChar(
-                    format === "XML" ? friendlyName : friendlyName.replace(/"/g, `\\"`)
-                );
+                const safeFriendlyName = substitute4BytesChar(friendlyName.replace(/"/g, `\\"`));
 
                 /** 
                  * iso does not really need to be in the contact parameters.
@@ -334,8 +278,6 @@ export const handlers: Handlers = {};
                  * We set it here however to inform linphone about it,
                  * linphone does not have the lib to parse IMSI so
                  * we need to provide this info.
-                 * The fact that the iso travel in the sip messages
-                 * is just a side effect.
                  * */
                 config[`proxy_${endpointCount}`] = {
                     "reg_proxy": `<sip:semasim.com;transport=TLS>`,
@@ -356,10 +298,7 @@ export const handlers: Handlers = {};
 
                 for (const contact of phonebook) {
 
-                    //TODO: It's dirty to have this here.
-                    const safeContactName = substitute4BytesChar(
-                        format === "XML" ? contact.name : contact.name.replace(/"/g, `\\"`)
-                    );
+                    const safeContactName = substitute4BytesChar(contact.name.replace(/"/g, `\\"`));
 
                     config[`friend_${contactCount}`] = {
                         "url": `"${safeContactName} (proxy_${endpointCount})" <sip:${contact.number_raw}@semasim.com>`,
@@ -375,23 +314,7 @@ export const handlers: Handlers = {};
 
             }
 
-            config[`auth_info_${endpointCount}`] = {
-                "username": turnAuth.username,
-                "userid": turnAuth.username,
-                "passwd": turnAuth.credential,
-                "realm": "semasim"
-            };
-
-            if (format === "INI") {
-
-                overwriteResponseContentType("text/plain; charset=utf-8");
-
-            }
-
-            return Buffer.from(
-                format === "XML" ? toXml(config) : toIni(config),
-                "utf8"
-            );
+            return Buffer.from(toIni(config), "utf8");
 
         }
     };
@@ -400,137 +323,4 @@ export const handlers: Handlers = {};
 
 }
 
-{
 
-    const methodName = "version";
-    type Params = {};
-
-    const handler: Handler.Generic<Params> = {
-        "needAuth": false,
-        "contentType": "text/plain; charset=utf-8",
-        "sanityCheck": (params) => params instanceof Object,
-        "handler": async () => Buffer.from(semasim_gateway_version, "utf8")
-    };
-
-    handlers[methodName] = handler;
-
-}
-
-{
-
-    const methodName = "declare-ua";
-
-    type Params = {
-        platform: gwTypes.Ua.Platform;
-        email_as_hex: string;
-        password_as_hex: string;
-        uuid: string;
-        push_token_as_hex: string;
-    };;
-
-    const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
-
-    const handler: Handler.Generic<Params> = {
-        "needAuth": false,
-        "contentType": "text/plain; charset=utf-8",
-        "sanityCheck": params => {
-            try {
-                return (
-                    gwMisc.sanityChecks.platform(params.platform) &&
-                    gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
-                    !!hexToUtf8(params.password_as_hex) &&
-                    typeof params.uuid === "string" &&
-                    !!hexToUtf8(params.push_token_as_hex)
-                );
-            } catch {
-                return false;
-            }
-        },
-        "handler": async params => {
-
-            const email = hexToUtf8(params.email_as_hex).toLowerCase();
-            const password = hexToUtf8(params.password_as_hex);
-
-            const user = await dbSemasim.authenticateUser(email, password);
-
-            if (!user) {
-
-                const error = new Error("User not authenticated");
-
-                internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
-
-                throw error;
-
-            }
-
-            await dbSemasim.addOrUpdateUa({
-                "instance": `"<urn:uuid:${params.uuid}>"`,
-                "userEmail": email,
-                "platform": params.platform,
-                "pushToken": hexToUtf8(params.push_token_as_hex),
-                "software": ""
-            });
-
-            return Buffer.from("UA SUCCESSFULLY REGISTERED", "utf8");
-
-        }
-    };
-
-    handlers[methodName] = handler;
-
-}
-
-{
-
-    const methodName = "is-sim-online";
-
-    type Params = {
-        email_as_hex: string;
-        password_as_hex: string;
-        imsi: string;
-    };
-
-    const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
-
-    const handler: Handler.Generic<Params> = {
-        "needAuth": false,
-        "contentType": "text/plain; charset=utf-8",
-        "sanityCheck": params => {
-            try {
-                return (
-                    gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
-                    !!hexToUtf8(params.password_as_hex) &&
-                    dcSanityChecks.imsi(params.imsi)
-                );
-            } catch {
-                return false;
-            }
-        },
-        "handler": async params => {
-
-            const email = hexToUtf8(params.email_as_hex).toLowerCase();
-            const password = hexToUtf8(params.password_as_hex);
-
-            const user = await dbSemasim.authenticateUser(email, password);
-
-            if (!user) {
-
-                const error = new Error("User not authenticated");
-
-                internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
-
-                throw error;
-
-            }
-
-            return dbSemasim.getUserSims({ user, email }).then(
-                userSims => userSims.find(({ sim }) => sim.imsi === params.imsi)
-            ).then(userSim => !userSim ? false : userSim.isOnline)
-                .then(isOnline => Buffer.from(isOnline ? "1" : "0", "utf8"));
-
-        }
-    };
-
-    handlers[methodName] = handler;
-
-}

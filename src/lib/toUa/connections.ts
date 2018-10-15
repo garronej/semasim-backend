@@ -162,21 +162,27 @@ function registerSocket(
             /*
             We comment out the transport udp as it should never be
             useful as long as the gateway does not have TURN enabled.
+            "turn:turn.semasim.com:19302?transport=udp",
             */
             dbTurn.renewAndGetCred(getUserWebUaInstanceId(auth.user)).then(
-                ({ username, credential }) => remoteApiCaller.notifyIceServer(
-                    socket,
-                    {
-                        "urls": [
-                            "stun:turn.semasim.com:19302",
-                            //"turn:turn.semasim.com:19302?transport=udp",
-                            "turn:turn.semasim.com:19302?transport=tcp",
-                            "turns:turn.semasim.com:443?transport=tcp"
-                        ],
-                        username, credential,
-                        "credentialType": "password"
-                    }
-                )
+                ({ username, credential, revoke }) => {
+
+                    remoteApiCaller.notifyIceServer(
+                        socket,
+                        {
+                            "urls": [
+                                "stun:turn.semasim.com:19302",
+                                "turn:turn.semasim.com:19302?transport=tcp",
+                                "turns:turn.semasim.com:443?transport=tcp"
+                            ],
+                            username, credential,
+                            "credentialType": "password"
+                        }
+                    );
+
+                    socket.evtClose.attachOnce(()=> revoke() );
+
+                }
 
             );
 
@@ -211,12 +217,6 @@ function registerSocket(
             "uaAddresses": getByAddress(socket.remoteAddress).size === 0 ?
                 [socket.remoteAddress] : undefined,
         });
-
-        if( !!auth ){
-
-            dbTurn.renewAndGetCred( getUserWebUaInstanceId(auth.user));
-
-        }
 
     });
 
