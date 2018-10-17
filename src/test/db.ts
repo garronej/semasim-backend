@@ -1,4 +1,8 @@
-process.once("unhandledRejection", error => { throw error; });
+
+
+if (require.main === module) {
+    process.once("unhandledRejection", error => { throw error; });
+}
 
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
@@ -20,7 +24,7 @@ export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`)
     "userEmail": email
 });
 
-namespace genUniq {
+export namespace genUniq {
 
     let counter = 1;
 
@@ -52,9 +56,11 @@ namespace genUniq {
 }
 
 export function generateSim(
-    contactCount = ~~(Math.random() * 200)
-    //contactCount: number = 1
+    contactCount = ~~(Math.random() * 200),
+    noSpecialChar: false | "NO SPECIAL CHAR" = false
 ): dcTypes.Sim {
+
+    const genStr = (n: number) => !!noSpecialChar ? ttTesting.genHexStr(n) : ttTesting.genUtf8Str(n);
 
     const sim: dcTypes.Sim = {
         "imsi": genUniq.imsi(),
@@ -66,8 +72,8 @@ export function generateSim(
                 "code": 33
             }),
         "serviceProvider": {
-            "fromImsi": ttTesting.genUtf8Str(10),
-            "fromNetwork": ttTesting.genUtf8Str(5),
+            "fromImsi": genStr(10),
+            "fromNetwork": genStr(5)
         },
         "storage": {
             "number": Date.now() % 2 === 0 ?
@@ -110,29 +116,33 @@ export function generateSim(
 
 (async () => {
 
-    console.log("START TESTING...");
+    if (require.main === module) {
 
-    await db.launch();
+        console.log("START TESTING...");
 
-    (await mysqlCustom.createPoolAndGetApi({
-        ...i.dbAuth,
-        "database": "semasim_express_session",
-        "localAddress": i.dbAuth.host
-    })).query("DELETE FROM sessions");
+        await db.launch();
 
-    await testUser();
+        (await mysqlCustom.createPoolAndGetApi({
+            ...i.dbAuth,
+            "database": "semasim_express_session",
+            "localAddress": i.dbAuth.host
+        })).query("DELETE FROM sessions");
 
-    await testMain();
+        await testUser();
 
-    await db.flush();
+        await testMain();
 
-    console.log("ALL DB TESTS PASSED");
+        await db.flush();
 
-    process.exit(0);
+        console.log("ALL DB TESTS PASSED");
+
+        process.exit(0);
+
+    }
 
 })();
 
-function genIp(): string {
+export function genIp(): string {
 
     let genGroup = () => ~~(Math.random() * 255);
 
@@ -208,7 +218,7 @@ async function testMain() {
     for (let user of [alice, bob, carol, dave]) {
 
         for (const _ of new Array(~~(Math.random() * 10) + 1)) {
-        //for (let _ of [ null ]) {
+            //for (let _ of [ null ]) {
 
             if (user === carol) {
                 break;
@@ -248,19 +258,19 @@ async function testMain() {
 
                         const ip = genIp();
 
-                        try{
+                        try {
 
                             const { countryIso, subdivisions, city } = await geoiplookup(ip);
 
                             return { ip, countryIso, subdivisions, city };
 
-                        }catch{
+                        } catch{
 
-                            return { 
-                                ip, 
-                                "countryIso": undefined, 
-                                "subdivisions": undefined, 
-                                "city": undefined 
+                            return {
+                                ip,
+                                "countryIso": undefined,
+                                "subdivisions": undefined,
+                                "city": undefined
                             };
 
                         }
@@ -631,7 +641,7 @@ async function testMain() {
             sharingRequestMessage
         ),
         {
-            "registered": [bob, carol, dave].map(({ user, email })=> ({ user, email })),
+            "registered": [bob, carol, dave].map(({ user, email }) => ({ user, email })),
             "notRegistered": [unregisteredEmail]
         }
     );
@@ -860,9 +870,9 @@ async function testMain() {
 
     assertSame(
         await db.unregisterSim(dave, alice.userSims[0].sim.imsi),
-        { 
-            "affectedUas": dave.uas,  
-            "owner": { "user": alice.user, "email": alice.email } 
+        {
+            "affectedUas": dave.uas,
+            "owner": { "user": alice.user, "email": alice.email }
         }
     );
 
@@ -914,9 +924,9 @@ async function testMain() {
             alice,
             alice.userSims.shift()!.sim.imsi
         ),
-        { 
-            "affectedUas": alice.uas, 
-            "owner": { "user": alice.user, "email": alice.email } 
+        {
+            "affectedUas": alice.uas,
+            "owner": { "user": alice.user, "email": alice.email }
         }
     );
 

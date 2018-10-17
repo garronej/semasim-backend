@@ -22,15 +22,15 @@ for (const pageName in pagesHtml) {
 
     const file_path = path.join(frontend_dir_path, "pages", pageName, `${pageName}.html`);
 
-    const load = ()=> pagesHtml[pageName]= fs.readFileSync( file_path, "utf8");
+    const read = ()=> pagesHtml[pageName]= fs.readFileSync( file_path, "utf8");
 
-    fs.watch(file_path, () => load());
+    fs.watch(file_path, { "persistent": false }, () => read());
 
-    load();
+    read();
 
 }
 
-const pathToStatic: string = path.join(frontend_dir_path, "static");
+const pathToStatic = path.join(frontend_dir_path, "static");
 
 export {
     webApiDeclaration,

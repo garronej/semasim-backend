@@ -47,6 +47,8 @@ export const pushNotificationCredentials: PushNotificationCredentials = {
     }
 };
 
+export const awsCredentialsFilePath= path.join(private_dir_path, "aws_credentials.ini");
+
 /** Safety function to check if we are running in the current context */
 export async function exit_if_not_run_instance(): Promise<void> {
 

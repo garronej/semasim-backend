@@ -10,6 +10,7 @@ import * as pushNotifications from "../pushNotifications";
 import * as gatewayRemoteApiCaller from "../toGateway/remoteApiCaller";
 import * as remoteApiCaller from "./remoteApiCaller";
 import * as dbWebphone from "../dbWebphone";
+import * as emailSender from "../emailSender";
 const uuidv3 = require("uuid/v3");
 
 import { types as gwTypes, misc as gwMisc } from "../../semasim-gateway";
@@ -249,6 +250,19 @@ export const handlers: sip.api.Server.Handlers = {};
                 auth, imsi, emails, message
             );
 
+            dbSemasim.getUserSims(auth).then(
+                userSims => userSims
+                    .filter(feTypes.UserSim.Owned.match)
+                    .find(({ sim }) => sim.imsi === imsi)!
+            ).then(userSim => emailSender.sharingRequest(
+                auth,
+                userSim,
+                message, [
+                    ...affectedUsers.notRegistered.map(email => ({ email, "isRegistered": false })),
+                    ...affectedUsers.registered.map(({ email }) => ({ email, "isRegistered": true }))
+                ]
+            ));
+
             for (const auth of affectedUsers.registered) {
 
                 dbSemasim.getUserSims(auth)
@@ -261,8 +275,6 @@ export const handlers: sip.api.Server.Handlers = {};
                     ;
 
             }
-
-            //TODO: send emails to notify new sim shared
 
             return undefined;
 
