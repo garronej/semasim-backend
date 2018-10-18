@@ -78,19 +78,18 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ email, password }, session) => {
 
-            let user = await dbSemasim.authenticateUser(email, password);
+            const resp = await dbSemasim.authenticateUser(email, password);
 
-            if (!user) {
+            if (resp.status === "SUCCESS") {
 
-                return false;
+                sessionManager.setAuth(session, {
+                    "user": resp.user,
+                    "email": email.toLowerCase()
+                });
 
             }
 
-            sessionManager.setAuth(session, {
-                user, "email": email.toLocaleLowerCase()
-            });
-
-            return true;
+            return resp;
 
         }
     };
@@ -170,13 +169,13 @@ export const handlers: Handlers = {};
 
     const methodName = "linphonerc";
 
-    type Params = { 
-        email_as_hex: string; 
-        password_as_hex: string; 
+    type Params = {
+        email_as_hex: string;
+        password_as_hex: string;
     } | {
-        email_as_hex: string; 
-        password_as_hex: string; 
-        uuid: string; 
+        email_as_hex: string;
+        password_as_hex: string;
+        uuid: string;
         platform: gwTypes.Ua.Platform;
         push_token_as_hex: string;
     };
@@ -224,16 +223,29 @@ export const handlers: Handlers = {};
             const email = hexToUtf8(params.email_as_hex).toLowerCase();
             const password = hexToUtf8(params.password_as_hex);
 
-            const user = await dbSemasim.authenticateUser(email, password);
+            const authResp = await dbSemasim.authenticateUser(email, password);
 
-            if (!user) {
+            switch (authResp.status) {
+                case "RETRY STILL FORBIDDEN": {
 
-                const error = new Error("User not authenticated");
+                    const error = new Error("Account temporally locked");
 
-                internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
+                    internalErrorCustomHttpCode.set(error, httpCodes.LOCKED);
 
-                throw error;
+                    throw error;
 
+                }
+                case "NO SUCH ACCOUNT":
+                case "WRONG PASSWORD": {
+
+                    const error = new Error("User not authenticated");
+
+                    internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
+
+                    throw error;
+
+                }
+                case "SUCCESS": break;
             }
 
             if ("uuid" in params) {
@@ -256,7 +268,7 @@ export const handlers: Handlers = {};
 
             for (
                 const { sim, friendlyName, password, ownership, phonebook, isOnline }
-                of await dbSemasim.getUserSims({ user, email })
+                of await dbSemasim.getUserSims({ "user": authResp.user, email })
             ) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {

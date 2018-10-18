@@ -136,6 +136,7 @@ export const httpCodes = {
     "OK": 200,
     "BAD_REQUEST": 400,
     "UNAUTHORIZED": 401,
+    "LOCKED": 423,
     "INTERNAL_SERVER_ERROR": 500,
 };
 

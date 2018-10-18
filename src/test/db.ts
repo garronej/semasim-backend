@@ -987,26 +987,83 @@ async function testUser() {
         undefined === await db.createUserAccount(email, "anotherPass")
     );
 
-    console.assert(
-        user === await db.authenticateUser(email, password)
+    ttTesting.assertSame(
+        await db.authenticateUser(email, password),
+        {
+            "status": "SUCCESS",
+            "user": auth.user
+        }
+    );
+
+    ttTesting.assertSame(
+        await db.authenticateUser(email, "not password"),
+        {
+            "status": "WRONG PASSWORD",
+            "retryDelay": 1000
+        }
+    );
+
+    for (const _ in [null, null]) {
+
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        const resp = await db.authenticateUser(email, password);
+
+        if (resp.status !== "RETRY STILL FORBIDDEN") {
+            console.assert(false);
+            return;
+        }
+
+        console.assert(typeof resp.retryDelayLeft === "number" && resp.retryDelayLeft < 1000);
+
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    ttTesting.assertSame(
+        await db.authenticateUser(email, "not password"),
+        {
+            "status": "WRONG PASSWORD",
+            "retryDelay": 2000
+        }
+    );
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    ttTesting.assertSame(
+        await db.authenticateUser(email, "not password"),
+        {
+            "status": "WRONG PASSWORD",
+            "retryDelay": 4000
+        }
+    );
+
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
+    ttTesting.assertSame(
+        await db.authenticateUser(email, password),
+        {
+            "status": "SUCCESS",
+            "user": auth.user
+        }
     );
 
     console.assert(
-        undefined === await db.authenticateUser(email, "not password")
-    );
-
-    console.assert(
-        await db.deleteUser(auth)
+        true === await db.deleteUser(auth)
     );
 
     console.assert(
         false === await db.deleteUser({ "user": 220333, "email": "foo@bar.com" })
     );
 
-    console.assert(
-        undefined === await db.authenticateUser(email, password)
+    ttTesting.assertSame(
+        await db.authenticateUser(email, password),
+        {
+            "status": "NO SUCH ACCOUNT"
+        }
     );
 
+    //Create an account as does the shareSim function
     let { insertId } = await db.query([
         "INSERT INTO user",
         "   (email, salt, hash)",
@@ -1016,28 +1073,44 @@ async function testUser() {
 
     user = insertId;
 
-    console.assert(
-        undefined === await db.authenticateUser(email, password)
+
+    ttTesting.assertSame(
+        await db.authenticateUser(email, password),
+        {
+            "status": "NO SUCH ACCOUNT"
+        }
     );
 
     console.assert(
         user === await db.createUserAccount(email, password)
     );
 
-    console.assert(
-        user === await db.authenticateUser(email, password)
+
+    ttTesting.assertSame(
+        await db.authenticateUser(email, password),
+        {
+            "status": "SUCCESS",
+            "user": user!
+        }
     );
 
-    console.assert(
-        undefined === await db.authenticateUser(email, "not password")
+    ttTesting.assertSame(
+        await db.authenticateUser(email, "not password"),
+        {
+            "status": "WRONG PASSWORD",
+            "retryDelay": 1000
+        }
     );
 
     console.assert(
         await db.deleteUser({ "user": user!, email })
     );
 
-    console.assert(
-        undefined === await db.authenticateUser(email, password)
+    ttTesting.assertSame(
+        await db.authenticateUser(email, password),
+        {
+            "status": "NO SUCH ACCOUNT",
+        }
     );
 
     await db.flush();

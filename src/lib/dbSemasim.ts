@@ -82,26 +82,92 @@ export async function createUserAccount(
 export async function authenticateUser(
     email: string,
     password: string
-): Promise<number | undefined> {
+): Promise<{
+    status: "SUCCESS";
+    user: number;
+} | {
+    status: "NO SUCH ACCOUNT";
+} | {
+    status: "WRONG PASSWORD";
+    retryDelay: number;
+} | {
+    status: "RETRY STILL FORBIDDEN"
+    retryDelayLeft: number;
+}> {
 
     email = email.toLowerCase();
 
-    let rows = await query(
+    const rows = await query(
         `SELECT * FROM user WHERE email= ${esc(email)}`, { email }
     );
 
-    if (!rows.length) {
-        return undefined;
+    if (!rows.length || rows[0]["salt"] === "") {
+
+        return { "status": "NO SUCH ACCOUNT" };
+
     }
 
-    let [{ id_, salt, hash }] = rows;
+    const [row] = rows;
 
-    if (salt === "") {
-        return undefined;
+    let retryDelay: number | undefined = undefined;
+
+    if (row["forbidden_retry_delay"] !== null) {
+
+        retryDelay = row["forbidden_retry_delay"] as number;
+
+        const retryDelayLeft = row["last_attempt_date"] + retryDelay - Date.now();
+
+        if (retryDelayLeft > 0) {
+
+            return {
+                "status": "RETRY STILL FORBIDDEN",
+                retryDelayLeft
+            };
+
+        }
+
     }
 
-    return ((new RIPEMD160()).update(`${password}${salt}`).digest("hex") === hash) ?
-        id_ : undefined;
+    const user: number = row["id_"];
+
+    if ((new RIPEMD160()).update(`${password}${row["salt"]}`).digest("hex") === row["hash"]) {
+
+        if (retryDelay !== undefined) {
+
+            const sql = buildInsertQuery("user", {
+                "id_": user,
+                "forbidden_retry_delay": null,
+                "last_attempt_date": null
+            }, "UPDATE");
+
+            await query(sql, { email });
+
+        }
+
+        return { "status": "SUCCESS", user };
+
+    } else {
+
+        const newRetryDelay = Math.min(
+            retryDelay !== undefined ? retryDelay * 2 : 1000,
+            60000
+        );
+
+        const sql = buildInsertQuery("user", {
+            "id_": user,
+            "forbidden_retry_delay": newRetryDelay,
+            "last_attempt_date": Date.now()
+        }, "UPDATE");
+
+        await query(sql, { email });
+
+        return {
+            "status": "WRONG PASSWORD",
+            "retryDelay": newRetryDelay
+        };
+
+    }
+
 
 }
 
@@ -110,7 +176,7 @@ export async function deleteUser(
     auth: Auth
 ): Promise<boolean> {
 
-    const sql= `DELETE FROM user WHERE id_ = ${esc(auth.user)}`;
+    const sql = `DELETE FROM user WHERE id_ = ${esc(auth.user)}`;
 
     const { affectedRows } = await query(sql, { "email": auth.email });
 
@@ -127,9 +193,9 @@ export async function getUserHash(
 
     email = email.toLowerCase();
 
-    const sql= `SELECT hash FROM user WHERE email= ${esc(email)}`;
+    const sql = `SELECT hash FROM user WHERE email= ${esc(email)}`;
 
-    const rows = await query( sql, { email });
+    const rows = await query(sql, { email });
 
     if (!rows.length) {
         return undefined;
@@ -523,11 +589,11 @@ export async function registerSim(
     ].join("\n");
 
     const queryResults = await query(
-        sql, 
+        sql,
         { "email": auth.email, "imsi": sim.imsi }
     );
 
-    let userUas: gwTypes.Ua[] = [];
+    const userUas: gwTypes.Ua[] = [];
 
     for (let row of queryResults.pop()) {
 
@@ -863,7 +929,7 @@ export async function setSimOnline(
     ].join("\n");
 
     const queryResults = await query(
-        sql, 
+        sql,
         { imsi, "ip": gatewayAddress }
     );
 
@@ -990,7 +1056,7 @@ export async function unregisterSim(
 
     const affectedUas: gwTypes.Ua[] = [];
 
-    for (const row of [ ...queryResults[3], ...queryResults[4]]) {
+    for (const row of [...queryResults[3], ...queryResults[4]]) {
 
         affectedUas.push({
             "instance": row["instance"],
