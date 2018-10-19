@@ -9,6 +9,8 @@ import {
 } from "../../tools/webApi";
 import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
+import * as emailSender from "../emailSender";
+import * as pushNotifications from "../pushNotifications";
 
 
 import { 
@@ -136,11 +138,53 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ email }) => {
 
-            const hash = await dbSemasim.getUserHash(email);
+            const token = await dbSemasim.setPasswordRenewalToken(email);
 
-            //TODO send email
+            if (token !== undefined) {
 
-            return hash !== undefined;
+                await emailSender.passwordRenewalRequest(email, token);
+
+            }
+
+            return token !== undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.renewPassword.methodName;
+    type Params = apiDeclaration.renewPassword.Params;
+    type Response = apiDeclaration.renewPassword.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            gwMisc.isValidEmail(params.email) &&
+            typeof params.newPassword === "string" &&
+            typeof params.token === "string"
+        ),
+        "handler": async ({ email, newPassword, token }) => {
+
+            const wasTokenStillValid= await dbSemasim.renewPassword(email, token, newPassword)
+
+            if( wasTokenStillValid ){
+
+                dbSemasim.getUserUa(email)
+                    .then(uas => pushNotifications.send(
+                        uas,
+                        { "type": "RELOAD CONFIG" }
+                    ));
+
+            }
+
+            return wasTokenStillValid;
 
         }
     };
@@ -295,7 +339,7 @@ export const handlers: Handlers = {};
                     "reg_proxy": `<sip:semasim.com;transport=TLS>`,
                     "reg_route": `sip:semasim.com;transport=TLS;lr`,
                     "reg_expires": `${21601}`,
-                    "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS;${p_email}>`,
+                    "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS>`,
                     "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"}`,
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",

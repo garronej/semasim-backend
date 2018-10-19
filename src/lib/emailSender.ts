@@ -94,7 +94,38 @@ export const sharingRequest = (() => {
 
 })();
 
-function ejsRenderTemplate<T>(templateName: string, data: T): string{
+export const passwordRenewalRequest = (() => {
+
+    const templateName = "password-renewal";
+
+    type Data = {
+        email: string;
+        token: string;
+    };
+
+    return function (
+        email: string,
+        token: string
+    ): Promise<void> {
+
+        return send(
+            "noreply@semasim.com",
+            email,
+            `Semasim password renewal request`,
+            ejsRenderTemplate<Data>(
+                templateName,
+                {
+                    email,
+                    token
+                }
+            )
+        );
+
+    };
+
+})();
+
+function ejsRenderTemplate<T>(templateName: string, data: T): string {
 
     return ejs.render(
         ejsRenderTemplate.getTemplate(templateName),

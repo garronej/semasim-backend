@@ -1,4 +1,3 @@
-import * as RIPEMD160 from "ripemd160";
 import * as crypto from "crypto";
 import { Auth } from "./web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
@@ -58,18 +57,18 @@ export async function createUserAccount(
 
     const salt = crypto.randomBytes(8).toString("hex");
 
-    const hash = (new RIPEMD160()).update(`${password}${salt}`).digest("hex");
+    const digest = crypto.createHash("rmd160").update(`${password}${salt}`).digest("hex");
 
     email = email.toLowerCase();
 
     const sql = [
         "INSERT INTO user",
-        "   ( email, salt, hash )",
+        "   ( email, salt, digest )",
         "VALUES",
-        `   ( ${esc(email)}, ${esc(salt)}, ${esc(hash)})`,
+        `   ( ${esc(email)}, ${esc(salt)}, ${esc(digest)})`,
         "ON DUPLICATE KEY UPDATE",
         "   salt= IF(@update_record:= salt = '', VALUES(salt), salt),",
-        "   hash= IF(@update_record, VALUES(hash), hash)"
+        "   digest= IF(@update_record, VALUES(digest), digest)"
     ].join("\n");
 
     const { insertId } = await query(sql, { email });
@@ -130,7 +129,7 @@ export async function authenticateUser(
 
     const user: number = row["id_"];
 
-    if ((new RIPEMD160()).update(`${password}${row["salt"]}`).digest("hex") === row["hash"]) {
+    if (crypto.createHash("rmd160").update(`${password}${row["salt"]}`).digest("hex") === row["digest"]) {
 
         if (retryDelay !== undefined) {
 
@@ -168,8 +167,51 @@ export async function authenticateUser(
 
     }
 
+}
+
+/**Work for account that have been automatically created due to sharing request. */
+export async function setPasswordRenewalToken(email: string): Promise<string | undefined> {
+
+    email = email.toLowerCase();
+
+    const token = crypto.randomBytes(16).toString("hex");
+
+    const sql= [
+        `UPDATE user`,
+        `SET password_renewal_token=${esc(token)}`,
+        `WHERE email=${esc(email)}`
+    ].join("\n");
+
+    const { affectedRows } = await query(sql, { email });
+
+    return (affectedRows === 1) ? token : undefined;
 
 }
+
+/** return true if token was still valid for email */
+export async function renewPassword(email: string, token: string, newPassword: string): Promise<boolean>{
+
+    const salt = crypto.randomBytes(8).toString("hex");
+
+    const digest = crypto.createHash("rmd160").update(`${newPassword}${salt}`).digest("hex");
+
+    const sql =[
+        `UPDATE user`,
+        `SET`,
+        `salt=${esc(salt)},`,
+        `digest=${esc(digest)},`,
+        `last_attempt_date= NULL,`,
+        `forbidden_retry_delay= NULL,`,
+        `password_renewal_token= NULL`,
+        `WHERE password_renewal_token=${esc(token)} AND email=${esc(email)}`
+    ].join("\n");
+
+    const { affectedRows } = await query(sql, { email });
+
+    return affectedRows === 1;
+    
+}
+
 
 //TODO: Implement and when it's done enforce providing email for lock.
 export async function deleteUser(
@@ -183,31 +225,6 @@ export async function deleteUser(
     const isDeleted = affectedRows !== 0;
 
     return isDeleted;
-
-}
-
-//TODO: use in password recovery
-export async function getUserHash(
-    email: string
-): Promise<string | undefined> {
-
-    email = email.toLowerCase();
-
-    const sql = `SELECT hash FROM user WHERE email= ${esc(email)}`;
-
-    const rows = await query(sql, { email });
-
-    if (!rows.length) {
-        return undefined;
-    }
-
-    const [{ hash }] = rows;
-
-    if (hash === "") {
-        return undefined;
-    } else {
-        return hash;
-    }
 
 }
 
@@ -349,6 +366,38 @@ export async function updateSimStorage(
     sql += `DELETE FROM contact WHERE sim=@sim_ref AND mem_index IS NOT NULL ${where_clause}`;
 
     await query(sql, { imsi });
+
+}
+
+//TODO: Test!
+export async function getUserUa(email: string): Promise<gwTypes.Ua[]> {
+
+    email = email.toLowerCase();
+
+    const sql = [
+        "SELECT ua.*",
+        "FROM ua",
+        "INNER JOIN user ON user.id_= ua.user",
+        `WHERE user.email=${esc(email)}`,
+    ].join("\n");
+
+    const uas: gwTypes.Ua[] = [];
+
+    const rows = await query(sql);
+
+    for (const row of rows) {
+
+        uas.push({
+            "instance": row["instance"],
+            "userEmail": email,
+            "platform": row["platform"],
+            "pushToken": row["push_token"],
+            "software": row["software"]
+        });
+
+    }
+
+    return uas;
 
 }
 
@@ -1104,7 +1153,7 @@ export async function shareSim(
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own sim')",
         ";",
         "INSERT IGNORE INTO user",
-        "   (email, salt, hash)",
+        "   (email, salt, digest)",
         "VALUES",
         emails.map(email => `   ( ${esc(email)}, '', '')`).join(",\n"),
         ";",

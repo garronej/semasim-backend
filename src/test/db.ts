@@ -1066,7 +1066,7 @@ async function testUser() {
     //Create an account as does the shareSim function
     let { insertId } = await db.query([
         "INSERT INTO user",
-        "   (email, salt, hash)",
+        "   (email, salt, digest)",
         "VALUES",
         `   ( ${db.esc(email)}, '', '')`
     ].join("\n"));
@@ -1113,8 +1113,81 @@ async function testUser() {
         }
     );
 
-    await db.flush();
+    {
 
-    console.log("TEST USER PASS");
+        for (const ovToken of [false, true]) {
+
+            await db.flush();
+
+            console.assert(
+                await db.setPasswordRenewalToken("thisEmailDoesNotExist@gmail.com")
+                ===
+                undefined
+            );
+
+            const email= "alice@gmail.com";
+            const password = "theCoolPasswordSecure++";
+
+            let user = await db.createUserAccount(email, password);
+
+            const auth = { "user": user!, email };
+
+            let token = await db.setPasswordRenewalToken(auth.email);
+
+            if (!token) throw new Error();
+
+            console.assert(token.length === 32);
+
+            console.assert(
+                await db.renewPassword("thisEmailDoesNotExist@gmail.com", token, "fooBarPass")
+                ===
+                false
+            );
+
+            console.assert(
+                await db.renewPassword(auth.email, "notTheToken", "fooBarPass")
+                ===
+                false
+            );
+
+            if (ovToken) {
+
+                token = await db.setPasswordRenewalToken(auth.email);
+
+                if (!token) throw new Error();
+
+            }
+
+            const newPassword = "theSuperNewPasswordSecure++++";
+
+            console.assert(
+                await db.renewPassword(auth.email, token, newPassword)
+                ===
+                true
+            );
+
+            const failedAuth = await db.authenticateUser(auth.email, password)
+
+            if (failedAuth.status !== "WRONG PASSWORD") throw new Error();
+
+            await new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
+
+            ttTesting.assertSame(
+                await db.authenticateUser(auth.email, newPassword),
+                {
+                    "status": "SUCCESS",
+                    "user": auth.user
+                }
+            );
+
+            console.assert(
+                await db.renewPassword(auth.email, token, "fooBarPassword")
+                ===
+                false
+            );
+
+        }
+
+    }
 
 }
