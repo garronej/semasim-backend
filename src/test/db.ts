@@ -202,7 +202,15 @@ async function testMain() {
 
     const genUser = async (email: string = `${ttTesting.genHexStr(20)}@foobar.com`) =>
         ({
-            "user": (await db.createUserAccount(email, ttTesting.genUtf8Str(10)))!,
+            "user": await (async ()=>{
+
+                const createUserResp= await db.createUserAccount(email, ttTesting.genUtf8Str(10), "1.1.1.1");
+
+                await db.validateUserEmail(email, createUserResp!.activationCode!);
+
+                return createUserResp!.user;
+
+            })(),
             email,
             "userSims": [] as feTypes.UserSim[],
             "uas": [] as gwTypes.Ua[]
@@ -969,22 +977,30 @@ async function testUser() {
 
     await db.flush();
 
+    const ip= "1.1.1.1";
+
     let email = "joseph.garrone.gj@gmail.com";
 
     let password = "fooBarBazBazBaz";
 
-    let user = await db.createUserAccount(email, password);
-
-    const auth = { "user": user!, email };
-
-    console.assert(typeof user === "number");
+    const createAccountResp = await db.createUserAccount(email, password, ip);
 
     console.assert(
-        undefined === await db.createUserAccount(email, password)
+        await db.validateUserEmail(email, createAccountResp!.activationCode!)
+        ===
+        true
+    );
+
+    const auth = { "user": createAccountResp!.user, email };
+
+    console.assert(createAccountResp !== undefined);
+
+    console.assert(
+        undefined === await db.createUserAccount(email, password, ip)
     );
 
     console.assert(
-        undefined === await db.createUserAccount(email, "anotherPass")
+        undefined === await db.createUserAccount(email, "anotherPass", ip)
     );
 
     ttTesting.assertSame(
@@ -1064,15 +1080,12 @@ async function testUser() {
     );
 
     //Create an account as does the shareSim function
-    let { insertId } = await db.query([
+    let { insertId: phonyUser } = await db.query([
         "INSERT INTO user",
-        "   (email, salt, digest)",
+        "   (email, salt, digest, creation_date, ip)",
         "VALUES",
-        `   ( ${db.esc(email)}, '', '')`
+        `   ( ${db.esc(email)}, '', '', '', '')`
     ].join("\n"));
-
-    user = insertId;
-
 
     ttTesting.assertSame(
         await db.authenticateUser(email, password),
@@ -1081,16 +1094,24 @@ async function testUser() {
         }
     );
 
-    console.assert(
-        user === await db.createUserAccount(email, password)
-    );
+    {
+
+        const createAccountResp = await db.createUserAccount(email, password, ip);
+
+        console.assert(
+            phonyUser === createAccountResp!.user
+        );
+
+        console.assert(createAccountResp!.activationCode === null);
+
+    }
 
 
     ttTesting.assertSame(
         await db.authenticateUser(email, password),
         {
             "status": "SUCCESS",
-            "user": user!
+            "user": phonyUser!
         }
     );
 
@@ -1103,7 +1124,7 @@ async function testUser() {
     );
 
     console.assert(
-        await db.deleteUser({ "user": user!, email })
+        await db.deleteUser({ "user": phonyUser!, email })
     );
 
     ttTesting.assertSame(
@@ -1125,12 +1146,14 @@ async function testUser() {
                 undefined
             );
 
-            const email= "alice@gmail.com";
+            const email = "alice@gmail.com";
             const password = "theCoolPasswordSecure++";
 
-            let user = await db.createUserAccount(email, password);
+            const createAccountResp = await db.createUserAccount(email, password, ip);
 
-            const auth = { "user": user!, email };
+            await db.validateUserEmail(email, createAccountResp!.activationCode!);
+
+            const auth = { "user": createAccountResp!.user, email };
 
             let token = await db.setPasswordRenewalToken(auth.email);
 
@@ -1190,4 +1213,81 @@ async function testUser() {
 
     }
 
+    await db.flush();
+
+    {
+
+        console.assert(
+            await db.validateUserEmail("thisEmailDoesNotExist@gmail.com", "0000")
+            ===
+            false
+        );
+
+        const email = "foo-bar@gmail.com";
+        const password = "the_super_secret_password";
+
+        const accountCreationResp = await db.createUserAccount(email, password, "1.1.1.1");
+
+        ttTesting.assertSame(
+            await db.authenticateUser(email, password),
+            {
+                "status": "NOT VALIDATED YET"
+            }
+        );
+
+
+        console.assert(
+            await db.validateUserEmail(email, accountCreationResp!.activationCode!)
+            ===
+            true
+        );
+
+
+        ttTesting.assertSame(
+            await db.authenticateUser(email, password),
+            {
+                "status": "SUCCESS",
+                "user": accountCreationResp!.user!
+            }
+        );
+
+
+
+    }
+
+    await db.flush();
+
+    {
+
+        const email = "foo-bar@gmail.com";
+        const password = "the_super_secret_password";
+
+        //Create an account as does the shareSim function
+        const { insertId: phonyUser } = await db.query([
+            "INSERT INTO user",
+            "   (email, salt, digest, creation_date, ip)",
+            "VALUES",
+            `   ( ${db.esc(email)}, '', '', '', '')`
+        ].join("\n"));
+
+
+        ttTesting.assertSame(
+            await db.createUserAccount(email, password, "1.1.1.1"),
+            {
+                "user": phonyUser,
+                "activationCode": null
+            }
+        );
+
+        ttTesting.assertSame(
+            await db.authenticateUser(email, password),
+            {
+                "status": "SUCCESS",
+                "user": phonyUser
+            }
+        );
+
+    }
+
+    await db.flush();
 }

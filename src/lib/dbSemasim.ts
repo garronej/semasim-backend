@@ -52,28 +52,85 @@ export async function flush() {
  * */
 export async function createUserAccount(
     email: string,
-    password: string
-): Promise<number | undefined> {
+    password: string,
+    ip: string
+): Promise<{ user: number; activationCode: string | null; } | undefined> {
 
     const salt = crypto.randomBytes(8).toString("hex");
 
     const digest = crypto.createHash("rmd160").update(`${password}${salt}`).digest("hex");
 
+    //Four digits
+    let activationCode: string | null = (new Array(4))
+        .fill(0)
+        .map(() => Math.random().toFixed(1)[2])
+        .join("");
+
     email = email.toLowerCase();
 
     const sql = [
+        `SELECT @update_record:=NULL;`,
         "INSERT INTO user",
-        "   ( email, salt, digest )",
+        "   ( email, salt, digest, activation_code, creation_date, ip )",
         "VALUES",
-        `   ( ${esc(email)}, ${esc(salt)}, ${esc(digest)})`,
+        `   ( ${esc(email)}, ${esc(salt)}, ${esc(digest)}, ${esc(activationCode)}, ${esc(Date.now())}, ${esc(ip)})`,
         "ON DUPLICATE KEY UPDATE",
         "   salt= IF(@update_record:= salt = '', VALUES(salt), salt),",
-        "   digest= IF(@update_record, VALUES(digest), digest)"
+        "   digest= IF(@update_record, VALUES(digest), digest),",
+        "   activation_code= IF(@update_record, NULL, activation_code),",
+        "   creation_date= IF(@update_record, VALUES(creation_date), creation_date),",
+        "   ip= IF(@update_record, VALUES(ip), ip)",
+        ";",
+        `SELECT @update_record AS update_record`
     ].join("\n");
 
-    const { insertId } = await query(sql, { email });
+    //console.log(sql);
 
-    return (insertId !== 0) ? insertId : undefined;
+    const res= await query(sql, { email });
+
+    //console.log(res);
+
+    const { insertId } = res[1];
+
+    if( insertId === 0 ){
+        return undefined;
+    }else{
+
+        const user= insertId;
+
+        if( res.slice(-1)[0][0]["update_record"] !== null ){
+
+            activationCode= null;
+
+        }
+
+        return { user, activationCode };
+
+    }
+
+}
+
+/** 
+ * Return true if the account was validated
+ * False may occur if the user try to validate again
+ * an email that have been validated already.
+ */
+export async function validateUserEmail(
+    email: string,
+    activationCode: string
+): Promise<boolean> {
+
+    email = email.toLowerCase();
+
+    const sql = [
+        `UPDATE user `,
+        `SET activation_code=NULL`,
+        `WHERE activation_code=${esc(activationCode)}`
+    ].join("\n");
+
+    const { affectedRows } = await query(sql, { email });
+
+    return affectedRows === 1;
 
 }
 
@@ -92,13 +149,24 @@ export async function authenticateUser(
 } | {
     status: "RETRY STILL FORBIDDEN"
     retryDelayLeft: number;
+} | {
+    status: "NOT VALIDATED YET"
 }> {
 
     email = email.toLowerCase();
 
-    const rows = await query(
-        `SELECT * FROM user WHERE email= ${esc(email)}`, { email }
-    );
+    const sql = [
+        `SELECT`,
+        `   id_,`,
+        `   salt,`,
+        `   digest,`,
+        `   last_attempt_date,`,
+        `   forbidden_retry_delay,`,
+        `   activation_code`,
+        `FROM user WHERE email= ${esc(email)}`
+    ].join("\n")
+
+    const rows = await query(sql, { email });
 
     if (!rows.length || rows[0]["salt"] === "") {
 
@@ -107,6 +175,12 @@ export async function authenticateUser(
     }
 
     const [row] = rows;
+
+    if (row["activation_code"] !== null) {
+
+        return { "status": "NOT VALIDATED YET" };
+
+    }
 
     let retryDelay: number | undefined = undefined;
 
@@ -176,7 +250,7 @@ export async function setPasswordRenewalToken(email: string): Promise<string | u
 
     const token = crypto.randomBytes(16).toString("hex");
 
-    const sql= [
+    const sql = [
         `UPDATE user`,
         `SET password_renewal_token=${esc(token)}`,
         `WHERE email=${esc(email)}`
@@ -189,13 +263,13 @@ export async function setPasswordRenewalToken(email: string): Promise<string | u
 }
 
 /** return true if token was still valid for email */
-export async function renewPassword(email: string, token: string, newPassword: string): Promise<boolean>{
+export async function renewPassword(email: string, token: string, newPassword: string): Promise<boolean> {
 
     const salt = crypto.randomBytes(8).toString("hex");
 
     const digest = crypto.createHash("rmd160").update(`${newPassword}${salt}`).digest("hex");
 
-    const sql =[
+    const sql = [
         `UPDATE user`,
         `SET`,
         `salt=${esc(salt)},`,
@@ -209,7 +283,7 @@ export async function renewPassword(email: string, token: string, newPassword: s
     const { affectedRows } = await query(sql, { email });
 
     return affectedRows === 1;
-    
+
 }
 
 
@@ -1153,9 +1227,9 @@ export async function shareSim(
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own sim')",
         ";",
         "INSERT IGNORE INTO user",
-        "   (email, salt, digest)",
+        "   (email, salt, digest, creation_date, ip)",
         "VALUES",
-        emails.map(email => `   ( ${esc(email)}, '', '')`).join(",\n"),
+        emails.map(email => `   ( ${esc(email)}, '', '', 0, '')`).join(",\n"),
         ";",
         "DROP TABLE IF EXISTS _user",
         ";",

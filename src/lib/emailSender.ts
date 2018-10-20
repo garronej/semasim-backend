@@ -109,7 +109,7 @@ export const passwordRenewalRequest = (() => {
     ): Promise<void> {
 
         return send(
-            "noreply@semasim.com",
+            "semasim@semasim.com",
             email,
             `Semasim password renewal request`,
             ejsRenderTemplate<Data>(
@@ -117,6 +117,37 @@ export const passwordRenewalRequest = (() => {
                 {
                     email,
                     token
+                }
+            )
+        );
+
+    };
+
+})();
+
+export const emailValidation = (() => {
+
+    const templateName = "email-validation";
+
+    type Data = {
+        email: string;
+        code: string;
+    };
+
+    return function (
+        email: string,
+        activationCode: string
+    ): Promise<void> {
+
+        return send(
+            "noreply@semasim.com",
+            email,
+            `${activationCode} is the Semasim activation code`,
+            ejsRenderTemplate<Data>(
+                templateName,
+                {
+                    email,
+                    "code": activationCode
                 }
             )
         );

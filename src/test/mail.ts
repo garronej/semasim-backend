@@ -75,6 +75,10 @@ import { geoiplookup } from "../tools/geoiplookup";
         [ { "email": targetUserEmail, "isRegistered": false } ]
     );
 
-    console.log("DONE");
+    await emailSender.passwordRenewalRequest("joseph.garrone.gj@gmail.com", "123123123123131323");
+
+    await emailSender.emailValidation("joseph.garrone.gj@gmail.com", "1234");
+
+    console.log("DONE !");
 
 })();

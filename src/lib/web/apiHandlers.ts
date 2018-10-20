@@ -1,11 +1,11 @@
 
 import { webApiDeclaration as apiDeclaration } from "../../semasim-frontend";
 import * as dbSemasim from "../dbSemasim";
-import { 
-    Handler, 
-    Handlers, 
-    internalErrorCustomHttpCode, 
-    httpCodes 
+import {
+    Handler,
+    Handlers,
+    internalErrorCustomHttpCode,
+    httpCodes
 } from "../../tools/webApi";
 import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
@@ -13,8 +13,8 @@ import * as emailSender from "../emailSender";
 import * as pushNotifications from "../pushNotifications";
 
 
-import { 
-    version as semasim_gateway_version ,
+import {
+    version as semasim_gateway_version,
     misc as gwMisc,
     types as gwTypes
 } from "../../semasim-gateway";
@@ -39,25 +39,65 @@ export const handlers: Handlers = {};
             gwMisc.isValidEmail(params.email) &&
             typeof params.password === "string"
         ),
-        "handler": async ({ email, password }) => {
+        "handler": async ({ email, password }, _session, remoteAddress) => {
 
-            const user = await dbSemasim.createUserAccount(email, password);
+            email = email.toLowerCase();
 
-            if (!user) {
+            const accountCreationResp = await dbSemasim.createUserAccount(
+                email, password, remoteAddress
+            );
+
+            if (!accountCreationResp) {
                 return "EMAIL NOT AVAILABLE";
             }
 
             await dbSemasim.addOrUpdateUa({
-                "instance": getUserWebUaInstanceId(user),
+                "instance": getUserWebUaInstanceId(accountCreationResp.user),
                 "userEmail": email,
                 "platform": "web",
                 "pushToken": "",
                 "software": "JsSIP"
             });
 
-            return "CREATED";
+            if (accountCreationResp.activationCode !== null) {
+
+                emailSender.emailValidation(
+                    email,
+                    accountCreationResp.activationCode
+                );
+
+                return "CREATED";
+
+            }else{
+
+                return "CREATED NO ACTIVATION REQUIRED";
+
+            }
 
         }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.validateEmail.methodName;
+    type Params = apiDeclaration.validateEmail.Params;
+    type Response = apiDeclaration.validateEmail.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            gwMisc.isValidEmail(params.email) &&
+            typeof params.activationCode === "string" &&
+            params.activationCode.length === 4
+        ),
+        "handler": ({ email, activationCode }) =>
+            dbSemasim.validateUserEmail(email, activationCode)
     };
 
     handlers[methodName] = handler;
@@ -172,9 +212,9 @@ export const handlers: Handlers = {};
         ),
         "handler": async ({ email, newPassword, token }) => {
 
-            const wasTokenStillValid= await dbSemasim.renewPassword(email, token, newPassword)
+            const wasTokenStillValid = await dbSemasim.renewPassword(email, token, newPassword)
 
-            if( wasTokenStillValid ){
+            if (wasTokenStillValid) {
 
                 dbSemasim.getUserUa(email)
                     .then(uas => pushNotifications.send(
@@ -279,6 +319,7 @@ export const handlers: Handlers = {};
                     throw error;
 
                 }
+                case "NOT VALIDATED YET":
                 case "NO SUCH ACCOUNT":
                 case "WRONG PASSWORD": {
 
