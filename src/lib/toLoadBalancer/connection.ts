@@ -5,6 +5,7 @@ import * as remoteApiCaller from "./remoteApiCaller";
 import * as logger from "logger";
 import * as backendConnections from "../toBackend/connections";
 import { getLocalRunningInstance } from "../launch";
+import * as dbSemasim from "../dbSemasim";
 
 const debug = logger.debugFactory();
 
@@ -86,15 +87,23 @@ export async function connect() {
         getLocalRunningInstance(), loadBalancerSocket
     );
 
-    for (const runningInstance of runningInstances) {
+    if (runningInstances.length === 0) {
 
-        backendConnections.connect(
-            runningInstance,
-            () => remoteApiCaller.isInstanceStillRunning(
+        dbSemasim.setAllSimOffline();
+
+    } else {
+
+        for (const runningInstance of runningInstances) {
+
+            backendConnections.connect(
                 runningInstance,
-                loadBalancerSocket
-            )
-        );
+                () => remoteApiCaller.isInstanceStillRunning(
+                    runningInstance,
+                    loadBalancerSocket
+                )
+            );
+
+        }
 
     }
 

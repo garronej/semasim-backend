@@ -21,11 +21,11 @@ export const dbAuth = {
     "password": "5iv2hG50BAhbU7bL"
 };
 
-const private_dir_path = path.normalize(path.join(module_dir_path, "..", "private"));
+const keys_dir_path = path.normalize(path.join(module_dir_path, "..", "semasim-keys"));
 
 export const tlsPath = (() => {
 
-    const build = (fileName: string) => path.join(private_dir_path, "domain-certificates", fileName);
+    const build = (fileName: string) => path.join(keys_dir_path, "domain-certificates", fileName);
 
     return {
         "key": build("privkey.pem"),
@@ -37,17 +37,17 @@ export const tlsPath = (() => {
 
 export const pushNotificationCredentials: PushNotificationCredentials = {
     "android": {
-        "pathToServiceAccount": path.join(private_dir_path, "semasimdev-firebase-adminsdk.json")
+        "pathToServiceAccount": path.join(keys_dir_path, "semasimdev-firebase-adminsdk.json")
     },
     "iOS": {
-        "pathToKey": path.join(private_dir_path, "AuthKey_Y84XM8SSNL.p8"),
+        "pathToKey": path.join(keys_dir_path, "AuthKey_Y84XM8SSNL.p8"),
         "keyId": "Y84XM8SSNL",
         "teamId": "TW9WZG49Q3",
         "appId": "com.semasim.semasim"
     }
 };
 
-export const awsCredentialsFilePath= path.join(private_dir_path, "aws_credentials.ini");
+export const awsCredentialsFilePath= path.join(keys_dir_path, "aws_credentials.ini");
 
 /** Safety function to check if we are running in the current context */
 export async function exit_if_not_run_instance(): Promise<void> {

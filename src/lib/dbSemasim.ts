@@ -1077,11 +1077,28 @@ export async function setSimOnline(
 
 }
 
+export async function setAllSimOffline(
+    imsis?: string[]
+): Promise<void> {
+
+    const sql = [
+        `LOCK TABLES sim WRITE;`,
+        `UPDATE sim`,
+        `SET is_online=0`,
+        `WHERE ${!imsis ? `1` : imsis.map(imsi => `imsi=${esc(imsi)}`).join(" OR ")}`,
+        `;`,
+        `UNLOCK TABLES;`
+    ].join("\n");
+
+    await query(sql);
+
+}
+
+
 //TODO: This function is only partially tested.
 /** Return userSims by imsi */
 export async function setSimsOffline(
-    imsis: string[],
-    doNotFetchUas: false | "DO NOT FETCH UAS" = false
+    imsis: string[]
 ): Promise<{ [imsi: string]: gwTypes.Ua[]; }> {
 
     if (imsis.length === 0) {
@@ -1095,28 +1112,20 @@ export async function setSimsOffline(
         ""
     ].join("\n");
 
-    if (!doNotFetchUas) {
+    sql += `SELECT @sim_ref:=NULL;`;
 
-        sql += `SELECT @sim_ref:=NULL;`;
+    for (const imsi of imsis) {
 
-        for (const imsi of imsis) {
-
-            sql += [
-                ``,
-                `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)};`,
-                retrieveUasRegisteredToSim.sql + ";",
-                ``
-            ].join("\n");
-
-        }
+        sql += [
+            ``,
+            `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)};`,
+            retrieveUasRegisteredToSim.sql + ";",
+            ``
+        ].join("\n");
 
     }
 
     const queryResults = await query(sql, { "imsi": imsis });
-
-    if (!!doNotFetchUas) {
-        return {};
-    }
 
     const out: { [imsi: string]: gwTypes.Ua[]; } = {};
 

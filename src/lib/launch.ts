@@ -27,9 +27,8 @@ export async function beforeExit() {
 
     debug("BeforeExit...");
 
-    await dbSemasim.setSimsOffline(
-        gatewayConnections.getImsis(),
-        "DO NOT FETCH UAS"
+    await dbSemasim.setAllSimOffline(
+        gatewayConnections.getImsis()
     );
 
     debug("BeforeExit completed in time");
@@ -123,13 +122,13 @@ export async function launch(daemonNumber: number) {
 
 async function getSpoofedLocalAddressAndPort() {
 
-    /* CNAME www.semasim.com => A semasim.com => '52.58.64.189' */
+    /* CNAME www.semasim.com => A semasim.com => '<dynamic ip>' */
     const address1 = await networkTools.resolve4("www.semasim.com");
 
-    /* SRV _sips._tcp.semasim.com => [ { name: 'sip.semasim.com,port', port: 443 } ] */
+    /* SRV _sips._tcp.semasim.com => [ { name: 'sip.semasim.com', port: 443 } ] */
     const [sipSrv] = await networkTools.resolveSrv("_sips._tcp.semasim.com");
 
-    /* A _sips._tcp.semasim.com => '52.57.54.73' */
+    /* A _sips._tcp.semasim.com => '<dynamic ip>' */
     const address2 = await networkTools.resolve4(sipSrv.name);
 
     const _wrap = (localAddress: string, localPort: number) => ({ localAddress, localPort });

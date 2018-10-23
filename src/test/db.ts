@@ -969,6 +969,35 @@ async function testMain() {
         [dongles[0]]
     );
 
+
+    alice.userSims.forEach(userSim => userSim.isOnline = false);
+
+    await db.setAllSimOffline(
+        alice.userSims.map(({ sim }) => sim.imsi)
+    );
+
+    ttTesting.assertSame(
+        await db.getUserSims(alice),
+        alice.userSims
+    );
+
+    [bob, carol, dave]
+        .map(({ userSims }) => userSims)
+        .reduce((prev, curr) => [...prev, ...curr], [])
+        .forEach(userSim => userSim.isOnline = false)
+        ;
+
+    await db.setAllSimOffline();
+
+    for (const user of [bob, carol, dave]) {
+
+        ttTesting.assertSame(
+            await db.getUserSims(user),
+            user.userSims
+        );
+
+    }
+
     console.log("PASS MAIN");
 
 }
@@ -977,7 +1006,7 @@ async function testUser() {
 
     await db.flush();
 
-    const ip= "1.1.1.1";
+    const ip = "1.1.1.1";
 
     let email = "joseph.garrone.gj@gmail.com";
 
