@@ -1,10 +1,10 @@
 
 //TODO: Adapt
 
-import * as types from "../../semasim-frontend/shared/dist/lib/types";
-import * as webApiDeclaration from "../../semasim-frontend/shared/dist/web_api_declaration";
-import * as api_decl_backendToUa from "../../semasim-frontend/shared/dist/sip_api_declarations/backendToUa";
-import * as api_decl_uaToBackend from "../../semasim-frontend/shared/dist/sip_api_declarations/uaToBackend";
+import * as types from "../../frontend/shared/dist/lib/types";
+import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declaration";
+import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
+import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
 
 import * as fs from "fs";
 import * as path from "path";
