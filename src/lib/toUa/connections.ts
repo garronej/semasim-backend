@@ -3,7 +3,7 @@ import * as sip from "ts-sip";
 import * as ws from "ws";
 import * as sessionManager from "../web/sessionManager";
 import * as tls from "tls";
-import { misc as gwMisc } from "../../semasim-gateway";
+import { misc as gwMisc } from "../../gateway";
 import * as router from "./router";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import * as backendConnections from "../toBackend/connections";
@@ -11,8 +11,9 @@ import * as remoteApiCaller from "./remoteApiCaller";
 import * as logger from "logger";
 import { handlers as localApiHandlers, getUserWebUaInstanceId } from "./localApiHandlers";
 import * as dbSemasim from "../dbSemasim";
-import { types as feTypes } from "../../semasim-frontend";
+import { types as feTypes } from "../../frontend";
 import * as dbTurn from "../dbTurn";
+import { deploy } from "../../deploy";
 
 export function listen(
     server: ws.Server | tls.Server,
@@ -171,9 +172,9 @@ function registerSocket(
                         socket,
                         {
                             "urls": [
-                                "stun:turn.semasim.com:19302",
-                                "turn:turn.semasim.com:19302?transport=tcp",
-                                "turns:turn.semasim.com:443?transport=tcp"
+                                `stun:turn.${deploy.getBaseDomain()}:19302`,
+                                `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
+                                `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
                             ],
                             username, credential,
                             "credentialType": "password"

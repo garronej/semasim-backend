@@ -1,2 +1,2 @@
 
-export { api_decl_uaToBackend as apiDeclaration } from "../semasim-frontend";
+export { api_decl_uaToBackend as apiDeclaration } from "../frontend";

@@ -3,7 +3,7 @@ import * as apiDeclaration from "../../sip_api_declarations/backendToBackend";
 import * as sip from "ts-sip";
 import * as backendConnections from "../toBackend/connections";
 import * as localApiHandlers from "./localApiHandlers";
-import { types as gwTypes } from "../../semasim-gateway";
+import { types as gwTypes } from "../../gateway";
 
 /** 
  * 

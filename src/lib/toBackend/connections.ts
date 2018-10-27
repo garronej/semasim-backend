@@ -4,7 +4,7 @@ import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as logger from "logger";
 import * as net from "net";
 import * as router from "./router";
-import { types as lbTypes } from "../../semasim-load-balancer"
+import { types as lbTypes } from "../../load-balancer"
 import { getLocalRunningInstance } from "../launch";
 
 import * as gatewayConnections from "../toGateway/connections";

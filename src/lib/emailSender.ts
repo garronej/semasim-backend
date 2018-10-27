@@ -1,10 +1,11 @@
 
 import * as AWS from "aws-sdk";
 import * as i from "../bin/installer";
+import { deploy } from "../deploy";
 import * as path from "path";
 import * as ejs from "ejs";
 import * as fs from "fs";
-import { types as feTypes } from "../semasim-frontend";
+import { types as feTypes } from "../frontend";
 import * as sessionManager from "./web/sessionManager";
 import { phoneNumber } from "phone-number";
 
@@ -203,7 +204,7 @@ async function send(
 
         AWS.config.credentials = new AWS.SharedIniFileCredentials({
             "profile": "ses",
-            "filename": i.awsCredentialsFilePath
+            "filename": deploy.sesCredentialsFilePath
         });
 
         send.ses = new AWS.SES({ "apiVersion": "2012-10-17" });

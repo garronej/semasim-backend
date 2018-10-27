@@ -1,6 +1,6 @@
 
 import * as sip from "ts-sip";
-import { misc as gwMisc } from "../../semasim-gateway";
+import { misc as gwMisc } from "../../gateway";
 import * as gatewayConnections from "../toGateway/connections";
 import * as uaConnections from "../toUa/connections";
 

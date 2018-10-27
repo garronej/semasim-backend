@@ -4,7 +4,7 @@ import { apiDeclaration } from "../../sip_api_declarations/backendToUa";
 import * as connections from "./connections";
 import * as sip from "ts-sip";
 import * as dbSemasim from "../dbSemasim";
-import { types as feTypes } from "../../semasim-frontend";
+import { types as feTypes } from "../../frontend";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as pushNotifications from "../pushNotifications";
 import * as gatewayRemoteApiCaller from "../toGateway/remoteApiCaller";
@@ -13,7 +13,7 @@ import * as dbWebphone from "../dbWebphone";
 import * as emailSender from "../emailSender";
 const uuidv3 = require("uuid/v3");
 
-import { types as gwTypes, misc as gwMisc } from "../../semasim-gateway";
+import { types as gwTypes, misc as gwMisc } from "../../gateway";
 
 export const handlers: sip.api.Server.Handlers = {};
 

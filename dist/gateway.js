@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const version = require("../../gateway/package.json")["version"];
+exports.version = version;
+const types = require("../../gateway/dist/lib/types");
+exports.types = types;
+const misc = require("../../gateway/dist/lib/misc");
+exports.misc = misc;
+const api_decl_backendToGateway = require("../../gateway/dist/sip_api_declarations/backendToGateway");
+exports.api_decl_backendToGateway = api_decl_backendToGateway;
+const api_decl_gatewayToBackend = require("../../gateway/dist/sip_api_declarations/gatewayToBackend");
+exports.api_decl_gatewayToBackend = api_decl_gatewayToBackend;

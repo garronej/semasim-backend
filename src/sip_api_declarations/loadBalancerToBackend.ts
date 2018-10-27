@@ -1,2 +1,2 @@
 
-export { api_decl_loadBalancerToBackend as apiDeclaration } from "../semasim-load-balancer";
+export { api_decl_loadBalancerToBackend as apiDeclaration } from "../load-balancer";

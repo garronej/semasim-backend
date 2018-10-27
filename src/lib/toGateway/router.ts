@@ -3,7 +3,7 @@ import * as sip from "ts-sip";
 import * as backendConnections from "../toBackend/connections";
 import * as uaConnections from "../toUa/connections";
 import * as util from "util";
-import { misc as gwMisc } from "../../semasim-gateway";
+import { misc as gwMisc } from "../../gateway";
 
 export function handle(socket: sip.Socket) {
 

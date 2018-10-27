@@ -9,9 +9,9 @@ import * as dcMisc from "chan-dongle-extended-client/dist/lib/misc";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
-import { types as gwTypes } from "../semasim-gateway";
-import { types as feTypes } from "../semasim-frontend";
-import * as i from "../bin/installer";
+import { types as gwTypes } from "../gateway";
+import { types as feTypes } from "../frontend";
+import { deploy } from "../deploy";
 import { geoiplookup } from "../tools/geoiplookup";
 import * as mysqlCustom from "../tools/mysqlCustom";
 import * as db from "../lib/dbSemasim";
@@ -123,9 +123,8 @@ export function generateSim(
         await db.launch();
 
         (await mysqlCustom.createPoolAndGetApi({
-            ...i.dbAuth,
+            ...(await deploy.getDbAuth()),
             "database": "semasim_express_session",
-            "localAddress": i.dbAuth.host
         })).query("DELETE FROM sessions");
 
         await testUser();

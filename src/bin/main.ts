@@ -4,11 +4,13 @@ scriptLib.createService({
     "rootProcess": async () => {
 
         const [
-            { pidfile_path, unix_user, exit_if_not_run_instance, working_directory_path, srv_name },
-            fs
+            { pidfile_path, unix_user, working_directory_path, srv_name },
+            fs,
+            { deploy }
         ] = await Promise.all([
             import("./installer"),
-            import("fs")
+            import("fs"),
+            import("../deploy")
         ]);
 
         console.assert(
@@ -16,7 +18,7 @@ scriptLib.createService({
             "semasim does not seems to be installed."
         );
 
-        await exit_if_not_run_instance();
+        deploy.assertInstance(/i[0-9]+/);
 
         return {
             pidfile_path,

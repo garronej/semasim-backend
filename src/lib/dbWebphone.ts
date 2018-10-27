@@ -1,8 +1,8 @@
-import { types as feTypes } from "../semasim-frontend";
+import { types as feTypes } from "../frontend";
 import wd = feTypes.webphoneData;
 import { Auth } from "./web/sessionManager";
-import * as i from "../bin/installer";
 import * as f from "../tools/mysqlCustom";
+import { deploy } from "../deploy";
 
 /** exported only for tests */
 export let query: f.Api["query"];
@@ -11,12 +11,11 @@ let buildInsertQuery: f.Api["buildInsertQuery"];
 
 
 /** Must be called and awaited before use */
-export function launch(localAddress?: string): void {
+export async function launch(): Promise<void> {
 
     let api = f.createPoolAndGetApi({
-        ...i.dbAuth,
+        ...(await deploy.getDbAuth()),
         "database": "semasim_webphone",
-        localAddress
     }, "HANDLE STRING ENCODING");
 
     query = api.query;

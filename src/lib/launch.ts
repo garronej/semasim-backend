@@ -6,10 +6,10 @@ import * as net from "net";
 import * as ws from "ws";
 
 //NOTE: Must be located before importing files that may use it.
-export const getLocalRunningInstance= ()=> runningInstance!;
+export const getLocalRunningInstance = () => runningInstance!;
 
-import { networkTools, types as lbTypes } from "../semasim-load-balancer";
-import * as i from "../bin/installer";
+import { networkTools, deploy } from "../deploy";
+import { types as lbTypes } from "../load-balancer";
 import * as dbSemasim from "./dbSemasim";
 import * as dbWebphone from "./dbWebphone";
 import * as dbTurn from "./dbTurn";
@@ -41,9 +41,19 @@ export async function launch(daemonNumber: number) {
 
     debug("Launch!");
 
-    const tlsCerts = getTlsCerts();
+    const tlsCerts = (() => {
 
-    const interfaceAddress = networkTools.getInterfaceAddressInRange(i.semasim_lan);
+        const out = { ...deploy.getDomainCertificatesPath() };
+
+        for (const key in out) {
+            out[key] = fs.readFileSync(out[key]).toString("utf8");
+        }
+
+        return out;
+
+    })();
+
+    const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasim_lan);
 
     const servers: [https.Server, http.Server, tls.Server, tls.Server, net.Server] = [
         https.createServer(tlsCerts),
@@ -54,17 +64,42 @@ export async function launch(daemonNumber: number) {
     ];
 
     const [spoofedLocalAddressAndPort] = await Promise.all([
-        getSpoofedLocalAddressAndPort(),
+        (async () => {
+
+            /* CNAME www.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
+            const address1 = await networkTools.heResolve4(`www.${deploy.getBaseDomain()}`);
+
+            /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
+            const [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${deploy.getBaseDomain()}`);
+
+            /* A _sips._tcp.[dev.]semasim.com => '<dynamic ip>' */
+            const address2 = await networkTools.heResolve4(sipSrv.name);
+
+            const _wrap = (localAddress: string, localPort: number) => ({ localAddress, localPort });
+
+            return {
+                "https": _wrap(address1, 443),
+                "http": _wrap(address1, 80),
+                "sipUa": _wrap(address2, sipSrv.port),
+                "sipGw": _wrap(address2, 80)
+            };
+
+
+        })(),
         Promise.all(servers.map(
             server => new Promise(
                 resolve => server
                     .once("error", error => { throw error; })
                     .listen(0, interfaceAddress)
                     .once("listening", () => resolve(server))
-            )))]
-    );
+            ))
+        ),
+        dbTurn.launch(),
+        dbWebphone.launch(),
+        dbSemasim.launch()
+    ]);
 
-    runningInstance= {
+    runningInstance = {
         interfaceAddress,
         daemonNumber,
         ...(() => {
@@ -83,12 +118,6 @@ export async function launch(daemonNumber: number) {
 
         })()
     };
-
-    dbSemasim.launch(interfaceAddress);
-
-    dbWebphone.launch(interfaceAddress);
-
-    dbTurn.launch(interfaceAddress);
 
     pushNotifications.launch();
 
@@ -119,39 +148,4 @@ export async function launch(daemonNumber: number) {
 
 }
 
-
-async function getSpoofedLocalAddressAndPort() {
-
-    /* CNAME www.semasim.com => A semasim.com => '<dynamic ip>' */
-    const address1 = await networkTools.resolve4("www.semasim.com");
-
-    /* SRV _sips._tcp.semasim.com => [ { name: 'sip.semasim.com', port: 443 } ] */
-    const [sipSrv] = await networkTools.resolveSrv("_sips._tcp.semasim.com");
-
-    /* A _sips._tcp.semasim.com => '<dynamic ip>' */
-    const address2 = await networkTools.resolve4(sipSrv.name);
-
-    const _wrap = (localAddress: string, localPort: number) => ({ localAddress, localPort });
-
-    return {
-        "https": _wrap(address1, 443),
-        "http": _wrap(address1, 80),
-        "sipUa": _wrap(address2, sipSrv.port),
-        "sipGw": _wrap(address2, 80)
-    };
-
-}
-
-
-function getTlsCerts() {
-
-    const out = { ...i.tlsPath };
-
-    for (const key in i.tlsPath) {
-        out[key] = fs.readFileSync(i.tlsPath[key], "utf8");
-    }
-
-    return out;
-
-};
 

@@ -1,4 +1,4 @@
-import { types as lbTypes } from "../../semasim-load-balancer"
+import { types as lbTypes } from "../../load-balancer"
 import * as sip from "ts-sip";
 import * as net from "net";
 import * as remoteApiCaller from "./remoteApiCaller";
@@ -13,7 +13,7 @@ export async function connect() {
 
     const loadBalancerSocket = new sip.Socket(
         net.connect({
-            "host": lbTypes.address,
+            "host": await lbTypes.getAddress(),
             "port": lbTypes.port,
             "localAddress": getLocalRunningInstance().interfaceAddress
         }),

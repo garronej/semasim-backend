@@ -1,10 +1,10 @@
-import { types as gwTypes } from "../semasim-gateway";
+import { types as gwTypes } from "../gateway";
 import * as pushSender from "../tools/pushSender";
-import * as i from "../bin/installer";
+import { deploy } from "../deploy";
 
 export function launch() {
 
-    pushSender.launch(i.pushNotificationCredentials);
+    pushSender.launch(deploy.pushNotificationCredentials);
 
 }
 

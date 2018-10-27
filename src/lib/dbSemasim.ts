@@ -1,14 +1,13 @@
 import * as crypto from "crypto";
 import { Auth } from "./web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
-import { types as gwTypes } from "../semasim-gateway";
+import { types as gwTypes } from "../gateway";
 import * as f from "../tools/mysqlCustom";
 
 import { types as dcTypes } from "chan-dongle-extended-client";
-import { types as feTypes } from "../semasim-frontend";
+import { types as feTypes } from "../frontend";
 import * as logger from "logger";
-
-import * as i from "../bin/installer";
+import { deploy } from "../deploy";
 
 const debug = logger.debugFactory();
 
@@ -20,12 +19,11 @@ export let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
 
 /** Must be called and before use */
-export function launch(localAddress?: string): void {
+export async function launch(): Promise<void> {
 
     const api = f.createPoolAndGetApi({
-        ...i.dbAuth,
-        "database": "semasim",
-        localAddress
+        ...(await deploy.getDbAuth()),
+        "database": "semasim"
     }, "HANDLE STRING ENCODING");
 
     query = api.query;

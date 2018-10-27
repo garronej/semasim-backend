@@ -1,7 +1,7 @@
 
 
 import { types as dcTypes } from "chan-dongle-extended-client";
-import { types as gwTypes } from "../semasim-gateway";
+import { types as gwTypes } from "../gateway";
 import * as sessionManager from "../lib/web/sessionManager";
 
 export namespace forwardRequest {

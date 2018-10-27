@@ -3,8 +3,7 @@ import * as express_session from "express-session";
 import * as express_mysql_session from "express-mysql-session";
 import * as http from "http";
 import * as express from "express";
-import * as i from "../../bin/installer";
-import { networkTools } from "../../semasim-load-balancer";
+import { deploy } from "../../deploy";
 const MySQLStore= express_mysql_session(express_session);
 import * as logger from "logger";
 
@@ -23,9 +22,8 @@ export namespace beforeExit {
 export async function launch(): Promise<void> {
 
     const pool= mysql.createPool({
-        ...i.dbAuth,
+        ...(await deploy.getDbAuth()),
         "database": "semasim_express_session",
-        "localAddress": networkTools.getInterfaceAddressInRange(i.semasim_lan),
         "multipleStatements": true,
         "connectionLimit": 50
     });
@@ -71,10 +69,27 @@ export async function launch(): Promise<void> {
 
 }
 
-/** Available only once lunched */
+/** 
+ * Available only once lunched 
+ * 
+ * Once called on an res.session will be defined
+ * so res.session is defined ( regardless if the user 
+ * is auth or not ). 
+ * 
+ * */
 export let loadRequestSession: (req: express.Request, res: express.Response) => Promise<void>;
 
+/**
+ * @param session req.session!
+ * 
+ * Assert loadRequestSession have been called and has resolved.
+ * 
+ * return undefined if the user is not authenticated.
+ */
 export function getAuth(session: Express.Session): Auth | undefined;
+/**
+ * Used to get the Auth from a Websocket connection request.
+ */
 export function getAuth(req: http.IncomingMessage): Promise<Auth | undefined>;
 export function getAuth(arg: any): any {
 
@@ -110,6 +125,16 @@ export function getAuth(arg: any): any {
 
 }
 
+/**
+ * 
+ * Setting the auth object on a session
+ * after checking the provided credentials.
+ * 
+ * @param session req.session! ( Assert loadRequestSession have resolved )
+ * @param auth The auth to associate to this session or undefined if
+ * we wish to logout the user.
+ * 
+ */
 export function setAuth(session: Express.Session, auth: Auth | undefined): void {
 
     if (!auth) {

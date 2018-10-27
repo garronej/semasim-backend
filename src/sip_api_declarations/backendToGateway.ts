@@ -1,2 +1,2 @@
 
-export { api_decl_backendToGateway as apiDeclaration } from "../semasim-gateway";
+export { api_decl_backendToGateway as apiDeclaration } from "../gateway";

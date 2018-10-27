@@ -1,5 +1,5 @@
 import { apiDeclaration } from "../../sip_api_declarations/loadBalancerToBackend";
-import { types as lbTypes } from "../../semasim-load-balancer";
+import { types as lbTypes } from "../../load-balancer";
 import * as sip from "ts-sip";
 
 export function getRunningInstances(

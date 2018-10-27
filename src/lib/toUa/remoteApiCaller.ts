@@ -2,7 +2,7 @@ import * as sip from "ts-sip";
 import { apiDeclaration } from "../../sip_api_declarations/uaToBackend";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import { types as dcTypes } from "chan-dongle-extended-client";
-import { types as gwTypes } from "../../semasim-gateway";
+import { types as gwTypes } from "../../gateway";
 
 
 function multicast<Params, Response extends undefined>(

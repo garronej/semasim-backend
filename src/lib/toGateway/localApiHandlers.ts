@@ -1,4 +1,4 @@
-import { misc as gwMisc } from "../../semasim-gateway";
+import { misc as gwMisc } from "../../gateway";
 import * as sip from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as dbSemasim from "../dbSemasim";

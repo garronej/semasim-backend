@@ -1,5 +1,5 @@
 
-import { webApiDeclaration as apiDeclaration } from "../../semasim-frontend";
+import { webApiDeclaration as apiDeclaration } from "../../frontend";
 import * as dbSemasim from "../dbSemasim";
 import {
     Handler,
@@ -11,13 +11,14 @@ import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
 import * as emailSender from "../emailSender";
 import * as pushNotifications from "../pushNotifications";
+import { deploy } from "../../deploy";
 
 
 import {
     version as semasim_gateway_version,
     misc as gwMisc,
     types as gwTypes
-} from "../../semasim-gateway";
+} from "../../gateway";
 
 export const handlers: Handlers = {};
 
@@ -362,7 +363,7 @@ export const handlers: Handlers = {};
 
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
-                    "stun_server": "semasim.com",
+                    "stun_server": `${deploy.getBaseDomain()}`,
                     "protocols": "stun,ice"
                 };
 
@@ -377,8 +378,8 @@ export const handlers: Handlers = {};
                  * we need to provide this info.
                  * */
                 config[`proxy_${endpointCount}`] = {
-                    "reg_proxy": `<sip:semasim.com;transport=TLS>`,
-                    "reg_route": `sip:semasim.com;transport=TLS;lr`,
+                    "reg_proxy": `<sip:${deploy.getBaseDomain()};transport=TLS>`,
+                    "reg_route": `sip:${deploy.getBaseDomain()};transport=TLS;lr`,
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS>`,
                     "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"}`,
