@@ -12,9 +12,31 @@ export const working_directory_path = path.join(module_dir_path, "working_direct
 export const pidfile_path = path.join(working_directory_path, "pid");
 
 
-function program_action_install() {
+async function program_action_install() {
 
     program_action_uninstall();
+
+    {
+
+        await scriptLib.apt_get_install("geoip-bin");
+
+        const execSync = (cmd: string) => scriptLib.execSyncTrace(cmd, { "cwd": "/tmp" });
+
+        for (const target of [
+            "GeoLiteCountry/GeoIP.dat.gz",
+            "GeoLiteCity.dat.gz",
+            "asnum/GeoIPASNum.dat.gz"
+        ]) {
+
+            execSync(`wget http://geolite.maxmind.com/download/geoip/database/${target}`);
+
+            execSync(`gunzip ${path.basename(target)}`);
+
+            execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIp`);
+
+        }
+
+    }
 
     scriptLib.unixUser.create(unix_user);
 
@@ -62,16 +84,12 @@ if (require.main === module) {
 
         program
             .command("install")
-            .action(async () => {
-                program_action_install();
-            })
+            .action(() => program_action_install())
             ;
 
         program
             .command("uninstall")
-            .action(async () => {
-                program_action_uninstall();
-            })
+            .action(() => program_action_uninstall())
             ;
 
 
