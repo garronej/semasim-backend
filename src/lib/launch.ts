@@ -53,7 +53,7 @@ export async function launch(daemonNumber: number) {
 
     })();
 
-    const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasim_lan);
+    const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasimIpRange);
 
     const servers: [https.Server, http.Server, tls.Server, tls.Server, net.Server] = [
         https.createServer(tlsCerts),
