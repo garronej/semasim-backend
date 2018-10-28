@@ -47,7 +47,7 @@ function launch(daemonNumber) {
             }
             return out;
         })();
-        const interfaceAddress = deploy_1.networkTools.getInterfaceAddressInRange(deploy_1.deploy.semasim_lan);
+        const interfaceAddress = deploy_1.networkTools.getInterfaceAddressInRange(deploy_1.deploy.semasimIpRange);
         const servers = [
             https.createServer(tlsCerts),
             http.createServer(),

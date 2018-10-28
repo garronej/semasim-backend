@@ -18,12 +18,27 @@ exports.unix_user = "semasim";
 exports.working_directory_path = path.join(exports.module_dir_path, "working_directory");
 exports.pidfile_path = path.join(exports.working_directory_path, "pid");
 function program_action_install() {
-    program_action_uninstall();
-    scriptLib.unixUser.create(exports.unix_user);
-    scriptLib.execSync(`mkdir ${exports.working_directory_path}`);
-    scriptLib.execSync(`chown -R ${exports.unix_user}:${exports.unix_user} ${exports.working_directory_path}`);
-    scriptLib.systemd.createConfigFile(exports.srv_name, path.join(__dirname, "main.js"), undefined, "ENABLE", false);
-    console.log(`Start daemon now with:\n$ systemctl start ${exports.srv_name}`);
+    return __awaiter(this, void 0, void 0, function* () {
+        program_action_uninstall();
+        {
+            yield scriptLib.apt_get_install("geoip-bin");
+            const execSync = (cmd) => scriptLib.execSyncTrace(cmd, { "cwd": "/tmp" });
+            for (const target of [
+                "GeoLiteCountry/GeoIP.dat.gz",
+                "GeoLiteCity.dat.gz",
+                "asnum/GeoIPASNum.dat.gz"
+            ]) {
+                execSync(`wget http://geolite.maxmind.com/download/geoip/database/${target}`);
+                execSync(`gunzip ${path.basename(target)}`);
+                execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIp`);
+            }
+        }
+        scriptLib.unixUser.create(exports.unix_user);
+        scriptLib.execSync(`mkdir ${exports.working_directory_path}`);
+        scriptLib.execSync(`chown -R ${exports.unix_user}:${exports.unix_user} ${exports.working_directory_path}`);
+        scriptLib.systemd.createConfigFile(exports.srv_name, path.join(__dirname, "main.js"), undefined, "ENABLE", false);
+        console.log(`Start daemon now with:\n$ systemctl start ${exports.srv_name}`);
+    });
 }
 function program_action_uninstall() {
     scriptLib.stopProcessSync(exports.pidfile_path);
@@ -42,14 +57,10 @@ if (require.main === module) {
         deploy_1.deploy.assertInstance(/i[0-9]+/);
         program
             .command("install")
-            .action(() => __awaiter(this, void 0, void 0, function* () {
-            program_action_install();
-        }));
+            .action(() => program_action_install());
         program
             .command("uninstall")
-            .action(() => __awaiter(this, void 0, void 0, function* () {
-            program_action_uninstall();
-        }));
+            .action(() => program_action_uninstall());
         program.parse(process.argv);
     }));
 }
