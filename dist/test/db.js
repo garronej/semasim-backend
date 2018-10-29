@@ -89,6 +89,7 @@ function generateSim(contactCount = ~~(Math.random() * 200), noSpecialChar = fal
 exports.generateSim = generateSim;
 (() => __awaiter(this, void 0, void 0, function* () {
     if (require.main === module) {
+        console.assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
         console.log("START TESTING...");
         yield db.launch();
         (yield mysqlCustom.createPoolAndGetApi(Object.assign({}, (yield deploy_1.deploy.getDbAuth()), { "database": "semasim_express_session" }))).query("DELETE FROM sessions");

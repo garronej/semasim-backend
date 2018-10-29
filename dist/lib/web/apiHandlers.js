@@ -230,7 +230,7 @@ exports.handlers = {};
                     "reg_proxy": `<sip:${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
                     "reg_route": `sip:${deploy_1.deploy.getBaseDomain()};transport=TLS;lr`,
                     "reg_expires": `${21601}`,
-                    "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@semasim.com;transport=TLS>`,
+                    "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
                     "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"}`,
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
@@ -244,7 +244,7 @@ exports.handlers = {};
                 for (const contact of phonebook) {
                     const safeContactName = substitute4BytesChar(contact.name.replace(/"/g, `\\"`));
                     config[`friend_${contactCount}`] = {
-                        "url": `"${safeContactName} (proxy_${endpointCount})" <sip:${contact.number_raw}@semasim.com>`,
+                        "url": `"${safeContactName} (proxy_${endpointCount})" <sip:${contact.number_raw}@${deploy_1.deploy.getBaseDomain()}>`,
                         "pol": "accept",
                         "subscribe": "0"
                     };

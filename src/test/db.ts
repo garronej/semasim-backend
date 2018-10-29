@@ -118,6 +118,11 @@ export function generateSim(
 
     if (require.main === module) {
 
+        console.assert(
+            deploy.getEnv() === "DEV",
+            "You DO NOT want to run DB tests in prod"
+        );
+
         console.log("START TESTING...");
 
         await db.launch();
@@ -201,9 +206,9 @@ async function testMain() {
 
     const genUser = async (email: string = `${ttTesting.genHexStr(20)}@foobar.com`) =>
         ({
-            "user": await (async ()=>{
+            "user": await (async () => {
 
-                const createUserResp= await db.createUserAccount(email, ttTesting.genUtf8Str(10), "1.1.1.1");
+                const createUserResp = await db.createUserAccount(email, ttTesting.genUtf8Str(10), "1.1.1.1");
 
                 await db.validateUserEmail(email, createUserResp!.activationCode!);
 

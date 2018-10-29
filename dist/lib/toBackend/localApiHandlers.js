@@ -18,6 +18,7 @@ const gatewayRemoteApiCaller = require("../toGateway/remoteApiCaller");
 const dbSemasim = require("../dbSemasim");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const util = require("util");
+const deploy_1 = require("../../deploy");
 /*
 NOTE: None of those methods can are allowed to throw as
 it would result in the closing of the inter instance socket.
@@ -135,7 +136,7 @@ exports.handlers = {};
             const imsi = contact.uaSim.imsi;
             const sipRequest = uaSocket.buildNextHopPacket(sip.parse(Buffer.from([
                 `OPTIONS ${contact.uri} SIP/2.0`,
-                `From: <sip:${imsi}@semasim.com>;tag=${fromTag}`,
+                `From: <sip:${imsi}@${deploy_1.deploy.getBaseDomain()}>;tag=${fromTag}`,
                 `To: <${contact.uri}>`,
                 `Call-ID: ${callId}`,
                 `CSeq: ${cSeqSequenceNumber} OPTIONS`,
