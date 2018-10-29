@@ -10,6 +10,7 @@ import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dbSemasim from "../dbSemasim";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
 import * as util from "util";
+import { deploy } from "../../deploy";
 
 /*
 NOTE: None of those methods can are allowed to throw as 
@@ -214,7 +215,7 @@ export const handlers: sip.api.Server.Handlers = {};
             const sipRequest = uaSocket.buildNextHopPacket(
                 sip.parse(Buffer.from([
                     `OPTIONS ${contact.uri} SIP/2.0`,
-                    `From: <sip:${imsi}@semasim.com>;tag=${fromTag}`,
+                    `From: <sip:${imsi}@${deploy.getBaseDomain()}>;tag=${fromTag}`,
                     `To: <${contact.uri}>`,
                     `Call-ID: ${callId}`,
                     `CSeq: ${cSeqSequenceNumber} OPTIONS`,
