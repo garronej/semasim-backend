@@ -30,7 +30,7 @@ function program_action_install() {
             ]) {
                 execSync(`wget http://geolite.maxmind.com/download/geoip/database/${target}`);
                 execSync(`gunzip ${path.basename(target)}`);
-                execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIp`);
+                execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIP`);
             }
         }
         scriptLib.unixUser.create(exports.unix_user);

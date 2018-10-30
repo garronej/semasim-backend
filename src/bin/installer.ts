@@ -32,7 +32,7 @@ async function program_action_install() {
 
             execSync(`gunzip ${path.basename(target)}`);
 
-            execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIp`);
+            execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIP`);
 
         }
 
