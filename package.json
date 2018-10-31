@@ -5,7 +5,7 @@
   "scripts": {
     "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
     "tsc-w": "node ./node_modules/typescript/bin/tsc -w -p ./tsconfig.json",
-    "start": "sudo ./node ./dist/bin/main.js",
+    "start": "sudo node ./dist/bin/main.js",
     "test": "node ./dist/test/db"
   },
   "repository": {
