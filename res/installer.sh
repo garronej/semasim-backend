@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# wget -q -O - semasim.com/installer.sh | sudo bash
-# wget -q -O - semasim.com/installer.sh | sudo FETCH_ONLY=1 bash
+# wget -q -O - [dev.]semasim.com/installer.sh | sudo bash
+# wget -q -O - [dev.]semasim.com/installer.sh | sudo FETCH_ONLY=1 bash
 
 # TODO: Test if debian or ubuntu distribution comply to requirements.
 
