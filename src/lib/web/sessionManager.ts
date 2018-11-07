@@ -80,13 +80,15 @@ export async function launch(): Promise<void> {
 export let loadRequestSession: (req: express.Request, res: express.Response) => Promise<void>;
 
 /**
- * @param session req.session!
- * 
  * Assert loadRequestSession have been called and has resolved.
  * 
  * return undefined if the user is not authenticated.
+ * 
+ * @param session req.session!
+ * 
  */
 export function getAuth(session: Express.Session): Auth | undefined;
+
 /**
  * Used to get the Auth from a Websocket connection request.
  */

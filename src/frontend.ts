@@ -47,6 +47,7 @@ export namespace getPageNames {
 }
 
 /**
+ * 
  * @param pageName eg: "manager" or "webphone"
  * 
  * Assert pageName in pageList
@@ -69,7 +70,7 @@ export function getPage(pageName: string): getPage.Page {
         "js": fs.readFileSync(js_file_path)
     };
 
-    for (const file_path in [html_file_path, js_file_path]) {
+    for (const file_path of [html_file_path, js_file_path]) {
 
         fs.watch(file_path, { "persistent": false }, () => read());
 

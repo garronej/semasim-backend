@@ -39,7 +39,7 @@ exports.beforeExit = beforeExit;
 let runningInstance;
 function launch(daemonNumber) {
     return __awaiter(this, void 0, void 0, function* () {
-        debug("Launch!");
+        debug("Launch");
         const tlsCerts = (() => {
             const out = Object.assign({}, deploy_1.deploy.getDomainCertificatesPath());
             for (const key in out) {

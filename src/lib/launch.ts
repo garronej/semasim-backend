@@ -39,7 +39,7 @@ let runningInstance: lbTypes.RunningInstance;
 
 export async function launch(daemonNumber: number) {
 
-    debug("Launch!");
+    debug("Launch");
 
     const tlsCerts = (() => {
 

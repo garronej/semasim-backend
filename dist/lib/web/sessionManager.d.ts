@@ -21,11 +21,12 @@ export declare function launch(): Promise<void>;
  * */
 export declare let loadRequestSession: (req: express.Request, res: express.Response) => Promise<void>;
 /**
- * @param session req.session!
- *
  * Assert loadRequestSession have been called and has resolved.
  *
  * return undefined if the user is not authenticated.
+ *
+ * @param session req.session!
+ *
  */
 export declare function getAuth(session: Express.Session): Auth | undefined;
 /**

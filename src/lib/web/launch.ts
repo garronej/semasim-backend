@@ -79,6 +79,14 @@ export function launch(
         })
     });
 
+    const sendHtml = (res: express.Response, pageName: string)=> {
+        
+        res.set("Content-Type", "text/html; charset=utf-8");
+
+        res.send(frontend.getPage(pageName).html);
+
+    };
+
     app
         .get("/installer.sh", (_req, res) => res.send(getInstaller()))
         .get(/^\/semasim_([^\.]+).tar.gz/, (req, res) => res.redirect(getSemasimGatewayDownloadUrl(req.params[0])))
@@ -88,12 +96,12 @@ export function launch(
         .use((req, res, next) => sessionManager.loadRequestSession(req, res).then(() => next()))
         .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
         .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session!) ? res.redirect("/") : next())
-        .get("/login", (_req, res) => res.send(frontend.getPage("login").html))
-        .get("/register", (_req, res) => res.send(frontend.getPage("register").html))
+        .get("/login", (_req, res) => sendHtml(res, "login"))
+        .get("/register", (_req, res) => sendHtml(res, "register"))
         .use((req, res, next) => !!sessionManager.getAuth(req.session!) ? next() : res.redirect("/login"))
         .get("/", (_req, res) => res.redirect("/manager"))
-        .get("/manager", (_req, res) => res.send(frontend.getPage("manager").html))
-        .get("/webphone", (_req, res) => res.send(frontend.getPage("webphone").html))
+        .get("/manager", (_req, res) => sendHtml(res, "manager"))
+        .get("/webphone", (_req, res) => sendHtml(res, "webphone"))
         .use((_req, res) => res.status(404).end())
         ;
 
