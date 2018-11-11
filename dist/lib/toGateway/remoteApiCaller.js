@@ -26,7 +26,7 @@ exports.getDongleAndSipPassword = (() => {
         return sanityCheck;
     })();
     return (imsi) => {
-        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi }, { "timeout": 10 * 1000 });
+        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi }, { "timeout": 10 * 1000 }).catch(() => undefined);
     };
 })();
 exports.unlockSim = (() => {
@@ -65,7 +65,7 @@ exports.rebootDongle = (() => {
         return sanityCheck;
     })();
     return (imsi) => {
-        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi }, { "timeout": 5 * 1000 });
+        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi }, { "timeout": 5 * 1000 }).catch(() => ({ "isSuccess": false }));
     };
 })();
 exports.reNotifySimOnline = (() => {
@@ -75,7 +75,7 @@ exports.reNotifySimOnline = (() => {
         return sanityCheck;
     })();
     return (imsi) => {
-        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi }, { "timeout": 5 * 1000 });
+        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi }, { "timeout": 5 * 1000 }).catch(() => undefined);
     };
 })();
 exports.createContact = (() => {
@@ -89,7 +89,7 @@ exports.createContact = (() => {
         return sanityCheck;
     })();
     return (imsi, name, number) => {
-        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi, name, number }, { "timeout": 6 * 1000 });
+        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi, name, number }, { "timeout": 6 * 1000 }).catch(() => undefined);
     };
 })();
 exports.updateContactName = (() => {
@@ -102,7 +102,7 @@ exports.updateContactName = (() => {
         return sanityCheck;
     })();
     return (imsi, mem_index, newName) => {
-        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi, mem_index, newName }, { "timeout": 6 * 1000 });
+        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi, mem_index, newName }, { "timeout": 6 * 1000 }).catch(() => undefined);
     };
 })();
 exports.deleteContact = (() => {
@@ -114,6 +114,6 @@ exports.deleteContact = (() => {
         return sanityCheck;
     })();
     return (imsi, mem_index) => {
-        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi, mem_index }, { "timeout": 6 * 1000 });
+        return backendRemoteApiCaller.forwardRequest({ "target": "GATEWAY", imsi }, methodName, { imsi, mem_index }, { "timeout": 6 * 1000 }).catch(() => undefined);
     };
 })();

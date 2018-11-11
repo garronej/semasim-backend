@@ -51,7 +51,7 @@ function launch(httpsServer, httpServer) {
             }
         },
         "logger": apiServer.getDefaultLogger({
-            "logOnlyErrors": false,
+            "logOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true,
             "log": logger.log,
             "stringifyAuthentication": req => {
                 let auth = sessionManager.getAuth(req.session);
@@ -68,6 +68,12 @@ function launch(httpsServer, httpServer) {
         res.set("Content-Type", "text/html; charset=utf-8");
         res.send(frontend.getPage(pageName).html);
     };
+    const expressLogger = (() => {
+        switch (deploy_1.deploy.getEnv()) {
+            case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
+            case "PROD": return (_req, _res, next) => next();
+        }
+    })();
     app
         .get("/installer.sh", (_req, res) => res.send(getInstaller()))
         .get(/^\/semasim_([^\.]+).tar.gz/, (req, res) => res.redirect(getSemasimGatewayDownloadUrl(req.params[0])))
@@ -75,7 +81,7 @@ function launch(httpsServer, httpServer) {
         .use(express.static(frontend.pathToWebAssets))
         .get(/\.[a-zA-Z0-9]{1,8}$/, (_req, res) => res.status(404).end())
         .use((req, res, next) => sessionManager.loadRequestSession(req, res).then(() => next()))
-        .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
+        .use(expressLogger)
         .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session) ? res.redirect("/") : next())
         .get("/login", (_req, res) => sendHtml(res, "login"))
         .get("/register", (_req, res) => sendHtml(res, "register"))

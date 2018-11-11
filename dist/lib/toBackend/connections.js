@@ -17,6 +17,7 @@ const launch_1 = require("../launch");
 const gatewayConnections = require("../toGateway/connections");
 const uaConnections = require("../toUa/connections");
 const remoteApiCaller = require("./remoteApiCaller");
+const deploy_1 = require("../../deploy");
 //NOTE: We store those in misc to avoid having to register hundreds of close listener.
 const __set_of_imsi__ = " set of imsi ";
 const __set_of_email__ = " set of email ";
@@ -56,7 +57,8 @@ let idString = "";
 const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
     idString,
     "log": logger.log,
-    "hideKeepAlive": true
+    "hideKeepAlive": true,
+    "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
 }));
 /** Assert: socket is connected */
 function registerSocket(socket) {
@@ -70,9 +72,9 @@ function registerSocket(socket) {
         "socketId": idString,
         "remoteEndId": "BACKEND",
         "localEndId": `BACKEND${launch_1.getLocalRunningInstance().daemonNumber}`,
-        "connection": true,
+        "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
         "error": true,
-        "close": true,
+        "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
         "incomingTraffic": false,
         "outgoingTraffic": false,
         "colorizedTraffic": undefined,

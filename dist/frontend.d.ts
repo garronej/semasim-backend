@@ -12,6 +12,7 @@ export declare namespace getPageNames {
     let value: string[] | undefined;
 }
 /**
+ *
  * @param pageName eg: "manager" or "webphone"
  *
  * Assert pageName in pageList

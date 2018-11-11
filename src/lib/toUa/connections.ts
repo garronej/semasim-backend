@@ -60,7 +60,8 @@ const apiServer = new sip.api.Server(
     sip.api.Server.getDefaultLogger({
         idString,
         "log": logger.log,
-        "hideKeepAlive": true
+        "hideKeepAlive": true,
+        "displayOnlyErrors": deploy.getEnv() === "DEV" ? false : true
     })
 );
 
@@ -102,9 +103,9 @@ function registerSocket(
         "socketId": idString,
         "remoteEndId": "UA",
         "localEndId": "BACKEND",
-        "connection": true,
+        "connection": deploy.getEnv() === "DEV"? true: false,
         "error": true,
-        "close": true,
+        "close": deploy.getEnv() === "DEV"? true: false,
         "incomingTraffic": true,
         "outgoingTraffic": true,
         "colorizedTraffic": "IN",

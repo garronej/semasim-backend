@@ -15,7 +15,7 @@ function multicast<Params, Response extends undefined>(
 
     if (emailsOrUas.length !== 0 && typeof emailsOrUas[0] === "string") {
 
-        emails = emailsOrUas as any;
+       emails = emailsOrUas as any;
 
     } else {
 

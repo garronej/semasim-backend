@@ -37,7 +37,8 @@ const idString = "backendToUa";
 const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
     idString,
     "log": logger.log,
-    "hideKeepAlive": true
+    "hideKeepAlive": true,
+    "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
 }));
 function registerSocket(socket, auth) {
     if (socket.protocol === "WSS" && !auth) {
@@ -58,9 +59,9 @@ function registerSocket(socket, auth) {
         "socketId": idString,
         "remoteEndId": "UA",
         "localEndId": "BACKEND",
-        "connection": true,
+        "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
         "error": true,
-        "close": true,
+        "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
         "incomingTraffic": true,
         "outgoingTraffic": true,
         "colorizedTraffic": "IN",

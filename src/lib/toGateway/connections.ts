@@ -7,6 +7,7 @@ import * as tls from "tls";
 import * as router from "./router";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
 import * as pushNotifications from "../pushNotifications";
+import { deploy } from "../../deploy";
 
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 
@@ -24,7 +25,8 @@ export function listen(
         sip.api.Server.getDefaultLogger({
             idString,
             "log": logger.log,
-            "hideKeepAlive": true
+            "hideKeepAlive": true,
+            "displayOnlyErrors": deploy.getEnv() === "DEV" ? false : true
         })
     );
 
@@ -52,9 +54,9 @@ export function listen(
             "socketId": idString,
             "remoteEndId": "GATEWAY",
             "localEndId": "BACKEND",
-            "connection": true,
+            "connection": deploy.getEnv() === "DEV" ? true : false,
             "error": true,
-            "close": true,
+            "close": deploy.getEnv() === "DEV" ? true : false,
             "incomingTraffic": false,
             "outgoingTraffic": false,
             "colorizedTraffic": "OUT",

@@ -59,7 +59,7 @@ export const getDongleAndSipPassword = (() => {
             methodName,
             { imsi },
             { "timeout": 10 * 1000 }
-        );
+        ).catch(()=> undefined);
 
     };
 
@@ -146,7 +146,7 @@ export const rebootDongle = (() => {
             methodName,
             { imsi },
             { "timeout": 5 * 1000 }
-        );
+        ).catch(()=> ({ "isSuccess": false }))
 
     };
 
@@ -174,7 +174,7 @@ export const reNotifySimOnline = (() => {
             methodName,
             { imsi },
             { "timeout": 5 * 1000 }
-        );
+        ).catch(()=> undefined );
 
     };
 
@@ -210,7 +210,7 @@ export const createContact = (() => {
             methodName,
             { imsi, name, number },
             { "timeout": 6 * 1000 }
-        );
+        ).catch(()=> undefined);
 
     };
 
@@ -245,7 +245,7 @@ export const updateContactName = (() => {
             methodName,
             { imsi, mem_index, newName },
             { "timeout": 6 * 1000 }
-        );
+        ).catch(()=> undefined );
 
     };
 
@@ -279,7 +279,7 @@ export const deleteContact = (() => {
             methodName,
             { imsi, mem_index },
             { "timeout": 6 * 1000 }
-        );
+        ).catch(()=> undefined );
 
     };
 

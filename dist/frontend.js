@@ -32,6 +32,7 @@ exports.getPageNames = getPageNames;
     getPageNames.value = undefined;
 })(getPageNames = exports.getPageNames || (exports.getPageNames = {}));
 /**
+ *
  * @param pageName eg: "manager" or "webphone"
  *
  * Assert pageName in pageList

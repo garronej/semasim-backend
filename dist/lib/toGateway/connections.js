@@ -7,6 +7,7 @@ const logger = require("logger");
 const router = require("./router");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const pushNotifications = require("../pushNotifications");
+const deploy_1 = require("../../deploy");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
 const __set_of_imsi__ = " set of imsi ";
 function listen(server, spoofedLocalAddressAndPort) {
@@ -14,7 +15,8 @@ function listen(server, spoofedLocalAddressAndPort) {
     const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
         idString,
         "log": logger.log,
-        "hideKeepAlive": true
+        "hideKeepAlive": true,
+        "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
     }));
     server.on("secureConnection", tlsSocket => {
         const socket = new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort);
@@ -28,9 +30,9 @@ function listen(server, spoofedLocalAddressAndPort) {
             "socketId": idString,
             "remoteEndId": "GATEWAY",
             "localEndId": "BACKEND",
-            "connection": true,
+            "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
             "error": true,
-            "close": true,
+            "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
             "incomingTraffic": false,
             "outgoingTraffic": false,
             "colorizedTraffic": "OUT",

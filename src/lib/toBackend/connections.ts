@@ -11,6 +11,7 @@ import * as gatewayConnections from "../toGateway/connections";
 import * as uaConnections from "../toUa/connections";
 
 import * as remoteApiCaller from "./remoteApiCaller";
+import { deploy } from "../../deploy";
 
 //NOTE: We store those in misc to avoid having to register hundreds of close listener.
 const __set_of_imsi__ = " set of imsi ";
@@ -79,7 +80,8 @@ const apiServer = new sip.api.Server(
     sip.api.Server.getDefaultLogger({
         idString,
         "log": logger.log,
-        "hideKeepAlive": true
+        "hideKeepAlive": true,
+        "displayOnlyErrors": deploy.getEnv() === "DEV"? false: true
     })
 );
 
@@ -102,9 +104,9 @@ function registerSocket(socket: sip.Socket) {
         "socketId": idString,
         "remoteEndId": "BACKEND",
         "localEndId": `BACKEND${getLocalRunningInstance().daemonNumber}`,
-        "connection": true,
+        "connection": deploy.getEnv() === "DEV"? true: false,
         "error": true,
-        "close": true,
+        "close": deploy.getEnv() === "DEV"? true: false,
         "incomingTraffic": false,
         "outgoingTraffic": false,
         "colorizedTraffic": undefined,
