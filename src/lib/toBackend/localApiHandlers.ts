@@ -259,7 +259,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     if (!isAnswered) {
 
-                        uaSocket.destroy("Remote did sent response to a qualify request");
+                        uaSocket.destroy("Remote didn't sent response to a qualify request");
 
                     }
                 }

@@ -165,7 +165,7 @@ exports.handlers = {};
                 if (uaSocket.evtClose.postCount === 0) {
                     uaSocket.evtClose.detach(sipRequest);
                     if (!isAnswered) {
-                        uaSocket.destroy("Remote did sent response to a qualify request");
+                        uaSocket.destroy("Remote didn't sent response to a qualify request");
                     }
                 }
                 return isAnswered;
