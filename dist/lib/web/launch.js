@@ -17,13 +17,11 @@ const sessionManager = require("./sessionManager");
 const morgan = require("morgan");
 const logger = require("logger");
 const deploy_1 = require("../../deploy");
-const path = require("path");
-const i = require("../../bin/installer");
-const fs = require("fs");
+const compression = require("compression");
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
 function launch(httpsServer, httpServer) {
     sessionManager.launch();
-    const hostname = `www.${deploy_1.deploy.getBaseDomain()}`;
+    const hostname = `web.${deploy_1.deploy.getBaseDomain()}`;
     (() => {
         const app = express();
         app.use(forceDomain({
@@ -64,9 +62,9 @@ function launch(httpsServer, httpServer) {
             }
         })
     });
-    const sendHtml = (res, pageName) => {
+    const sendHtml = (pageName) => (_req, res) => {
         res.set("Content-Type", "text/html; charset=utf-8");
-        res.send(frontend.getPage(pageName).html);
+        res.send(frontend.getPage(pageName));
     };
     const expressLogger = (() => {
         switch (deploy_1.deploy.getEnv()) {
@@ -75,46 +73,25 @@ function launch(httpsServer, httpServer) {
         }
     })();
     app
-        .get("/installer.sh", (_req, res) => res.send(getInstaller()))
-        .get(/^\/semasim_([^\.]+).tar.gz/, (req, res) => res.redirect(getSemasimGatewayDownloadUrl(req.params[0])))
-        .get(frontend.getPageNames().map(pageName => `/${pageName}.js`), (req, res) => res.send(frontend.getPage(path.basename(req.path, ".js")).js))
-        .use(express.static(frontend.pathToWebAssets))
+        .use(compression())
+        .use(express.static(frontend.assets_dir_path))
         .get(/\.[a-zA-Z0-9]{1,8}$/, (_req, res) => res.status(404).end())
-        .use((req, res, next) => sessionManager.loadRequestSession(req, res).then(() => next()))
+        .use((req, res, next) => sessionManager
+        .loadRequestSession(req, res)
+        .then(() => next()))
         .use(expressLogger)
-        .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session) ? res.redirect("/") : next())
-        .get("/login", (_req, res) => sendHtml(res, "login"))
-        .get("/register", (_req, res) => sendHtml(res, "register"))
-        .use((req, res, next) => !!sessionManager.getAuth(req.session) ? next() : res.redirect("/login"))
+        .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session) ?
+        res.redirect("/") :
+        next())
+        .get("/login", sendHtml("login"))
+        .get("/register", sendHtml("register"))
+        .use((req, res, next) => !!sessionManager.getAuth(req.session) ?
+        next() :
+        res.redirect("/login"))
         .get("/", (_req, res) => res.redirect("/manager"))
-        .get("/manager", (_req, res) => sendHtml(res, "manager"))
-        .get("/webphone", (_req, res) => sendHtml(res, "webphone"))
+        .get("/manager", sendHtml("manager"))
+        .get("/webphone", sendHtml("webphone"))
         .use((_req, res) => res.status(404).end());
     httpsServer.on("request", app);
 }
 exports.launch = launch;
-/** return installer.sh content */
-function getInstaller() {
-    if (getInstaller.value !== undefined) {
-        return getInstaller.value;
-    }
-    const file_path = path.join(i.module_dir_path, "res", "installer.sh");
-    const read = () => getInstaller.value = Buffer.from(fs
-        .readFileSync(file_path)
-        .toString("utf8")
-        .replace(/\r\n/g, "\n"), "utf8");
-    fs.watch(file_path, { "persistent": false }, () => read());
-    read();
-    return getInstaller();
-}
-(function (getInstaller) {
-    getInstaller.value = undefined;
-})(getInstaller || (getInstaller = {}));
-function getSemasimGatewayDownloadUrl(architecture) {
-    if (architecture === "armv7l") {
-        return `https://github.com/garronej/semasim-gw-dist/releases/download/latest/semasim_${architecture}.tar.gz`;
-    }
-    else {
-        return "/not-found";
-    }
-}

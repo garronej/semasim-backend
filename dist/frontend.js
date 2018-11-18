@@ -8,29 +8,13 @@ const api_decl_backendToUa = require("../../frontend/shared/dist/sip_api_declara
 exports.api_decl_backendToUa = api_decl_backendToUa;
 const api_decl_uaToBackend = require("../../frontend/shared/dist/sip_api_declarations/uaToBackend");
 exports.api_decl_uaToBackend = api_decl_uaToBackend;
+const deploy_1 = require("./deploy");
+const ejs = require("ejs");
 const fs = require("fs");
 const path = require("path");
-const scriptingTools = require("scripting-tools");
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
-/**
- * return [ "login", "register", "manager", "webphone", ... ]
- * */
-function getPageNames() {
-    if (getPageNames.value !== undefined) {
-        return getPageNames.value;
-    }
-    const read = () => getPageNames.value = scriptingTools
-        .fs_ls(pages_dir_path, "FILENAME", false)
-        .filter(pageName => pageName.indexOf(".") < 0);
-    fs.watch(pages_dir_path, { "persistent": false }, () => read());
-    read();
-    return getPageNames();
-}
-exports.getPageNames = getPageNames;
-(function (getPageNames) {
-    getPageNames.value = undefined;
-})(getPageNames = exports.getPageNames || (exports.getPageNames = {}));
+exports.assets_dir_path = path.join(frontend_dir_path, "docs");
 /**
  *
  * @param pageName eg: "manager" or "webphone"
@@ -43,15 +27,14 @@ function getPage(pageName) {
         return getPage.cache[pageName];
     }
     const page_dir_path = path.join(pages_dir_path, pageName);
-    const html_file_path = path.join(page_dir_path, `${pageName}.html`);
-    const js_file_path = path.join(page_dir_path, "dist", `${pageName}.js`);
-    const read = () => getPage.cache[pageName] = {
-        "html": fs.readFileSync(html_file_path),
-        "js": fs.readFileSync(js_file_path)
-    };
-    for (const file_path of [html_file_path, js_file_path]) {
-        fs.watch(file_path, { "persistent": false }, () => read());
-    }
+    const ejs_file_path = path.join(page_dir_path, `page.ejs`);
+    const read = () => getPage.cache[pageName] =
+        Buffer.from(ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), {
+            "assets_root": deploy_1.deploy.getEnv() === "DEV" ?
+                "/" :
+                "//static.semasim.com/"
+        }), "utf8");
+    fs.watch(ejs_file_path, { "persistent": false }, () => read());
     read();
     return getPage(pageName);
 }
@@ -60,4 +43,3 @@ exports.getPage = getPage;
 (function (getPage) {
     getPage.cache = {};
 })(getPage = exports.getPage || (exports.getPage = {}));
-exports.pathToWebAssets = path.join(frontend_dir_path, "web-assets");

@@ -66,8 +66,8 @@ export async function launch(daemonNumber: number) {
     const [spoofedLocalAddressAndPort] = await Promise.all([
         (async () => {
 
-            /* CNAME www.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
-            const address1 = await networkTools.heResolve4(`www.${deploy.getBaseDomain()}`);
+            /* CNAME web.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
+            const address1 = await networkTools.heResolve4(`web.${deploy.getBaseDomain()}`);
 
             /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
             const [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${deploy.getBaseDomain()}`);

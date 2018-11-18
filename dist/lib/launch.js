@@ -57,8 +57,8 @@ function launch(daemonNumber) {
         ];
         const [spoofedLocalAddressAndPort] = yield Promise.all([
             (() => __awaiter(this, void 0, void 0, function* () {
-                /* CNAME www.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
-                const address1 = yield deploy_1.networkTools.heResolve4(`www.${deploy_1.deploy.getBaseDomain()}`);
+                /* CNAME web.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
+                const address1 = yield deploy_1.networkTools.heResolve4(`web.${deploy_1.deploy.getBaseDomain()}`);
                 /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
                 const [sipSrv] = yield deploy_1.networkTools.resolveSrv(`_sips._tcp.${deploy_1.deploy.getBaseDomain()}`);
                 /* A _sips._tcp.[dev.]semasim.com => '<dynamic ip>' */

@@ -4,13 +4,7 @@ import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declarati
 import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
 export { webApiDeclaration, types, api_decl_backendToUa, api_decl_uaToBackend };
-/**
- * return [ "login", "register", "manager", "webphone", ... ]
- * */
-export declare function getPageNames(): string[];
-export declare namespace getPageNames {
-    let value: string[] | undefined;
-}
+export declare const assets_dir_path: string;
 /**
  *
  * @param pageName eg: "manager" or "webphone"
@@ -18,14 +12,9 @@ export declare namespace getPageNames {
  * Assert pageName in pageList
  *
  */
-export declare function getPage(pageName: string): getPage.Page;
+export declare function getPage(pageName: string): Buffer;
 export declare namespace getPage {
-    type Page = {
-        "html": Buffer;
-        "js": Buffer;
-    };
     const cache: {
-        [pageName: string]: Page;
+        [pageName: string]: Buffer;
     };
 }
-export declare const pathToWebAssets: string;
