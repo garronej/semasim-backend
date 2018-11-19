@@ -19,10 +19,10 @@ export let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
 
 /** Must be called and before use */
-export async function launch(): Promise<void> {
+export function launch() {
 
     const api = f.createPoolAndGetApi({
-        ...(await deploy.getDbAuth()),
+        ...deploy.dbAuth.value!,
         "database": "semasim"
     }, "HANDLE STRING ENCODING");
 

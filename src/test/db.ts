@@ -128,7 +128,7 @@ export function generateSim(
         await db.launch();
 
         (await mysqlCustom.createPoolAndGetApi({
-            ...(await deploy.getDbAuth()),
+            ...deploy.dbAuth.value!,
             "database": "semasim_express_session",
         })).query("DELETE FROM sessions");
 

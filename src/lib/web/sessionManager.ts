@@ -19,10 +19,10 @@ export namespace beforeExit {
     export let impl= ()=> Promise.resolve();
 }
 
-export async function launch(): Promise<void> {
+export function launch() {
 
     const pool= mysql.createPool({
-        ...(await deploy.getDbAuth()),
+        ...deploy.dbAuth.value!,
         "database": "semasim_express_session",
         "multipleStatements": true,
         "connectionLimit": 50
@@ -52,11 +52,9 @@ export async function launch(): Promise<void> {
 
     };
 
-    const sessionStore = new MySQLStore({}, pool);
-
     const sessionMiddleware: any = express_session({
         "secret": "xSoLe9d3=",
-        "store": sessionStore,
+        "store": new MySQLStore({}, pool),
         "resave": false,
         "saveUninitialized": false
     });

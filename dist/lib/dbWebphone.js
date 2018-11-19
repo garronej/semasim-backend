@@ -14,12 +14,10 @@ let esc;
 let buildInsertQuery;
 /** Must be called and awaited before use */
 function launch() {
-    return __awaiter(this, void 0, void 0, function* () {
-        let api = f.createPoolAndGetApi(Object.assign({}, (yield deploy_1.deploy.getDbAuth()), { "database": "semasim_webphone" }), "HANDLE STRING ENCODING");
-        exports.query = api.query;
-        esc = api.esc;
-        buildInsertQuery = api.buildInsertQuery;
-    });
+    let api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_webphone" }), "HANDLE STRING ENCODING");
+    exports.query = api.query;
+    esc = api.esc;
+    buildInsertQuery = api.buildInsertQuery;
 }
 exports.launch = launch;
 /** For test purpose only */

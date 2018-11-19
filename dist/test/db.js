@@ -92,7 +92,7 @@ exports.generateSim = generateSim;
         console.assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
         console.log("START TESTING...");
         yield db.launch();
-        (yield mysqlCustom.createPoolAndGetApi(Object.assign({}, (yield deploy_1.deploy.getDbAuth()), { "database": "semasim_express_session" }))).query("DELETE FROM sessions");
+        (yield mysqlCustom.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_express_session" }))).query("DELETE FROM sessions");
         yield testUser();
         yield testMain();
         yield db.flush();

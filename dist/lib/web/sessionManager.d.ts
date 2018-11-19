@@ -10,7 +10,7 @@ export declare function beforeExit(): Promise<void>;
 export declare namespace beforeExit {
     let impl: () => Promise<void>;
 }
-export declare function launch(): Promise<void>;
+export declare function launch(): void;
 /**
  * Available only once lunched
  *

@@ -1,5 +1,4 @@
 import * as express from "express";
-import * as forceDomain from "forcedomain";
 import * as https from "https";
 import * as http from "http";
 import { handlers as apiHandlers } from "./apiHandlers";
@@ -16,29 +15,34 @@ import * as compression from "compression";
 export function launch(
     httpsServer: https.Server,
     httpServer: http.Server
-): void {
+) {
+
+    {
+
+        const appPlain = express();
+
+        appPlain
+            .use((req, res) => req.get("host") === deploy.getBaseDomain() ?
+                res.redirect("https://www.semasim.com") : 
+                res.redirect(`https://${req.get("host")}${req.originalUrl}`)
+            );
+
+        httpServer.on("request", appPlain);
+
+    }
 
     sessionManager.launch();
 
-    const hostname = `web.${deploy.getBaseDomain()}`;
-
-    (() => {
-
-        const app = express();
-
-        app.use(forceDomain({
-            hostname,
-            "port": 443,
-            "protocol": "https"
-        }));
-
-        httpServer.on("request", app);
-
-    })();
-
     const app = express();
 
-    app.use(forceDomain({ hostname }))
+    app
+        .use((req, res, next) => req.get("host") === deploy.getBaseDomain() ?
+            res.redirect("https://www.semasim.com") : next()
+        )
+        ;
+
+
+    //TODO: if apex domain (semasim.com, dev.semasim.com) redirect to www.semasim.com
 
     apiServer.init({
         app,
@@ -53,7 +57,7 @@ export function launch(
         },
         "onError": {
             "badRequest": req => {
-                if( !!req.session ){
+                if (!!req.session) {
 
                     sessionManager.setAuth(req.session!, undefined);
 

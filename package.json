@@ -26,7 +26,6 @@
     "express-mysql-session": "^1.2.3",
     "express-session": "^1.15.5",
     "firebase-admin": "^5.1.0",
-    "forcedomain": "^0.8.1",
     "html-entities": "^1.2.1",
     "ip-range-check": "0.0.2",
     "logger": "github:garronej/logger",

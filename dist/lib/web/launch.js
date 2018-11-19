@@ -9,7 +9,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
-const forceDomain = require("forcedomain");
 const apiHandlers_1 = require("./apiHandlers");
 const apiServer = require("../../tools/webApi");
 const frontend = require("../../frontend");
@@ -20,19 +19,20 @@ const deploy_1 = require("../../deploy");
 const compression = require("compression");
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
 function launch(httpsServer, httpServer) {
+    {
+        const appPlain = express();
+        appPlain
+            .use((req, res) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
+            res.redirect("https://www.semasim.com") :
+            res.redirect(`https://${req.get("host")}${req.originalUrl}`));
+        httpServer.on("request", appPlain);
+    }
     sessionManager.launch();
-    const hostname = `web.${deploy_1.deploy.getBaseDomain()}`;
-    (() => {
-        const app = express();
-        app.use(forceDomain({
-            hostname,
-            "port": 443,
-            "protocol": "https"
-        }));
-        httpServer.on("request", app);
-    })();
     const app = express();
-    app.use(forceDomain({ hostname }));
+    app
+        .use((req, res, next) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
+        res.redirect("https://www.semasim.com") : next());
+    //TODO: if apex domain (semasim.com, dev.semasim.com) redirect to www.semasim.com
     apiServer.init({
         app,
         "apiPath": frontend.webApiDeclaration.apiPath,

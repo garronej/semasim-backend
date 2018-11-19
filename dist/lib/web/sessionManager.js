@@ -23,30 +23,27 @@ exports.beforeExit = beforeExit;
     beforeExit.impl = () => Promise.resolve();
 })(beforeExit = exports.beforeExit || (exports.beforeExit = {}));
 function launch() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const pool = mysql.createPool(Object.assign({}, (yield deploy_1.deploy.getDbAuth()), { "database": "semasim_express_session", "multipleStatements": true, "connectionLimit": 50 }));
-        beforeExit.impl = () => __awaiter(this, void 0, void 0, function* () {
-            debug("BeforeExit...");
-            try {
-                yield new Promise((resolve, reject) => pool.end(error => !error ? resolve() : reject(error)));
-            }
-            catch (error) {
-                debug(error);
-                throw error;
-            }
-            debug("BeforeExit success");
-        });
-        const sessionStore = new MySQLStore({}, pool);
-        const sessionMiddleware = express_session({
-            "secret": "xSoLe9d3=",
-            "store": sessionStore,
-            "resave": false,
-            "saveUninitialized": false
-        });
-        exports.loadRequestSession = (req, res) => {
-            return new Promise(resolve => sessionMiddleware(req, res, () => resolve()));
-        };
+    const pool = mysql.createPool(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_express_session", "multipleStatements": true, "connectionLimit": 50 }));
+    beforeExit.impl = () => __awaiter(this, void 0, void 0, function* () {
+        debug("BeforeExit...");
+        try {
+            yield new Promise((resolve, reject) => pool.end(error => !error ? resolve() : reject(error)));
+        }
+        catch (error) {
+            debug(error);
+            throw error;
+        }
+        debug("BeforeExit success");
     });
+    const sessionMiddleware = express_session({
+        "secret": "xSoLe9d3=",
+        "store": new MySQLStore({}, pool),
+        "resave": false,
+        "saveUninitialized": false
+    });
+    exports.loadRequestSession = (req, res) => {
+        return new Promise(resolve => sessionMiddleware(req, res, () => resolve()));
+    };
 }
 exports.launch = launch;
 function getAuth(arg) {

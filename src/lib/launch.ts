@@ -20,6 +20,7 @@ import * as gatewayConnections from "./toGateway/connections";
 import * as uaConnections from "./toUa/connections";
 import * as loadBalancerConnection from "./toLoadBalancer/connection";
 import * as web from "./web/launch";
+import { dbAuth } from "../../../deploy/dist/lib/deploy";
 
 const debug = logger.debugFactory();
 
@@ -84,7 +85,6 @@ export async function launch(daemonNumber: number) {
                 "sipGw": _wrap(address2, 80)
             };
 
-
         })(),
         Promise.all(servers.map(
             server => new Promise(
@@ -94,9 +94,7 @@ export async function launch(daemonNumber: number) {
                     .once("listening", () => resolve(server))
             ))
         ),
-        dbTurn.launch(),
-        dbWebphone.launch(),
-        dbSemasim.launch()
+        dbAuth.resolve()
     ]);
 
     runningInstance = {
@@ -119,9 +117,13 @@ export async function launch(daemonNumber: number) {
         })()
     };
 
-    pushNotifications.launch();
+    dbSemasim.launch();
 
-    loadBalancerConnection.connect();
+    dbTurn.launch();
+
+    dbWebphone.launch();
+
+    pushNotifications.launch();
 
     web.launch(servers[0], servers[1]);
 
@@ -143,6 +145,8 @@ export async function launch(daemonNumber: number) {
     backendConnections.listen(
         servers[4]
     );
+
+    await loadBalancerConnection.connect();
 
     debug(`Instance ${daemonNumber} successfully launched`);
 

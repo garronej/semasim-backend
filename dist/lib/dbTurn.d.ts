@@ -2,7 +2,7 @@ import * as f from "../tools/mysqlCustom";
 /** exported only for tests */
 export declare let query: f.Api["query"];
 /** Must be called and awaited before use */
-export declare function launch(): Promise<void>;
+export declare function launch(): void;
 /** For test purpose only */
 export declare function flush(): Promise<void>;
 /**

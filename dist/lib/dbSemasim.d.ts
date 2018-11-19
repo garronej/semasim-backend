@@ -7,7 +7,7 @@ import { types as feTypes } from "../frontend";
 export declare let query: f.Api["query"];
 export declare let esc: f.Api["esc"];
 /** Must be called and before use */
-export declare function launch(): Promise<void>;
+export declare function launch(): void;
 /** For test purpose only */
 export declare function flush(): Promise<void>;
 /**

@@ -9,10 +9,10 @@ let buildInsertQuery: f.Api["buildInsertQuery"];
 
 
 /** Must be called and awaited before use */
-export async function launch(): Promise<void> {
+export function launch() {
 
     let api = f.createPoolAndGetApi({
-        ...(await deploy.getDbAuth()),
+        ...deploy.dbAuth.value!,
         "database": "semasim_turn"
     });
 

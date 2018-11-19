@@ -27,6 +27,7 @@ const gatewayConnections = require("./toGateway/connections");
 const uaConnections = require("./toUa/connections");
 const loadBalancerConnection = require("./toLoadBalancer/connection");
 const web = require("./web/launch");
+const deploy_2 = require("../../../deploy/dist/lib/deploy");
 const debug = logger.debugFactory();
 function beforeExit() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -75,9 +76,7 @@ function launch(daemonNumber) {
                 .once("error", error => { throw error; })
                 .listen(0, interfaceAddress)
                 .once("listening", () => resolve(server))))),
-            dbTurn.launch(),
-            dbWebphone.launch(),
-            dbSemasim.launch()
+            deploy_2.dbAuth.resolve()
         ]);
         runningInstance = Object.assign({ interfaceAddress,
             daemonNumber }, (() => {
@@ -90,13 +89,16 @@ function launch(daemonNumber) {
                 "interInstancesPort": ports[4]
             };
         })());
+        dbSemasim.launch();
+        dbTurn.launch();
+        dbWebphone.launch();
         pushNotifications.launch();
-        loadBalancerConnection.connect();
         web.launch(servers[0], servers[1]);
         uaConnections.listen(new ws.Server({ "server": servers[0] }), spoofedLocalAddressAndPort.https);
         uaConnections.listen(servers[2], spoofedLocalAddressAndPort.sipUa);
         gatewayConnections.listen(servers[3], spoofedLocalAddressAndPort.sipGw);
         backendConnections.listen(servers[4]);
+        yield loadBalancerConnection.connect();
         debug(`Instance ${daemonNumber} successfully launched`);
     });
 }

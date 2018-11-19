@@ -18,12 +18,10 @@ const debug = logger.debugFactory();
 let buildInsertQuery;
 /** Must be called and before use */
 function launch() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const api = f.createPoolAndGetApi(Object.assign({}, (yield deploy_1.deploy.getDbAuth()), { "database": "semasim" }), "HANDLE STRING ENCODING");
-        exports.query = api.query;
-        exports.esc = api.esc;
-        buildInsertQuery = api.buildInsertQuery;
-    });
+    const api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim" }), "HANDLE STRING ENCODING");
+    exports.query = api.query;
+    exports.esc = api.esc;
+    buildInsertQuery = api.buildInsertQuery;
 }
 exports.launch = launch;
 /** For test purpose only */
