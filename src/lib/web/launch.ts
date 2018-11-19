@@ -22,8 +22,9 @@ export function launch(
         const appPlain = express();
 
         appPlain
+            .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
             .use((req, res) => req.get("host") === deploy.getBaseDomain() ?
-                res.redirect("https://www.semasim.com") : 
+                res.redirect(`https://www.semasim.com${req.originalUrl}`) : 
                 res.redirect(`https://${req.get("host")}${req.originalUrl}`)
             );
 
@@ -36,8 +37,9 @@ export function launch(
     const app = express();
 
     app
+        .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
         .use((req, res, next) => req.get("host") === deploy.getBaseDomain() ?
-            res.redirect("https://www.semasim.com") : next()
+            res.redirect(`https://www.semasim.com${req.originalUrl}`) : next()
         )
         ;
 
@@ -92,12 +94,14 @@ export function launch(
         };
 
 
+        /*
     const expressLogger = (() => {
         switch (deploy.getEnv()) {
             case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
             case "PROD": return (_req, _res, next: express.NextFunction) => next();
         }
     })();
+    */
 
     app
         .use(compression())
@@ -110,7 +114,7 @@ export function launch(
             .loadRequestSession(req, res)
             .then(() => next())
         )
-        .use(expressLogger)
+        //.use(expressLogger)
         .get(
             ["/login", "/register"],
             (req, res, next) =>

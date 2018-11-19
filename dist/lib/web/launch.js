@@ -22,16 +22,18 @@ function launch(httpsServer, httpServer) {
     {
         const appPlain = express();
         appPlain
+            .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
             .use((req, res) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
-            res.redirect("https://www.semasim.com") :
+            res.redirect(`https://www.semasim.com${req.originalUrl}`) :
             res.redirect(`https://${req.get("host")}${req.originalUrl}`));
         httpServer.on("request", appPlain);
     }
     sessionManager.launch();
     const app = express();
     app
+        .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
         .use((req, res, next) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
-        res.redirect("https://www.semasim.com") : next());
+        res.redirect(`https://www.semasim.com${req.originalUrl}`) : next());
     //TODO: if apex domain (semasim.com, dev.semasim.com) redirect to www.semasim.com
     apiServer.init({
         app,
@@ -66,12 +68,14 @@ function launch(httpsServer, httpServer) {
         res.set("Content-Type", "text/html; charset=utf-8");
         res.send(frontend.getPage(pageName));
     };
-    const expressLogger = (() => {
-        switch (deploy_1.deploy.getEnv()) {
-            case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
-            case "PROD": return (_req, _res, next) => next();
-        }
-    })();
+    /*
+const expressLogger = (() => {
+    switch (deploy.getEnv()) {
+        case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
+        case "PROD": return (_req, _res, next: express.NextFunction) => next();
+    }
+})();
+*/
     app
         .use(compression())
         .use(express.static(frontend.assets_dir_path))
@@ -79,7 +83,7 @@ function launch(httpsServer, httpServer) {
         .use((req, res, next) => sessionManager
         .loadRequestSession(req, res)
         .then(() => next()))
-        .use(expressLogger)
+        //.use(expressLogger)
         .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session) ?
         res.redirect("/") :
         next())
