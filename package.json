@@ -31,8 +31,10 @@
     "logger": "github:garronej/logger",
     "morgan": "^1.8.2",
     "mysql": "^2.15.0",
+    "node-watch": "^0.5.9",
     "phone-number": "github:garronej/phone-number",
     "scripting-tools": "github:garronej/scripting-tools",
+    "stripe": "^6.15.1",
     "transfer-tools": "garronej/transfer-tools",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-sip": "github:garronej/ts-sip",
@@ -49,6 +51,7 @@
     "@types/morgan": "^1.7.32",
     "@types/mysql": "^2.15.2",
     "@types/node": "^8.9.1",
+    "@types/stripe": "^6.0.4",
     "@types/uuid": "^3.4.3",
     "@types/ws": "^4.0.0",
     "typescript": "^3.0.1"

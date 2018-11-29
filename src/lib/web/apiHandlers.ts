@@ -12,6 +12,7 @@ import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
 import * as emailSender from "../emailSender";
 import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
+import * as stripe from "../stripe";
 
 
 import {
@@ -226,6 +227,82 @@ export const handlers: Handlers = {};
             }
 
             return wasTokenStillValid;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.getSubscriptionInfos.methodName;
+    type Params = apiDeclaration.getSubscriptionInfos.Params;
+    type Response = apiDeclaration.getSubscriptionInfos.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": async (_params, session) => {
+
+            const auth= sessionManager.getAuth(session)!;
+
+            return stripe.getSubscriptionInfos(auth);
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.subscribeOrUpdateSource.methodName;
+    type Params = apiDeclaration.subscribeOrUpdateSource.Params;
+    type Response = apiDeclaration.subscribeOrUpdateSource.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            typeof params.sourceId === "string"
+        ),
+        "handler": async ({ sourceId }, session) => {
+
+            const auth= sessionManager.getAuth(session)!;
+
+            await stripe.subscribeUser(auth, sourceId);
+
+            return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.unsubscribe.methodName;
+    type Params = apiDeclaration.unsubscribe.Params;
+    type Response = apiDeclaration.unsubscribe.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": async (_params, session) => {
+
+            const auth= sessionManager.getAuth(session)!;
+
+            await stripe.unsubscribeUser(auth);
+
+            return undefined;
 
         }
     };

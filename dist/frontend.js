@@ -10,11 +10,15 @@ const api_decl_uaToBackend = require("../../frontend/shared/dist/sip_api_declara
 exports.api_decl_uaToBackend = api_decl_uaToBackend;
 const deploy_1 = require("./deploy");
 const ejs = require("ejs");
+const logger = require("logger");
+const watch = require("node-watch");
+const debug = logger.debugFactory();
 const fs = require("fs");
 const path = require("path");
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 exports.assets_dir_path = path.join(frontend_dir_path, "docs");
+debug("up!");
 /**
  *
  * @param pageName eg: "manager" or "webphone"
@@ -28,13 +32,16 @@ function getPage(pageName) {
     }
     const page_dir_path = path.join(pages_dir_path, pageName);
     const ejs_file_path = path.join(page_dir_path, `page.ejs`);
-    const read = () => getPage.cache[pageName] =
-        Buffer.from(ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), {
-            "assets_root": deploy_1.deploy.getEnv() === "DEV" ?
-                "/" :
-                "//static.semasim.com/"
-        }), "utf8");
-    fs.watch(ejs_file_path, { "persistent": false }, () => read());
+    const read = () => getPage.cache[pageName] = Buffer.from(ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), {
+        "assets_root": deploy_1.deploy.getEnv() === "DEV" ?
+            "/" :
+            "//static.semasim.com/"
+    }), "utf8");
+    watch(ejs_file_path, { "persistent": false }, () => {
+        debug(`${pageName} page updated`);
+        read();
+    });
+    //fs.watch(ejs_file_path, { "persistent": false }, () => read());
     read();
     return getPage(pageName);
 }

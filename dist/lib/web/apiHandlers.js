@@ -16,6 +16,7 @@ const localApiHandlers_1 = require("../toUa/localApiHandlers");
 const emailSender = require("../emailSender");
 const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
+const stripe = require("../stripe");
 const gateway_1 = require("../../gateway");
 exports.handlers = {};
 //TODO: regexp for password once and for all!!!
@@ -133,6 +134,48 @@ exports.handlers = {};
                     .then(uas => pushNotifications.send(uas, { "type": "RELOAD CONFIG" }));
             }
             return wasTokenStillValid;
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = frontend_1.webApiDeclaration.getSubscriptionInfos.methodName;
+    const handler = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": (_params, session) => __awaiter(this, void 0, void 0, function* () {
+            const auth = sessionManager.getAuth(session);
+            return stripe.getSubscriptionInfos(auth);
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = frontend_1.webApiDeclaration.subscribeOrUpdateSource.methodName;
+    const handler = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (params instanceof Object &&
+            typeof params.sourceId === "string"),
+        "handler": ({ sourceId }, session) => __awaiter(this, void 0, void 0, function* () {
+            const auth = sessionManager.getAuth(session);
+            yield stripe.subscribeUser(auth, sourceId);
+            return undefined;
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = frontend_1.webApiDeclaration.unsubscribe.methodName;
+    const handler = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": (_params, session) => __awaiter(this, void 0, void 0, function* () {
+            const auth = sessionManager.getAuth(session);
+            yield stripe.unsubscribeUser(auth);
+            return undefined;
         })
     };
     exports.handlers[methodName] = handler;

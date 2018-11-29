@@ -28,6 +28,7 @@ const uaConnections = require("./toUa/connections");
 const loadBalancerConnection = require("./toLoadBalancer/connection");
 const web = require("./web/launch");
 const deploy_2 = require("../../../deploy/dist/lib/deploy");
+const stripe = require("./stripe");
 const debug = logger.debugFactory();
 function beforeExit() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -92,6 +93,7 @@ function launch(daemonNumber) {
         dbSemasim.launch();
         dbTurn.launch();
         dbWebphone.launch();
+        stripe.launch();
         pushNotifications.launch();
         web.launch(servers[0], servers[1]);
         uaConnections.listen(new ws.Server({ "server": servers[0] }), spoofedLocalAddressAndPort.https);

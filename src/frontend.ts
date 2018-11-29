@@ -5,6 +5,12 @@ import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declar
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
 import { deploy } from "./deploy";
 import * as ejs from "ejs";
+import * as logger from "logger";
+import * as watch from "node-watch";
+
+ 
+
+const debug= logger.debugFactory();
 
 export {
     webApiDeclaration,
@@ -20,6 +26,8 @@ const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 export const assets_dir_path = path.join(frontend_dir_path, "docs");
 
+debug("up!");
+
 /**
  * 
  * @param pageName eg: "manager" or "webphone"
@@ -33,22 +41,31 @@ export function getPage(pageName: string): Buffer {
         return getPage.cache[pageName];
     }
 
-    const page_dir_path= path.join(pages_dir_path, pageName);
+    const page_dir_path = path.join(pages_dir_path, pageName);
 
     const ejs_file_path = path.join(page_dir_path, `page.ejs`);
 
-    const read = () => getPage.cache[pageName] =
-        Buffer.from(
-            ejs.render(
-                fs.readFileSync(ejs_file_path).toString("utf8"),
-                {
-                    "assets_root": deploy.getEnv() === "DEV" ?
-                        "/" :
-                        "//static.semasim.com/"
-                }
-            ), "utf8");
+    const read = () => getPage.cache[pageName] = Buffer.from(
+        ejs.render(
+            fs.readFileSync(ejs_file_path).toString("utf8"),
+            {
+                "assets_root": deploy.getEnv() === "DEV" ?
+                    "/" :
+                    "//static.semasim.com/"
+            }
+        ),
+        "utf8"
+    );
 
-    fs.watch(ejs_file_path, { "persistent": false }, () => read());
+    watch(ejs_file_path, { "persistent": false }, () => {
+
+        debug(`${pageName} page updated`);
+
+        read();
+
+    });
+
+    //fs.watch(ejs_file_path, { "persistent": false }, () => read());
 
     read();
 

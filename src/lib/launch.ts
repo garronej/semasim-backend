@@ -21,6 +21,7 @@ import * as uaConnections from "./toUa/connections";
 import * as loadBalancerConnection from "./toLoadBalancer/connection";
 import * as web from "./web/launch";
 import { dbAuth } from "../../../deploy/dist/lib/deploy";
+import * as stripe from "./stripe";
 
 const debug = logger.debugFactory();
 
@@ -122,6 +123,8 @@ export async function launch(daemonNumber: number) {
     dbTurn.launch();
 
     dbWebphone.launch();
+
+    stripe.launch();
 
     pushNotifications.launch();
 

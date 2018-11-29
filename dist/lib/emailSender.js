@@ -15,6 +15,9 @@ const path = require("path");
 const ejs = require("ejs");
 const fs = require("fs");
 const phone_number_1 = require("phone-number");
+const logger = require("logger");
+const watch = require("node-watch");
+const debug = logger.debugFactory();
 exports.sharingRequest = (() => {
     const templateName = "sharing-request";
     return function (user, userSim, message, targetUsers) {
@@ -69,7 +72,7 @@ exports.passwordRenewalRequest = (() => {
 exports.emailValidation = (() => {
     const templateName = "email-validation";
     return function (email, activationCode) {
-        return send("noreply@semasim.com", email, `${activationCode} is the Semasim activation code`, ejsRenderTemplate(templateName, {
+        return send("semasim@semasim.com", email, `${activationCode} is the Semasim activation code`, ejsRenderTemplate(templateName, {
             email,
             "code": activationCode
         }));
@@ -87,7 +90,10 @@ function ejsRenderTemplate(templateName, data) {
         }
         const templatePath = path.join(i.module_dir_path, "res", "mail-templates", `${templateName}.ejs`);
         const read = () => ejsRenderTemplate.templateCache[templateName] = fs.readFileSync(templatePath).toString("utf8");
-        fs.watch(templatePath, { "persistent": false }, () => read());
+        watch(templatePath, { "persistent": false }, () => {
+            debug(`${templateName} updated`);
+            read();
+        });
         read();
         return getTemplate(templateName);
     }

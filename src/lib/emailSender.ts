@@ -8,6 +8,10 @@ import * as fs from "fs";
 import { types as feTypes } from "../frontend";
 import * as sessionManager from "./web/sessionManager";
 import { phoneNumber } from "phone-number";
+import * as logger from "logger";
+import * as watch from "node-watch";
+
+const debug= logger.debugFactory();
 
 export const sharingRequest = (() => {
 
@@ -141,7 +145,7 @@ export const emailValidation = (() => {
     ): Promise<void> {
 
         return send(
-            "noreply@semasim.com",
+            "semasim@semasim.com",
             email,
             `${activationCode} is the Semasim activation code`,
             ejsRenderTemplate<Data>(
@@ -181,7 +185,13 @@ namespace ejsRenderTemplate {
 
         const read = () => templateCache[templateName] = fs.readFileSync(templatePath).toString("utf8");
 
-        fs.watch(templatePath, { "persistent": false }, () => read());
+        watch(templatePath, { "persistent": false }, () => {
+
+            debug(`${templateName} updated`);
+
+            read();
+
+        });
 
         read();
 

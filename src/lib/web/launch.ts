@@ -9,6 +9,7 @@ import * as morgan from "morgan";
 import * as logger from "logger";
 import { deploy } from "../../deploy";
 import * as compression from "compression";
+import * as stripe from "../stripe";
 
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
 
@@ -37,7 +38,6 @@ export function launch(
     const app = express();
 
     app
-        .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
         .use((req, res, next) => req.get("host") === deploy.getBaseDomain() ?
             res.redirect(`https://www.semasim.com${req.originalUrl}`) : next()
         )
@@ -94,14 +94,14 @@ export function launch(
         };
 
 
-        /*
     const expressLogger = (() => {
         switch (deploy.getEnv()) {
             case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
             case "PROD": return (_req, _res, next: express.NextFunction) => next();
         }
     })();
-    */
+
+    stripe.registerWebHooks(app);
 
     app
         .use(compression())
@@ -114,7 +114,7 @@ export function launch(
             .loadRequestSession(req, res)
             .then(() => next())
         )
-        //.use(expressLogger)
+        .use(expressLogger)
         .get(
             ["/login", "/register"],
             (req, res, next) =>
@@ -132,6 +132,7 @@ export function launch(
         .get("/", (_req, res) => res.redirect("/manager"))
         .get("/manager", sendHtml("manager"))
         .get("/webphone", sendHtml("webphone"))
+        .get("/subscription", sendHtml("subscription"))
         .use((_req, res) => res.status(404).end())
         ;
 
