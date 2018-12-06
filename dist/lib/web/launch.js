@@ -19,11 +19,11 @@ const deploy_1 = require("../../deploy");
 const compression = require("compression");
 const stripe = require("../stripe");
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
+const debug = logger.debugFactory();
 function launch(httpsServer, httpServer) {
     {
         const appPlain = express();
         appPlain
-            .use(morgan("dev", { "stream": { "write": str => logger.log(str) } }))
             .use((req, res) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
             res.redirect(`https://www.semasim.com${req.originalUrl}`) :
             res.redirect(`https://${req.get("host")}${req.originalUrl}`));
@@ -78,7 +78,22 @@ function launch(httpsServer, httpServer) {
     app
         .use(compression())
         .use(express.static(frontend.assets_dir_path))
-        .get(/\.[a-zA-Z0-9]{1,8}$/, (_req, res) => res.status(404).end())
+        .head(["/img/logo@2x@2x.png", "/img/logosm@2x@2x.png"], (_req, res) => res.status(404).end())
+        .use((req, res, next) => {
+        if ([
+            "",
+            "login",
+            "register",
+            "manager",
+            "webphone",
+            "subscription"
+        ].map(v => `/${v}`).indexOf(req.path) === -1) {
+            debug(`Consider banning IP ${req.connection.remoteAddress} asking for ${req.method} ${req.originalUrl}`);
+            res.status(404).end();
+            return;
+        }
+        next();
+    })
         .use((req, res, next) => sessionManager
         .loadRequestSession(req, res)
         .then(() => next()))
@@ -94,8 +109,7 @@ function launch(httpsServer, httpServer) {
         .get("/", (_req, res) => res.redirect("/manager"))
         .get("/manager", sendHtml("manager"))
         .get("/webphone", sendHtml("webphone"))
-        .get("/subscription", sendHtml("subscription"))
-        .use((_req, res) => res.status(404).end());
+        .get("/subscription", sendHtml("subscription"));
     httpsServer.on("request", app);
 }
 exports.launch = launch;
