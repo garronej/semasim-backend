@@ -144,9 +144,19 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, session) => __awaiter(this, void 0, void 0, function* () {
+        "handler": (_params, session, _remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
             const auth = sessionManager.getAuth(session);
-            return stripe.getSubscriptionInfos(auth);
+            return stripe.getSubscriptionInfos(auth, (() => {
+                const hv = req.header("Accept-Language");
+                if (hv === undefined) {
+                    return "";
+                }
+                const match = hv.match(/\-([A-Z]{2})/);
+                if (match === null) {
+                    return "";
+                }
+                return match[1].toLowerCase();
+            })());
         })
     };
     exports.handlers[methodName] = handler;
@@ -157,7 +167,8 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            typeof params.sourceId === "string"),
+            (params.sourceId === undefined ||
+                typeof params.sourceId === "string")),
         "handler": ({ sourceId }, session) => __awaiter(this, void 0, void 0, function* () {
             const auth = sessionManager.getAuth(session);
             yield stripe.subscribeUser(auth, sourceId);

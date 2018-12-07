@@ -13,6 +13,7 @@ const f = require("../tools/mysqlCustom");
 const deploy_1 = require("../deploy");
 const misc_1 = require("../tools/webApi/misc");
 const ts_events_extended_1 = require("ts-events-extended");
+const frontend_1 = require("../frontend");
 var db;
 (function (db) {
     let buildInsertQuery;
@@ -44,9 +45,16 @@ var db;
     db.getCustomerId = getCustomerId;
 })(db || (db = {}));
 let stripe;
+const planByCurrency = {};
 function launch() {
-    db.launch();
-    stripe = new Stripe("sk_test_tjDeOW7JrFihMOM3134bNpIO");
+    return __awaiter(this, void 0, void 0, function* () {
+        db.launch();
+        stripe = new Stripe("sk_test_tjDeOW7JrFihMOM3134bNpIO");
+        const { data } = yield stripe.plans.list();
+        for (const { id, currency, amount } of data) {
+            planByCurrency[currency] = { id, amount };
+        }
+    });
 }
 exports.launch = launch;
 /**
@@ -74,7 +82,7 @@ function subscribeUser(auth, sourceId) {
                 throw new Error("assert");
             }
             const state = customer.sources.data
-                .find(({ id }) => id === customer.default_source)["state"];
+                .find(({ id }) => id === customer.default_source)["status"];
             if (state !== "chargeable") {
                 throw new Error("assert");
             }
@@ -84,7 +92,17 @@ function subscribeUser(auth, sourceId) {
         if (subscriptions.length === 0) {
             yield stripe.subscriptions.create({
                 "customer": customerId,
-                "items": [{ "plan": "plan_E25sJsRtiJ0hh1" }],
+                "items": [{
+                        "plan": yield (() => __awaiter(this, void 0, void 0, function* () {
+                            const customer = yield stripe.customers.retrieve(customerId);
+                            let currency = frontend_1.currencyByCountry[customer.sources.data
+                                .find(({ id }) => id === customer.default_source)["card"].country.toLowerCase()];
+                            if (!(currency in planByCurrency)) {
+                                currency = "usd";
+                            }
+                            return planByCurrency[currency].id;
+                        }))()
+                    }]
             });
         }
         else {
@@ -114,15 +132,26 @@ function unsubscribeUser(auth) {
     });
 }
 exports.unsubscribeUser = unsubscribeUser;
-function getSubscriptionInfos(auth) {
+const stripePublicApiKey = "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
+function getSubscriptionInfos(auth, iso) {
     return __awaiter(this, void 0, void 0, function* () {
+        const out = {
+            stripePublicApiKey,
+            "pricingByCurrency": (() => {
+                const out = {};
+                for (const currency in planByCurrency) {
+                    out[currency] = planByCurrency[currency].amount;
+                }
+                return out;
+            })(),
+            "defaultCurrency": frontend_1.currencyByCountry[iso] in planByCurrency ? frontend_1.currencyByCountry[iso] : "usd"
+        };
         const customerId = yield db.getCustomerId(auth);
         if (customerId === undefined) {
-            return {};
+            return out;
         }
         const customer = yield stripe.customers.retrieve(customerId);
         const { account_balance } = customer;
-        const out = {};
         if (account_balance < 0) {
             out.due = {
                 "value": -account_balance,
@@ -135,8 +164,8 @@ function getSubscriptionInfos(auth) {
             const [subscription] = subscriptions;
             out.subscription = {
                 "cancel_at_period_end": subscription.cancel_at_period_end,
-                "current_period_end": new Date(subscription.current_period_end),
-                "start": new Date(subscription.start)
+                "current_period_end": new Date(subscription.current_period_end * 1000),
+                "currency": subscription.plan.currency
             };
         }
         if (customer.default_source !== null) {
@@ -144,9 +173,8 @@ function getSubscriptionInfos(auth) {
                 .find(({ id }) => id === customer.default_source);
             out.source = {
                 "isChargeable": source["status"] === "chargeable",
-                "expiration": "XX/XX",
-                "lastDigits": source["card"]["last4"],
-                "brand": source["card"]["brand"]
+                "expiration": `${source["card"]["exp_month"]}/${source["card"]["exp_year"]}`,
+                "lastDigits": source["card"]["last4"]
             };
         }
         return out;

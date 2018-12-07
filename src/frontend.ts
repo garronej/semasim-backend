@@ -1,5 +1,6 @@
 
 import * as types from "../../frontend/shared/dist/lib/types";
+import { currencyByCountry } from "../../frontend/shared/dist/lib/currencyByCountry";
 import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declaration";
 import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
@@ -8,13 +9,12 @@ import * as ejs from "ejs";
 import * as logger from "logger";
 import * as watch from "node-watch";
 
- 
-
 const debug= logger.debugFactory();
 
 export {
     webApiDeclaration,
     types,
+    currencyByCountry,
     api_decl_backendToUa,
     api_decl_uaToBackend
 };
@@ -25,8 +25,6 @@ import * as path from "path";
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 export const assets_dir_path = path.join(frontend_dir_path, "docs");
-
-debug("up!");
 
 /**
  * 
@@ -64,8 +62,6 @@ export function getPage(pageName: string): Buffer {
         read();
 
     });
-
-    //fs.watch(ejs_file_path, { "persistent": false }, () => read());
 
     read();
 

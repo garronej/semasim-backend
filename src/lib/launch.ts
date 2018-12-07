@@ -118,13 +118,13 @@ export async function launch(daemonNumber: number) {
         })()
     };
 
+    await stripe.launch();
+
     dbSemasim.launch();
 
     dbTurn.launch();
 
     dbWebphone.launch();
-
-    stripe.launch();
 
     pushNotifications.launch();
 

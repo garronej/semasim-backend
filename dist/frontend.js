@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const types = require("../../frontend/shared/dist/lib/types");
 exports.types = types;
+const currencyByCountry_1 = require("../../frontend/shared/dist/lib/currencyByCountry");
+exports.currencyByCountry = currencyByCountry_1.currencyByCountry;
 const webApiDeclaration = require("../../frontend/shared/dist/web_api_declaration");
 exports.webApiDeclaration = webApiDeclaration;
 const api_decl_backendToUa = require("../../frontend/shared/dist/sip_api_declarations/backendToUa");
@@ -18,7 +20,6 @@ const path = require("path");
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 exports.assets_dir_path = path.join(frontend_dir_path, "docs");
-debug("up!");
 /**
  *
  * @param pageName eg: "manager" or "webphone"
@@ -41,7 +42,6 @@ function getPage(pageName) {
         debug(`${pageName} page updated`);
         read();
     });
-    //fs.watch(ejs_file_path, { "persistent": false }, () => read());
     read();
     return getPage(pageName);
 }

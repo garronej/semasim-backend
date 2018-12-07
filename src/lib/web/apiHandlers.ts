@@ -241,15 +241,35 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.getSubscriptionInfos.Params;
     type Response = apiDeclaration.getSubscriptionInfos.Response;
 
+
     const handler: Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": async (_params, session) => {
+        "handler": async (_params, session, _remoteAddress, req) => {
 
-            const auth= sessionManager.getAuth(session)!;
+            const auth = sessionManager.getAuth(session)!;
 
-            return stripe.getSubscriptionInfos(auth);
+            return stripe.getSubscriptionInfos(
+                auth,
+                (() => {
+
+                    const hv = req.header("Accept-Language");
+
+                    if (hv === undefined) {
+                        return "";
+                    }
+
+                    const match = hv.match(/\-([A-Z]{2})/);
+
+                    if (match === null) {
+                        return "";
+                    }
+
+                    return match[1].toLowerCase();
+
+                })()
+            );
 
         }
     };
@@ -269,11 +289,14 @@ export const handlers: Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            typeof params.sourceId === "string"
+            (
+                params.sourceId === undefined ||
+                typeof params.sourceId === "string"
+            )
         ),
         "handler": async ({ sourceId }, session) => {
 
-            const auth= sessionManager.getAuth(session)!;
+            const auth = sessionManager.getAuth(session)!;
 
             await stripe.subscribeUser(auth, sourceId);
 
@@ -298,7 +321,7 @@ export const handlers: Handlers = {};
         "sanityCheck": params => params === undefined,
         "handler": async (_params, session) => {
 
-            const auth= sessionManager.getAuth(session)!;
+            const auth = sessionManager.getAuth(session)!;
 
             await stripe.unsubscribeUser(auth);
 

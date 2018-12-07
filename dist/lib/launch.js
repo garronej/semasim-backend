@@ -90,10 +90,10 @@ function launch(daemonNumber) {
                 "interInstancesPort": ports[4]
             };
         })());
+        yield stripe.launch();
         dbSemasim.launch();
         dbTurn.launch();
         dbWebphone.launch();
-        stripe.launch();
         pushNotifications.launch();
         web.launch(servers[0], servers[1]);
         uaConnections.listen(new ws.Server({ "server": servers[0] }), spoofedLocalAddressAndPort.https);

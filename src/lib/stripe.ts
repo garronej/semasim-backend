@@ -5,7 +5,7 @@ import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
 import { bodyParser } from "../tools/webApi/misc";
 import { SyncEvent } from "ts-events-extended";
-import { types as feTypes } from "../frontend";
+import { types as feTypes, currencyByCountry } from "../frontend";
 
 namespace db {
 
@@ -57,13 +57,25 @@ namespace db {
 
 }
 
+
 let stripe: Stripe;
 
-export function launch() {
+const planByCurrency: { [currency: string]: { id: string; amount: number; } } = {};
+
+export async function launch() {
 
     db.launch();
 
     stripe = new Stripe("sk_test_tjDeOW7JrFihMOM3134bNpIO");
+
+    const { data } = await stripe.plans.list();
+
+    for (const { id, currency, amount } of data) {
+
+        planByCurrency[currency] = { id, amount };
+
+    }
+
 
 }
 
@@ -102,8 +114,9 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
             throw new Error("assert");
         }
 
+
         const state: string = customer.sources!.data
-            .find(({ id }) => id === customer.default_source)!["state"];
+            .find(({ id }) => id === customer.default_source)!["status"];
 
         if (state !== "chargeable") {
             throw new Error("assert");
@@ -119,7 +132,24 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 
         await stripe.subscriptions.create({
             "customer": customerId,
-            "items": [{ "plan": "plan_E25sJsRtiJ0hh1" }],
+            "items": [{
+                "plan": await (async () => {
+
+                    const customer = await stripe.customers.retrieve(customerId);
+
+                    let currency = currencyByCountry[
+                        customer.sources!.data
+                            .find(({ id }) => id === customer.default_source)!["card"].country.toLowerCase()
+                    ];
+
+                    if (!(currency in planByCurrency)) {
+                        currency = "usd";
+                    }
+
+                    return planByCurrency[currency].id;
+
+                })()
+            }]
         });
 
     } else {
@@ -160,15 +190,38 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
 }
 
+
+
+const stripePublicApiKey = "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
+
 export async function getSubscriptionInfos(
-    auth: Auth
+    auth: Auth,
+    iso: string
 ): Promise<feTypes.SubscriptionInfos> {
+
+    const out: feTypes.SubscriptionInfos = {
+        stripePublicApiKey,
+        "pricingByCurrency": (() => {
+
+            const out: feTypes.SubscriptionInfos["pricingByCurrency"] = {};
+
+            for (const currency in planByCurrency) {
+
+                out[currency] = planByCurrency[currency].amount;
+
+            }
+
+            return out;
+
+        })(),
+        "defaultCurrency": currencyByCountry[iso] in planByCurrency ? currencyByCountry[iso] : "usd"
+    };
 
     const customerId = await db.getCustomerId(auth);
 
     if (customerId === undefined) {
 
-        return {};
+        return out;
 
     }
 
@@ -176,14 +229,11 @@ export async function getSubscriptionInfos(
 
     const { account_balance } = customer;
 
-    const out: feTypes.SubscriptionInfos = {};
-
     if (account_balance! < 0) {
 
         out.due = {
             "value": -account_balance!,
             "currency": customer.currency!
-
         };
 
     }
@@ -197,8 +247,8 @@ export async function getSubscriptionInfos(
 
         out.subscription = {
             "cancel_at_period_end": subscription.cancel_at_period_end,
-            "current_period_end": new Date(subscription.current_period_end),
-            "start": new Date(subscription.start)
+            "current_period_end": new Date(subscription.current_period_end * 1000),
+            "currency": subscription.plan.currency
         };
 
     }
@@ -210,9 +260,8 @@ export async function getSubscriptionInfos(
 
         out.source = {
             "isChargeable": source["status"] === "chargeable",
-            "expiration": "XX/XX",
-            "lastDigits": source["card"]["last4"],
-            "brand": source["card"]["brand"]
+            "expiration": `${source["card"]["exp_month"]}/${source["card"]["exp_year"]}`,
+            "lastDigits": source["card"]["last4"]
         };
 
 
