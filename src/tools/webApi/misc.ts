@@ -138,9 +138,10 @@ export const httpCodes = {
     "UNAUTHORIZED": 401,
     "LOCKED": 423,
     "INTERNAL_SERVER_ERROR": 500,
+    "PAYMENT_REQUIRED": 402
 };
 
-export namespace internalErrorCustomHttpCode {
+export namespace errorHttpCode {
 
     let key = "__http_code__";
 

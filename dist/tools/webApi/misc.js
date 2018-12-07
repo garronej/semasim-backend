@@ -93,14 +93,15 @@ exports.httpCodes = {
     "UNAUTHORIZED": 401,
     "LOCKED": 423,
     "INTERNAL_SERVER_ERROR": 500,
+    "PAYMENT_REQUIRED": 402
 };
-var internalErrorCustomHttpCode;
-(function (internalErrorCustomHttpCode) {
+var errorHttpCode;
+(function (errorHttpCode) {
     let key = "__http_code__";
     function set(error, code) {
         error[key] = code;
     }
-    internalErrorCustomHttpCode.set = set;
+    errorHttpCode.set = set;
     function get(error) {
         try {
             let code = error[key];
@@ -111,8 +112,8 @@ var internalErrorCustomHttpCode;
             return exports.httpCodes.INTERNAL_SERVER_ERROR;
         }
     }
-    internalErrorCustomHttpCode.get = get;
-})(internalErrorCustomHttpCode = exports.internalErrorCustomHttpCode || (exports.internalErrorCustomHttpCode = {}));
+    errorHttpCode.get = get;
+})(errorHttpCode = exports.errorHttpCode || (exports.errorHttpCode = {}));
 function buildDummySession() {
     return {
         "id": "dummy",

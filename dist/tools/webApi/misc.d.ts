@@ -25,8 +25,9 @@ export declare const httpCodes: {
     "UNAUTHORIZED": number;
     "LOCKED": number;
     "INTERNAL_SERVER_ERROR": number;
+    "PAYMENT_REQUIRED": number;
 };
-export declare namespace internalErrorCustomHttpCode {
+export declare namespace errorHttpCode {
     function set(error: Error, code: number): void;
     function get(error: any): number;
 }

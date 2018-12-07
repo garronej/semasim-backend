@@ -144,7 +144,7 @@ export function init(initParams: InitParams): void {
 
             } catch (error) {
 
-                res.status(misc.internalErrorCustomHttpCode.get(error)).end();
+                res.status(misc.errorHttpCode.get(error)).end();
 
                 if( !!logger.onHandlerThrow ){
 

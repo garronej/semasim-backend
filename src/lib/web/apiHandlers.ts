@@ -4,7 +4,7 @@ import * as dbSemasim from "../dbSemasim";
 import {
     Handler,
     Handlers,
-    internalErrorCustomHttpCode,
+    errorHttpCode,
     httpCodes
 } from "../../tools/webApi";
 import * as sessionManager from "./sessionManager";
@@ -415,7 +415,7 @@ export const handlers: Handlers = {};
 
                     const error = new Error("Account temporally locked");
 
-                    internalErrorCustomHttpCode.set(error, httpCodes.LOCKED);
+                    errorHttpCode.set(error, httpCodes.LOCKED);
 
                     throw error;
 
@@ -426,7 +426,7 @@ export const handlers: Handlers = {};
 
                     const error = new Error("User not authenticated");
 
-                    internalErrorCustomHttpCode.set(error, httpCodes.UNAUTHORIZED);
+                    errorHttpCode.set(error, httpCodes.UNAUTHORIZED);
 
                     throw error;
 
@@ -444,6 +444,18 @@ export const handlers: Handlers = {};
                     //TODO: Remove this field from project.
                     "software": ""
                 });
+
+            }
+
+            const subscriptionInfos= await stripe.getSubscriptionInfos({ email, "user": authResp.user }, "us");
+
+            if( !subscriptionInfos.subscription  ){
+
+                const error= new Error("User does not have mobile subscription");
+
+                errorHttpCode.set(error, httpCodes.PAYMENT_REQUIRED);
+                
+                throw error;
 
             }
 

@@ -6,4 +6,4 @@ var misc_1 = require("./misc");
 exports.getDefaultLogger = misc_1.getDefaultLogger;
 exports.bodyParser = misc_1.bodyParser;
 exports.httpCodes = misc_1.httpCodes;
-exports.internalErrorCustomHttpCode = misc_1.internalErrorCustomHttpCode;
+exports.errorHttpCode = misc_1.errorHttpCode;

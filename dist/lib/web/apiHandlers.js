@@ -236,14 +236,14 @@ exports.handlers = {};
             switch (authResp.status) {
                 case "RETRY STILL FORBIDDEN": {
                     const error = new Error("Account temporally locked");
-                    webApi_1.internalErrorCustomHttpCode.set(error, webApi_1.httpCodes.LOCKED);
+                    webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.LOCKED);
                     throw error;
                 }
                 case "NOT VALIDATED YET":
                 case "NO SUCH ACCOUNT":
                 case "WRONG PASSWORD": {
                     const error = new Error("User not authenticated");
-                    webApi_1.internalErrorCustomHttpCode.set(error, webApi_1.httpCodes.UNAUTHORIZED);
+                    webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.UNAUTHORIZED);
                     throw error;
                 }
                 case "SUCCESS": break;
@@ -257,6 +257,12 @@ exports.handlers = {};
                     //TODO: Remove this field from project.
                     "software": ""
                 });
+            }
+            const subscriptionInfos = yield stripe.getSubscriptionInfos({ email, "user": authResp.user }, "us");
+            if (!subscriptionInfos.subscription) {
+                const error = new Error("User does not have mobile subscription");
+                webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.PAYMENT_REQUIRED);
+                throw error;
             }
             const p_email = `enc_email=${gateway_1.misc.urlSafeB64.enc(email)}`;
             const config = {};

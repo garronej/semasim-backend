@@ -82,7 +82,7 @@ function init(initParams) {
             response = yield handler(params, session, req.connection.remoteAddress, req, _contentType => dynamicallyDefinedContentType = _contentType);
         }
         catch (error) {
-            res.status(misc.internalErrorCustomHttpCode.get(error)).end();
+            res.status(misc.errorHttpCode.get(error)).end();
             if (!!logger.onHandlerThrow) {
                 logger.onHandlerThrow(methodName, params, error, req);
             }
