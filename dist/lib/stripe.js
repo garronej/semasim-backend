@@ -133,7 +133,7 @@ function unsubscribeUser(auth) {
 }
 exports.unsubscribeUser = unsubscribeUser;
 const stripePublicApiKey = "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
-function getSubscriptionInfos(auth, iso) {
+function getSubscriptionInfos(auth, iso = "us") {
     return __awaiter(this, void 0, void 0, function* () {
         const out = {
             stripePublicApiKey,
@@ -174,7 +174,8 @@ function getSubscriptionInfos(auth, iso) {
             out.source = {
                 "isChargeable": source["status"] === "chargeable",
                 "expiration": `${source["card"]["exp_month"]}/${source["card"]["exp_year"]}`,
-                "lastDigits": source["card"]["last4"]
+                "lastDigits": source["card"]["last4"],
+                "currency": frontend_1.currencyByCountry[source["card"].country.toLowerCase()]
             };
         }
         return out;

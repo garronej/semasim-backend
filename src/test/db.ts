@@ -125,6 +125,8 @@ export function generateSim(
 
         console.log("START TESTING...");
 
+        await deploy.dbAuth.resolve();
+
         await db.launch();
 
         (await mysqlCustom.createPoolAndGetApi({
@@ -1040,7 +1042,7 @@ async function testUser() {
         await db.authenticateUser(email, password),
         {
             "status": "SUCCESS",
-            "user": auth.user
+            "auth": { "user": auth.user, "email": auth.email }
         }
     );
 
@@ -1093,7 +1095,7 @@ async function testUser() {
         await db.authenticateUser(email, password),
         {
             "status": "SUCCESS",
-            "user": auth.user
+            "auth": { "user": auth.user, "email": auth.email }
         }
     );
 
@@ -1144,7 +1146,7 @@ async function testUser() {
         await db.authenticateUser(email, password),
         {
             "status": "SUCCESS",
-            "user": phonyUser!
+            "auth": { "user": phonyUser!, email }
         }
     );
 
@@ -1232,7 +1234,7 @@ async function testUser() {
                 await db.authenticateUser(auth.email, newPassword),
                 {
                     "status": "SUCCESS",
-                    "user": auth.user
+                    "auth": { "user": auth.user, "email": auth.email }
                 }
             );
 
@@ -1280,7 +1282,7 @@ async function testUser() {
             await db.authenticateUser(email, password),
             {
                 "status": "SUCCESS",
-                "user": accountCreationResp!.user!
+                "auth": { "user": accountCreationResp!.user!, email }
             }
         );
 
@@ -1316,7 +1318,7 @@ async function testUser() {
             await db.authenticateUser(email, password),
             {
                 "status": "SUCCESS",
-                "user": phonyUser
+                "auth": { "user": phonyUser!, email }
             }
         );
 

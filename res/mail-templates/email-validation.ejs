@@ -5,5 +5,5 @@
 <h1><%= code; %></h1>
 <br>
 <p> ...Or folow this link: </p>
-<a href="https://web.semasim.com/login?activation-code=<%= code; %>&email-as-hex=<%= Buffer.from(email,"utf8").toString("hex"); %>">Validate my email</a> 
+<a href="https://web.semasim.com/login?email_confirmation_code=<%= code; %>&email_as_hex=<%= Buffer.from(email,"utf8").toString("hex"); %>">Validate my email</a> 
 <html>

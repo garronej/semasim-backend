@@ -138,7 +138,7 @@ export async function authenticateUser(
     password: string
 ): Promise<{
     status: "SUCCESS";
-    user: number;
+    auth: Auth;
 } | {
     status: "NO SUCH ACCOUNT";
 } | {
@@ -215,7 +215,10 @@ export async function authenticateUser(
 
         }
 
-        return { "status": "SUCCESS", user };
+        return { 
+            "status": "SUCCESS", 
+            "auth": { user, email } 
+        };
 
     } else {
 

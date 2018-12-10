@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 4.2.12deb2+deb8u2
--- http://www.phpmyadmin.net
+-- version 4.6.6deb4
+-- https://www.phpmyadmin.net/
 --
--- Client :  localhost
--- Généré le :  Dim 21 Octobre 2018 à 10:16
--- Version du serveur :  5.5.55-0+deb8u1
--- Version de PHP :  5.6.30-0+deb8u1
+-- Client :  localhost:3306
+-- Généré le :  Lun 10 Décembre 2018 à 13:06
+-- Version du serveur :  10.1.26-MariaDB-0+deb9u1
+-- Version de PHP :  7.0.30-0+deb9u1
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET time_zone = "+00:00";
@@ -14,53 +14,11 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+/*!40101 SET NAMES utf8mb4 */;
 
 --
 -- Base de données :  `semasim`
 --
-
-DELIMITER $$
---
--- Fonctions
---
-CREATE DEFINER=`semasim`@`localhost` FUNCTION `assert`(doit INTEGER, message VARCHAR(256)) RETURNS int(11)
-    DETERMINISTIC
-BEGIN                                                                                      
-    IF doit IS NULL OR doit = 0 THEN                                                       
-        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;                                
-    END IF;                                                                                
-    RETURN doit;                                                                           
-END$$
-
-CREATE DEFINER=`semasim`@`localhost` FUNCTION `assert2`(doit INTEGER, message VARCHAR(256)) RETURNS int(11)
-    DETERMINISTIC
-BEGIN                                                                                      
-    IF doit IS NULL OR doit = 0 THEN                                                       
-        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;                                
-    END IF;                                                                                
-    RETURN doit;                                                                           
-END$$
-
-CREATE DEFINER=`semasim`@`localhost` FUNCTION `checkit`(doit INTEGER, message VARCHAR(256)) RETURNS int(11)
-    DETERMINISTIC
-BEGIN                                                                                      
-    IF doit IS NULL OR doit = 0 THEN                                                       
-        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;                                
-    END IF;                                                                                
-    RETURN doit;                                                                           
-END$$
-
-CREATE DEFINER=`semasim`@`172.31.16.0/255.255.240.0` FUNCTION `_ASSERT`(bool INTEGER, message VARCHAR(256)) RETURNS int(11)
-    DETERMINISTIC
-BEGIN
-    IF bool IS NULL OR bool = 0 THEN
-        SIGNAL SQLSTATE 'ERR0R' SET MESSAGE_TEXT = message;
-    END IF;
-    RETURN bool;
-END$$
-
-DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -68,14 +26,14 @@ DELIMITER ;
 -- Structure de la table `contact`
 --
 
-CREATE TABLE IF NOT EXISTS `contact` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `contact` (
+  `id_` int(11) NOT NULL,
   `sim` int(11) NOT NULL,
   `mem_index` smallint(6) DEFAULT NULL,
   `number_raw` varchar(30) COLLATE utf8_bin NOT NULL,
   `name_as_stored` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `name` varchar(126) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=22777 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -83,14 +41,14 @@ CREATE TABLE IF NOT EXISTS `contact` (
 -- Structure de la table `dongle`
 --
 
-CREATE TABLE IF NOT EXISTS `dongle` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `dongle` (
+  `id_` int(11) NOT NULL,
   `imei` varchar(15) COLLATE utf8_bin NOT NULL,
   `is_voice_enabled` tinyint(1) DEFAULT NULL,
   `manufacturer` varchar(30) COLLATE utf8_bin NOT NULL,
   `model` varchar(30) COLLATE utf8_bin NOT NULL,
   `firmware_version` varchar(30) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=300 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -98,13 +56,13 @@ CREATE TABLE IF NOT EXISTS `dongle` (
 -- Structure de la table `gateway_location`
 --
 
-CREATE TABLE IF NOT EXISTS `gateway_location` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `gateway_location` (
+  `id_` int(11) NOT NULL,
   `ip` varchar(15) COLLATE utf8_bin NOT NULL,
   `country_iso` varchar(5) COLLATE utf8_bin DEFAULT NULL,
   `subdivisions` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `city` varchar(50) COLLATE utf8_bin DEFAULT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=336 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -112,8 +70,8 @@ CREATE TABLE IF NOT EXISTS `gateway_location` (
 -- Structure de la table `sim`
 --
 
-CREATE TABLE IF NOT EXISTS `sim` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `sim` (
+  `id_` int(11) NOT NULL,
   `imsi` varchar(15) COLLATE utf8_bin NOT NULL,
   `country_name` varchar(30) COLLATE utf8_bin DEFAULT NULL,
   `country_iso` varchar(5) COLLATE utf8_bin DEFAULT NULL,
@@ -133,7 +91,7 @@ CREATE TABLE IF NOT EXISTS `sim` (
   `need_password_renewal` tinyint(1) NOT NULL,
   `friendly_name` varchar(126) COLLATE utf8_bin NOT NULL,
   `is_online` tinyint(1) NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=116 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -141,14 +99,14 @@ CREATE TABLE IF NOT EXISTS `sim` (
 -- Structure de la table `ua`
 --
 
-CREATE TABLE IF NOT EXISTS `ua` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `ua` (
+  `id_` int(11) NOT NULL,
   `instance` varchar(125) COLLATE utf8_bin NOT NULL,
   `user` int(11) NOT NULL,
   `platform` varchar(10) COLLATE utf8_bin NOT NULL,
   `push_token` varchar(1024) COLLATE utf8_bin NOT NULL,
   `software` varchar(255) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=286 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -156,8 +114,8 @@ CREATE TABLE IF NOT EXISTS `ua` (
 -- Structure de la table `user`
 --
 
-CREATE TABLE IF NOT EXISTS `user` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `user` (
+  `id_` int(11) NOT NULL,
   `email` varchar(150) COLLATE utf8_bin NOT NULL,
   `salt` varchar(16) COLLATE utf8_bin NOT NULL,
   `digest` varchar(40) COLLATE utf8_bin NOT NULL,
@@ -167,7 +125,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `activation_code` varchar(4) COLLATE utf8_bin DEFAULT NULL,
   `creation_date` bigint(20) NOT NULL,
   `ip` varchar(15) COLLATE utf8_bin NOT NULL
-) ENGINE=InnoDB AUTO_INCREMENT=313 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
 
@@ -175,8 +133,8 @@ CREATE TABLE IF NOT EXISTS `user` (
 -- Structure de la table `user_sim`
 --
 
-CREATE TABLE IF NOT EXISTS `user_sim` (
-`id_` int(11) NOT NULL,
+CREATE TABLE `user_sim` (
+  `id_` int(11) NOT NULL,
   `user` int(11) NOT NULL,
   `sim` int(11) NOT NULL,
   `friendly_name` varchar(124) COLLATE utf8_bin DEFAULT NULL,
@@ -191,43 +149,59 @@ CREATE TABLE IF NOT EXISTS `user_sim` (
 -- Index pour la table `contact`
 --
 ALTER TABLE `contact`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `sim_2` (`sim`,`mem_index`), ADD KEY `sim` (`sim`), ADD KEY `number_raw` (`number_raw`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `sim_2` (`sim`,`mem_index`),
+  ADD KEY `sim` (`sim`),
+  ADD KEY `number_raw` (`number_raw`);
 
 --
 -- Index pour la table `dongle`
 --
 ALTER TABLE `dongle`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `imei` (`imei`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `imei` (`imei`);
 
 --
 -- Index pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `ip` (`ip`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `ip` (`ip`);
 
 --
 -- Index pour la table `sim`
 --
 ALTER TABLE `sim`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `imsi` (`imsi`), ADD UNIQUE KEY `iccid` (`iccid`), ADD KEY `user` (`user`), ADD KEY `dongle` (`dongle`), ADD KEY `gateway_location` (`gateway_location`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `imsi` (`imsi`),
+  ADD UNIQUE KEY `iccid` (`iccid`),
+  ADD KEY `user` (`user`),
+  ADD KEY `dongle` (`dongle`),
+  ADD KEY `gateway_location` (`gateway_location`);
 
 --
 -- Index pour la table `ua`
 --
 ALTER TABLE `ua`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `instance` (`instance`,`user`), ADD KEY `user` (`user`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `instance` (`instance`,`user`),
+  ADD KEY `user` (`user`);
 
 --
 -- Index pour la table `user`
 --
 ALTER TABLE `user`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `email` (`email`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `email` (`email`);
 
 --
 -- Index pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
- ADD PRIMARY KEY (`id_`), ADD UNIQUE KEY `user_2` (`user`,`sim`), ADD KEY `user` (`user`), ADD KEY `sim` (`sim`);
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `user_2` (`user`,`sim`),
+  ADD KEY `user` (`user`),
+  ADD KEY `sim` (`sim`);
 
 --
 -- AUTO_INCREMENT pour les tables exportées
@@ -237,37 +211,37 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=22777;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2092;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=300;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=336;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=116;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=286;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=313;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 --
 -- Contraintes pour les tables exportées
 --
@@ -276,28 +250,28 @@ MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 -- Contraintes pour la table `contact`
 --
 ALTER TABLE `contact`
-ADD CONSTRAINT `contact_ibfk_1` FOREIGN KEY (`sim`) REFERENCES `sim` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `contact_ibfk_1` FOREIGN KEY (`sim`) REFERENCES `sim` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Contraintes pour la table `sim`
 --
 ALTER TABLE `sim`
-ADD CONSTRAINT `sim_ibfk_1` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
-ADD CONSTRAINT `sim_ibfk_2` FOREIGN KEY (`dongle`) REFERENCES `dongle` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
-ADD CONSTRAINT `sim_ibfk_3` FOREIGN KEY (`gateway_location`) REFERENCES `gateway_location` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `sim_ibfk_1` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `sim_ibfk_2` FOREIGN KEY (`dongle`) REFERENCES `dongle` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `sim_ibfk_3` FOREIGN KEY (`gateway_location`) REFERENCES `gateway_location` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Contraintes pour la table `ua`
 --
 ALTER TABLE `ua`
-ADD CONSTRAINT `ua_ibfk_1` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `ua_ibfk_1` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Contraintes pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-ADD CONSTRAINT `user_sim_ibfk_1` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
-ADD CONSTRAINT `user_sim_ibfk_2` FOREIGN KEY (`sim`) REFERENCES `sim` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `user_sim_ibfk_1` FOREIGN KEY (`user`) REFERENCES `user` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `user_sim_ibfk_2` FOREIGN KEY (`sim`) REFERENCES `sim` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

@@ -30,7 +30,7 @@ export declare function validateUserEmail(email: string, activationCode: string)
 /** Return user.id_ or undefined if auth failed */
 export declare function authenticateUser(email: string, password: string): Promise<{
     status: "SUCCESS";
-    user: number;
+    auth: Auth;
 } | {
     status: "NO SUCH ACCOUNT";
 } | {

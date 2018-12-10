@@ -92,8 +92,8 @@ exports.httpCodes = {
     "BAD_REQUEST": 400,
     "UNAUTHORIZED": 401,
     "LOCKED": 423,
-    "INTERNAL_SERVER_ERROR": 500,
-    "PAYMENT_REQUIRED": 402
+    "PAYMENT_REQUIRED": 402,
+    "INTERNAL_SERVER_ERROR": 500
 };
 var errorHttpCode;
 (function (errorHttpCode) {

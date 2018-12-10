@@ -18,6 +18,7 @@ const logger = require("logger");
 const deploy_1 = require("../../deploy");
 const compression = require("compression");
 const stripe = require("../stripe");
+const dbSemasim = require("../dbSemasim");
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
 const debug = logger.debugFactory();
 function launch(httpsServer, httpServer) {
@@ -68,12 +69,6 @@ function launch(httpsServer, httpServer) {
         res.set("Content-Type", "text/html; charset=utf-8");
         res.send(frontend.getPage(pageName));
     };
-    const expressLogger = (() => {
-        switch (deploy_1.deploy.getEnv()) {
-            case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
-            case "PROD": return (_req, _res, next) => next();
-        }
-    })();
     stripe.registerWebHooks(app);
     app
         .use(compression())
@@ -97,7 +92,56 @@ function launch(httpsServer, httpServer) {
         .use((req, res, next) => sessionManager
         .loadRequestSession(req, res)
         .then(() => next()))
-        .use(expressLogger)
+        .use((() => {
+        switch (deploy_1.deploy.getEnv()) {
+            case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
+            case "PROD": return (_req, _res, next) => next();
+        }
+    })())
+        .get("*", (req, res, next) => __awaiter(this, void 0, void 0, function* () {
+        const { email_as_hex, password_as_hex } = req.query;
+        if (email_as_hex === undefined) {
+            next();
+            return;
+        }
+        let email;
+        try {
+            email = Buffer.from(email_as_hex, "hex")
+                .toString("utf8")
+                .toLowerCase();
+        }
+        catch (_a) {
+            res.status(400).end();
+            return;
+        }
+        const session = req.session;
+        const auth = sessionManager.getAuth(session);
+        if (!!auth && auth.email !== email) {
+            sessionManager.setAuth(session, undefined);
+        }
+        if (password_as_hex === undefined) {
+            next();
+            return;
+        }
+        let password;
+        try {
+            password = Buffer.from(password_as_hex, "hex")
+                .toString("utf8");
+        }
+        catch (_b) {
+            res.status(400).end();
+            return;
+        }
+        const resp = yield dbSemasim.authenticateUser(email, password);
+        if (resp.status === "SUCCESS") {
+            sessionManager.setAuth(session, resp.auth);
+        }
+        else {
+            res.status(400).end();
+            return;
+        }
+        next();
+    }))
         .get(["/login", "/register"], (req, res, next) => !!sessionManager.getAuth(req.session) ?
         res.redirect("/") :
         next())
@@ -106,7 +150,7 @@ function launch(httpsServer, httpServer) {
         .use((req, res, next) => !!sessionManager.getAuth(req.session) ?
         next() :
         res.redirect("/login"))
-        .get("/", (_req, res) => res.redirect("/manager"))
+        .get("/", (_req, res) => res.redirect("/webphone"))
         .get("/manager", sendHtml("manager"))
         .get("/webphone", sendHtml("webphone"))
         .get("/subscription", sendHtml("subscription"));

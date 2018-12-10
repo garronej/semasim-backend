@@ -91,6 +91,7 @@ exports.generateSim = generateSim;
     if (require.main === module) {
         console.assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
         console.log("START TESTING...");
+        yield deploy_1.deploy.dbAuth.resolve();
         yield db.launch();
         (yield mysqlCustom.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_express_session" }))).query("DELETE FROM sessions");
         yield testUser();
@@ -543,7 +544,7 @@ function testUser() {
         console.assert(undefined === (yield db.createUserAccount(email, "anotherPass", ip)));
         transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
             "status": "SUCCESS",
-            "user": auth.user
+            "auth": { "user": auth.user, "email": auth.email }
         });
         transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, "not password"), {
             "status": "WRONG PASSWORD",
@@ -571,7 +572,7 @@ function testUser() {
         yield new Promise(resolve => setTimeout(resolve, 4000));
         transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
             "status": "SUCCESS",
-            "user": auth.user
+            "auth": { "user": auth.user, "email": auth.email }
         });
         console.assert(true === (yield db.deleteUser(auth)));
         console.assert(false === (yield db.deleteUser({ "user": 220333, "email": "foo@bar.com" })));
@@ -595,7 +596,7 @@ function testUser() {
         }
         transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
             "status": "SUCCESS",
-            "user": phonyUser
+            "auth": { "user": phonyUser, email }
         });
         transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, "not password"), {
             "status": "WRONG PASSWORD",
@@ -641,7 +642,7 @@ function testUser() {
                 yield new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
                 transfer_tools_1.testing.assertSame(yield db.authenticateUser(auth.email, newPassword), {
                     "status": "SUCCESS",
-                    "user": auth.user
+                    "auth": { "user": auth.user, "email": auth.email }
                 });
                 console.assert((yield db.renewPassword(auth.email, token, "fooBarPassword"))
                     ===
@@ -664,7 +665,7 @@ function testUser() {
                     true);
             transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
                 "status": "SUCCESS",
-                "user": accountCreationResp.user
+                "auth": { "user": accountCreationResp.user, email }
             });
         }
         yield db.flush();
@@ -684,7 +685,7 @@ function testUser() {
             });
             transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
                 "status": "SUCCESS",
-                "user": phonyUser
+                "auth": { "user": phonyUser, email }
             });
         }
         yield db.flush();

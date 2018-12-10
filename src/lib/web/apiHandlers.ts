@@ -126,10 +126,9 @@ export const handlers: Handlers = {};
 
             if (resp.status === "SUCCESS") {
 
-                sessionManager.setAuth(session, {
-                    "user": resp.user,
-                    "email": email.toLowerCase()
-                });
+                sessionManager.setAuth(session, resp.auth);
+
+                return { "status": "SUCCESS" as "SUCCESS" };
 
             }
 
@@ -365,7 +364,6 @@ export const handlers: Handlers = {};
         push_token_as_hex: string;
     };
 
-
     const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
     const substitute4BytesChar = (str: string) => Array.from(str)
@@ -381,9 +379,6 @@ export const handlers: Handlers = {};
         ].join("\n")
     ).join("\n\n");
 
-
-    //text/plain
-
     const handler: Handler.Generic<Params> = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
@@ -396,7 +391,7 @@ export const handlers: Handlers = {};
                     (
                         "uuid" in params &&
                         gwMisc.sanityChecks.platform(params.platform) &&
-                        !!hexToUtf8(params.password_as_hex)
+                        !!hexToUtf8(params.push_token_as_hex)
                     )
                 );
             } catch {
@@ -405,10 +400,10 @@ export const handlers: Handlers = {};
         },
         "handler": async params => {
 
-            const email = hexToUtf8(params.email_as_hex).toLowerCase();
-            const password = hexToUtf8(params.password_as_hex);
-
-            const authResp = await dbSemasim.authenticateUser(email, password);
+            const authResp = await dbSemasim.authenticateUser(
+                hexToUtf8(params.email_as_hex),
+                hexToUtf8(params.password_as_hex)
+            );
 
             switch (authResp.status) {
                 case "RETRY STILL FORBIDDEN": {
@@ -434,11 +429,13 @@ export const handlers: Handlers = {};
                 case "SUCCESS": break;
             }
 
+            const auth = authResp.auth;
+
             if ("uuid" in params) {
 
                 await dbSemasim.addOrUpdateUa({
                     "instance": `"<urn:uuid:${params.uuid}>"`,
-                    "userEmail": email,
+                    "userEmail": auth.email,
                     "platform": params.platform,
                     "pushToken": hexToUtf8(params.push_token_as_hex),
                     //TODO: Remove this field from project.
@@ -447,26 +444,27 @@ export const handlers: Handlers = {};
 
             }
 
-            const subscriptionInfos= await stripe.getSubscriptionInfos({ email, "user": authResp.user }, "us");
+            const subscriptionInfos = await stripe.getSubscriptionInfos(authResp.auth);
 
-            if( !subscriptionInfos.subscription  ){
+            if (!subscriptionInfos.subscription) {
 
-                const error= new Error("User does not have mobile subscription");
+                const error = new Error("User does not have mobile subscription");
 
                 errorHttpCode.set(error, httpCodes.PAYMENT_REQUIRED);
-                
+
                 throw error;
 
             }
 
-            const p_email = `enc_email=${gwMisc.urlSafeB64.enc(email)}`;
+
+            const p_email = `enc_email=${gwMisc.urlSafeB64.enc(auth.email)}`;
             const config: object = {};
             let endpointCount = 0;
             let contactCount = 0;
 
             for (
                 const { sim, friendlyName, password, ownership, phonebook, isOnline }
-                of await dbSemasim.getUserSims({ "user": authResp.user, email })
+                of await dbSemasim.getUserSims(auth)
             ) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {

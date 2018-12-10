@@ -145,7 +145,10 @@ function authenticateUser(email, password) {
                 }, "UPDATE");
                 yield exports.query(sql, { email });
             }
-            return { "status": "SUCCESS", user };
+            return {
+                "status": "SUCCESS",
+                "auth": { user, email }
+            };
         }
         else {
             const newRetryDelay = Math.min(retryDelay !== undefined ? retryDelay * 2 : 1000, 60000);

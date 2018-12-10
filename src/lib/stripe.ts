@@ -196,7 +196,7 @@ const stripePublicApiKey = "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
 
 export async function getSubscriptionInfos(
     auth: Auth,
-    iso: string
+    iso: string = "us"
 ): Promise<feTypes.SubscriptionInfos> {
 
     const out: feTypes.SubscriptionInfos = {
@@ -261,7 +261,8 @@ export async function getSubscriptionInfos(
         out.source = {
             "isChargeable": source["status"] === "chargeable",
             "expiration": `${source["card"]["exp_month"]}/${source["card"]["exp_year"]}`,
-            "lastDigits": source["card"]["last4"]
+            "lastDigits": source["card"]["last4"],
+            "currency": currencyByCountry[source["card"].country.toLowerCase()]
         };
 
 

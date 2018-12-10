@@ -78,10 +78,8 @@ exports.handlers = {};
         "handler": ({ email, password }, session) => __awaiter(this, void 0, void 0, function* () {
             const resp = yield dbSemasim.authenticateUser(email, password);
             if (resp.status === "SUCCESS") {
-                sessionManager.setAuth(session, {
-                    "user": resp.user,
-                    "email": email.toLowerCase()
-                });
+                sessionManager.setAuth(session, resp.auth);
+                return { "status": "SUCCESS" };
             }
             return resp;
         })
@@ -212,7 +210,6 @@ exports.handlers = {};
         ...(Object.keys(config[keySection])
             .map(keyEntry => `${keyEntry}=${config[keySection][keyEntry]}`))
     ].join("\n")).join("\n\n");
-    //text/plain
     const handler = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
@@ -223,16 +220,14 @@ exports.handlers = {};
                     !("uuid" in params) ||
                     ("uuid" in params &&
                         gateway_1.misc.sanityChecks.platform(params.platform) &&
-                        !!hexToUtf8(params.password_as_hex)));
+                        !!hexToUtf8(params.push_token_as_hex)));
             }
             catch (_a) {
                 return false;
             }
         },
         "handler": (params) => __awaiter(this, void 0, void 0, function* () {
-            const email = hexToUtf8(params.email_as_hex).toLowerCase();
-            const password = hexToUtf8(params.password_as_hex);
-            const authResp = yield dbSemasim.authenticateUser(email, password);
+            const authResp = yield dbSemasim.authenticateUser(hexToUtf8(params.email_as_hex), hexToUtf8(params.password_as_hex));
             switch (authResp.status) {
                 case "RETRY STILL FORBIDDEN": {
                     const error = new Error("Account temporally locked");
@@ -248,27 +243,28 @@ exports.handlers = {};
                 }
                 case "SUCCESS": break;
             }
+            const auth = authResp.auth;
             if ("uuid" in params) {
                 yield dbSemasim.addOrUpdateUa({
                     "instance": `"<urn:uuid:${params.uuid}>"`,
-                    "userEmail": email,
+                    "userEmail": auth.email,
                     "platform": params.platform,
                     "pushToken": hexToUtf8(params.push_token_as_hex),
                     //TODO: Remove this field from project.
                     "software": ""
                 });
             }
-            const subscriptionInfos = yield stripe.getSubscriptionInfos({ email, "user": authResp.user }, "us");
+            const subscriptionInfos = yield stripe.getSubscriptionInfos(authResp.auth);
             if (!subscriptionInfos.subscription) {
                 const error = new Error("User does not have mobile subscription");
                 webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.PAYMENT_REQUIRED);
                 throw error;
             }
-            const p_email = `enc_email=${gateway_1.misc.urlSafeB64.enc(email)}`;
+            const p_email = `enc_email=${gateway_1.misc.urlSafeB64.enc(auth.email)}`;
             const config = {};
             let endpointCount = 0;
             let contactCount = 0;
-            for (const { sim, friendlyName, password, ownership, phonebook, isOnline } of yield dbSemasim.getUserSims({ "user": authResp.user, email })) {
+            for (const { sim, friendlyName, password, ownership, phonebook, isOnline } of yield dbSemasim.getUserSims(auth)) {
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
                 }
