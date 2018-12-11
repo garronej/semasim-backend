@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Client :  localhost:3306
--- Généré le :  Lun 10 Décembre 2018 à 13:08
+-- Généré le :  Mar 11 Décembre 2018 à 18:08
 -- Version du serveur :  10.1.26-MariaDB-0+deb9u1
 -- Version de PHP :  7.0.30-0+deb9u1
 
@@ -32,6 +32,16 @@ CREATE TABLE `customer` (
   `id` varchar(124) COLLATE utf8_bin NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `exempted`
+--
+
+CREATE TABLE `exempted` (
+  `email` varchar(150) COLLATE utf8_bin NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
 --
 -- Index pour les tables exportées
 --
@@ -45,6 +55,12 @@ ALTER TABLE `customer`
   ADD UNIQUE KEY `id` (`id`);
 
 --
+-- Index pour la table `exempted`
+--
+ALTER TABLE `exempted`
+  ADD PRIMARY KEY (`email`);
+
+--
 -- AUTO_INCREMENT pour les tables exportées
 --
 
@@ -52,7 +68,7 @@ ALTER TABLE `customer`
 -- AUTO_INCREMENT pour la table `customer`
 --
 ALTER TABLE `customer`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 --
 -- Contraintes pour les tables exportées
 --
