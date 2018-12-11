@@ -254,8 +254,7 @@ exports.handlers = {};
                     "software": ""
                 });
             }
-            const subscriptionInfos = yield stripe.getSubscriptionInfos(authResp.auth);
-            if (!subscriptionInfos.subscription) {
+            if (!(yield stripe.isUserSubscribed(authResp.auth))) {
                 const error = new Error("User does not have mobile subscription");
                 webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.PAYMENT_REQUIRED);
                 throw error;

@@ -40,20 +40,39 @@ namespace db {
 
     }
 
-    export async function getCustomerId(auth: Auth): Promise<string | undefined> {
+    export async function getCustomerId(auth: Auth): Promise<{
+        customerStatus: "EXEMPTED";
+        customerId: undefined;
+    } | {
+        customerStatus: "REGULAR";
+        customerId: string | undefined;
+    }> {
 
-        const sql = `SELECT id FROM customer WHERE user=${esc(auth.user)}`;
+        const sql = [
+            `SELECT 1 FROM exempted WHERE email=${esc(auth.email)};`,
+            `SELECT id FROM customer WHERE user=${esc(auth.user)}`
+        ].join("\n");
 
-        const rows = await query(sql, { "user": auth.user });
+        console.log(sql);
 
-        if (rows.length === 0) {
-            return undefined;
+        const resp = await query(sql, { "user": auth.user });
+
+        console.log(resp);
+
+        if (resp[0].length === 1) {
+            return { 
+                "customerStatus": "EXEMPTED",
+                "customerId": undefined
+             };
         }
 
-        return rows[0]["id"];
+        return {
+            "customerStatus": "REGULAR",
+            "customerId": resp[1].length === 0 ? undefined : resp[1][0]["id"]
+        };
+
 
     }
-
 
 }
 
@@ -86,7 +105,11 @@ export async function launch() {
  */
 export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void> {
 
-    let customerId = await db.getCustomerId(auth);
+    let { customerStatus, customerId } = await db.getCustomerId(auth);
+
+    if( customerStatus === "EXEMPTED" ){
+        return;
+    }
 
     if (customerId === undefined) {
 
@@ -172,7 +195,11 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 /** Assert customer exist and is subscribed */
 export async function unsubscribeUser(auth: Auth): Promise<void> {
 
-    const customerId = await db.getCustomerId(auth);
+    const { customerStatus, customerId} = await db.getCustomerId(auth);
+
+    if( customerStatus === "EXEMPTED" ){
+        return;
+    }
 
     if (customerId === undefined) {
         throw new Error("assert");
@@ -192,18 +219,24 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
 
 
-const stripePublicApiKey = "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
 
 export async function getSubscriptionInfos(
     auth: Auth,
     iso: string = "us"
 ): Promise<feTypes.SubscriptionInfos> {
 
-    const out: feTypes.SubscriptionInfos = {
-        stripePublicApiKey,
+    const { customerId, customerStatus } = await db.getCustomerId(auth);
+
+    if( customerStatus === "EXEMPTED" ){
+        return { customerStatus };
+    }
+
+    const out: feTypes.SubscriptionInfos.Regular = {
+        customerStatus,
+        "stripePublicApiKey": "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
         "pricingByCurrency": (() => {
 
-            const out: feTypes.SubscriptionInfos["pricingByCurrency"] = {};
+            const out: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
 
             for (const currency in planByCurrency) {
 
@@ -216,8 +249,6 @@ export async function getSubscriptionInfos(
         })(),
         "defaultCurrency": currencyByCountry[iso] in planByCurrency ? currencyByCountry[iso] : "usd"
     };
-
-    const customerId = await db.getCustomerId(auth);
 
     if (customerId === undefined) {
 
@@ -272,10 +303,24 @@ export async function getSubscriptionInfos(
 
 }
 
+export async function isUserSubscribed(auth: Auth): Promise<boolean> {
+
+    const subscriptionInfos = await getSubscriptionInfos(auth);
+
+    return (
+        subscriptionInfos.customerStatus === "EXEMPTED" ||
+        !!subscriptionInfos.subscription
+    );
+
+}
 
 const evt = new SyncEvent<any>();
 
-evt.attach(data => console.log("stripe webhook", data));
+evt.attach(data => {
+
+    //TODO: Keep a local copy of subscriptions thanks to webhooks.
+
+});
 
 export function registerWebHooks(app: import("express").Express) {
 

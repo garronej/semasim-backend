@@ -444,9 +444,7 @@ export const handlers: Handlers = {};
 
             }
 
-            const subscriptionInfos = await stripe.getSubscriptionInfos(authResp.auth);
-
-            if (!subscriptionInfos.subscription) {
+            if (!await stripe.isUserSubscribed(authResp.auth)) {
 
                 const error = new Error("User does not have mobile subscription");
 
@@ -455,7 +453,6 @@ export const handlers: Handlers = {};
                 throw error;
 
             }
-
 
             const p_email = `enc_email=${gwMisc.urlSafeB64.enc(auth.email)}`;
             const config: object = {};

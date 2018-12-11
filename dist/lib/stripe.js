@@ -34,12 +34,23 @@ var db;
     db.setCustomerId = setCustomerId;
     function getCustomerId(auth) {
         return __awaiter(this, void 0, void 0, function* () {
-            const sql = `SELECT id FROM customer WHERE user=${db.esc(auth.user)}`;
-            const rows = yield db.query(sql, { "user": auth.user });
-            if (rows.length === 0) {
-                return undefined;
+            const sql = [
+                `SELECT 1 FROM exempted WHERE email=${db.esc(auth.email)};`,
+                `SELECT id FROM customer WHERE user=${db.esc(auth.user)}`
+            ].join("\n");
+            console.log(sql);
+            const resp = yield db.query(sql, { "user": auth.user });
+            console.log(resp);
+            if (resp[0].length === 1) {
+                return {
+                    "customerStatus": "EXEMPTED",
+                    "customerId": undefined
+                };
             }
-            return rows[0]["id"];
+            return {
+                "customerStatus": "REGULAR",
+                "customerId": resp[1].length === 0 ? undefined : resp[1][0]["id"]
+            };
         });
     }
     db.getCustomerId = getCustomerId;
@@ -64,7 +75,10 @@ exports.launch = launch;
  */
 function subscribeUser(auth, sourceId) {
     return __awaiter(this, void 0, void 0, function* () {
-        let customerId = yield db.getCustomerId(auth);
+        let { customerStatus, customerId } = yield db.getCustomerId(auth);
+        if (customerStatus === "EXEMPTED") {
+            return;
+        }
         if (customerId === undefined) {
             if (sourceId === undefined) {
                 throw new Error("assert");
@@ -119,7 +133,10 @@ exports.subscribeUser = subscribeUser;
 /** Assert customer exist and is subscribed */
 function unsubscribeUser(auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        const customerId = yield db.getCustomerId(auth);
+        const { customerStatus, customerId } = yield db.getCustomerId(auth);
+        if (customerStatus === "EXEMPTED") {
+            return;
+        }
         if (customerId === undefined) {
             throw new Error("assert");
         }
@@ -132,11 +149,15 @@ function unsubscribeUser(auth) {
     });
 }
 exports.unsubscribeUser = unsubscribeUser;
-const stripePublicApiKey = "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
 function getSubscriptionInfos(auth, iso = "us") {
     return __awaiter(this, void 0, void 0, function* () {
+        const { customerId, customerStatus } = yield db.getCustomerId(auth);
+        if (customerStatus === "EXEMPTED") {
+            return { customerStatus };
+        }
         const out = {
-            stripePublicApiKey,
+            customerStatus,
+            "stripePublicApiKey": "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
             "pricingByCurrency": (() => {
                 const out = {};
                 for (const currency in planByCurrency) {
@@ -146,7 +167,6 @@ function getSubscriptionInfos(auth, iso = "us") {
             })(),
             "defaultCurrency": frontend_1.currencyByCountry[iso] in planByCurrency ? frontend_1.currencyByCountry[iso] : "usd"
         };
-        const customerId = yield db.getCustomerId(auth);
         if (customerId === undefined) {
             return out;
         }
@@ -182,8 +202,18 @@ function getSubscriptionInfos(auth, iso = "us") {
     });
 }
 exports.getSubscriptionInfos = getSubscriptionInfos;
+function isUserSubscribed(auth) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const subscriptionInfos = yield getSubscriptionInfos(auth);
+        return (subscriptionInfos.customerStatus === "EXEMPTED" ||
+            !!subscriptionInfos.subscription);
+    });
+}
+exports.isUserSubscribed = isUserSubscribed;
 const evt = new ts_events_extended_1.SyncEvent();
-evt.attach(data => console.log("stripe webhook", data));
+evt.attach(data => {
+    //TODO: Keep a local copy of subscriptions thanks to webhooks.
+});
 function registerWebHooks(app) {
     app.post("/stripe_webhooks", (res, req) => __awaiter(this, void 0, void 0, function* () {
         const { isSuccess, data } = yield misc_1.bodyParser(res);
