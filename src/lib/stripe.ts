@@ -53,11 +53,7 @@ namespace db {
             `SELECT id FROM customer WHERE user=${esc(auth.user)}`
         ].join("\n");
 
-        console.log(sql);
-
         const resp = await query(sql, { "user": auth.user });
-
-        console.log(resp);
 
         if (resp[0].length === 1) {
             return { 

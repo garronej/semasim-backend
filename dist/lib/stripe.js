@@ -38,9 +38,7 @@ var db;
                 `SELECT 1 FROM exempted WHERE email=${db.esc(auth.email)};`,
                 `SELECT id FROM customer WHERE user=${db.esc(auth.user)}`
             ].join("\n");
-            console.log(sql);
             const resp = yield db.query(sql, { "user": auth.user });
-            console.log(resp);
             if (resp[0].length === 1) {
                 return {
                     "customerStatus": "EXEMPTED",
