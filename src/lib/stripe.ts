@@ -81,7 +81,14 @@ export async function launch() {
 
     db.launch();
 
-    stripe = new Stripe("sk_test_tjDeOW7JrFihMOM3134bNpIO");
+    const private_key = (() => {
+        switch (deploy.getEnv()) {
+            case "DEV": return "sk_test_tjDeOW7JrFihMOM3134bNpIO";
+            case "PROD": return "sk_live_ipldnIG1MKgIvt8VhGCrDrff";
+        }
+    })();
+
+    stripe = new Stripe( private_key);
 
     const { data } = await stripe.plans.list();
 
@@ -103,7 +110,7 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 
     let { customerStatus, customerId } = await db.getCustomerId(auth);
 
-    if( customerStatus === "EXEMPTED" ){
+    if (customerStatus === "EXEMPTED") {
         return;
     }
 
@@ -191,9 +198,9 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 /** Assert customer exist and is subscribed */
 export async function unsubscribeUser(auth: Auth): Promise<void> {
 
-    const { customerStatus, customerId} = await db.getCustomerId(auth);
+    const { customerStatus, customerId } = await db.getCustomerId(auth);
 
-    if( customerStatus === "EXEMPTED" ){
+    if (customerStatus === "EXEMPTED") {
         return;
     }
 
@@ -223,13 +230,18 @@ export async function getSubscriptionInfos(
 
     const { customerId, customerStatus } = await db.getCustomerId(auth);
 
-    if( customerStatus === "EXEMPTED" ){
+    if (customerStatus === "EXEMPTED") {
         return { customerStatus };
     }
 
     const out: feTypes.SubscriptionInfos.Regular = {
         customerStatus,
-        "stripePublicApiKey": "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
+        "stripePublicApiKey": (() => {
+            switch (deploy.getEnv()) {
+                case "DEV": return "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
+                case "PROD": return "pk_live_8DO3QFFWrOcwPslRVIHuGOMA";
+            }
+        })(),
         "pricingByCurrency": (() => {
 
             const out: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
@@ -337,5 +349,3 @@ export function registerWebHooks(app: import("express").Express) {
     })
 
 }
-
-

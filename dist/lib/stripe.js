@@ -58,7 +58,13 @@ const planByCurrency = {};
 function launch() {
     return __awaiter(this, void 0, void 0, function* () {
         db.launch();
-        stripe = new Stripe("sk_test_tjDeOW7JrFihMOM3134bNpIO");
+        const private_key = (() => {
+            switch (deploy_1.deploy.getEnv()) {
+                case "DEV": return "sk_test_tjDeOW7JrFihMOM3134bNpIO";
+                case "PROD": return "sk_live_ipldnIG1MKgIvt8VhGCrDrff";
+            }
+        })();
+        stripe = new Stripe(private_key);
         const { data } = yield stripe.plans.list();
         for (const { id, currency, amount } of data) {
             planByCurrency[currency] = { id, amount };
@@ -155,7 +161,12 @@ function getSubscriptionInfos(auth, iso = "us") {
         }
         const out = {
             customerStatus,
-            "stripePublicApiKey": "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
+            "stripePublicApiKey": (() => {
+                switch (deploy_1.deploy.getEnv()) {
+                    case "DEV": return "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
+                    case "PROD": return "pk_live_8DO3QFFWrOcwPslRVIHuGOMA";
+                }
+            })(),
             "pricingByCurrency": (() => {
                 const out = {};
                 for (const currency in planByCurrency) {
