@@ -24,12 +24,12 @@ function program_action_install() {
             yield scriptLib.apt_get_install("geoip-bin");
             const execSync = (cmd) => scriptLib.execSyncTrace(cmd, { "cwd": "/tmp" });
             for (const target of [
-                "GeoLiteCountry/GeoIP.dat.gz",
-                "GeoLiteCity.dat.gz",
-                "asnum/GeoIPASNum.dat.gz"
+                "GeoLite2-City.tar.gz",
+                "GeoLite2-Country.tar.gz",
+                "GeoLite2-ASN.tar.gz"
             ]) {
                 execSync(`wget http://geolite.maxmind.com/download/geoip/database/${target}`);
-                execSync(`gunzip ${path.basename(target)}`);
+                execSync(`gunzip ${target}`);
                 execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIP`);
             }
         }
