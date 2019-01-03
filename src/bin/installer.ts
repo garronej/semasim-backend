@@ -16,26 +16,8 @@ async function program_action_install() {
 
     program_action_uninstall();
 
-    {
-
-        await scriptLib.apt_get_install("geoip-bin");
-
-        const execSync = (cmd: string) => scriptLib.execSyncTrace(cmd, { "cwd": "/tmp" });
-
-        for (const target of [
-            "GeoLite2-City.tar.gz",
-            "GeoLite2-Country.tar.gz",
-            "GeoLite2-ASN.tar.gz"
-        ]) {
-
-            execSync(`wget http://geolite.maxmind.com/download/geoip/database/${target}`);
-
-            execSync(`gunzip ${target}`);
-
-            execSync(`mv ${path.basename(target, ".gz")} /usr/share/GeoIP`);
-
-        }
-
+    for (const package_name of ["geoip-bin", "geoip-database-contrib"]) {
+        await scriptLib.apt_get_install(package_name);
     }
 
     scriptLib.unixUser.create(unix_user);
