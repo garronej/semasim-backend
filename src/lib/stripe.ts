@@ -90,7 +90,7 @@ export async function launch() {
 
     stripe = new Stripe( private_key);
 
-    const { data } = await stripe.plans.list();
+    const { data } = await stripe.plans.list({ "limit": 250 });
 
     for (const { id, currency, amount } of data) {
 

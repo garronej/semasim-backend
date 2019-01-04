@@ -65,7 +65,7 @@ function launch() {
             }
         })();
         stripe = new Stripe(private_key);
-        const { data } = yield stripe.plans.list();
+        const { data } = yield stripe.plans.list({ "limit": 250 });
         for (const { id, currency, amount } of data) {
             planByCurrency[currency] = { id, amount };
         }
