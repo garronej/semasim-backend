@@ -106,8 +106,8 @@ function registerSocket(
         "connection": deploy.getEnv() === "DEV"? true: false,
         "error": true,
         "close": deploy.getEnv() === "DEV"? true: false,
-        "incomingTraffic": true,
-        "outgoingTraffic": true,
+        "incomingTraffic": deploy.getEnv() === "DEV"? true: false,
+        "outgoingTraffic": deploy.getEnv() === "DEV"? true: false,
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
     }, logger.log);

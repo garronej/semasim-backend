@@ -62,8 +62,8 @@ function registerSocket(socket, auth) {
         "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
         "error": true,
         "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-        "incomingTraffic": true,
-        "outgoingTraffic": true,
+        "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+        "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
     }, logger.log);
