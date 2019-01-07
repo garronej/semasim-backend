@@ -11,6 +11,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ttJC = require("transfer-tools/dist/lib/JSON_CUSTOM");
 require("colors");
 exports.JSON_CUSTOM = ttJC.get();
+/**
+ * NOTE: stringifyAuthentication may be called before
+ * isAuthenticated have resolved. Do not assume req.session
+ * to be set.
+ */
 function getDefaultLogger(options) {
     options = options || {};
     let idString = options.idString || "";

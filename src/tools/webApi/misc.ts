@@ -6,6 +6,11 @@ import "colors";
 
 export const JSON_CUSTOM = ttJC.get();
 
+/**
+ * NOTE: stringifyAuthentication may be called before 
+ * isAuthenticated have resolved. Do not assume req.session
+ * to be set.
+ */
 export function getDefaultLogger(
     options?: Partial<{
         idString: string;

@@ -73,7 +73,9 @@ export function launch(
             "log": logger.log,
             "stringifyAuthentication": req => {
 
-                let auth = sessionManager.getAuth(req.session!);
+                let auth = req.session !== undefined ?
+                    sessionManager.getAuth(req.session) :
+                    undefined;
 
                 if (!!auth) {
                     return `user: ${auth.email}`;
