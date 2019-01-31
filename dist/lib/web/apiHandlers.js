@@ -275,18 +275,19 @@ exports.handlers = {};
                 //TODO: It's dirty to have this here, do we even need XML anymore?
                 const safeFriendlyName = substitute4BytesChar(friendlyName.replace(/"/g, `\\"`));
                 /**
-                 * iso does not really need to be in the contact parameters.
-                 * The gateway already know the SIM's origin country.
-                 * We set it here however to inform linphone about it,
-                 * linphone does not have the lib to parse IMSI so
-                 * we need to provide this info.
+                 * iso ( and number ) does not really need to be in
+                 * the contact parameters. The gateway already know
+                 * the SIM's origin country. We set it here however
+                 * to inform linphone about it, linphone does not
+                 * have the lib to parse IMSI so we need to provide
+                 * this info.
                  * */
                 config[`proxy_${endpointCount}`] = {
                     "reg_proxy": `<sip:${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
                     "reg_route": `sip:${deploy_1.deploy.getBaseDomain()};transport=TLS;lr`,
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
-                    "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"}`,
+                    "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"};number=${sim.storage.number || "undefined"}`,
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
