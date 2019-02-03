@@ -46,7 +46,7 @@ export const sharingRequest = (() => {
         ].join("");
 
         /*
-        Pretty number in national format or undefined: 
+        Formatted number or undefined: 
         Example: +33 6 36 78 63 85
         */
         const prettyNumber = !!userSim.sim.storage.number ?
@@ -54,8 +54,7 @@ export const sharingRequest = (() => {
                 phoneNumber.build(
                     userSim.sim.storage.number,
                     userSim.sim.country ? userSim.sim.country.iso : undefined
-                ),
-                "LOCAL"
+                )
             )
             : undefined
             ;

@@ -32,11 +32,11 @@ exports.sharingRequest = (() => {
             userSim.friendlyName
         ].join("");
         /*
-        Pretty number in national format or undefined:
+        Formatted number or undefined:
         Example: +33 6 36 78 63 85
         */
         const prettyNumber = !!userSim.sim.storage.number ?
-            phone_number_1.phoneNumber.prettyPrint(phone_number_1.phoneNumber.build(userSim.sim.storage.number, userSim.sim.country ? userSim.sim.country.iso : undefined), "LOCAL")
+            phone_number_1.phoneNumber.prettyPrint(phone_number_1.phoneNumber.build(userSim.sim.storage.number, userSim.sim.country ? userSim.sim.country.iso : undefined))
             : undefined;
         const gatewayLocation = [
             userSim.gatewayLocation.city || userSim.gatewayLocation.subdivisions || "",
