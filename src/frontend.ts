@@ -9,7 +9,7 @@ import * as ejs from "ejs";
 import * as logger from "logger";
 import * as watch from "node-watch";
 
-const debug= logger.debugFactory();
+const debug = logger.debugFactory();
 
 export {
     webApiDeclaration,
@@ -24,6 +24,7 @@ import * as path from "path";
 
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
+const templates_dir_path = path.join(frontend_dir_path, "shared", "templates")
 export const assets_dir_path = path.join(frontend_dir_path, "docs");
 
 /**
@@ -50,10 +51,12 @@ export function getPage(pageName: string): Buffer {
                 "assets_root": deploy.getEnv() === "DEV" ?
                     "/" :
                     "//static.semasim.com/"
-            }
+            },
+            { "root": templates_dir_path }
         ),
         "utf8"
     );
+
 
     watch(ejs_file_path, { "persistent": false }, () => {
 
@@ -62,6 +65,20 @@ export function getPage(pageName: string): Buffer {
         read();
 
     });
+
+    watch(
+        templates_dir_path,
+        {
+            "recursive": true,
+            "persistent": false
+        },
+        () => {
+
+            debug(`${pageName} page updated (templates dir)`);
+
+            read();
+        }
+    );
 
     read();
 

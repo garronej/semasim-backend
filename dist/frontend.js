@@ -19,6 +19,7 @@ const fs = require("fs");
 const path = require("path");
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
+const templates_dir_path = path.join(frontend_dir_path, "shared", "templates");
 exports.assets_dir_path = path.join(frontend_dir_path, "docs");
 /**
  *
@@ -37,9 +38,16 @@ function getPage(pageName) {
         "assets_root": deploy_1.deploy.getEnv() === "DEV" ?
             "/" :
             "//static.semasim.com/"
-    }), "utf8");
+    }, { "root": templates_dir_path }), "utf8");
     watch(ejs_file_path, { "persistent": false }, () => {
         debug(`${pageName} page updated`);
+        read();
+    });
+    watch(templates_dir_path, {
+        "recursive": true,
+        "persistent": false
+    }, () => {
+        debug(`${pageName} page updated (templates dir)`);
         read();
     });
     read();
