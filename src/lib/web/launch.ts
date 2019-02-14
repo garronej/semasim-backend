@@ -45,9 +45,6 @@ export function launch(
         )
         ;
 
-
-    //TODO: if apex domain (semasim.com, dev.semasim.com) redirect to www.semasim.com
-
     apiServer.init({
         app,
         "apiPath": frontend.webApiDeclaration.apiPath,
@@ -136,7 +133,6 @@ export function launch(
                 case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
                 case "PROD": return (_req, _res, next: express.NextFunction) => next();
             }
-
         })())
         .get("*", async (req, res, next) => {
 
@@ -197,7 +193,19 @@ export function launch(
 
             }
 
-            const resp = await dbSemasim.authenticateUser(email, password);
+            //NOTE: not using try catch because it's a pain to infer the return type.
+            let resp= await dbSemasim.authenticateUser(email, password)
+                .catch((error: Error) => error);
+
+            if( resp instanceof Error ){
+
+                debug("Authenticate user db error", resp);
+
+                //NOTE: Probably hack attempt but in the doubt blame our code.
+                res.status(apiServer.httpCodes.INTERNAL_SERVER_ERROR).end();
+                return;
+
+            }
 
             if (resp.status === "SUCCESS") {
 

@@ -35,7 +35,6 @@ function launch(httpsServer, httpServer) {
     app
         .use((req, res, next) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
         res.redirect(`https://www.semasim.com${req.originalUrl}`) : next());
-    //TODO: if apex domain (semasim.com, dev.semasim.com) redirect to www.semasim.com
     apiServer.init({
         app,
         "apiPath": frontend.webApiDeclaration.apiPath,
@@ -134,7 +133,15 @@ function launch(httpsServer, httpServer) {
             res.status(400).end();
             return;
         }
-        const resp = yield dbSemasim.authenticateUser(email, password);
+        //NOTE: not using try catch because it's a pain to infer the return type.
+        let resp = yield dbSemasim.authenticateUser(email, password)
+            .catch((error) => error);
+        if (resp instanceof Error) {
+            debug("Authenticate user db error", resp);
+            //NOTE: Probably hack attempt but in the doubt blame our code.
+            res.status(apiServer.httpCodes.INTERNAL_SERVER_ERROR).end();
+            return;
+        }
         if (resp.status === "SUCCESS") {
             sessionManager.setAuth(session, resp.auth);
         }
