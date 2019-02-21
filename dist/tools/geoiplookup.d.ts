@@ -1,3 +1,4 @@
+export declare const db_file_path = "/usr/share/GeoIP/GeoLiteCity.dat";
 export declare type GeoInfo = {
     countryIso: string | undefined;
     subdivisions: string | undefined;

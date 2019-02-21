@@ -2,7 +2,7 @@
 
 import { spawn } from "child_process";
 
-const dataFile = "/usr/share/GeoIP/GeoLiteCity.dat";
+export const db_file_path = "/usr/share/GeoIP/GeoLiteCity.dat";
 
 export type GeoInfo = {
     countryIso: string | undefined;
@@ -14,7 +14,7 @@ export type GeoInfo = {
 /** May reject error */
 export function geoiplookup(address: string): Promise<GeoInfo> {
 
-    let child = spawn("geoiplookup", ["-f", dataFile, address]);
+    let child = spawn("geoiplookup", ["-f", db_file_path, address]);
 
     return new Promise<GeoInfo>(
         (resolve, reject) => {

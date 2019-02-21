@@ -18,20 +18,14 @@ async function program_action_install() {
 
     await scriptLib.apt_get_install("geoip-bin");
 
-    try {
+    const { db_file_path } = await import("../tools/geoiplookup");
 
-        await scriptLib.apt_get_install("geoip-database-contrib");
+    scriptLib.execSync(`mkdir -p ${path.dirname(db_file_path)}`);
 
-    } catch{
-
-        console.log("...never mind downloading backup of GeoLiteCity database.");
-
-        await scriptLib.web_get(
-            "https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat",
-            "/var/lib/geoip-database-contrib/GeoLiteCity.dat"
-        );
-
-    }
+    await scriptLib.web_get(
+        "https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat",
+        db_file_path
+    );
 
     scriptLib.unixUser.create(unix_user);
 

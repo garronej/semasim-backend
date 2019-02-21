@@ -21,13 +21,9 @@ function program_action_install() {
     return __awaiter(this, void 0, void 0, function* () {
         program_action_uninstall();
         yield scriptLib.apt_get_install("geoip-bin");
-        try {
-            yield scriptLib.apt_get_install("geoip-database-contrib");
-        }
-        catch (_a) {
-            console.log("...never mind downloading backup of GeoLiteCity database.");
-            yield scriptLib.web_get("https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat", "/var/lib/geoip-database-contrib/GeoLiteCity.dat");
-        }
+        const { db_file_path } = yield Promise.resolve().then(() => require("../tools/geoiplookup"));
+        scriptLib.execSync(`mkdir -p ${path.dirname(db_file_path)}`);
+        yield scriptLib.web_get("https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat", db_file_path);
         scriptLib.unixUser.create(exports.unix_user);
         scriptLib.execSync(`mkdir ${exports.working_directory_path}`);
         scriptLib.execSync(`chown -R ${exports.unix_user}:${exports.unix_user} ${exports.working_directory_path}`);

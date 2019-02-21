@@ -2,10 +2,10 @@
 //http://xmodulo.com/geographic-location-ip-address-command-line.html
 Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
-const dataFile = "/usr/share/GeoIP/GeoLiteCity.dat";
+exports.db_file_path = "/usr/share/GeoIP/GeoLiteCity.dat";
 /** May reject error */
 function geoiplookup(address) {
-    let child = child_process_1.spawn("geoiplookup", ["-f", dataFile, address]);
+    let child = child_process_1.spawn("geoiplookup", ["-f", exports.db_file_path, address]);
     return new Promise((resolve, reject) => {
         const onceData = (data) => {
             clearTimeout(timer);
