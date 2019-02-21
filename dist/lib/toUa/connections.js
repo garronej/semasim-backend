@@ -86,23 +86,25 @@ function registerSocket(socket, auth) {
             dbSemasim.getUserSims(auth).then(userSims => userSims
                 .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
                 .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.email)));
-            /*
-            We comment out the transport udp as it should never be
-            useful as long as the gateway does not have TURN enabled.
-            "turn:turn.semasim.com:19302?transport=udp",
-            */
-            dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user)).then(({ username, credential, revoke }) => {
-                remoteApiCaller.notifyIceServer(socket, {
-                    "urls": [
-                        `stun:turn.${deploy_1.deploy.getBaseDomain()}:19302`,
-                        `turn:turn.${deploy_1.deploy.getBaseDomain()}:19302?transport=tcp`,
-                        `turns:turn.${deploy_1.deploy.getBaseDomain()}:443?transport=tcp`
-                    ],
-                    username, credential,
-                    "credentialType": "password"
+            if (deploy_1.deploy.isTurnEnabled()) {
+                /*
+                We comment out the transport udp as it should never be
+                useful as long as the gateway does not have TURN enabled.
+                "turn:turn.semasim.com:19302?transport=udp",
+                */
+                dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user)).then(({ username, credential, revoke }) => {
+                    remoteApiCaller.notifyIceServer(socket, {
+                        "urls": [
+                            `stun:turn.${deploy_1.deploy.getBaseDomain()}:19302`,
+                            `turn:turn.${deploy_1.deploy.getBaseDomain()}:19302?transport=tcp`,
+                            `turns:turn.${deploy_1.deploy.getBaseDomain()}:443?transport=tcp`
+                        ],
+                        username, credential,
+                        "credentialType": "password"
+                    });
+                    socket.evtClose.attachOnce(() => revoke());
                 });
-                socket.evtClose.attachOnce(() => revoke());
-            });
+            }
         }
     }
     socket.evtClose.attachOnce(() => {

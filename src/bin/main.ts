@@ -6,19 +6,43 @@ scriptLib.createService({
         const [
             { pidfile_path, unix_user, working_directory_path, srv_name },
             fs,
-            { deploy }
+            { deploy },
         ] = await Promise.all([
             import("./installer"),
             import("fs"),
             import("../deploy")
         ]);
 
+
         console.assert(
             fs.existsSync(working_directory_path),
             "semasim does not seems to be installed."
         );
 
-        deploy.assertInstance(/i[0-9]+/);
+        {
+
+            const { name: instanceName } = await deploy.getHostInstance();
+
+            if (instanceName === "load_balancer") {
+
+                if (deploy.isDistributed()) {
+                    console.log("load_balancer does not run semasim-backend in when distributed mode is enabled");
+                    process.exit(0);
+                }
+
+            } else if (!!instanceName.match(/^i[0-9]+$/)) {
+
+                if (!deploy.isDistributed()) {
+                    throw new Error("Dedicated instance (iX) are not supposed to be up distributed mode is enabled");
+                }
+
+            } else {
+
+                throw new Error("Wrong instance");
+
+            }
+
+        }
 
         return {
             pidfile_path,
@@ -26,10 +50,11 @@ scriptLib.createService({
             "srv_name": srv_name,
             "isQuiet": false,
             "assert_unix_user": "root",
-            "daemon_unix_user": unix_user,
-            "daemon_count": process.argv.length === 3 ?
-                parseInt(process.argv[2]) :
-                parseInt(scriptLib.sh_eval("nproc")) + 1
+            "daemon_unix_user": deploy.isDistributed()? unix_user : "root", //NOTE: Need to be root to listen on 443
+            "daemon_count": !deploy.isDistributed() ? 1 :
+                process.argv.length === 3 ?
+                    parseInt(process.argv[2]) :
+                    parseInt(scriptLib.sh_eval("nproc")) + 1
         };
 
     },

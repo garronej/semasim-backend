@@ -16,8 +16,21 @@ async function program_action_install() {
 
     program_action_uninstall();
 
-    for (const package_name of ["geoip-bin", "geoip-database-contrib"]) {
-        await scriptLib.apt_get_install(package_name);
+    await scriptLib.apt_get_install("geoip-bin");
+
+    try {
+
+        await scriptLib.apt_get_install("geoip-database-contrib");
+
+    } catch{
+
+        console.log("...never mind downloading backup of GeoLiteCity database.");
+
+        await scriptLib.web_get(
+            "https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat",
+            "/var/lib/geoip-database-contrib/GeoLiteCity.dat"
+        );
+
     }
 
     scriptLib.unixUser.create(unix_user);
@@ -62,7 +75,7 @@ if (require.main === module) {
 
     import("commander").then(async  program => {
 
-        deploy.assertInstance(/i[0-9]+/);
+        deploy.assertInstance(/^(load_balancer|i[0-9]+)$/);
 
         program
             .command("install")

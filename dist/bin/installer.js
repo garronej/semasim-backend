@@ -20,8 +20,13 @@ exports.pidfile_path = path.join(exports.working_directory_path, "pid");
 function program_action_install() {
     return __awaiter(this, void 0, void 0, function* () {
         program_action_uninstall();
-        for (const package_name of ["geoip-bin", "geoip-database-contrib"]) {
-            yield scriptLib.apt_get_install(package_name);
+        yield scriptLib.apt_get_install("geoip-bin");
+        try {
+            yield scriptLib.apt_get_install("geoip-database-contrib");
+        }
+        catch (_a) {
+            console.log("...never mind downloading backup of GeoLiteCity database.");
+            yield scriptLib.web_get("https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat", "/var/lib/geoip-database-contrib/GeoLiteCity.dat");
         }
         scriptLib.unixUser.create(exports.unix_user);
         scriptLib.execSync(`mkdir ${exports.working_directory_path}`);
@@ -44,7 +49,7 @@ if (require.main === module) {
     process.once("unhandledRejection", error => { throw error; });
     scriptLib.exit_if_not_root();
     Promise.resolve().then(() => require("commander")).then((program) => __awaiter(this, void 0, void 0, function* () {
-        deploy_1.deploy.assertInstance(/i[0-9]+/);
+        deploy_1.deploy.assertInstance(/^(load_balancer|i[0-9]+)$/);
         program
             .command("install")
             .action(() => program_action_install());

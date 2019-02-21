@@ -11,23 +11,40 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const scriptLib = require("scripting-tools");
 scriptLib.createService({
     "rootProcess": () => __awaiter(this, void 0, void 0, function* () {
-        const [{ pidfile_path, unix_user, working_directory_path, srv_name }, fs, { deploy }] = yield Promise.all([
+        const [{ pidfile_path, unix_user, working_directory_path, srv_name }, fs, { deploy },] = yield Promise.all([
             Promise.resolve().then(() => require("./installer")),
             Promise.resolve().then(() => require("fs")),
             Promise.resolve().then(() => require("../deploy"))
         ]);
         console.assert(fs.existsSync(working_directory_path), "semasim does not seems to be installed.");
-        deploy.assertInstance(/i[0-9]+/);
+        {
+            const { name: instanceName } = yield deploy.getHostInstance();
+            if (instanceName === "load_balancer") {
+                if (deploy.isDistributed()) {
+                    console.log("load_balancer does not run semasim-backend in when distributed mode is enabled");
+                    process.exit(0);
+                }
+            }
+            else if (!!instanceName.match(/^i[0-9]+$/)) {
+                if (!deploy.isDistributed()) {
+                    throw new Error("Dedicated instance (iX) are not supposed to be up distributed mode is enabled");
+                }
+            }
+            else {
+                throw new Error("Wrong instance");
+            }
+        }
         return {
             pidfile_path,
             "stop_timeout": 20000,
             "srv_name": srv_name,
             "isQuiet": false,
             "assert_unix_user": "root",
-            "daemon_unix_user": unix_user,
-            "daemon_count": process.argv.length === 3 ?
-                parseInt(process.argv[2]) :
-                parseInt(scriptLib.sh_eval("nproc")) + 1
+            "daemon_unix_user": deploy.isDistributed() ? unix_user : "root",
+            "daemon_count": !deploy.isDistributed() ? 1 :
+                process.argv.length === 3 ?
+                    parseInt(process.argv[2]) :
+                    parseInt(scriptLib.sh_eval("nproc")) + 1
         };
     }),
     "daemonProcess": (daemon_number, daemon_count) => __awaiter(this, void 0, void 0, function* () {

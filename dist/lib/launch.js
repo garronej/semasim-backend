@@ -49,7 +49,7 @@ function launch(daemonNumber) {
             }
             return out;
         })();
-        const interfaceAddress = deploy_1.networkTools.getInterfaceAddressInRange(deploy_1.deploy.semasimIpRange);
+        //const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasimIpRange);
         const servers = [
             https.createServer(tlsCerts),
             http.createServer(),
@@ -57,30 +57,73 @@ function launch(daemonNumber) {
             tls.createServer(tlsCerts),
             net.createServer()
         ];
-        const [spoofedLocalAddressAndPort] = yield Promise.all([
-            (() => __awaiter(this, void 0, void 0, function* () {
-                /* CNAME web.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
-                const address1 = yield deploy_1.networkTools.heResolve4(`web.${deploy_1.deploy.getBaseDomain()}`);
-                /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
-                const [sipSrv] = yield deploy_1.networkTools.resolveSrv(`_sips._tcp.${deploy_1.deploy.getBaseDomain()}`);
-                /* A _sips._tcp.[dev.]semasim.com => '<dynamic ip>' */
-                const address2 = yield deploy_1.networkTools.heResolve4(sipSrv.name);
-                const _wrap = (localAddress, localPort) => ({ localAddress, localPort });
-                return {
-                    "https": _wrap(address1, 443),
-                    "http": _wrap(address1, 80),
-                    "sipUa": _wrap(address2, sipSrv.port),
-                    "sipGw": _wrap(address2, 80)
-                };
-            }))(),
-            Promise.all(servers.map(server => new Promise(resolve => server
+        const prSpoofedLocalAddressAndPort = (() => __awaiter(this, void 0, void 0, function* () {
+            /* CNAME web.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
+            const address1 = yield deploy_1.networkTools.heResolve4(`web.${deploy_1.deploy.getBaseDomain()}`);
+            /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
+            const [sipSrv] = yield deploy_1.networkTools.resolveSrv(`_sips._tcp.${deploy_1.deploy.getBaseDomain()}`);
+            /* A _sips._tcp.[dev.]semasim.com => '<dynamic ip>' */
+            const address2 = yield deploy_1.networkTools.heResolve4(sipSrv.name);
+            const _wrap = (localAddress, localPort) => ({ localAddress, localPort });
+            return {
+                "https": _wrap(address1, 443),
+                "http": _wrap(address1, 80),
+                "sipUa": _wrap(address2, sipSrv.port),
+                "sipGw": _wrap(address2, 80)
+            };
+        }))();
+        const prPrivateAndPublicIpsOfLoadBalancer = deploy_1.deploy.isDistributed() ?
+            undefined :
+            Promise.all(["eth0", "eth1"].map(ethDevice => deploy_1.deploy.getPrivateAndPublicIps("load_balancer", ethDevice)));
+        const prInterfaceAddress = deploy_1.deploy.isDistributed() ?
+            deploy_1.networkTools.getInterfaceAddressInRange(deploy_1.deploy.semasimIpRange) :
+            prPrivateAndPublicIpsOfLoadBalancer.then(a => a[0].privateIp);
+        const prAllServersListening = Promise.all(servers.map((server, index) => new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
+            server
                 .once("error", error => { throw error; })
-                .listen(0, interfaceAddress)
-                .once("listening", () => resolve(server))))),
-            deploy_2.dbAuth.resolve()
+                .once("listening", () => resolve());
+            const { listenOnPort, listenWithInterface } = yield (() => __awaiter(this, void 0, void 0, function* () {
+                if (deploy_1.deploy.isDistributed()) {
+                    return {
+                        "listenOnPort": 0,
+                        "listenWithInterface": prInterfaceAddress
+                    };
+                }
+                const localAddressAndPort = yield prSpoofedLocalAddressAndPort;
+                const privateAndPublicIps = yield prPrivateAndPublicIpsOfLoadBalancer;
+                const serverId = (() => {
+                    switch (index) {
+                        case 0: return "https";
+                        case 1: return "http";
+                        case 2: return "sipUa";
+                        case 3: return "sipGw";
+                        case 4: undefined;
+                    }
+                })();
+                const getInterfaceIpFromPublicIp = (publicIp) => privateAndPublicIps.find(v => v.publicIp === publicIp).privateIp;
+                if (serverId === undefined) {
+                    return {
+                        "listenOnPort": 0,
+                        "listenWithInterface": yield prInterfaceAddress
+                    };
+                }
+                else {
+                    const { localPort, localAddress } = localAddressAndPort[serverId];
+                    return {
+                        "listenOnPort": localPort,
+                        "listenWithInterface": getInterfaceIpFromPublicIp(localAddress)
+                    };
+                }
+            }))();
+            server.listen(listenOnPort, listenWithInterface);
+        }))));
+        //NOTE: Gather all promises tasks in a single promise.
+        const [spoofedLocalAddressAndPort] = yield Promise.all([
+            prSpoofedLocalAddressAndPort,
+            prAllServersListening,
+            deploy_2.dbAuth.resolve().then(() => stripe.launch())
         ]);
-        runningInstance = Object.assign({ interfaceAddress,
-            daemonNumber }, (() => {
+        runningInstance = Object.assign({ "interfaceAddress": yield prInterfaceAddress, daemonNumber }, (() => {
             const ports = servers.map(server => server.address().port);
             return {
                 "httpsPort": ports[0],
@@ -90,7 +133,6 @@ function launch(daemonNumber) {
                 "interInstancesPort": ports[4]
             };
         })());
-        yield stripe.launch();
         dbSemasim.launch();
         dbTurn.launch();
         dbWebphone.launch();

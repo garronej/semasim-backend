@@ -55,7 +55,7 @@ export async function launch(daemonNumber: number) {
 
     })();
 
-    const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasimIpRange);
+    //const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasimIpRange);
 
     const servers: [https.Server, http.Server, tls.Server, tls.Server, net.Server] = [
         https.createServer(tlsCerts),
@@ -65,41 +65,117 @@ export async function launch(daemonNumber: number) {
         net.createServer()
     ];
 
-    const [spoofedLocalAddressAndPort] = await Promise.all([
-        (async () => {
+    const prSpoofedLocalAddressAndPort = (async () => {
 
-            /* CNAME web.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
-            const address1 = await networkTools.heResolve4(`web.${deploy.getBaseDomain()}`);
+        /* CNAME web.[dev.]semasim.com => A [dev.]semasim.com => '<dynamic ip>' */
+        const address1 = await networkTools.heResolve4(`web.${deploy.getBaseDomain()}`);
 
-            /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
-            const [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${deploy.getBaseDomain()}`);
+        /* SRV _sips._tcp.[dev.]semasim.com => [ { name: 'sip.[dev.]semasim.com', port: 443 } ] */
+        const [sipSrv] = await networkTools.resolveSrv(`_sips._tcp.${deploy.getBaseDomain()}`);
 
-            /* A _sips._tcp.[dev.]semasim.com => '<dynamic ip>' */
-            const address2 = await networkTools.heResolve4(sipSrv.name);
+        /* A _sips._tcp.[dev.]semasim.com => '<dynamic ip>' */
+        const address2 = await networkTools.heResolve4(sipSrv.name);
 
-            const _wrap = (localAddress: string, localPort: number) => ({ localAddress, localPort });
+        const _wrap = (localAddress: string, localPort: number) => ({ localAddress, localPort });
 
-            return {
-                "https": _wrap(address1, 443),
-                "http": _wrap(address1, 80),
-                "sipUa": _wrap(address2, sipSrv.port),
-                "sipGw": _wrap(address2, 80)
-            };
+        return {
+            "https": _wrap(address1, 443),
+            "http": _wrap(address1, 80),
+            "sipUa": _wrap(address2, sipSrv.port),
+            "sipGw": _wrap(address2, 80)
+        };
 
-        })(),
-        Promise.all(servers.map(
-            server => new Promise(
-                resolve => server
-                    .once("error", error => { throw error; })
-                    .listen(0, interfaceAddress)
-                    .once("listening", () => resolve(server))
-            ))
-        ),
-        dbAuth.resolve()
+    })();
+
+    const prPrivateAndPublicIpsOfLoadBalancer = deploy.isDistributed() ?
+        undefined :
+        Promise.all(
+            ["eth0", "eth1"].map(
+                ethDevice => deploy.getPrivateAndPublicIps(
+                    "load_balancer",
+                    ethDevice
+                ))
+        );
+
+    const prInterfaceAddress= deploy.isDistributed() ?
+        networkTools.getInterfaceAddressInRange(deploy.semasimIpRange) :
+        prPrivateAndPublicIpsOfLoadBalancer!.then(a=>a[0].privateIp)
+        ;
+
+    const prAllServersListening = Promise.all(
+        servers.map(
+            (server, index) => new Promise<void>(
+                async resolve => {
+
+                    server
+                        .once("error", error => { throw error; })
+                        .once("listening", () => resolve());
+
+                    const { listenOnPort, listenWithInterface } = await (async () => {
+
+                        if (deploy.isDistributed()) {
+
+                            return {
+                                "listenOnPort": 0,
+                                "listenWithInterface": prInterfaceAddress as string
+                            };
+
+                        }
+
+                        const localAddressAndPort = await prSpoofedLocalAddressAndPort;
+                        const privateAndPublicIps = await prPrivateAndPublicIpsOfLoadBalancer!;
+
+                        const serverId = (() => {
+
+                            switch (index) {
+                                case 0: return "https";
+                                case 1: return "http";
+                                case 2: return "sipUa";
+                                case 3: return "sipGw";
+                                case 4: undefined;
+                            }
+
+                        })();
+
+                        const getInterfaceIpFromPublicIp = (publicIp: string) =>
+                            privateAndPublicIps.find(v => v.publicIp! === publicIp)!.privateIp;
+
+
+                        if (serverId === undefined) {
+                            return {
+                                "listenOnPort": 0,
+                                "listenWithInterface": await prInterfaceAddress
+                            };
+                        } else {
+
+                            const { localPort, localAddress } = localAddressAndPort[serverId];
+
+                            return {
+                                "listenOnPort": localPort,
+                                "listenWithInterface": getInterfaceIpFromPublicIp(localAddress)
+                            };
+
+                        }
+
+
+                    })();
+
+                    server.listen( listenOnPort, listenWithInterface);
+
+                }
+            )
+        )
+    );
+
+    //NOTE: Gather all promises tasks in a single promise.
+    const [ spoofedLocalAddressAndPort ]= await Promise.all([
+        prSpoofedLocalAddressAndPort,
+        prAllServersListening,
+        dbAuth.resolve().then(()=> stripe.launch())
     ]);
 
     runningInstance = {
-        interfaceAddress,
+        "interfaceAddress": await prInterfaceAddress,
         daemonNumber,
         ...(() => {
 
@@ -118,7 +194,6 @@ export async function launch(daemonNumber: number) {
         })()
     };
 
-    await stripe.launch();
 
     dbSemasim.launch();
 
@@ -154,5 +229,4 @@ export async function launch(daemonNumber: number) {
     debug(`Instance ${daemonNumber} successfully launched`);
 
 }
-
 
