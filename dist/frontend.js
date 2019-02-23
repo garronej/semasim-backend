@@ -20,7 +20,7 @@ const path = require("path");
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 const templates_dir_path = path.join(frontend_dir_path, "shared", "templates");
-exports.assets_dir_path = path.join(frontend_dir_path, "docs");
+exports.static_dir_path = path.join(frontend_dir_path, "static.semasim.com");
 /**
  *
  * @param pageName eg: "manager" or "webphone"
@@ -33,7 +33,7 @@ function getPage(pageName) {
         return getPage.cache[pageName];
     }
     const page_dir_path = path.join(pages_dir_path, pageName);
-    const ejs_file_path = path.join(page_dir_path, `page.ejs`);
+    const ejs_file_path = path.join(page_dir_path, "page.ejs");
     const read = () => getPage.cache[pageName] = Buffer.from(ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), {
         "assets_root": deploy_1.deploy.getEnv() === "DEV" ?
             "/" :

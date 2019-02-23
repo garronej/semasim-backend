@@ -99,7 +99,7 @@ export function launch(
 
     app
         .use(compression())
-        .use(express.static(frontend.assets_dir_path))
+        .use(express.static(frontend.static_dir_path))
         .head(["/img/logo@2x@2x.png", "/img/logosm@2x@2x.png"], (_req, res) => res.status(404).end())
         .use((req, res, next) => {
 

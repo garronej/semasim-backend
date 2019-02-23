@@ -25,7 +25,7 @@ import * as path from "path";
 const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 const templates_dir_path = path.join(frontend_dir_path, "shared", "templates")
-export const assets_dir_path = path.join(frontend_dir_path, "docs");
+export const static_dir_path = path.join(frontend_dir_path, "static.semasim.com");
 
 /**
  * 
@@ -42,7 +42,7 @@ export function getPage(pageName: string): Buffer {
 
     const page_dir_path = path.join(pages_dir_path, pageName);
 
-    const ejs_file_path = path.join(page_dir_path, `page.ejs`);
+    const ejs_file_path = path.join(page_dir_path, "page.ejs");
 
     const read = () => getPage.cache[pageName] = Buffer.from(
         ejs.render(
