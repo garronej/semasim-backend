@@ -140,9 +140,11 @@ function launch(daemonNumber) {
         web.launch(servers[0], servers[1]);
         uaConnections.listen(new ws.Server({ "server": servers[0] }), spoofedLocalAddressAndPort.https);
         uaConnections.listen(servers[2], spoofedLocalAddressAndPort.sipUa);
-        gatewayConnections.listen(servers[3], spoofedLocalAddressAndPort.sipGw);
         backendConnections.listen(servers[4]);
         yield loadBalancerConnection.connect();
+        //NOTE: Should stay after because we want to
+        //first run the command set all sims offline.
+        gatewayConnections.listen(servers[3], spoofedLocalAddressAndPort.sipGw);
         debug(`Instance ${daemonNumber} successfully launched`);
     });
 }

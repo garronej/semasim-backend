@@ -89,6 +89,8 @@ export async function connect() {
 
     if (runningInstances.length === 0) {
 
+        debug("First or only semasim process running setting all sim offline");
+
         dbSemasim.setAllSimOffline();
 
     } else {
@@ -104,6 +106,10 @@ export async function connect() {
             );
 
         }
+
+        //NOTE: Waiting here we are almost sure that 
+        //setAllSimOffline is run before on the first process.
+        await new Promise(resolve=> setTimeout(resolve, 200));
 
     }
 

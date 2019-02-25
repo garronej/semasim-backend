@@ -215,16 +215,18 @@ export async function launch(daemonNumber: number) {
         spoofedLocalAddressAndPort.sipUa
     );
 
-    gatewayConnections.listen(
-        servers[3],
-        spoofedLocalAddressAndPort.sipGw
-    );
-
     backendConnections.listen(
         servers[4]
     );
 
     await loadBalancerConnection.connect();
+
+    //NOTE: Should stay after because we want to
+    //first run the command set all sims offline.
+    gatewayConnections.listen(
+        servers[3],
+        spoofedLocalAddressAndPort.sipGw
+    );
 
     debug(`Instance ${daemonNumber} successfully launched`);
 

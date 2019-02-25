@@ -64,12 +64,16 @@ function connect() {
         }, logger.log);
         const runningInstances = yield remoteApiCaller.getRunningInstances(launch_1.getLocalRunningInstance(), loadBalancerSocket);
         if (runningInstances.length === 0) {
+            debug("First or only semasim process running setting all sim offline");
             dbSemasim.setAllSimOffline();
         }
         else {
             for (const runningInstance of runningInstances) {
                 backendConnections.connect(runningInstance, () => remoteApiCaller.isInstanceStillRunning(runningInstance, loadBalancerSocket));
             }
+            //NOTE: Waiting here we are almost sure that 
+            //setAllSimOffline is run before on the first process.
+            yield new Promise(resolve => setTimeout(resolve, 200));
         }
     });
 }
