@@ -470,7 +470,9 @@ export const handlers: Handlers = {};
 
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
-                    "stun_server": `${deploy.getBaseDomain()}`,
+                    "stun_server": deploy.isTurnEnabled() ?
+                        `${deploy.getBaseDomain()}` :
+                        "external_stun.semasim.com",
                     "protocols": "stun,ice"
                 };
 

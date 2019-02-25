@@ -269,7 +269,9 @@ exports.handlers = {};
                 }
                 config[`nat_policy_${endpointCount}`] = {
                     "ref": `nat_policy_${endpointCount}`,
-                    "stun_server": `${deploy_1.deploy.getBaseDomain()}`,
+                    "stun_server": deploy_1.deploy.isTurnEnabled() ?
+                        `${deploy_1.deploy.getBaseDomain()}` :
+                        "external_stun.semasim.com",
                     "protocols": "stun,ice"
                 };
                 //TODO: It's dirty to have this here, do we even need XML anymore?
