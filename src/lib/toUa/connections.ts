@@ -15,6 +15,8 @@ import { types as feTypes } from "../../frontend";
 import * as dbTurn from "../dbTurn";
 import { deploy } from "../../deploy";
 
+const debug = logger.debugFactory();
+
 export function listen(
     server: ws.Server | tls.Server,
     spoofedLocalAddressAndPort: {
@@ -26,16 +28,18 @@ export function listen(
 
         server.on("secureConnection",
             tlsSocket => registerSocket(
-                new sip.Socket( tlsSocket, false, spoofedLocalAddressAndPort),
-                undefined
+                new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort),
+                { "platform": "ANDROID" }
             )
         );
 
     } else {
 
         server.on("connection",
-            async (webSocket, req) => registerSocket(
-                new sip.Socket(
+            async (webSocket, req) => {
+
+
+                const socket = new sip.Socket(
                     webSocket,
                     false,
                     {
@@ -43,9 +47,46 @@ export function listen(
                         "remoteAddress": req.socket.remoteAddress!,
                         "remotePort": req.socket.remotePort!
                     }
-                ),
-                await sessionManager.getAuth(req)
-            )
+                );
+
+
+                const auth = await sessionManager.getAuth(req)
+
+                if (!auth) {
+
+                    socket.destroy("User is not authenticated ( no auth for this websocket)");
+
+                    return;
+
+                }
+
+                const requestTurnCred = (() => {
+
+                    try {
+
+                        return (req.headers.cookie as string)
+                            .match(/requestTurnCred\s*=\s*(true|false)/)![1] === "true"
+                            ;
+
+                    } catch{
+
+                        debug("WARNING: Problem parsing cookie");
+
+                        return false;
+                    }
+
+                })();
+
+                registerSocket(
+                    socket,
+                    {
+                        "platform": "WEB",
+                        auth,
+                        requestTurnCred
+                    }
+                );
+
+            }
         );
 
     }
@@ -65,19 +106,16 @@ const apiServer = new sip.api.Server(
     })
 );
 
-
 function registerSocket(
     socket: sip.Socket,
-    auth: sessionManager.Auth | undefined
-) {
-
-    if (socket.protocol === "WSS" && !auth) {
-
-        socket.destroy("User is not authenticated ( no auth for this websocket)");
-
-        return;
-
+    o: {
+        platform: "ANDROID";
+    } | {
+        platform: "WEB";
+        auth: sessionManager.Auth;
+        requestTurnCred: boolean;
     }
+) {
 
     const connectionId = gwMisc.cid.generate(socket);
 
@@ -103,23 +141,24 @@ function registerSocket(
         "socketId": idString,
         "remoteEndId": "UA",
         "localEndId": "BACKEND",
-        "connection": deploy.getEnv() === "DEV"? true: false,
+        "connection": deploy.getEnv() === "DEV" ? true : false,
         "error": true,
-        "close": deploy.getEnv() === "DEV"? true: false,
-        "incomingTraffic": deploy.getEnv() === "DEV"? true: false,
-        "outgoingTraffic": deploy.getEnv() === "DEV"? true: false,
+        "close": deploy.getEnv() === "DEV" ? true : false,
+        "incomingTraffic": deploy.getEnv() === "DEV" ? true : false,
+        "outgoingTraffic": deploy.getEnv() === "DEV" ? true : false,
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
     }, logger.log);
 
-    if (!!auth) {
+    if (o.platform === "WEB") {
+
+        const { auth, requestTurnCred } = o;
 
         apiServer.startListening(socket);
 
         setAuth(socket, auth);
 
         sip.api.client.enableKeepAlive(socket);
-
 
         sip.api.client.enableErrorLogging(
             socket,
@@ -141,58 +180,57 @@ function registerSocket(
 
         byEmail.set(auth.email, socket);
 
-        remote_api_calls: {
+        //NOTE: Following are remote API calls:
 
-            backendRemoteApiCaller.collectDonglesOnLan(
-                socket.remoteAddress, auth
-            ).then(dongles => dongles.forEach(
-                dongle => remoteApiCaller.notifyDongleOnLan(
-                    dongle, socket)
-            )
+        if (requestTurnCred && deploy.isTurnEnabled()) {
+
+            /*
+            We comment out the transport udp as it should never be
+            useful as long as the gateway does not have TURN enabled.
+            "turn:turn.semasim.com:19302?transport=udp",
+            */
+            dbTurn.renewAndGetCred(getUserWebUaInstanceId(auth.user)).then(
+                ({ username, credential, revoke }) => {
+
+                    remoteApiCaller.notifyIceServer(
+                        socket,
+                        {
+                            "urls": [
+                                `stun:turn.${deploy.getBaseDomain()}:19302`,
+                                `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
+                                `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
+                            ],
+                            username, credential,
+                            "credentialType": "password"
+                        }
+                    );
+
+                    socket.evtClose.attachOnce(() => revoke());
+
+                }
+
             );
-
-            dbSemasim.getUserSims(auth).then(
-                userSims => userSims
-                    .filter(feTypes.UserSim.Shared.NotConfirmed.match)
-                    .forEach(userSim =>
-                        remoteApiCaller.notifySimSharingRequest(
-                            userSim, auth.email
-                        )
-                    )
-            );
-
-            if (deploy.isTurnEnabled()) {
-
-                /*
-                We comment out the transport udp as it should never be
-                useful as long as the gateway does not have TURN enabled.
-                "turn:turn.semasim.com:19302?transport=udp",
-                */
-                dbTurn.renewAndGetCred(getUserWebUaInstanceId(auth.user)).then(
-                    ({ username, credential, revoke }) => {
-
-                        remoteApiCaller.notifyIceServer(
-                            socket,
-                            {
-                                "urls": [
-                                    `stun:turn.${deploy.getBaseDomain()}:19302`,
-                                    `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
-                                    `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
-                                ],
-                                username, credential,
-                                "credentialType": "password"
-                            }
-                        );
-
-                        socket.evtClose.attachOnce(() => revoke());
-
-                    }
-
-                );
-
-            }
 
         }
+
+        backendRemoteApiCaller.collectDonglesOnLan(
+            socket.remoteAddress, auth
+        ).then(dongles => dongles.forEach(
+            dongle => remoteApiCaller.notifyDongleOnLan(
+                dongle, socket
+            )
+        ));
+
+        dbSemasim.getUserSims(auth).then(
+            userSims => userSims
+                .filter(feTypes.UserSim.Shared.NotConfirmed.match)
+                .forEach(userSim =>
+                    remoteApiCaller.notifySimSharingRequest(
+                        userSim, auth.email
+                    )
+                )
+        );
+
 
     }
 
@@ -203,7 +241,7 @@ function registerSocket(
 
         {
 
-            let set = byAddress.get(socket.remoteAddress)!;
+            const set = byAddress.get(socket.remoteAddress)!;
 
             set.delete(socket);
 
@@ -213,13 +251,15 @@ function registerSocket(
 
         }
 
-        if (!!auth && byEmail.get(auth.email) === socket) {
-            byEmail.delete(auth.email);
+        if (o.platform === "WEB" && byEmail.get(o.auth.email) === socket) {
+
+            byEmail.delete(o.auth.email);
+
         }
 
         backendRemoteApiCaller.notifyRoute({
             "type": "DELETE",
-            "emails": !!auth ? [auth.email] : undefined,
+            "emails": o.platform === "WEB" ? [o.auth.email] : undefined,
             "uaAddresses": getByAddress(socket.remoteAddress).size === 0 ?
                 [socket.remoteAddress] : undefined,
         });
@@ -230,7 +270,7 @@ function registerSocket(
 
     backendRemoteApiCaller.notifyRoute({
         "type": "ADD",
-        "emails": !!auth ? [auth.email] : undefined,
+        "emails": o.platform === "WEB" ? [o.auth.email] : undefined,
         "uaAddresses": getByAddress(socket.remoteAddress).size === 1 ?
             [socket.remoteAddress] : undefined,
     });

@@ -22,13 +22,34 @@ const dbSemasim = require("../dbSemasim");
 const frontend_1 = require("../../frontend");
 const dbTurn = require("../dbTurn");
 const deploy_1 = require("../../deploy");
+const debug = logger.debugFactory();
 function listen(server, spoofedLocalAddressAndPort) {
     if (server instanceof tls.Server) {
-        server.on("secureConnection", tlsSocket => registerSocket(new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort), undefined));
+        server.on("secureConnection", tlsSocket => registerSocket(new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort), { "platform": "ANDROID" }));
     }
     else {
         server.on("connection", (webSocket, req) => __awaiter(this, void 0, void 0, function* () {
-            return registerSocket(new sip.Socket(webSocket, false, Object.assign({}, spoofedLocalAddressAndPort, { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort })), yield sessionManager.getAuth(req));
+            const socket = new sip.Socket(webSocket, false, Object.assign({}, spoofedLocalAddressAndPort, { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort }));
+            const auth = yield sessionManager.getAuth(req);
+            if (!auth) {
+                socket.destroy("User is not authenticated ( no auth for this websocket)");
+                return;
+            }
+            const requestTurnCred = (() => {
+                try {
+                    return req.headers.cookie
+                        .match(/requestTurnCred\s*=\s*(true|false)/)[1] === "true";
+                }
+                catch (_a) {
+                    debug("WARNING: Problem parsing cookie");
+                    return false;
+                }
+            })();
+            registerSocket(socket, {
+                "platform": "WEB",
+                auth,
+                requestTurnCred
+            });
         }));
     }
 }
@@ -40,11 +61,7 @@ const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server
     "hideKeepAlive": true,
     "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
 }));
-function registerSocket(socket, auth) {
-    if (socket.protocol === "WSS" && !auth) {
-        socket.destroy("User is not authenticated ( no auth for this websocket)");
-        return;
-    }
+function registerSocket(socket, o) {
     const connectionId = gateway_1.misc.cid.generate(socket);
     byConnectionId.set(connectionId, socket);
     {
@@ -67,7 +84,8 @@ function registerSocket(socket, auth) {
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
     }, logger.log);
-    if (!!auth) {
+    if (o.platform === "WEB") {
+        const { auth, requestTurnCred } = o;
         apiServer.startListening(socket);
         setAuth(socket, auth);
         sip.api.client.enableKeepAlive(socket);
@@ -81,47 +99,46 @@ function registerSocket(socket, auth) {
             remoteApiCaller.notifyLoggedFromOtherTab(auth.email);
         }
         byEmail.set(auth.email, socket);
-        remote_api_calls: {
-            backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, auth).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan(dongle, socket)));
-            dbSemasim.getUserSims(auth).then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
-                .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.email)));
-            if (deploy_1.deploy.isTurnEnabled()) {
-                /*
-                We comment out the transport udp as it should never be
-                useful as long as the gateway does not have TURN enabled.
-                "turn:turn.semasim.com:19302?transport=udp",
-                */
-                dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user)).then(({ username, credential, revoke }) => {
-                    remoteApiCaller.notifyIceServer(socket, {
-                        "urls": [
-                            `stun:turn.${deploy_1.deploy.getBaseDomain()}:19302`,
-                            `turn:turn.${deploy_1.deploy.getBaseDomain()}:19302?transport=tcp`,
-                            `turns:turn.${deploy_1.deploy.getBaseDomain()}:443?transport=tcp`
-                        ],
-                        username, credential,
-                        "credentialType": "password"
-                    });
-                    socket.evtClose.attachOnce(() => revoke());
+        //NOTE: Following are remote API calls:
+        if (requestTurnCred && deploy_1.deploy.isTurnEnabled()) {
+            /*
+            We comment out the transport udp as it should never be
+            useful as long as the gateway does not have TURN enabled.
+            "turn:turn.semasim.com:19302?transport=udp",
+            */
+            dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user)).then(({ username, credential, revoke }) => {
+                remoteApiCaller.notifyIceServer(socket, {
+                    "urls": [
+                        `stun:turn.${deploy_1.deploy.getBaseDomain()}:19302`,
+                        `turn:turn.${deploy_1.deploy.getBaseDomain()}:19302?transport=tcp`,
+                        `turns:turn.${deploy_1.deploy.getBaseDomain()}:443?transport=tcp`
+                    ],
+                    username, credential,
+                    "credentialType": "password"
                 });
-            }
+                socket.evtClose.attachOnce(() => revoke());
+            });
         }
+        backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, auth).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan(dongle, socket)));
+        dbSemasim.getUserSims(auth).then(userSims => userSims
+            .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
+            .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.email)));
     }
     socket.evtClose.attachOnce(() => {
         byConnectionId.delete(connectionId);
         {
-            let set = byAddress.get(socket.remoteAddress);
+            const set = byAddress.get(socket.remoteAddress);
             set.delete(socket);
             if (set.size === 0) {
                 byAddress.delete(socket.remoteAddress);
             }
         }
-        if (!!auth && byEmail.get(auth.email) === socket) {
-            byEmail.delete(auth.email);
+        if (o.platform === "WEB" && byEmail.get(o.auth.email) === socket) {
+            byEmail.delete(o.auth.email);
         }
         backendRemoteApiCaller.notifyRoute({
             "type": "DELETE",
-            "emails": !!auth ? [auth.email] : undefined,
+            "emails": o.platform === "WEB" ? [o.auth.email] : undefined,
             "uaAddresses": getByAddress(socket.remoteAddress).size === 0 ?
                 [socket.remoteAddress] : undefined,
         });
@@ -129,7 +146,7 @@ function registerSocket(socket, auth) {
     router.handle(socket, connectionId);
     backendRemoteApiCaller.notifyRoute({
         "type": "ADD",
-        "emails": !!auth ? [auth.email] : undefined,
+        "emails": o.platform === "WEB" ? [o.auth.email] : undefined,
         "uaAddresses": getByAddress(socket.remoteAddress).size === 1 ?
             [socket.remoteAddress] : undefined,
     });
