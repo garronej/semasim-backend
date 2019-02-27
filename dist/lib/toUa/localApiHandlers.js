@@ -20,6 +20,7 @@ const dbWebphone = require("../dbWebphone");
 const emailSender = require("../emailSender");
 const uuidv3 = require("uuid/v3");
 const gateway_1 = require("../../gateway");
+const stripe = require("../stripe");
 exports.handlers = {};
 {
     const methodName = backendToUa_1.apiDeclaration.getUsableUserSims.methodName;
@@ -426,6 +427,17 @@ exports.handlers = {};
     };
     exports.handlers[methodName] = handler;
 }
+{
+    const methodName = backendToUa_1.apiDeclaration.shouldAppendPromotionalMessage.methodName;
+    const handler = {
+        "sanityCheck": params => params === undefined,
+        "handler": (_params, socket) => __awaiter(this, void 0, void 0, function* () {
+            const auth = connections.getAuth(socket);
+            return !(yield stripe.isUserSubscribed(auth));
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
 //Web UA data
 /**
  format: `"<urn:uuid:f0c12631-a721-3da9-aa41-7122952b90ba>"`
@@ -535,6 +547,17 @@ exports.getUserWebUaInstanceId = getUserWebUaInstanceId;
             typeof params.message_id === "number" &&
             typeof params.isSentSuccessfully === "boolean"),
         "handler": ({ message_id, isSentSuccessfully }, socket) => dbWebphone.updateMessageOnSendReport(connections.getAuth(socket), message_id, isSentSuccessfully).then(() => undefined)
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = backendToUa_1.apiDeclaration.notifyStatusReportReceived.methodName;
+    const handler = {
+        "sanityCheck": params => (params instanceof Object &&
+            typeof params.message_id === "number" &&
+            (typeof params.deliveredTime === "number" ||
+                params.deliveredTime === null)),
+        "handler": ({ message_id, deliveredTime }, socket) => dbWebphone.updateMessageOnStatusReport(connections.getAuth(socket), message_id, deliveredTime).then(() => undefined)
     };
     exports.handlers[methodName] = handler;
 }

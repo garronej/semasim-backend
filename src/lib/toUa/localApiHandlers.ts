@@ -12,8 +12,8 @@ import * as remoteApiCaller from "./remoteApiCaller";
 import * as dbWebphone from "../dbWebphone";
 import * as emailSender from "../emailSender";
 const uuidv3 = require("uuid/v3");
-
 import { types as gwTypes, misc as gwMisc } from "../../gateway";
+import * as stripe from "../stripe";
 
 export const handlers: sip.api.Server.Handlers = {};
 
@@ -793,6 +793,27 @@ export const handlers: sip.api.Server.Handlers = {};
 
 }
 
+{
+
+    const methodName = apiDeclaration.shouldAppendPromotionalMessage.methodName;
+    type Params = apiDeclaration.shouldAppendPromotionalMessage.Params;
+    type Response = apiDeclaration.shouldAppendPromotionalMessage.Response;
+
+    const handler: sip.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params => params === undefined,
+        "handler": async (_params, socket) => {
+
+            const auth = connections.getAuth(socket);
+
+            return !(await stripe.isUserSubscribed(auth));
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
 //Web UA data
 
 /** 
@@ -1046,6 +1067,34 @@ export function getUserWebUaInstanceId(user: number): string {
     handlers[methodName] = handler;
 
 }
+
+{
+
+    const methodName = apiDeclaration.notifyStatusReportReceived.methodName;
+    type Params = apiDeclaration.notifyStatusReportReceived.Params;
+    type Response = apiDeclaration.notifyStatusReportReceived.Response;
+
+    const handler: sip.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params => (
+            params instanceof Object &&
+            typeof params.message_id === "number" &&
+            (
+                typeof params.deliveredTime === "number" ||
+                params.deliveredTime === null
+            )
+        ),
+        "handler": ({ message_id, deliveredTime }, socket) =>
+            dbWebphone.updateMessageOnStatusReport(
+                connections.getAuth(socket),
+                message_id,
+                deliveredTime
+            ).then(() => undefined)
+    };
+
+    handlers[methodName] = handler;
+
+}
+
 
 {
 
