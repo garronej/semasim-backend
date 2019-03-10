@@ -100,14 +100,19 @@ function registerSocket(socket, o) {
         }
         byEmail.set(auth.email, socket);
         //NOTE: Following are remote API calls:
-        if (requestTurnCred && deploy_1.deploy.isTurnEnabled()) {
-            /*
-            We comment out the transport udp as it should never be
-            useful as long as the gateway does not have TURN enabled.
-            "turn:turn.semasim.com:19302?transport=udp",
-            */
-            dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user)).then(({ username, credential, revoke }) => {
-                remoteApiCaller.notifyIceServer(socket, {
+        if (requestTurnCred) {
+            (() => __awaiter(this, void 0, void 0, function* () {
+                if (!deploy_1.deploy.isTurnEnabled()) {
+                    return undefined;
+                }
+                const { username, credential, revoke } = yield dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user));
+                socket.evtClose.attachOnce(() => revoke());
+                /*
+                We comment out the transport udp as it should never be
+                useful as long as the gateway does not have TURN enabled.
+                "turn:turn.semasim.com:19302?transport=udp",
+                */
+                return {
                     "urls": [
                         `stun:turn.${deploy_1.deploy.getBaseDomain()}:19302`,
                         `turn:turn.${deploy_1.deploy.getBaseDomain()}:19302?transport=tcp`,
@@ -115,9 +120,8 @@ function registerSocket(socket, o) {
                     ],
                     username, credential,
                     "credentialType": "password"
-                });
-                socket.evtClose.attachOnce(() => revoke());
-            });
+                };
+            }))().then(params => remoteApiCaller.notifyIceServer(socket, params));
         }
         backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, auth).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan(dongle, socket)));
         dbSemasim.getUserSims(auth).then(userSims => userSims

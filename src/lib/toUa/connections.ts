@@ -182,34 +182,36 @@ function registerSocket(
 
         //NOTE: Following are remote API calls:
 
-        if (requestTurnCred && deploy.isTurnEnabled()) {
+        if (requestTurnCred) {
 
-            /*
-            We comment out the transport udp as it should never be
-            useful as long as the gateway does not have TURN enabled.
-            "turn:turn.semasim.com:19302?transport=udp",
-            */
-            dbTurn.renewAndGetCred(getUserWebUaInstanceId(auth.user)).then(
-                ({ username, credential, revoke }) => {
+            (async () => {
 
-                    remoteApiCaller.notifyIceServer(
-                        socket,
-                        {
-                            "urls": [
-                                `stun:turn.${deploy.getBaseDomain()}:19302`,
-                                `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
-                                `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
-                            ],
-                            username, credential,
-                            "credentialType": "password"
-                        }
-                    );
-
-                    socket.evtClose.attachOnce(() => revoke());
-
+                if ( !deploy.isTurnEnabled()) {
+                    return undefined;
                 }
 
-            );
+                const { username, credential, revoke } = await dbTurn.renewAndGetCred(
+                    getUserWebUaInstanceId(auth.user)
+                );
+
+                socket.evtClose.attachOnce(() => revoke());
+
+                /*
+                We comment out the transport udp as it should never be
+                useful as long as the gateway does not have TURN enabled.
+                "turn:turn.semasim.com:19302?transport=udp",
+                */
+                return {
+                    "urls": [
+                        `stun:turn.${deploy.getBaseDomain()}:19302`,
+                        `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
+                        `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
+                    ],
+                    username, credential,
+                    "credentialType": "password" as "password"
+                };
+
+            })().then(params => remoteApiCaller.notifyIceServer(socket, params));
 
         }
 
