@@ -462,12 +462,14 @@ export async function getUserUa(email: string): Promise<gwTypes.Ua[]> {
 
     for (const row of rows) {
 
+        
+
         uas.push({
             "instance": row["instance"],
             "userEmail": email,
             "platform": row["platform"],
             "pushToken": row["push_token"],
-            "software": row["software"]
+            "messagesEnabled": f.bool.dec(row["messages_enabled"])
         });
 
     }
@@ -516,7 +518,7 @@ namespace retrieveUasRegisteredToSim {
                 "userEmail": row["email"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
 
         }
@@ -726,7 +728,7 @@ export async function registerSim(
             "userEmail": row["email"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
-            "software": row["software"]
+            "messagesEnabled": f.bool.dec(row["messages_enabled"])
         });
 
     }
@@ -972,27 +974,26 @@ export async function getUserSims(
 
 }
 
-//TODO: Deal without it.
 export async function addOrUpdateUa(
     ua: gwTypes.Ua
 ) {
 
     const sql = [
         "INSERT INTO ua",
-        "   (instance, user, platform, push_token, software)",
+        "   (instance, user, platform, push_token, messages_enabled)",
         "SELECT",
         [
             esc(ua.instance),
             "id_",
             esc(ua.platform),
             esc(ua.pushToken),
-            esc(ua.software)
+            f.bool.enc(ua.messagesEnabled)
         ].join(", "),
         `FROM user WHERE email= ${esc(ua.userEmail)}`,
         "ON DUPLICATE KEY UPDATE",
         "   platform= VALUES(platform),",
         "   push_token= VALUES(push_token),",
-        "   software= VALUES(software)"
+        "   messages_enabled= VALUES(messages_enabled)"
     ].join("\n");
 
     await query(sql, { "email": ua.userEmail });
@@ -1196,7 +1197,7 @@ export async function unregisterSim(
             "userEmail": row["email"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
-            "software": row["software"]
+            "messagesEnabled": f.bool.dec(row["messages_enabled"])
         });
 
     }
@@ -1355,7 +1356,7 @@ export async function stopSharingSim(
             "userEmail": row["email"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
-            "software": row["software"]
+            "messagesEnabled": f.bool.dec(row["messages_enabled"])
         });
 
     }
@@ -1411,7 +1412,7 @@ export async function setSimFriendlyName(
             "userEmail": row["email"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
-            "software": row["software"]
+            "messagesEnabled": f.bool.dec(row["messages_enabled"])
         });
 
     }

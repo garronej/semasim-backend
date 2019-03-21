@@ -335,7 +335,7 @@ function getUserUa(email) {
                 "userEmail": email,
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
         }
         return uas;
@@ -378,7 +378,7 @@ var retrieveUasRegisteredToSim;
                 "userEmail": row["email"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
         }
         return uasRegisteredToSim;
@@ -535,7 +535,7 @@ function registerSim(auth, sim, friendlyName, password, dongle, gatewayIp) {
                 "userEmail": row["email"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
         }
         return userUas;
@@ -725,25 +725,24 @@ function getUserSims(auth) {
     });
 }
 exports.getUserSims = getUserSims;
-//TODO: Deal without it.
 function addOrUpdateUa(ua) {
     return __awaiter(this, void 0, void 0, function* () {
         const sql = [
             "INSERT INTO ua",
-            "   (instance, user, platform, push_token, software)",
+            "   (instance, user, platform, push_token, messages_enabled)",
             "SELECT",
             [
                 exports.esc(ua.instance),
                 "id_",
                 exports.esc(ua.platform),
                 exports.esc(ua.pushToken),
-                exports.esc(ua.software)
+                f.bool.enc(ua.messagesEnabled)
             ].join(", "),
             `FROM user WHERE email= ${exports.esc(ua.userEmail)}`,
             "ON DUPLICATE KEY UPDATE",
             "   platform= VALUES(platform),",
             "   push_token= VALUES(push_token),",
-            "   software= VALUES(software)"
+            "   messages_enabled= VALUES(messages_enabled)"
         ].join("\n");
         yield exports.query(sql, { "email": ua.userEmail });
     });
@@ -899,7 +898,7 @@ function unregisterSim(auth, imsi) {
                 "userEmail": row["email"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
         }
         return {
@@ -1022,7 +1021,7 @@ function stopSharingSim(auth, imsi, emails) {
                 "userEmail": row["email"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
         }
         return noLongerRegisteredUas;
@@ -1064,7 +1063,7 @@ function setSimFriendlyName(auth, imsi, friendlyName) {
                 "userEmail": row["email"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
-                "software": row["software"]
+                "messagesEnabled": f.bool.dec(row["messages_enabled"])
             });
         }
         return userUas;

@@ -25,13 +25,19 @@ exports.handlers = {};
 {
     const methodName = backendToUa_1.apiDeclaration.getUsableUserSims.methodName;
     const handler = {
-        "sanityCheck": params => params === undefined,
-        "handler": (_params, socket) => __awaiter(this, void 0, void 0, function* () {
+        "sanityCheck": params => (params instanceof Object &&
+            typeof params.includeContacts === "boolean"),
+        "handler": ({ includeContacts }, socket) => __awaiter(this, void 0, void 0, function* () {
             const auth = connections.getAuth(socket);
-            const userSims = yield dbSemasim.getUserSims(auth);
             //TODO: Create a SQL request that pull only usable sims
-            return userSims.filter(frontend_1.types.UserSim.Usable.match);
-            //TODO: the sharing request should be sent
+            const userSims = yield dbSemasim.getUserSims(auth)
+                .then(userSims => userSims.filter(frontend_1.types.UserSim.Usable.match));
+            if (!includeContacts) {
+                for (const userSim of userSims) {
+                    userSim.sim.storage.contacts = [];
+                }
+            }
+            return userSims;
         })
     };
     exports.handlers[methodName] = handler;
@@ -447,7 +453,7 @@ function getUserWebUaInstanceId(user) {
 }
 exports.getUserWebUaInstanceId = getUserWebUaInstanceId;
 {
-    const methodName = backendToUa_1.apiDeclaration.getUaInstanceIdAndEmail.methodName;
+    const methodName = backendToUa_1.apiDeclaration.getUaInstanceId.methodName;
     const handler = {
         "sanityCheck": params => params === undefined,
         "handler": (_params, socket) => {

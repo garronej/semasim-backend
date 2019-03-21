@@ -22,10 +22,11 @@ const dbSemasim = require("../dbSemasim");
 const frontend_1 = require("../../frontend");
 const dbTurn = require("../dbTurn");
 const deploy_1 = require("../../deploy");
-const debug = logger.debugFactory();
+const cookie = require("cookie");
+const assert = require("assert");
 function listen(server, spoofedLocalAddressAndPort) {
     if (server instanceof tls.Server) {
-        server.on("secureConnection", tlsSocket => registerSocket(new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort), { "platform": "ANDROID" }));
+        server.on("secureConnection", tlsSocket => registerSocket(new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort), { "platform": "android" }));
     }
     else {
         server.on("connection", (webSocket, req) => __awaiter(this, void 0, void 0, function* () {
@@ -35,20 +36,31 @@ function listen(server, spoofedLocalAddressAndPort) {
                 socket.destroy("User is not authenticated ( no auth for this websocket)");
                 return;
             }
-            const requestTurnCred = (() => {
+            const sessionParameters = (() => {
                 try {
-                    return req.headers.cookie
-                        .match(/requestTurnCred\s*=\s*(true|false)/)[1] === "true";
+                    const { requestTurnCred, sessionType } = cookie.parse(req.headers.cookie);
+                    assert.ok(/^(true|false)$/.test(requestTurnCred)
+                        &&
+                            /^(MAIN|AUXILIARY)$/.test(sessionType));
+                    return {
+                        "requestTurnCred": requestTurnCred === "true",
+                        "sessionType": sessionType
+                    };
                 }
                 catch (_a) {
-                    debug("WARNING: Problem parsing cookie");
-                    return false;
+                    return undefined;
                 }
             })();
+            if (sessionParameters === undefined) {
+                socket.destroy("Did not provide correct session parameter");
+                return;
+            }
+            const { requestTurnCred, sessionType } = sessionParameters;
             registerSocket(socket, {
-                "platform": "WEB",
+                "platform": "web",
                 auth,
-                requestTurnCred
+                requestTurnCred,
+                sessionType
             });
         }));
     }
@@ -84,7 +96,7 @@ function registerSocket(socket, o) {
         "colorizedTraffic": "IN",
         "ignoreApiTraffic": true
     }, logger.log);
-    if (o.platform === "WEB") {
+    if (o.platform === "web") {
         const { auth, requestTurnCred } = o;
         apiServer.startListening(socket);
         setAuth(socket, auth);
@@ -93,13 +105,20 @@ function registerSocket(socket, o) {
             idString,
             "log": logger.log
         }));
-        if (!!getByEmail(auth.email) ||
-            !!backendConnections.getBindedToEmail(auth.email)) {
-            //NOTE: this request will end before notify new route so we do not risk to close the new socket.
-            remoteApiCaller.notifyLoggedFromOtherTab(auth.email);
+        if (o.sessionType === "MAIN") {
+            if (!!getByEmail(auth.email) ||
+                !!backendConnections.getBindedToEmail(auth.email)) {
+                //NOTE: this request will end before notify new route so we do not risk to close the new socket.
+                remoteApiCaller.notifyLoggedFromOtherTab(auth.email);
+            }
+            byEmail.set(auth.email, socket);
+            //TODO: Send a push notification.
+            backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, auth).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan(dongle, socket)));
+            //TODO: Send push notification.
+            dbSemasim.getUserSims(auth).then(userSims => userSims
+                .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
+                .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.email)));
         }
-        byEmail.set(auth.email, socket);
-        //NOTE: Following are remote API calls:
         if (requestTurnCred) {
             (() => __awaiter(this, void 0, void 0, function* () {
                 if (!deploy_1.deploy.isTurnEnabled()) {
@@ -123,10 +142,6 @@ function registerSocket(socket, o) {
                 };
             }))().then(params => remoteApiCaller.notifyIceServer(socket, params));
         }
-        backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, auth).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan(dongle, socket)));
-        dbSemasim.getUserSims(auth).then(userSims => userSims
-            .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
-            .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.email)));
     }
     socket.evtClose.attachOnce(() => {
         byConnectionId.delete(connectionId);
@@ -137,12 +152,14 @@ function registerSocket(socket, o) {
                 byAddress.delete(socket.remoteAddress);
             }
         }
-        if (o.platform === "WEB" && byEmail.get(o.auth.email) === socket) {
-            byEmail.delete(o.auth.email);
+        const boundToEmail = o.platform === "web" && o.sessionType === "MAIN" ?
+            o.auth.email : undefined;
+        if (boundToEmail !== undefined && byEmail.get(boundToEmail) === socket) {
+            byEmail.delete(boundToEmail);
         }
         backendRemoteApiCaller.notifyRoute({
             "type": "DELETE",
-            "emails": o.platform === "WEB" ? [o.auth.email] : undefined,
+            "emails": boundToEmail !== undefined ? [boundToEmail] : undefined,
             "uaAddresses": getByAddress(socket.remoteAddress).size === 0 ?
                 [socket.remoteAddress] : undefined,
         });
@@ -150,7 +167,7 @@ function registerSocket(socket, o) {
     router.handle(socket, connectionId);
     backendRemoteApiCaller.notifyRoute({
         "type": "ADD",
-        "emails": o.platform === "WEB" ? [o.auth.email] : undefined,
+        "emails": o.platform === "web" ? [o.auth.email] : undefined,
         "uaAddresses": getByAddress(socket.remoteAddress).size === 1 ?
             [socket.remoteAddress] : undefined,
     });

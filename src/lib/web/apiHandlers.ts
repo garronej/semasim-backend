@@ -58,7 +58,7 @@ export const handlers: Handlers = {};
                 "userEmail": email,
                 "platform": "web",
                 "pushToken": "",
-                "software": "JsSIP"
+                "messagesEnabled": true
             });
 
             if (accountCreationResp.activationCode !== null) {
@@ -438,8 +438,7 @@ export const handlers: Handlers = {};
                     "userEmail": auth.email,
                     "platform": params.platform,
                     "pushToken": hexToUtf8(params.push_token_as_hex),
-                    //TODO: Remove this field from project.
-                    "software": ""
+                    "messagesEnabled": true
                 });
 
             }

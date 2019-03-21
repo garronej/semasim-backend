@@ -24,17 +24,29 @@ export const handlers: sip.api.Server.Handlers = {};
     type Response = apiDeclaration.getUsableUserSims.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params => params === undefined,
-        "handler": async (_params, socket) => {
+        "sanityCheck": params =>  (
+            params instanceof Object &&
+            typeof params.includeContacts === "boolean"
+        ),
+        "handler": async ({ includeContacts }, socket) => {
 
             const auth = connections.getAuth(socket);
 
-            const userSims = await dbSemasim.getUserSims(auth);
-
             //TODO: Create a SQL request that pull only usable sims
-            return userSims.filter(feTypes.UserSim.Usable.match);
+            const userSims = await dbSemasim.getUserSims(auth)
+                .then(userSims => userSims.filter(feTypes.UserSim.Usable.match));
 
-            //TODO: the sharing request should be sent
+            if( !includeContacts ){
+
+                for( const userSim of userSims ){
+
+                    userSim.sim.storage.contacts= [];
+
+                }
+
+            }
+
+            return userSims;
 
         }
     };
@@ -825,9 +837,9 @@ export function getUserWebUaInstanceId(user: number): string {
 
 {
 
-    const methodName = apiDeclaration.getUaInstanceIdAndEmail.methodName;
-    type Params = apiDeclaration.getUaInstanceIdAndEmail.Params;
-    type Response = apiDeclaration.getUaInstanceIdAndEmail.Response;
+    const methodName = apiDeclaration.getUaInstanceId.methodName;
+    type Params = apiDeclaration.getUaInstanceId.Params;
+    type Response = apiDeclaration.getUaInstanceId.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => params === undefined,

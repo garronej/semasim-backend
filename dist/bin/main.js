@@ -54,7 +54,10 @@ scriptLib.createService({
             Promise.resolve().then(() => require("../lib/launch")),
             Promise.resolve().then(() => require("logger")),
             Promise.resolve().then(() => require("fs"))
-        ]);
+        ]).catch(error => {
+            console.log(error);
+            throw error;
+        });
         logger.log(`--Starting process ${daemon_number}/${daemon_count}--`);
         const logfile_path = path.join(working_directory_path, `p${daemon_number}.log`);
         return {

@@ -2,14 +2,8 @@ import * as sip from "ts-sip";
 import { apiDeclaration } from "../../sip_api_declarations/uaToBackend";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import { types as gwTypes } from "../../gateway";
-export declare const notifySimOffline: {
-    (imsi: string, emails: string[]): Promise<void>;
-    (imsi: string, uas: gwTypes.Ua[]): Promise<void>;
-};
-export declare const notifySimOnline: {
-    (params: apiDeclaration.notifySimOnline.Params, emails: string[]): Promise<void>;
-    (params: apiDeclaration.notifySimOnline.Params, uas: gwTypes.Ua[]): Promise<void>;
-};
+export declare const notifySimOffline: (imsi: string, uas: gwTypes.Ua[]) => Promise<void>;
+export declare const notifySimOnline: (params: apiDeclaration.notifySimOnline.Params, uas: gwTypes.Ua[]) => Promise<void>;
 export declare const notifyContactCreatedOrUpdated: (params: apiDeclaration.notifyContactCreatedOrUpdated.Params, emails: string[]) => Promise<void>;
 export declare const notifyContactDeleted: (params: apiDeclaration.notifyContactDeleted.Params, emails: string[]) => Promise<void>;
 export declare const notifyDongleOnLan: {

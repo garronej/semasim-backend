@@ -23,8 +23,8 @@ exports.generateUa = (email = `${transfer_tools_1.testing.genHexStr(10)}@foo.com
     "instance": `"<urn:uuid:${transfer_tools_1.testing.genHexStr(30)}>"`,
     "platform": Date.now() % 2 ? "android" : "iOS",
     "pushToken": transfer_tools_1.testing.genHexStr(60),
-    "software": transfer_tools_1.testing.genHexStr(20),
-    "userEmail": email
+    "userEmail": email,
+    "messagesEnabled": true
 });
 var genUniq;
 (function (genUniq) {

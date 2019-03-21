@@ -20,8 +20,8 @@ export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`)
     "instance": `"<urn:uuid:${ttTesting.genHexStr(30)}>"`,
     "platform": Date.now() % 2 ? "android" : "iOS",
     "pushToken": ttTesting.genHexStr(60),
-    "software": ttTesting.genHexStr(20),
-    "userEmail": email
+    "userEmail": email,
+    "messagesEnabled": true
 });
 
 export namespace genUniq {

@@ -18,7 +18,7 @@ import { geoiplookup } from "../tools/geoiplookup";
 
         const out: feTypes.UserSim.Owned = {
             sim,
-            "friendlyName": " ching chong: 漢字汉字 😅😅",
+            "friendlyName": " chinese: 漢字汉字 😅😅",
             "password": ttTesting.genHexStr(32),
             "dongle": {
                 "imei": genUniq.imsi(),

@@ -109,8 +109,9 @@ export function launch(
                 "register",
                 "manager",
                 "webphone",
-                "subscription"
-            ].map(v => `/${v}`).indexOf(req.path) === -1) {
+                "subscription",
+                "_android",
+            ].map(v => `/${v}`).indexOf(req.path.toLowerCase()) === -1) {
 
                 debug(`Consider banning IP ${req.connection.remoteAddress} asking for ${req.method} ${req.originalUrl}`);
 
@@ -240,6 +241,7 @@ export function launch(
         .get("/manager", sendHtml("manager"))
         .get("/webphone", sendHtml("webphone"))
         .get("/subscription", sendHtml("subscription"))
+        .get("/_android", sendHtml("_android"))
         ;
 
     httpsServer.on("request", app);

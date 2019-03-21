@@ -72,7 +72,13 @@ scriptLib.createService({
             import("../lib/launch"),
             import("logger"),
             import("fs")
-        ]);
+        ]).catch(error=> {
+
+            console.log(error);
+
+            throw error;
+
+        });
 
         logger.log(`--Starting process ${daemon_number}/${daemon_count}--`);
 

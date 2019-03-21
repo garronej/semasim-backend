@@ -4,6 +4,8 @@ import * as sip from "ts-sip";
 import * as backendConnections from "../toBackend/connections";
 import * as localApiHandlers from "./localApiHandlers";
 import { types as gwTypes } from "../../gateway";
+//@ts-ignore, to avoid warnings
+import { types as dcTypes } from "chan-dongle-extended-client";
 
 /** 
  * 

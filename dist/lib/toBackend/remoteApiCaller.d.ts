@@ -1,5 +1,6 @@
 import * as apiDeclaration from "../../sip_api_declarations/backendToBackend";
 import { types as gwTypes } from "../../gateway";
+import { types as dcTypes } from "chan-dongle-extended-client";
 /**
  *
  * In the case we target a UA user email or
@@ -57,8 +58,8 @@ export declare const destroyUaSocket: (contact: gwTypes.Contact) => Promise<void
  * gatewayAddress: get only from this address
  * auth: id of the user used to exclude the dongle he should not have access to
  * */
-export declare const collectDonglesOnLan: (gatewayAddress: string, auth: import("../web/sessionManager").Auth) => Promise<import("../../../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/types").Dongle[]>;
+export declare const collectDonglesOnLan: (gatewayAddress: string, auth: import("../web/sessionManager").Auth) => Promise<dcTypes.Dongle[]>;
 /** Don't throw */
-export declare const notifyDongleOnLanProxy: (dongle: import("../../../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/types").Dongle, gatewayAddress: string) => Promise<undefined>;
+export declare const notifyDongleOnLanProxy: (dongle: dcTypes.Dongle, gatewayAddress: string) => Promise<undefined>;
 export declare const notifyLoggedFromOtherTabProxy: (email: string) => Promise<void>;
-export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<import("../../../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/types").UnlockResult.Success | import("../../../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/types").UnlockResult.Failed | undefined>;
+export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;

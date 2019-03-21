@@ -58,7 +58,7 @@ export const notifySimOffline = (() => {
 
     })();
 
-    function f(imsi: string, emails: string[]): Promise<void>;
+    //function f(imsi: string, emails: string[]): Promise<void>;
     function f(imsi: string, uas: gwTypes.Ua[]): Promise<void>;
     function f(imsi: string, arg: string[] | gwTypes.Ua[]): Promise<void> {
         return multicast<Params, Response>(methodName, { imsi }, arg);
@@ -83,7 +83,7 @@ export const notifySimOnline = (() => {
 
     })();
 
-    function f(params: Params, emails: string[]): Promise<void>;
+    //function f(params: Params, emails: string[]): Promise<void>;
     function f(params: Params, uas: gwTypes.Ua[]): Promise<void>;
     function f(params: Params, arg: string[] | gwTypes.Ua[]): Promise<void> {
         return multicast<Params, Response>(methodName, params, arg);

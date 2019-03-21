@@ -180,7 +180,7 @@ export async function launch(daemonNumber: number) {
         ...(() => {
 
             const ports = servers.map(
-                server => (server.address() as net.AddressInfo).port
+                server => server.address().port
             );
 
             return {

@@ -20,7 +20,7 @@ const geoiplookup_1 = require("../tools/geoiplookup");
         const sim = db_1.generateSim(0, "NO SPECIAL CHAR");
         const out = {
             sim,
-            "friendlyName": " ching chong: 漢字汉字 😅😅",
+            "friendlyName": " chinese: 漢字汉字 😅😅",
             "password": transfer_tools_1.testing.genHexStr(32),
             "dongle": {
                 "imei": db_1.genUniq.imsi(),

@@ -287,7 +287,7 @@ export async function getSubscriptionInfos(
         out.subscription = {
             "cancel_at_period_end": subscription.cancel_at_period_end,
             "current_period_end": new Date(subscription.current_period_end * 1000),
-            "currency": subscription.plan.currency
+            "currency": subscription.plan!.currency
         };
 
     }
