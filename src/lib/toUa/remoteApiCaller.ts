@@ -21,11 +21,16 @@ function multicast<Params, Response extends undefined>(
 
         const uas: gwTypes.Ua[] = emailsOrUas as any;
 
-        //NOTE: For now the API is only implemented by Web UAs
-        emails = uas
-            .filter(({ platform }) => platform === "web")
-            .map(({ userEmail }) => userEmail)
-            ;
+        //NOTE: For an API method like notifySimOnline
+        //uas will be a list with: 
+        //-The main web ua.
+        //-A certain number of Android UA.
+        //-For each Android UA a WebView UA ( with almost the same uaInstanceId )
+        //In consequence the email can (and will) appear duplicated this is why we use Set.
+        //Only the main web UA is interested by those notify event as Android UA
+        //receive notification via PUSH and WebView UA are ephemeral UA that 
+        //does not require those events to function properly.
+        emails = [ ...new Set(uas.map(({ userEmail }) => userEmail)) ]; 
 
     }
 
