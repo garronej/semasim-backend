@@ -41,6 +41,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 for( const userSim of userSims ){
 
                     userSim.sim.storage.contacts= [];
+                    userSim.phonebook= [];
 
                 }
 

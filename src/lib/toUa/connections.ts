@@ -64,23 +64,28 @@ export function listen(
 
                     try {
 
-                        const { requestTurnCred, sessionType } = cookie.parse(
+                        const { requestTurnCred, uaInstanceId } = cookie.parse(
                             req.headers.cookie as string
                         );
 
                         assert.ok(
                             /^(true|false)$/.test(requestTurnCred)
                             &&
-                            /^(MAIN|AUXILIARY)$/.test(sessionType)
+                            (
+                                uaInstanceId === undefined || 
+                                /"<urn:uuid:[0-9a-f\-]{30,50}>"$/.test(uaInstanceId)
+                            )
                         );
 
                         return {
                             "requestTurnCred": requestTurnCred === "true",
-                            "sessionType": sessionType as "MAIN" | "AUXILIARY"
+                            "uaInstanceId": uaInstanceId as (string|undefined)
                         };
 
                     } catch{
+
                         return undefined;
+
                     }
 
                 })();
@@ -93,7 +98,7 @@ export function listen(
 
                 }
 
-                const { requestTurnCred, sessionType } = sessionParameters;
+                const { requestTurnCred, uaInstanceId } = sessionParameters;
 
                 registerSocket(
                     socket,
@@ -101,7 +106,7 @@ export function listen(
                         "platform": "web",
                         auth,
                         requestTurnCred,
-                        sessionType
+                        uaInstanceId
                     }
                 );
 
@@ -133,7 +138,7 @@ function registerSocket(
         platform: "web";
         auth: sessionManager.Auth;
         requestTurnCred: boolean;
-        sessionType: "MAIN" | "AUXILIARY";
+        uaInstanceId: string | undefined;
     }
 ) {
 
@@ -172,7 +177,7 @@ function registerSocket(
 
     if (o.platform === "web") {
 
-        const { auth, requestTurnCred } = o;
+        const { auth, requestTurnCred, uaInstanceId } = o;
 
         apiServer.startListening(socket);
 
@@ -188,7 +193,8 @@ function registerSocket(
             })
         );
 
-        if (o.sessionType === "MAIN") {
+        if (uaInstanceId === undefined) {
+            //Main connection
 
             if (
                 !!getByEmail(auth.email) ||
@@ -233,7 +239,9 @@ function registerSocket(
                 }
 
                 const { username, credential, revoke } = await dbTurn.renewAndGetCred(
-                    getUserWebUaInstanceId(auth.user)
+                    uaInstanceId === undefined ?
+                        getUserWebUaInstanceId(auth.user) :
+                        uaInstanceId
                 );
 
                 socket.evtClose.attachOnce(() => revoke());
@@ -277,7 +285,7 @@ function registerSocket(
 
         }
 
-        const boundToEmail = o.platform === "web" && o.sessionType === "MAIN" ?
+        const boundToEmail = o.platform === "web" && o.uaInstanceId === undefined ?
             o.auth.email : undefined;
 
         if (boundToEmail !== undefined && byEmail.get(boundToEmail) === socket) {

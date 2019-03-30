@@ -38,13 +38,14 @@ function listen(server, spoofedLocalAddressAndPort) {
             }
             const sessionParameters = (() => {
                 try {
-                    const { requestTurnCred, sessionType } = cookie.parse(req.headers.cookie);
+                    const { requestTurnCred, uaInstanceId } = cookie.parse(req.headers.cookie);
                     assert.ok(/^(true|false)$/.test(requestTurnCred)
                         &&
-                            /^(MAIN|AUXILIARY)$/.test(sessionType));
+                            (uaInstanceId === undefined ||
+                                /"<urn:uuid:[0-9a-f\-]{30,50}>"$/.test(uaInstanceId)));
                     return {
                         "requestTurnCred": requestTurnCred === "true",
-                        "sessionType": sessionType
+                        "uaInstanceId": uaInstanceId
                     };
                 }
                 catch (_a) {
@@ -55,12 +56,12 @@ function listen(server, spoofedLocalAddressAndPort) {
                 socket.destroy("Did not provide correct session parameter");
                 return;
             }
-            const { requestTurnCred, sessionType } = sessionParameters;
+            const { requestTurnCred, uaInstanceId } = sessionParameters;
             registerSocket(socket, {
                 "platform": "web",
                 auth,
                 requestTurnCred,
-                sessionType
+                uaInstanceId
             });
         }));
     }
@@ -97,7 +98,7 @@ function registerSocket(socket, o) {
         "ignoreApiTraffic": true
     }, logger.log);
     if (o.platform === "web") {
-        const { auth, requestTurnCred } = o;
+        const { auth, requestTurnCred, uaInstanceId } = o;
         apiServer.startListening(socket);
         setAuth(socket, auth);
         sip.api.client.enableKeepAlive(socket);
@@ -105,7 +106,8 @@ function registerSocket(socket, o) {
             idString,
             "log": logger.log
         }));
-        if (o.sessionType === "MAIN") {
+        if (uaInstanceId === undefined) {
+            //Main connection
             if (!!getByEmail(auth.email) ||
                 !!backendConnections.getBindedToEmail(auth.email)) {
                 //NOTE: this request will end before notify new route so we do not risk to close the new socket.
@@ -124,7 +126,9 @@ function registerSocket(socket, o) {
                 if (!deploy_1.deploy.isTurnEnabled()) {
                     return undefined;
                 }
-                const { username, credential, revoke } = yield dbTurn.renewAndGetCred(localApiHandlers_1.getUserWebUaInstanceId(auth.user));
+                const { username, credential, revoke } = yield dbTurn.renewAndGetCred(uaInstanceId === undefined ?
+                    localApiHandlers_1.getUserWebUaInstanceId(auth.user) :
+                    uaInstanceId);
                 socket.evtClose.attachOnce(() => revoke());
                 /*
                 We comment out the transport udp as it should never be
@@ -152,7 +156,7 @@ function registerSocket(socket, o) {
                 byAddress.delete(socket.remoteAddress);
             }
         }
-        const boundToEmail = o.platform === "web" && o.sessionType === "MAIN" ?
+        const boundToEmail = o.platform === "web" && o.uaInstanceId === undefined ?
             o.auth.email : undefined;
         if (boundToEmail !== undefined && byEmail.get(boundToEmail) === socket) {
             byEmail.delete(boundToEmail);

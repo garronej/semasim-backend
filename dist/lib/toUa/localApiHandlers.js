@@ -35,6 +35,7 @@ exports.handlers = {};
             if (!includeContacts) {
                 for (const userSim of userSims) {
                     userSim.sim.storage.contacts = [];
+                    userSim.phonebook = [];
                 }
             }
             return userSims;
