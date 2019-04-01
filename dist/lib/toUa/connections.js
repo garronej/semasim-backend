@@ -24,13 +24,30 @@ const dbTurn = require("../dbTurn");
 const deploy_1 = require("../../deploy");
 const cookie = require("cookie");
 const assert = require("assert");
+const enableLogger = (socket) => socket.enableLogger({
+    "socketId": idString,
+    "remoteEndId": "UA",
+    "localEndId": "BACKEND",
+    "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "error": true,
+    "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "colorizedTraffic": "IN",
+    "ignoreApiTraffic": true
+}, logger.log);
 function listen(server, spoofedLocalAddressAndPort) {
     if (server instanceof tls.Server) {
-        server.on("secureConnection", tlsSocket => registerSocket(new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort), { "platform": "android" }));
+        server.on("secureConnection", tlsSocket => {
+            const socket = new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort);
+            enableLogger(socket);
+            registerSocket(socket, { "platform": "android" });
+        });
     }
     else {
         server.on("connection", (webSocket, req) => __awaiter(this, void 0, void 0, function* () {
             const socket = new sip.Socket(webSocket, false, Object.assign({}, spoofedLocalAddressAndPort, { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort }));
+            enableLogger(socket);
             const auth = yield sessionManager.getAuth(req);
             if (!auth) {
                 socket.destroy("User is not authenticated ( no auth for this websocket)");
@@ -53,7 +70,7 @@ function listen(server, spoofedLocalAddressAndPort) {
                 }
             })();
             if (sessionParameters === undefined) {
-                socket.destroy("Did not provide correct session parameter");
+                socket.destroy("Client did not provide the correct session parameter ( on cookies )");
                 return;
             }
             const { requestTurnCred, uaInstanceId } = sessionParameters;
@@ -85,18 +102,6 @@ function registerSocket(socket, o) {
         }
         set.add(socket);
     }
-    socket.enableLogger({
-        "socketId": idString,
-        "remoteEndId": "UA",
-        "localEndId": "BACKEND",
-        "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-        "error": true,
-        "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-        "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-        "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-        "colorizedTraffic": "IN",
-        "ignoreApiTraffic": true
-    }, logger.log);
     if (o.platform === "web") {
         const { auth, requestTurnCred, uaInstanceId } = o;
         apiServer.startListening(socket);

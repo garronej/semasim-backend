@@ -17,6 +17,19 @@ import { deploy } from "../../deploy";
 import * as cookie from "cookie";
 import * as assert from "assert";
 
+const enableLogger = (socket: sip.Socket) => socket.enableLogger({
+    "socketId": idString,
+    "remoteEndId": "UA",
+    "localEndId": "BACKEND",
+    "connection": deploy.getEnv() === "DEV" ? true : false,
+    "error": true,
+    "close": deploy.getEnv() === "DEV" ? true : false,
+    "incomingTraffic": deploy.getEnv() === "DEV" ? true : false,
+    "outgoingTraffic": deploy.getEnv() === "DEV" ? true : false,
+    "colorizedTraffic": "IN",
+    "ignoreApiTraffic": true
+}, logger.log);
+
 export function listen(
     server: ws.Server | tls.Server,
     spoofedLocalAddressAndPort: {
@@ -27,17 +40,24 @@ export function listen(
     if (server instanceof tls.Server) {
 
         server.on("secureConnection",
-            tlsSocket => registerSocket(
-                new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort),
-                { "platform": "android" }
-            )
+            tlsSocket => {
+
+                const socket = new sip.Socket(tlsSocket, false, spoofedLocalAddressAndPort);
+
+                enableLogger(socket);
+
+                registerSocket(
+                    socket,
+                    { "platform": "android" }
+                );
+
+            }
         );
 
     } else {
 
         server.on("connection",
             async (webSocket, req) => {
-
 
                 const socket = new sip.Socket(
                     webSocket,
@@ -49,6 +69,7 @@ export function listen(
                     }
                 );
 
+                enableLogger(socket);
 
                 const auth = await sessionManager.getAuth(req)
 
@@ -72,14 +93,14 @@ export function listen(
                             /^(true|false)$/.test(requestTurnCred)
                             &&
                             (
-                                uaInstanceId === undefined || 
+                                uaInstanceId === undefined ||
                                 /"<urn:uuid:[0-9a-f\-]{30,50}>"$/.test(uaInstanceId)
                             )
                         );
 
                         return {
                             "requestTurnCred": requestTurnCred === "true",
-                            "uaInstanceId": uaInstanceId as (string|undefined)
+                            "uaInstanceId": uaInstanceId as (string | undefined)
                         };
 
                     } catch{
@@ -90,9 +111,9 @@ export function listen(
 
                 })();
 
-                if( sessionParameters === undefined ){
+                if (sessionParameters === undefined) {
 
-                    socket.destroy("Did not provide correct session parameter");
+                    socket.destroy("Client did not provide the correct session parameter ( on cookies )");
 
                     return;
 
@@ -130,6 +151,7 @@ const apiServer = new sip.api.Server(
     })
 );
 
+
 function registerSocket(
     socket: sip.Socket,
     o: {
@@ -162,18 +184,6 @@ function registerSocket(
 
     }
 
-    socket.enableLogger({
-        "socketId": idString,
-        "remoteEndId": "UA",
-        "localEndId": "BACKEND",
-        "connection": deploy.getEnv() === "DEV" ? true : false,
-        "error": true,
-        "close": deploy.getEnv() === "DEV" ? true : false,
-        "incomingTraffic": deploy.getEnv() === "DEV" ? true : false,
-        "outgoingTraffic": deploy.getEnv() === "DEV" ? true : false,
-        "colorizedTraffic": "IN",
-        "ignoreApiTraffic": true
-    }, logger.log);
 
     if (o.platform === "web") {
 
