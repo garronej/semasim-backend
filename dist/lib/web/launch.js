@@ -66,9 +66,10 @@ function launch(httpsServer, httpServer) {
             }
         })
     });
-    const sendHtml = (pageName) => (_req, res) => {
+    const sendHtml = (pageName) => (req, res) => {
         res.set("Content-Type", "text/html; charset=utf-8");
-        res.send(frontend.getPage(pageName));
+        const { unaltered, webView } = frontend.getPage(pageName);
+        res.send(!!req.query.webview ? webView : unaltered);
     };
     stripe.registerWebHooks(app);
     app
@@ -135,7 +136,7 @@ function launch(httpsServer, httpServer) {
             return;
         }
         //NOTE: not using try catch because it's a pain to infer the return type.
-        let resp = yield dbSemasim.authenticateUser(email, password)
+        const resp = yield dbSemasim.authenticateUser(email, password)
             .catch((error) => error);
         if (resp instanceof Error) {
             debug("Authenticate user db error", resp);

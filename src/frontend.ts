@@ -28,13 +28,9 @@ const templates_dir_path = path.join(frontend_dir_path, "shared", "templates")
 export const static_dir_path = path.join(frontend_dir_path, "static.semasim.com");
 
 /**
- * 
  * @param pageName eg: "manager" or "webphone"
- * 
- * Assert pageName in pageList
- * 
  */
-export function getPage(pageName: string): Buffer {
+export function getPage(pageName: string): typeof getPage.cache["string"] {
 
     if (pageName in getPage.cache) {
         return getPage.cache[pageName];
@@ -44,19 +40,17 @@ export function getPage(pageName: string): Buffer {
 
     const ejs_file_path = path.join(page_dir_path, "page.ejs");
 
-    const read = () => getPage.cache[pageName] = Buffer.from(
-        ejs.render(
-            fs.readFileSync(ejs_file_path).toString("utf8"),
-            {
-                "assets_root": deploy.getEnv() === "DEV" ?
-                    "/" :
-                    "//static.semasim.com/"
-            },
-            { "root": templates_dir_path }
-        ),
-        "utf8"
-    );
 
+    const read = () => {
+
+        const [unaltered, webView] = [false, true]
+            .map(isWebView => ({ "assets_root": deploy.getEnv() === "DEV" ? "/" : "//static.semasim.com/", isWebView }))
+            .map(data => ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), data, { "root": templates_dir_path }))
+            .map(renderedPage => Buffer.from(renderedPage, "utf8"))
+
+        getPage.cache[pageName] = { unaltered, webView };
+
+    };
 
     watch(ejs_file_path, { "persistent": false }, () => {
 
@@ -88,6 +82,6 @@ export function getPage(pageName: string): Buffer {
 
 export namespace getPage {
 
-    export const cache: { [pageName: string]: Buffer; } = {};
+    export const cache: { [pageName: string]: { unaltered: Buffer; webView: Buffer; } } = {};
 
 }

@@ -84,18 +84,20 @@ export function launch(
         })
     });
 
-
     const sendHtml = (pageName: string) =>
-        (_req, res: express.Response) => {
+        (req, res: express.Response) => {
 
             res.set("Content-Type", "text/html; charset=utf-8");
 
-            res.send(frontend.getPage(pageName));
+            const { unaltered, webView }= frontend.getPage(pageName);
+
+            res.send(!!req.query.webview ? webView : unaltered);
 
         };
 
 
     stripe.registerWebHooks(app);
+
 
     app
         .use(compression())
@@ -195,7 +197,7 @@ export function launch(
             }
 
             //NOTE: not using try catch because it's a pain to infer the return type.
-            let resp= await dbSemasim.authenticateUser(email, password)
+            const resp= await dbSemasim.authenticateUser(email, password)
                 .catch((error: Error) => error);
 
             if( resp instanceof Error ){

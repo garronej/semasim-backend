@@ -7,15 +7,14 @@ import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declar
 export { webApiDeclaration, types, currencyByCountry, api_decl_backendToUa, api_decl_uaToBackend };
 export declare const static_dir_path: string;
 /**
- *
  * @param pageName eg: "manager" or "webphone"
- *
- * Assert pageName in pageList
- *
  */
-export declare function getPage(pageName: string): Buffer;
+export declare function getPage(pageName: string): typeof getPage.cache["string"];
 export declare namespace getPage {
     const cache: {
-        [pageName: string]: Buffer;
+        [pageName: string]: {
+            unaltered: Buffer;
+            webView: Buffer;
+        };
     };
 }
