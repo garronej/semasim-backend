@@ -4,8 +4,8 @@ import { types as dcTypes } from "chan-dongle-extended-client";
 export declare const getDongle: (imei: string, gatewaySocket: sip.Socket) => Promise<dcTypes.Dongle.Locked | dcTypes.Dongle.Usable | undefined>;
 export declare const getDongleAndSipPassword: (imsi: string) => Promise<apiDeclaration.getDongleAndSipPassword.Response>;
 export declare const unlockSim: {
-    (imei: string, pin: string, gatewayAddress: string): Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;
-    (imei: string, pin: string, gatewaySocket: sip.Socket): Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;
+    (imei: string, pin: string, gatewayAddress: string): Promise<import("../../sip_api_declarations/backendToBackend").unlockSimProxy.Response>;
+    (imei: string, pin: string, gatewaySocket: sip.Socket): Promise<import("../../sip_api_declarations/backendToBackend").unlockSimProxy.Response>;
 };
 export declare const rebootDongle: (imsi: string) => Promise<apiDeclaration.rebootDongle.Response>;
 export declare const reNotifySimOnline: (imsi: string) => Promise<undefined>;
