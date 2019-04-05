@@ -14,7 +14,8 @@
         "noUnusedLocals": true,
         "noUnusedParameters": false,
         "strictPropertyInitialization": true,
-        "strictFunctionTypes": true
+        "strictFunctionTypes": true,
+        "incremental": true
     },
     "include": [
         "src/**/*"
