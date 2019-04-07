@@ -18,6 +18,7 @@ export const sharingRequest = (() => {
     const templateName = "sharing-request";
 
     type Data= {
+        baseDomain: string;
         simFriendlyName: string;
         prettyNumber?: string;
         gatewayLocation: string;
@@ -81,6 +82,7 @@ export const sharingRequest = (() => {
                 ejsRenderTemplate<Data>(
                     templateName,
                     {
+                        "baseDomain": deploy.getBaseDomain(),
                         simFriendlyName,
                         prettyNumber,
                         gatewayLocation,
@@ -103,6 +105,7 @@ export const passwordRenewalRequest = (() => {
     const templateName = "password-renewal";
 
     type Data = {
+        baseDomain: string;
         email: string;
         token: string;
     };
@@ -111,14 +114,14 @@ export const passwordRenewalRequest = (() => {
         email: string,
         token: string
     ): Promise<void> {
-
         return send(
             "semasim@semasim.com",
             email,
-            `Semasim password renewal request`,
+            "Semasim password renewal request",
             ejsRenderTemplate<Data>(
                 templateName,
                 {
+                    "baseDomain": deploy.getBaseDomain(),
                     email,
                     token
                 }
@@ -134,6 +137,7 @@ export const emailValidation = (() => {
     const templateName = "email-validation";
 
     type Data = {
+        baseDomain: string;
         email: string;
         code: string;
     };
@@ -150,6 +154,7 @@ export const emailValidation = (() => {
             ejsRenderTemplate<Data>(
                 templateName,
                 {
+                    "baseDomain": deploy.getBaseDomain(),
                     email,
                     "code": activationCode
                 }

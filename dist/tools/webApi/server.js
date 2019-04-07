@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
 const misc = require("./misc");
+const assert = require("assert");
 function init(initParams) {
     let { app, apiPath, handlers } = initParams;
     let isAuthenticated = initParams.isAuthenticated || (req => false);
@@ -51,7 +52,7 @@ function init(initParams) {
             case "POST":
                 let { isSuccess, data } = yield misc.bodyParser(req);
                 try {
-                    console.assert(isSuccess);
+                    assert(isSuccess);
                     params = misc.JSON_CUSTOM.parse(data.toString("utf8"));
                 }
                 catch (_b) {
@@ -92,8 +93,8 @@ function init(initParams) {
         if (contentType === misc.ContentTypeJSON_CUSTOM) {
             let str;
             try {
-                console.assert(response !== null);
-                console.assert(!(typeof response === "number" && isNaN(response)));
+                assert(response !== null);
+                assert(!(typeof response === "number" && isNaN(response)));
                 str = misc.JSON_CUSTOM.stringify(response);
             }
             catch (_c) {

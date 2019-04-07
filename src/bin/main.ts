@@ -1,4 +1,5 @@
 import * as scriptLib from "scripting-tools";
+import * as assert from "assert";
 
 scriptLib.createService({
     "rootProcess": async () => {
@@ -14,7 +15,7 @@ scriptLib.createService({
         ]);
 
 
-        console.assert(
+        assert(
             fs.existsSync(working_directory_path),
             "semasim does not seems to be installed."
         );

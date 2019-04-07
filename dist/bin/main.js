@@ -9,6 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const scriptLib = require("scripting-tools");
+const assert = require("assert");
 scriptLib.createService({
     "rootProcess": () => __awaiter(this, void 0, void 0, function* () {
         const [{ pidfile_path, unix_user, working_directory_path, srv_name }, fs, { deploy },] = yield Promise.all([
@@ -16,7 +17,7 @@ scriptLib.createService({
             Promise.resolve().then(() => require("fs")),
             Promise.resolve().then(() => require("../deploy"))
         ]);
-        console.assert(fs.existsSync(working_directory_path), "semasim does not seems to be installed.");
+        assert(fs.existsSync(working_directory_path), "semasim does not seems to be installed.");
         {
             const { name: instanceName } = yield deploy.getHostInstance();
             if (instanceName === "load_balancer") {

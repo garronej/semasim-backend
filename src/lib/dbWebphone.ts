@@ -3,6 +3,7 @@ import wd = feTypes.webphoneData;
 import { Auth } from "./web/sessionManager";
 import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
+import * as assert from "assert";
 
 /** exported only for tests */
 export let query: f.Api["query"];
@@ -135,7 +136,7 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
         } break;
     }
 
-    console.assert(!!message);
+    assert(!!message);
 
     return { message, "chat_id": row["chat"] };
 

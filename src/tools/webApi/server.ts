@@ -1,6 +1,7 @@
 import * as express from "express";
 import * as misc from "./misc";
 import { InitParams } from "./types";
+import * as assert from "assert";
 
 export function init(initParams: InitParams): void {
 
@@ -82,7 +83,7 @@ export function init(initParams: InitParams): void {
 
                     try {
 
-                        console.assert(isSuccess);
+                        assert(isSuccess);
 
                         params = misc.JSON_CUSTOM.parse(data.toString("utf8"));
 
@@ -164,8 +165,8 @@ export function init(initParams: InitParams): void {
 
                 try {
 
-                    console.assert(response !== null);
-                    console.assert(!(typeof response === "number" && isNaN(response)));
+                    assert(response !== null);
+                    assert(!(typeof response === "number" && isNaN(response)));
 
                     str = misc.JSON_CUSTOM.stringify(response);
 

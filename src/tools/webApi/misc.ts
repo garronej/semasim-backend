@@ -1,6 +1,7 @@
 import * as express from "express";
 import * as ttJC from "transfer-tools/dist/lib/JSON_CUSTOM";
 import { InitParams } from "./types";
+import * as assert from "assert";
 
 import "colors";
 
@@ -160,7 +161,7 @@ export namespace errorHttpCode {
 
             let code= error[key];
 
-            console.assert( typeof code === "number" && !isNaN(code) );
+            assert( typeof code === "number" && !isNaN(code) );
 
             return code;
 

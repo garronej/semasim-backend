@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const f = require("../tools/mysqlCustom");
 const deploy_1 = require("../deploy");
+const assert = require("assert");
 let esc;
 let buildInsertQuery;
 /** Must be called and awaited before use */
@@ -105,7 +106,7 @@ function parseMessage(row) {
             }
             break;
     }
-    console.assert(!!message);
+    assert(!!message);
     return { message, "chat_id": row["chat"] };
 }
 function getOrCreateInstance(auth, imsi) {

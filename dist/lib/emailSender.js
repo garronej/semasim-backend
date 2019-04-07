@@ -50,6 +50,7 @@ exports.sharingRequest = (() => {
             .map(s => `${s.charAt(0).toUpperCase()}${s.slice(1)}`)
             .join(" ");
         return Promise.all(targetUsers.map(({ email, isRegistered }) => send(user.email, email, `SIM card sharing request for ${simFriendlyName}`, ejsRenderTemplate(templateName, {
+            "baseDomain": deploy_1.deploy.getBaseDomain(),
             simFriendlyName,
             prettyNumber,
             gatewayLocation,
@@ -63,7 +64,8 @@ exports.sharingRequest = (() => {
 exports.passwordRenewalRequest = (() => {
     const templateName = "password-renewal";
     return function (email, token) {
-        return send("semasim@semasim.com", email, `Semasim password renewal request`, ejsRenderTemplate(templateName, {
+        return send("semasim@semasim.com", email, "Semasim password renewal request", ejsRenderTemplate(templateName, {
+            "baseDomain": deploy_1.deploy.getBaseDomain(),
             email,
             token
         }));
@@ -73,6 +75,7 @@ exports.emailValidation = (() => {
     const templateName = "email-validation";
     return function (email, activationCode) {
         return send("semasim@semasim.com", email, `${activationCode} is the Semasim activation code`, ejsRenderTemplate(templateName, {
+            "baseDomain": deploy_1.deploy.getBaseDomain(),
             email,
             "code": activationCode
         }));

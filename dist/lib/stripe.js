@@ -14,6 +14,7 @@ const deploy_1 = require("../deploy");
 const misc_1 = require("../tools/webApi/misc");
 const ts_events_extended_1 = require("ts-events-extended");
 const frontend_1 = require("../frontend");
+const assert = require("assert");
 var db;
 (function (db) {
     let buildInsertQuery;
@@ -145,7 +146,7 @@ function unsubscribeUser(auth) {
             throw new Error("assert");
         }
         const { subscriptions: { data: subscriptions } } = yield stripe.customers.retrieve(customerId);
-        console.assert(subscriptions.length !== 0);
+        assert(subscriptions.length !== 0);
         const [{ id: subscriptionId }] = subscriptions;
         yield stripe.subscriptions.update(subscriptionId, {
             "cancel_at_period_end": true

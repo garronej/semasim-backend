@@ -9,6 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const ttJC = require("transfer-tools/dist/lib/JSON_CUSTOM");
+const assert = require("assert");
 require("colors");
 exports.JSON_CUSTOM = ttJC.get();
 /**
@@ -110,7 +111,7 @@ var errorHttpCode;
     function get(error) {
         try {
             let code = error[key];
-            console.assert(typeof code === "number" && !isNaN(code));
+            assert(typeof code === "number" && !isNaN(code));
             return code;
         }
         catch (_a) {

@@ -6,6 +6,7 @@ import { deploy } from "../deploy";
 import { bodyParser } from "../tools/webApi/misc";
 import { SyncEvent } from "ts-events-extended";
 import { types as feTypes, currencyByCountry } from "../frontend";
+import * as assert from "assert";
 
 namespace db {
 
@@ -210,7 +211,7 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
     const { subscriptions: { data: subscriptions } } = await stripe.customers.retrieve(customerId);
 
-    console.assert(subscriptions.length !== 0);
+    assert(subscriptions.length !== 0);
 
     const [{ id: subscriptionId }] = subscriptions;
 
