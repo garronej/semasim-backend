@@ -118,9 +118,13 @@ function launch(httpsServer, httpServer) {
             return;
         }
         const session = req.session;
-        const auth = sessionManager.getAuth(session);
-        if (!!auth && auth.email !== email) {
-            sessionManager.setAuth(session, undefined);
+        {
+            const auth = sessionManager.getAuth(session);
+            if (!!auth) {
+                if (auth.email !== email || "renew_password_token" in req.query) {
+                    sessionManager.setAuth(session, undefined);
+                }
+            }
         }
         if (password_as_hex === undefined) {
             next();

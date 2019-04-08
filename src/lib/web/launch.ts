@@ -165,11 +165,19 @@ export function launch(
 
             const session = req.session!;
 
-            const auth = sessionManager.getAuth(session);
+            {
 
-            if (!!auth && auth.email !== email) {
+                const auth = sessionManager.getAuth(session);
 
-                sessionManager.setAuth(session, undefined);
+                if (!!auth) {
+
+                    if (auth.email !== email || "renew_password_token" in req.query) {
+
+                        sessionManager.setAuth(session, undefined);
+
+                    }
+
+                }
 
             }
 
@@ -197,10 +205,10 @@ export function launch(
             }
 
             //NOTE: not using try catch because it's a pain to infer the return type.
-            const resp= await dbSemasim.authenticateUser(email, password)
+            const resp = await dbSemasim.authenticateUser(email, password)
                 .catch((error: Error) => error);
 
-            if( resp instanceof Error ){
+            if (resp instanceof Error) {
 
                 debug("Authenticate user db error", resp);
 
