@@ -84,6 +84,7 @@ function launch(httpsServer, httpServer) {
             "manager",
             "webphone",
             "subscription",
+            "shop",
             "_android",
         ].map(v => `/${v}`).indexOf(req.path.toLowerCase()) === -1) {
             debug(`Consider banning IP ${req.connection.remoteAddress} asking for ${req.method} ${req.originalUrl}`);
@@ -169,6 +170,7 @@ function launch(httpsServer, httpServer) {
         .get("/manager", sendHtml("manager"))
         .get("/webphone", sendHtml("webphone"))
         .get("/subscription", sendHtml("subscription"))
+        .get("/shop", sendHtml("shop"))
         .get("/_android", sendHtml("_android"));
     httpsServer.on("request", app);
 }

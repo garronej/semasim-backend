@@ -112,6 +112,7 @@ export function launch(
                 "manager",
                 "webphone",
                 "subscription",
+                "shop",
                 "_android",
             ].map(v => `/${v}`).indexOf(req.path.toLowerCase()) === -1) {
 
@@ -251,6 +252,7 @@ export function launch(
         .get("/manager", sendHtml("manager"))
         .get("/webphone", sendHtml("webphone"))
         .get("/subscription", sendHtml("subscription"))
+        .get("/shop", sendHtml("shop"))
         .get("/_android", sendHtml("_android"))
         ;
 
