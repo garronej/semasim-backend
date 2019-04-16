@@ -17,6 +17,7 @@ const emailSender = require("../emailSender");
 const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
 const stripe = require("../stripe");
+const scriptLib = require("scripting-tools");
 const gateway_1 = require("../../gateway");
 exports.handlers = {};
 //TODO: regexp for password once and for all!!!
@@ -137,6 +138,72 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
+    const methodName = frontend_1.webApiDeclaration.guessCountryIso.methodName;
+    const handler = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": (_params, _session, _remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
+            const hv = req.header("Accept-Language");
+            if (hv === undefined) {
+                return undefined;
+            }
+            const match = hv.match(/\-([A-Z]{2})/);
+            if (match === null) {
+                return undefined;
+            }
+            const countryIsoGuessed = match[1].toLowerCase();
+            if (!frontend_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                return undefined;
+            }
+            return countryIsoGuessed;
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = frontend_1.webApiDeclaration.getChangesRates.methodName;
+    function fetchChangeRates() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { rates: changeRates } = JSON.parse(yield scriptLib.web_get("http://data.fixer.io/api/latest?access_key=857917c8f382f3febee2a4d377966bc0&base=EUR"));
+            for (const currencyUpperCase in changeRates) {
+                const rate = changeRates[currencyUpperCase];
+                delete changeRates[currencyUpperCase];
+                changeRates[currencyUpperCase.toLowerCase()] = rate;
+            }
+            return changeRates;
+        });
+    }
+    let lastUpdated = 0;
+    let changesRates = {};
+    const handler = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": function callee() {
+            return __awaiter(this, void 0, void 0, function* () {
+                if (Date.now() - lastUpdated > 3600 * 24 * 1000) {
+                    try {
+                        changesRates = yield fetchChangeRates();
+                    }
+                    catch (error) {
+                        if (lastUpdated !== 0) {
+                            return changesRates;
+                        }
+                        else {
+                            throw error;
+                        }
+                    }
+                    lastUpdated = Date.now();
+                    return callee();
+                }
+                return changesRates;
+            });
+        }
+    };
+    exports.handlers[methodName] = handler;
+}
+{
     const methodName = frontend_1.webApiDeclaration.getSubscriptionInfos.methodName;
     const handler = {
         "needAuth": true,
@@ -144,17 +211,7 @@ exports.handlers = {};
         "sanityCheck": params => params === undefined,
         "handler": (_params, session, _remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
             const auth = sessionManager.getAuth(session);
-            return stripe.getSubscriptionInfos(auth, (() => {
-                const hv = req.header("Accept-Language");
-                if (hv === undefined) {
-                    return "";
-                }
-                const match = hv.match(/\-([A-Z]{2})/);
-                if (match === null) {
-                    return "";
-                }
-                return match[1].toLowerCase();
-            })());
+            return stripe.getSubscriptionInfos(auth);
         })
     };
     exports.handlers[methodName] = handler;

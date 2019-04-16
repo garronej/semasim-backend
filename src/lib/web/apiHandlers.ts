@@ -1,5 +1,5 @@
 
-import { webApiDeclaration as apiDeclaration } from "../../frontend";
+import { webApiDeclaration as apiDeclaration, currencyLib } from "../../frontend";
 import * as dbSemasim from "../dbSemasim";
 import {
     Handler,
@@ -13,7 +13,7 @@ import * as emailSender from "../emailSender";
 import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
 import * as stripe from "../stripe";
-
+import * as scriptLib from "scripting-tools";
 
 import {
     version as semasim_gateway_version,
@@ -70,7 +70,7 @@ export const handlers: Handlers = {};
 
                 return "CREATED";
 
-            }else{
+            } else {
 
                 return "CREATED NO ACTIVATION REQUIRED";
 
@@ -236,6 +236,117 @@ export const handlers: Handlers = {};
 
 {
 
+    const methodName = apiDeclaration.guessCountryIso.methodName;
+    type Params = apiDeclaration.guessCountryIso.Params;
+    type Response = apiDeclaration.guessCountryIso.Response;
+
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params=> params === undefined,
+        "handler": async (_params, _session, _remoteAddress, req) => {
+
+            const hv = req.header("Accept-Language");
+
+            if (hv === undefined) {
+                return undefined;
+            }
+
+            const match = hv.match(/\-([A-Z]{2})/);
+
+            if (match === null) {
+                return undefined;
+            }
+
+            const countryIsoGuessed = match[1].toLowerCase();
+
+            if (!currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                return undefined;
+            }
+
+            return countryIsoGuessed
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+
+
+{
+
+    const methodName = apiDeclaration.getChangesRates.methodName;
+    type Params = apiDeclaration.getChangesRates.Params;
+    type Response = apiDeclaration.getChangesRates.Response;
+
+    async function fetchChangeRates(): Promise<{ [currency: string]: number; }> {
+
+        const { rates: changeRates } = JSON.parse(
+            await scriptLib.web_get(
+                "http://data.fixer.io/api/latest?access_key=857917c8f382f3febee2a4d377966bc0&base=EUR"
+            )
+        );
+
+        for (const currencyUpperCase in changeRates) {
+
+            const rate = changeRates[currencyUpperCase];
+
+            delete changeRates[currencyUpperCase];
+
+            changeRates[currencyUpperCase.toLowerCase()] = rate;
+
+        }
+
+        return changeRates;
+
+    }
+
+    let lastUpdated = 0;
+
+    let changesRates: { [currency: string]: number; } = {};
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": async function callee() {
+
+            if (Date.now() - lastUpdated > 3600 * 24 * 1000) {
+
+                try {
+
+                    changesRates = await fetchChangeRates();
+
+                } catch (error) {
+
+                    if (lastUpdated !== 0) {
+                        return changesRates;
+                    } else {
+                        throw error;
+                    }
+
+                }
+
+                lastUpdated = Date.now();
+
+                return callee();
+
+            }
+
+            return changesRates;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
     const methodName = apiDeclaration.getSubscriptionInfos.methodName;
     type Params = apiDeclaration.getSubscriptionInfos.Params;
     type Response = apiDeclaration.getSubscriptionInfos.Response;
@@ -249,26 +360,7 @@ export const handlers: Handlers = {};
 
             const auth = sessionManager.getAuth(session)!;
 
-            return stripe.getSubscriptionInfos(
-                auth,
-                (() => {
-
-                    const hv = req.header("Accept-Language");
-
-                    if (hv === undefined) {
-                        return "";
-                    }
-
-                    const match = hv.match(/\-([A-Z]{2})/);
-
-                    if (match === null) {
-                        return "";
-                    }
-
-                    return match[1].toLowerCase();
-
-                })()
-            );
+            return stripe.getSubscriptionInfos(auth);
 
         }
     };
@@ -276,6 +368,7 @@ export const handlers: Handlers = {};
     handlers[methodName] = handler;
 
 }
+
 
 {
 

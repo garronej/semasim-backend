@@ -5,7 +5,7 @@ import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
 import { bodyParser } from "../tools/webApi/misc";
 import { SyncEvent } from "ts-events-extended";
-import { types as feTypes, currencyByCountry } from "../frontend";
+import { types as feTypes, currencyLib } from "../frontend";
 import * as assert from "assert";
 
 namespace db {
@@ -78,27 +78,41 @@ let stripe: Stripe;
 
 const planByCurrency: { [currency: string]: { id: string; amount: number; } } = {};
 
+const pricingByCurrency: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
+
+let stripePublicApiKey = "";
+
 export async function launch() {
 
     db.launch();
 
-    const private_key = (() => {
+    const [public_key, secret_key] = (() => {
         switch (deploy.getEnv()) {
-            case "DEV": return "sk_test_tjDeOW7JrFihMOM3134bNpIO";
-            case "PROD": return "sk_live_ipldnIG1MKgIvt8VhGCrDrff";
+            case "DEV":
+                return [
+                    "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
+                    "sk_test_tjDeOW7JrFihMOM3134bNpIO"
+                ];
+            case "PROD":
+                return [
+                    "pk_live_8DO3QFFWrOcwPslRVIHuGOMA",
+                    "sk_live_ipldnIG1MKgIvt8VhGCrDrff"
+                ];
         }
     })();
 
-    stripe = new Stripe( private_key);
+    stripePublicApiKey = public_key;
+
+    stripe = new Stripe(secret_key);
 
     const { data } = await stripe.plans.list({ "limit": 250 });
 
     for (const { id, currency, amount } of data) {
 
         planByCurrency[currency] = { id, amount };
+        pricingByCurrency[currency] = amount;
 
     }
-
 
 }
 
@@ -164,14 +178,13 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 
                     const customer = await stripe.customers.retrieve(customerId);
 
-                    let currency = currencyByCountry[
-                        customer.sources!.data
-                            .find(({ id }) => id === customer.default_source)!["card"].country.toLowerCase()
-                    ];
-
-                    if (!(currency in planByCurrency)) {
-                        currency = "usd";
-                    }
+                    const currency = currencyLib.getCardCurrency(
+                        customer
+                            .sources!
+                            .data
+                            .find(({ id }) => id === customer.default_source)!["card"],
+                        pricingByCurrency
+                    );
 
                     return planByCurrency[currency].id;
 
@@ -224,10 +237,8 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
 
 
-export async function getSubscriptionInfos(
-    auth: Auth,
-    iso: string = "us"
-): Promise<feTypes.SubscriptionInfos> {
+//TODO: Implement cache but first implement 3D Secure.
+export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.SubscriptionInfos> {
 
     const { customerId, customerStatus } = await db.getCustomerId(auth);
 
@@ -237,26 +248,8 @@ export async function getSubscriptionInfos(
 
     const out: feTypes.SubscriptionInfos.Regular = {
         customerStatus,
-        "stripePublicApiKey": (() => {
-            switch (deploy.getEnv()) {
-                case "DEV": return "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
-                case "PROD": return "pk_live_8DO3QFFWrOcwPslRVIHuGOMA";
-            }
-        })(),
-        "pricingByCurrency": (() => {
-
-            const out: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
-
-            for (const currency in planByCurrency) {
-
-                out[currency] = planByCurrency[currency].amount;
-
-            }
-
-            return out;
-
-        })(),
-        "defaultCurrency": currencyByCountry[iso] in planByCurrency ? currencyByCountry[iso] : "usd"
+        stripePublicApiKey,
+        pricingByCurrency
     };
 
     if (customerId === undefined) {
@@ -302,9 +295,11 @@ export async function getSubscriptionInfos(
             "isChargeable": source["status"] === "chargeable",
             "expiration": `${source["card"]["exp_month"]}/${source["card"]["exp_year"]}`,
             "lastDigits": source["card"]["last4"],
-            "currency": currencyByCountry[source["card"].country.toLowerCase()]
+            "currency": currencyLib.getCardCurrency(
+                source["card"],
+                pricingByCurrency
+            )
         };
-
 
     }
 

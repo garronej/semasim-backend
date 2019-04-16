@@ -1,6 +1,6 @@
 
 import * as types from "../../frontend/shared/dist/lib/types";
-import { currencyByCountry } from "../../frontend/shared/dist/lib/currencyByCountry";
+import * as currencyLib from "../../frontend/shared/dist/lib/tools/currency";
 import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declaration";
 import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
@@ -14,7 +14,7 @@ const debug = logger.debugFactory();
 export {
     webApiDeclaration,
     types,
-    currencyByCountry,
+    currencyLib,
     api_decl_backendToUa,
     api_decl_uaToBackend
 };

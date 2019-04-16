@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const types = require("../../frontend/shared/dist/lib/types");
 exports.types = types;
-const currencyByCountry_1 = require("../../frontend/shared/dist/lib/currencyByCountry");
-exports.currencyByCountry = currencyByCountry_1.currencyByCountry;
+const currencyLib = require("../../frontend/shared/dist/lib/tools/currency");
+exports.currencyLib = currencyLib;
 const webApiDeclaration = require("../../frontend/shared/dist/web_api_declaration");
 exports.webApiDeclaration = webApiDeclaration;
 const api_decl_backendToUa = require("../../frontend/shared/dist/sip_api_declarations/backendToUa");

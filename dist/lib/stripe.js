@@ -56,19 +56,31 @@ var db;
 })(db || (db = {}));
 let stripe;
 const planByCurrency = {};
+const pricingByCurrency = {};
+let stripePublicApiKey = "";
 function launch() {
     return __awaiter(this, void 0, void 0, function* () {
         db.launch();
-        const private_key = (() => {
+        const [public_key, secret_key] = (() => {
             switch (deploy_1.deploy.getEnv()) {
-                case "DEV": return "sk_test_tjDeOW7JrFihMOM3134bNpIO";
-                case "PROD": return "sk_live_ipldnIG1MKgIvt8VhGCrDrff";
+                case "DEV":
+                    return [
+                        "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
+                        "sk_test_tjDeOW7JrFihMOM3134bNpIO"
+                    ];
+                case "PROD":
+                    return [
+                        "pk_live_8DO3QFFWrOcwPslRVIHuGOMA",
+                        "sk_live_ipldnIG1MKgIvt8VhGCrDrff"
+                    ];
             }
         })();
-        stripe = new Stripe(private_key);
+        stripePublicApiKey = public_key;
+        stripe = new Stripe(secret_key);
         const { data } = yield stripe.plans.list({ "limit": 250 });
         for (const { id, currency, amount } of data) {
             planByCurrency[currency] = { id, amount };
+            pricingByCurrency[currency] = amount;
         }
     });
 }
@@ -114,11 +126,10 @@ function subscribeUser(auth, sourceId) {
                 "items": [{
                         "plan": yield (() => __awaiter(this, void 0, void 0, function* () {
                             const customer = yield stripe.customers.retrieve(customerId);
-                            let currency = frontend_1.currencyByCountry[customer.sources.data
-                                .find(({ id }) => id === customer.default_source)["card"].country.toLowerCase()];
-                            if (!(currency in planByCurrency)) {
-                                currency = "usd";
-                            }
+                            const currency = frontend_1.currencyLib.getCardCurrency(customer
+                                .sources
+                                .data
+                                .find(({ id }) => id === customer.default_source)["card"], pricingByCurrency);
                             return planByCurrency[currency].id;
                         }))()
                     }]
@@ -154,7 +165,8 @@ function unsubscribeUser(auth) {
     });
 }
 exports.unsubscribeUser = unsubscribeUser;
-function getSubscriptionInfos(auth, iso = "us") {
+//TODO: Implement cache but first implement 3D Secure.
+function getSubscriptionInfos(auth) {
     return __awaiter(this, void 0, void 0, function* () {
         const { customerId, customerStatus } = yield db.getCustomerId(auth);
         if (customerStatus === "EXEMPTED") {
@@ -162,20 +174,8 @@ function getSubscriptionInfos(auth, iso = "us") {
         }
         const out = {
             customerStatus,
-            "stripePublicApiKey": (() => {
-                switch (deploy_1.deploy.getEnv()) {
-                    case "DEV": return "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i";
-                    case "PROD": return "pk_live_8DO3QFFWrOcwPslRVIHuGOMA";
-                }
-            })(),
-            "pricingByCurrency": (() => {
-                const out = {};
-                for (const currency in planByCurrency) {
-                    out[currency] = planByCurrency[currency].amount;
-                }
-                return out;
-            })(),
-            "defaultCurrency": frontend_1.currencyByCountry[iso] in planByCurrency ? frontend_1.currencyByCountry[iso] : "usd"
+            stripePublicApiKey,
+            pricingByCurrency
         };
         if (customerId === undefined) {
             return out;
@@ -205,7 +205,7 @@ function getSubscriptionInfos(auth, iso = "us") {
                 "isChargeable": source["status"] === "chargeable",
                 "expiration": `${source["card"]["exp_month"]}/${source["card"]["exp_year"]}`,
                 "lastDigits": source["card"]["last4"],
-                "currency": frontend_1.currencyByCountry[source["card"].country.toLowerCase()]
+                "currency": frontend_1.currencyLib.getCardCurrency(source["card"], pricingByCurrency)
             };
         }
         return out;
