@@ -14,6 +14,7 @@ import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
 import * as stripe from "../stripe";
 import * as scriptLib from "scripting-tools";
+import { geoiplookup } from "../../tools/geoiplookup";
 
 import {
     version as semasim_gateway_version,
@@ -236,38 +237,42 @@ export const handlers: Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.guessCountryIso.methodName;
-    type Params = apiDeclaration.guessCountryIso.Params;
-    type Response = apiDeclaration.guessCountryIso.Response;
-
+    const methodName = apiDeclaration.getCountryIso.methodName;
+    type Params = apiDeclaration.getCountryIso.Params;
+    type Response = apiDeclaration.getCountryIso.Response;
 
     const handler: Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
-        "sanityCheck": params=> params === undefined,
-        "handler": async (_params, _session, _remoteAddress, req) => {
+        "sanityCheck": params => params === undefined,
+        "handler": async (_params, _session, remoteAddress, req) => ({
+                "language": (() => {
 
-            const hv = req.header("Accept-Language");
+                    const hv = req.header("Accept-Language");
 
-            if (hv === undefined) {
-                return undefined;
-            }
+                    if (hv === undefined) {
+                        return undefined;
+                    }
 
-            const match = hv.match(/\-([A-Z]{2})/);
+                    const match = hv.match(/\-([A-Z]{2})/);
 
-            if (match === null) {
-                return undefined;
-            }
+                    if (match === null) {
+                        return undefined;
+                    }
 
-            const countryIsoGuessed = match[1].toLowerCase();
+                    const countryIsoGuessed = match[1].toLowerCase();
 
-            if (!currencyLib.isValidCountryIso(countryIsoGuessed)) {
-                return undefined;
-            }
+                    if (!currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                        return undefined;
+                    }
 
-            return countryIsoGuessed
+                    return countryIsoGuessed;
 
-        }
+                })(),
+                "location": await geoiplookup(remoteAddress)
+                    .then(({ countryIso }) => countryIso)
+                    .catch(() => undefined)
+            })
     };
 
     handlers[methodName] = handler;
@@ -418,6 +423,29 @@ export const handlers: Handlers = {};
             await stripe.unsubscribeUser(auth);
 
             return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.createStripeCheckoutSession.methodName;
+    type Params = apiDeclaration.createStripeCheckoutSession.Params;
+    type Response = apiDeclaration.createStripeCheckoutSession.Response;
+
+    const handler: Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => { /*TODO*/ return true; },
+        "handler": async (_params, session) => {
+
+            //const auth = sessionManager.getAuth(session)!;
+
+            throw new Error("not yet implemented");
 
         }
     };
