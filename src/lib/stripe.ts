@@ -5,8 +5,12 @@ import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
 import { bodyParser } from "../tools/webApi/misc";
 import { SyncEvent } from "ts-events-extended";
-import { types as feTypes, currencyLib } from "../frontend";
+import { types as feTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
+//import * as logger from "logger";
 import * as assert from "assert";
+import { fetch as fetchChangeRates } from "../tools/changeRates";
+
+//const debug = logger.debugFactory();
 
 namespace db {
 
@@ -80,7 +84,7 @@ const planByCurrency: { [currency: string]: { id: string; amount: number; } } = 
 
 const pricingByCurrency: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
 
-let stripePublicApiKey = "";
+export let stripePublicApiKey = "";
 
 export async function launch() {
 
@@ -323,6 +327,7 @@ const evt = new SyncEvent<any>();
 evt.attach(data => {
 
     //TODO: Keep a local copy of subscriptions thanks to webhooks.
+    console.log("stripe webhook", JSON.stringify(data,null,2));
 
 });
 
@@ -342,6 +347,125 @@ export function registerWebHooks(app: import("express").Express) {
 
         req.status(200).send();
 
-    })
+    });
 
 }
+
+//TODO: Cart should be a set of product name quantity
+export async function createStripeCheckoutSession(
+    auth: Auth,
+    cartDescription: { productName: string; quantity: number; }[],
+    shippingFormData: feTypes.shop.ShippingFormData,
+    currency: string
+): Promise<string> {
+
+    currencyLib.convertFromEuro.changeRates = await fetchChangeRates();
+
+    const sessionParams = {
+        "success_url": `https://web.${deploy.getBaseDomain()}/shop?sucess=true`,
+        "cancel_url": `https://web.${deploy.getBaseDomain()}/shop?success=false`,
+        "customer_email": auth.email,
+        "locale": "fr", //TODO
+        "payment_method_types": ["card"],
+        "payment_intent_data": {
+            "metadata": (() => {
+
+                const metadata = {};
+
+                for (let i = 0; i < shippingFormData.addressComponents.length; i++) {
+
+                    metadata[`address_component_${i}`] = JSON.stringify(
+                        shippingFormData.addressComponents[i]
+                    );
+
+                }
+
+                return metadata;
+
+
+
+            })(),
+            "shipping": (() => {
+
+                const get = (key: string) => {
+
+                    const component = shippingFormData.addressComponents
+                        .find(({ types: [type] }) => type === key);
+
+                    return component !== undefined ? component["long_name"] : undefined;
+
+                };
+
+                return {
+                    "name": `${shippingFormData.firstName} ${shippingFormData.lastName}`,
+                    "address": {
+                        "line1": `${get("street_number")} ${get("route")}`,
+                        "line2": shippingFormData.addressExtra,
+                        "postal_code": get("postal_code"),
+                        "city": get("locality"),
+                        "state": get("administrative_area_level_1"),
+                        "country": get("country")
+                    },
+                    "carrier": "la poste ou Delivengo TODO",
+                };
+
+            })(),
+        },
+        "line_items": [
+            ...cartDescription.map(({ productName, quantity }) => {
+
+                const product = getShopProducts().find(({ name }) => name === productName)!;
+
+                return {
+                    "amount": feTypes.shop.Price.getAmountInCurrency(
+                        product.price,
+                        currency,
+                        currencyLib.convertFromEuro
+                    ),
+                    currency,
+                    "name": product.name,
+                    "description": product.shortDescription,
+                    "images": [ product.cartImageUrl ],
+                    quantity
+                };
+            }),
+            (() => {
+
+                const { long_name: country, short_name: countryIsoUpperCase } = 
+                    shippingFormData.addressComponents.find(({ types: [type] }) => type === "country")!;
+
+                const { eurAmount, delay } = shippingLib.estimateShipping(
+                    countryIsoUpperCase.toLowerCase(),
+                    "VOLUME"
+                );
+
+                return {
+                    "amount": currencyLib.convertFromEuro(eurAmount, currency),
+                    currency,
+                    "name": `Shipping to ${country}`,
+                    "description": `${delay instanceof Array ? delay.join(" to ") : delay} working days`,
+                    "images": [],
+                    "quantity": 1
+                };
+
+            })()
+        ]
+    };
+
+    console.log(JSON.stringify(sessionParams, null, 2));
+
+    const session = await (stripe as any).checkout.sessions.create(
+        sessionParams
+    ).catch(error => error as Error);
+
+    if (session instanceof Error) {
+
+        throw session;
+
+    }
+
+    return session.id;
+
+}
+
+

@@ -17,7 +17,8 @@ const emailSender = require("../emailSender");
 const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
 const stripe = require("../stripe");
-const scriptLib = require("scripting-tools");
+const geoiplookup_1 = require("../../tools/geoiplookup");
+const changeRates_1 = require("../../tools/changeRates");
 const gateway_1 = require("../../gateway");
 exports.handlers = {};
 //TODO: regexp for password once and for all!!!
@@ -138,42 +139,38 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.guessCountryIso.methodName;
+    const methodName = frontend_1.webApiDeclaration.getCountryIso.methodName;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, _session, _remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
-            const hv = req.header("Accept-Language");
-            if (hv === undefined) {
-                return undefined;
-            }
-            const match = hv.match(/\-([A-Z]{2})/);
-            if (match === null) {
-                return undefined;
-            }
-            const countryIsoGuessed = match[1].toLowerCase();
-            if (!frontend_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
-                return undefined;
-            }
-            return countryIsoGuessed;
+        "handler": (_params, _session, remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
+            return ({
+                "language": (() => {
+                    const hv = req.header("Accept-Language");
+                    if (hv === undefined) {
+                        return undefined;
+                    }
+                    const match = hv.match(/\-([A-Z]{2})/);
+                    if (match === null) {
+                        return undefined;
+                    }
+                    const countryIsoGuessed = match[1].toLowerCase();
+                    if (!frontend_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                        return undefined;
+                    }
+                    return countryIsoGuessed;
+                })(),
+                "location": yield geoiplookup_1.geoiplookup(remoteAddress)
+                    .then(({ countryIso }) => countryIso)
+                    .catch(() => undefined)
+            });
         })
     };
     exports.handlers[methodName] = handler;
 }
 {
     const methodName = frontend_1.webApiDeclaration.getChangesRates.methodName;
-    function fetchChangeRates() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const { rates: changeRates } = JSON.parse(yield scriptLib.web_get("http://data.fixer.io/api/latest?access_key=857917c8f382f3febee2a4d377966bc0&base=EUR"));
-            for (const currencyUpperCase in changeRates) {
-                const rate = changeRates[currencyUpperCase];
-                delete changeRates[currencyUpperCase];
-                changeRates[currencyUpperCase.toLowerCase()] = rate;
-            }
-            return changeRates;
-        });
-    }
     let lastUpdated = 0;
     let changesRates = {};
     const handler = {
@@ -184,7 +181,7 @@ exports.handlers = {};
             return __awaiter(this, void 0, void 0, function* () {
                 if (Date.now() - lastUpdated > 3600 * 24 * 1000) {
                     try {
-                        changesRates = yield fetchChangeRates();
+                        changesRates = yield changeRates_1.fetch();
                     }
                     catch (error) {
                         if (lastUpdated !== 0) {
@@ -242,6 +239,22 @@ exports.handlers = {};
             const auth = sessionManager.getAuth(session);
             yield stripe.unsubscribeUser(auth);
             return undefined;
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = frontend_1.webApiDeclaration.createStripeCheckoutSession.methodName;
+    const handler = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => { /*TODO*/ return true; },
+        "handler": ({ cartDescription, shippingFormData, currency }, session) => __awaiter(this, void 0, void 0, function* () {
+            const auth = sessionManager.getAuth(session);
+            return {
+                "stripePublicApiKey": stripe.stripePublicApiKey,
+                "checkoutSessionId": yield stripe.createStripeCheckoutSession(auth, cartDescription, shippingFormData, currency)
+            };
         })
     };
     exports.handlers[methodName] = handler;

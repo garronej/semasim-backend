@@ -14,7 +14,10 @@ const deploy_1 = require("../deploy");
 const misc_1 = require("../tools/webApi/misc");
 const ts_events_extended_1 = require("ts-events-extended");
 const frontend_1 = require("../frontend");
+//import * as logger from "logger";
 const assert = require("assert");
+const changeRates_1 = require("../tools/changeRates");
+//const debug = logger.debugFactory();
 var db;
 (function (db) {
     let buildInsertQuery;
@@ -57,7 +60,7 @@ var db;
 let stripe;
 const planByCurrency = {};
 const pricingByCurrency = {};
-let stripePublicApiKey = "";
+exports.stripePublicApiKey = "";
 function launch() {
     return __awaiter(this, void 0, void 0, function* () {
         db.launch();
@@ -75,7 +78,7 @@ function launch() {
                     ];
             }
         })();
-        stripePublicApiKey = public_key;
+        exports.stripePublicApiKey = public_key;
         stripe = new Stripe(secret_key);
         const { data } = yield stripe.plans.list({ "limit": 250 });
         for (const { id, currency, amount } of data) {
@@ -174,7 +177,7 @@ function getSubscriptionInfos(auth) {
         }
         const out = {
             customerStatus,
-            stripePublicApiKey,
+            stripePublicApiKey: exports.stripePublicApiKey,
             pricingByCurrency
         };
         if (customerId === undefined) {
@@ -223,6 +226,7 @@ exports.isUserSubscribed = isUserSubscribed;
 const evt = new ts_events_extended_1.SyncEvent();
 evt.attach(data => {
     //TODO: Keep a local copy of subscriptions thanks to webhooks.
+    console.log("stripe webhook", JSON.stringify(data, null, 2));
 });
 function registerWebHooks(app) {
     app.post("/stripe_webhooks", (res, req) => __awaiter(this, void 0, void 0, function* () {
@@ -234,3 +238,78 @@ function registerWebHooks(app) {
     }));
 }
 exports.registerWebHooks = registerWebHooks;
+//TODO: Cart should be a set of product name quantity
+function createStripeCheckoutSession(auth, cartDescription, shippingFormData, currency) {
+    return __awaiter(this, void 0, void 0, function* () {
+        frontend_1.currencyLib.convertFromEuro.changeRates = yield changeRates_1.fetch();
+        const sessionParams = {
+            "success_url": `https://web.${deploy_1.deploy.getBaseDomain()}/shop?sucess=true`,
+            "cancel_url": `https://web.${deploy_1.deploy.getBaseDomain()}/shop?success=false`,
+            "customer_email": auth.email,
+            "locale": "fr",
+            "payment_method_types": ["card"],
+            "payment_intent_data": {
+                "metadata": (() => {
+                    const metadata = {};
+                    for (let i = 0; i < shippingFormData.addressComponents.length; i++) {
+                        metadata[`address_component_${i}`] = JSON.stringify(shippingFormData.addressComponents[i]);
+                    }
+                    return metadata;
+                })(),
+                "shipping": (() => {
+                    const get = (key) => {
+                        const component = shippingFormData.addressComponents
+                            .find(({ types: [type] }) => type === key);
+                        return component !== undefined ? component["long_name"] : undefined;
+                    };
+                    return {
+                        "name": `${shippingFormData.firstName} ${shippingFormData.lastName}`,
+                        "address": {
+                            "line1": `${get("street_number")} ${get("route")}`,
+                            "line2": shippingFormData.addressExtra,
+                            "postal_code": get("postal_code"),
+                            "city": get("locality"),
+                            "state": get("administrative_area_level_1"),
+                            "country": get("country")
+                        },
+                        "carrier": "la poste ou Delivengo TODO",
+                    };
+                })(),
+            },
+            "line_items": [
+                ...cartDescription.map(({ productName, quantity }) => {
+                    const product = frontend_1.getShopProducts().find(({ name }) => name === productName);
+                    return {
+                        "amount": frontend_1.types.shop.Price.getAmountInCurrency(product.price, currency, frontend_1.currencyLib.convertFromEuro),
+                        currency,
+                        "name": product.name,
+                        "description": product.shortDescription,
+                        "images": [product.cartImageUrl],
+                        quantity
+                    };
+                }),
+                (() => {
+                    const { long_name: country, short_name: countryIsoUpperCase } = shippingFormData.addressComponents.find(({ types: [type] }) => type === "country");
+                    const { eurAmount, delay } = frontend_1.shipping.estimateShipping(countryIsoUpperCase.toLowerCase(), "VOLUME");
+                    return {
+                        "amount": frontend_1.currencyLib.convertFromEuro(eurAmount, currency),
+                        currency,
+                        "name": `Shipping to ${country}`,
+                        "description": `${delay instanceof Array ? delay.join(" to ") : delay} working days`,
+                        "images": [],
+                        "quantity": 1
+                    };
+                })()
+            ]
+        };
+        console.log(JSON.stringify(sessionParams, null, 2));
+        const session = yield stripe.checkout.sessions.create(sessionParams).catch(error => error);
+        //console.log(session);
+        if (session instanceof Error) {
+            console.log("on a eut une erreur");
+            throw session;
+        }
+        return session.id;
+    });
+}
+exports.createStripeCheckoutSession = createStripeCheckoutSession;

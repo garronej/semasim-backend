@@ -98,7 +98,6 @@ export function launch(
 
     stripe.registerWebHooks(app);
 
-
     app
         .use(compression())
         .use(express.static(frontend.static_dir_path))

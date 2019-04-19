@@ -1,11 +1,13 @@
 /// <reference types="node" />
 import * as types from "../../frontend/shared/dist/lib/types";
 import * as currencyLib from "../../frontend/shared/dist/lib/tools/currency";
+import * as shipping from "../../frontend/shared/dist/lib/shipping";
 import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declaration";
 import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
-export { webApiDeclaration, types, currencyLib, api_decl_backendToUa, api_decl_uaToBackend };
+export { webApiDeclaration, types, currencyLib, shipping, api_decl_backendToUa, api_decl_uaToBackend };
 export declare const static_dir_path: string;
+export declare function getShopProducts(): types.shop.Product[];
 /**
  * @param pageName eg: "manager" or "webphone"
  */

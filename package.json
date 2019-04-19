@@ -35,7 +35,7 @@
     "node-watch": "^0.5.9",
     "phone-number": "github:garronej/phone-number",
     "scripting-tools": "github:garronej/scripting-tools",
-    "stripe": "^6.15.1",
+    "stripe": "^6.29.0",
     "transfer-tools": "garronej/transfer-tools",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-sip": "github:garronej/ts-sip",

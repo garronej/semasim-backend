@@ -4,6 +4,9 @@ const types = require("../../frontend/shared/dist/lib/types");
 exports.types = types;
 const currencyLib = require("../../frontend/shared/dist/lib/tools/currency");
 exports.currencyLib = currencyLib;
+const shopProducts_1 = require("../../frontend/shared/dist/lib/shopProducts");
+const shipping = require("../../frontend/shared/dist/lib/shipping");
+exports.shipping = shipping;
 const webApiDeclaration = require("../../frontend/shared/dist/web_api_declaration");
 exports.webApiDeclaration = webApiDeclaration;
 const api_decl_backendToUa = require("../../frontend/shared/dist/sip_api_declarations/backendToUa");
@@ -21,6 +24,18 @@ const frontend_dir_path = path.join(__dirname, "..", "..", "frontend");
 const pages_dir_path = path.join(frontend_dir_path, "pages");
 const templates_dir_path = path.join(frontend_dir_path, "shared", "templates");
 exports.static_dir_path = path.join(frontend_dir_path, "static.semasim.com");
+function getAssetsRoot(env) {
+    return env === "DEV" ? "/" : "//static.semasim.com/";
+}
+function getShopProducts() {
+    let assets_root = getAssetsRoot(deploy_1.deploy.getEnv());
+    if (assets_root === "/") {
+        assets_root = `//web.${deploy_1.deploy.getBaseDomain()}/`;
+    }
+    assets_root = `https:${assets_root}`;
+    return shopProducts_1.getProducts(assets_root);
+}
+exports.getShopProducts = getShopProducts;
 /**
  * @param pageName eg: "manager" or "webphone"
  */
@@ -32,7 +47,7 @@ function getPage(pageName) {
     const ejs_file_path = path.join(page_dir_path, "page.ejs");
     const read = () => {
         const [unaltered, webView] = [false, true]
-            .map(isWebView => ({ "assets_root": deploy_1.deploy.getEnv() === "DEV" ? "/" : "//static.semasim.com/", isWebView }))
+            .map(isWebView => ({ "assets_root": getAssetsRoot(deploy_1.deploy.getEnv()), isWebView }))
             .map(data => ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), data, { "root": templates_dir_path }))
             .map(renderedPage => Buffer.from(renderedPage, "utf8"));
         getPage.cache[pageName] = { unaltered, webView };

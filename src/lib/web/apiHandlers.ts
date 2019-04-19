@@ -13,8 +13,8 @@ import * as emailSender from "../emailSender";
 import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
 import * as stripe from "../stripe";
-import * as scriptLib from "scripting-tools";
 import { geoiplookup } from "../../tools/geoiplookup";
+import { fetch as fetchChangeRates } from "../../tools/changeRates";
 
 import {
     version as semasim_gateway_version,
@@ -287,28 +287,6 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.getChangesRates.Params;
     type Response = apiDeclaration.getChangesRates.Response;
 
-    async function fetchChangeRates(): Promise<{ [currency: string]: number; }> {
-
-        const { rates: changeRates } = JSON.parse(
-            await scriptLib.web_get(
-                "http://data.fixer.io/api/latest?access_key=857917c8f382f3febee2a4d377966bc0&base=EUR"
-            )
-        );
-
-        for (const currencyUpperCase in changeRates) {
-
-            const rate = changeRates[currencyUpperCase];
-
-            delete changeRates[currencyUpperCase];
-
-            changeRates[currencyUpperCase.toLowerCase()] = rate;
-
-        }
-
-        return changeRates;
-
-    }
-
     let lastUpdated = 0;
 
     let changesRates: { [currency: string]: number; } = {};
@@ -441,11 +419,19 @@ export const handlers: Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": async (_params, session) => {
+        "handler": async ({ cartDescription, shippingFormData, currency }, session) => {
 
-            //const auth = sessionManager.getAuth(session)!;
+            const auth = sessionManager.getAuth(session)!;
 
-            throw new Error("not yet implemented");
+            return {
+                "stripePublicApiKey": stripe.stripePublicApiKey,
+                "checkoutSessionId": await stripe.createStripeCheckoutSession(
+                    auth,
+                    cartDescription,
+                    shippingFormData,
+                    currency
+                )
+            };
 
         }
     };
