@@ -18,7 +18,6 @@ const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
 const stripe = require("../stripe");
 const geoiplookup_1 = require("../../tools/geoiplookup");
-const changeRates_1 = require("../../tools/changeRates");
 const gateway_1 = require("../../gateway");
 exports.handlers = {};
 //TODO: regexp for password once and for all!!!
@@ -171,32 +170,14 @@ exports.handlers = {};
 }
 {
     const methodName = frontend_1.webApiDeclaration.getChangesRates.methodName;
-    let lastUpdated = 0;
-    let changesRates = {};
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": function callee() {
-            return __awaiter(this, void 0, void 0, function* () {
-                if (Date.now() - lastUpdated > 3600 * 24 * 1000) {
-                    try {
-                        changesRates = yield changeRates_1.fetch();
-                    }
-                    catch (error) {
-                        if (lastUpdated !== 0) {
-                            return changesRates;
-                        }
-                        else {
-                            throw error;
-                        }
-                    }
-                    lastUpdated = Date.now();
-                    return callee();
-                }
-                return changesRates;
-            });
-        }
+        "handler": () => __awaiter(this, void 0, void 0, function* () {
+            yield frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
+            return frontend_1.currencyLib.convertFromEuro.getChangeRates();
+        })
     };
     exports.handlers[methodName] = handler;
 }

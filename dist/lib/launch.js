@@ -29,6 +29,8 @@ const loadBalancerConnection = require("./toLoadBalancer/connection");
 const web = require("./web/launch");
 const deploy_2 = require("../../../deploy/dist/lib/deploy");
 const stripe = require("./stripe");
+const frontend_1 = require("../frontend");
+const changeRates_1 = require("../tools/changeRates");
 const debug = logger.debugFactory();
 function beforeExit() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -42,6 +44,7 @@ let runningInstance;
 function launch(daemonNumber) {
     return __awaiter(this, void 0, void 0, function* () {
         debug("Launch");
+        frontend_1.currencyLib.convertFromEuro.setChangeRatesFetchMethod(changeRates_1.fetch, 24 * 3600 * 1000);
         const tlsCerts = (() => {
             const out = Object.assign({}, deploy_1.deploy.getDomainCertificatesPath());
             for (const key in out) {
@@ -49,7 +52,6 @@ function launch(daemonNumber) {
             }
             return out;
         })();
-        //const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasimIpRange);
         const servers = [
             https.createServer(tlsCerts),
             http.createServer(),

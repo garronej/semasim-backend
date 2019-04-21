@@ -14,7 +14,6 @@ import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
 import * as stripe from "../stripe";
 import { geoiplookup } from "../../tools/geoiplookup";
-import { fetch as fetchChangeRates } from "../../tools/changeRates";
 
 import {
     version as semasim_gateway_version,
@@ -287,39 +286,15 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.getChangesRates.Params;
     type Response = apiDeclaration.getChangesRates.Response;
 
-    let lastUpdated = 0;
-
-    let changesRates: { [currency: string]: number; } = {};
-
     const handler: Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": async function callee() {
+        "handler": async () => {
 
-            if (Date.now() - lastUpdated > 3600 * 24 * 1000) {
+            await currencyLib.convertFromEuro.refreshChangeRates();
 
-                try {
-
-                    changesRates = await fetchChangeRates();
-
-                } catch (error) {
-
-                    if (lastUpdated !== 0) {
-                        return changesRates;
-                    } else {
-                        throw error;
-                    }
-
-                }
-
-                lastUpdated = Date.now();
-
-                return callee();
-
-            }
-
-            return changesRates;
+            return currencyLib.convertFromEuro.getChangeRates();
 
         }
     };

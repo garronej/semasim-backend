@@ -22,6 +22,11 @@ import * as loadBalancerConnection from "./toLoadBalancer/connection";
 import * as web from "./web/launch";
 import { dbAuth } from "../../../deploy/dist/lib/deploy";
 import * as stripe from "./stripe";
+import {  currencyLib  } from "../frontend";
+import { fetch as fetchChangeRates } from "../tools/changeRates";
+
+
+
 
 const debug = logger.debugFactory();
 
@@ -43,6 +48,11 @@ export async function launch(daemonNumber: number) {
 
     debug("Launch");
 
+    currencyLib.convertFromEuro.setChangeRatesFetchMethod(
+        fetchChangeRates,
+        24 * 3600 * 1000
+    );
+
     const tlsCerts = (() => {
 
         const out = { ...deploy.getDomainCertificatesPath() };
@@ -54,8 +64,6 @@ export async function launch(daemonNumber: number) {
         return out;
 
     })();
-
-    //const interfaceAddress = networkTools.getInterfaceAddressInRange(deploy.semasimIpRange);
 
     const servers: [https.Server, http.Server, tls.Server, tls.Server, net.Server] = [
         https.createServer(tlsCerts),
@@ -97,9 +105,9 @@ export async function launch(daemonNumber: number) {
                 ))
         );
 
-    const prInterfaceAddress= deploy.isDistributed() ?
+    const prInterfaceAddress = deploy.isDistributed() ?
         networkTools.getInterfaceAddressInRange(deploy.semasimIpRange) :
-        prPrivateAndPublicIpsOfLoadBalancer!.then(a=>a[0].privateIp)
+        prPrivateAndPublicIpsOfLoadBalancer!.then(a => a[0].privateIp)
         ;
 
     const prAllServersListening = Promise.all(
@@ -160,7 +168,7 @@ export async function launch(daemonNumber: number) {
 
                     })();
 
-                    server.listen( listenOnPort, listenWithInterface);
+                    server.listen(listenOnPort, listenWithInterface);
 
                 }
             )
@@ -168,10 +176,10 @@ export async function launch(daemonNumber: number) {
     );
 
     //NOTE: Gather all promises tasks in a single promise.
-    const [ spoofedLocalAddressAndPort ]= await Promise.all([
+    const [spoofedLocalAddressAndPort] = await Promise.all([
         prSpoofedLocalAddressAndPort,
         prAllServersListening,
-        dbAuth.resolve().then(()=> stripe.launch())
+        dbAuth.resolve().then(() => stripe.launch())
     ]);
 
     runningInstance = {

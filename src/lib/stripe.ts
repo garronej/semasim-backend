@@ -8,7 +8,6 @@ import { SyncEvent } from "ts-events-extended";
 import { types as feTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
 //import * as logger from "logger";
 import * as assert from "assert";
-import { fetch as fetchChangeRates } from "../tools/changeRates";
 
 //const debug = logger.debugFactory();
 
@@ -359,7 +358,27 @@ export async function createStripeCheckoutSession(
     currency: string
 ): Promise<string> {
 
-    currencyLib.convertFromEuro.changeRates = await fetchChangeRates();
+    await currencyLib.convertFromEuro.refreshChangeRates();
+
+    const cart: feTypes.shop.Cart = cartDescription.map(
+        ({ productName, quantity }) => ({
+            "product": getShopProducts().find(({ name }) => name === productName)!,
+            quantity
+        })
+    );
+
+    const shipping = shippingLib.solve(
+        shippingFormData.addressComponents
+            .find(({ types: [type] }) => type === "country")!
+            .short_name.toLowerCase(),
+        feTypes.shop.Cart.getOverallFootprint(cart),
+        feTypes.shop.Cart.getOverallWeight(cart),
+    );
+
+    const stripeShipping = feTypes.shop.ShippingFormData.toStripeShippingInformation(
+        shippingFormData,
+        shipping.carrier
+    );
 
     const sessionParams = {
         "success_url": `https://web.${deploy.getBaseDomain()}/shop?sucess=true`,
@@ -370,11 +389,13 @@ export async function createStripeCheckoutSession(
         "payment_intent_data": {
             "metadata": (() => {
 
-                const metadata = {};
+                const { carrier, offer, needLightPackage } = shipping;
+
+                const metadata = { carrier, offer, needLightPackage };
 
                 for (let i = 0; i < shippingFormData.addressComponents.length; i++) {
 
-                    metadata[`address_component_${i}`] = JSON.stringify(
+                    metadata[`address_${i}`] = JSON.stringify(
                         shippingFormData.addressComponents[i]
                     );
 
@@ -382,73 +403,33 @@ export async function createStripeCheckoutSession(
 
                 return metadata;
 
-
-
             })(),
-            "shipping": (() => {
-
-                const get = (key: string) => {
-
-                    const component = shippingFormData.addressComponents
-                        .find(({ types: [type] }) => type === key);
-
-                    return component !== undefined ? component["long_name"] : undefined;
-
-                };
-
-                return {
-                    "name": `${shippingFormData.firstName} ${shippingFormData.lastName}`,
-                    "address": {
-                        "line1": `${get("street_number")} ${get("route")}`,
-                        "line2": shippingFormData.addressExtra,
-                        "postal_code": get("postal_code"),
-                        "city": get("locality"),
-                        "state": get("administrative_area_level_1"),
-                        "country": get("country")
-                    },
-                    "carrier": "la poste ou Delivengo TODO",
-                };
-
-            })(),
+            "shipping": stripeShipping
         },
         "line_items": [
-            ...cartDescription.map(({ productName, quantity }) => {
-
-                const product = getShopProducts().find(({ name }) => name === productName)!;
-
-                return {
-                    "amount": feTypes.shop.Price.getAmountInCurrency(
-                        product.price,
-                        currency,
-                        currencyLib.convertFromEuro
+            ...cart.map(({ product, quantity }) => ({
+                "amount": feTypes.shop.Price.getAmountInCurrency(
+                    product.price,
+                    currency,
+                    currencyLib.convertFromEuro
+                ),
+                currency,
+                "name": product.name,
+                "description": product.shortDescription,
+                "images": [product.cartImageUrl],
+                quantity
+            })),
+            {
+                "amount": currencyLib.convertFromEuro(
+                    shipping.eurAmount, 
+                    currency
                     ),
-                    currency,
-                    "name": product.name,
-                    "description": product.shortDescription,
-                    "images": [ product.cartImageUrl ],
-                    quantity
-                };
-            }),
-            (() => {
-
-                const { long_name: country, short_name: countryIsoUpperCase } = 
-                    shippingFormData.addressComponents.find(({ types: [type] }) => type === "country")!;
-
-                const { eurAmount, delay } = shippingLib.estimateShipping(
-                    countryIsoUpperCase.toLowerCase(),
-                    "VOLUME"
-                );
-
-                return {
-                    "amount": currencyLib.convertFromEuro(eurAmount, currency),
-                    currency,
-                    "name": `Shipping to ${country}`,
-                    "description": `${delay instanceof Array ? delay.join(" to ") : delay} working days`,
-                    "images": [],
-                    "quantity": 1
-                };
-
-            })()
+                currency,
+                "name": `Shipping to ${stripeShipping.address.country}`,
+                "description": `~ ${shipping.delay.join("-")} working days`,
+                "images": [],
+                "quantity": 1
+            }
         ]
     };
 
