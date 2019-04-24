@@ -1,12 +1,7 @@
 
 import { webApiDeclaration as apiDeclaration, currencyLib } from "../../frontend";
 import * as dbSemasim from "../dbSemasim";
-import {
-    Handler,
-    Handlers,
-    errorHttpCode,
-    httpCodes
-} from "../../tools/webApi";
+import { webApi } from "../../load-balancer";
 import * as sessionManager from "./sessionManager";
 import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
 import * as emailSender from "../emailSender";
@@ -21,7 +16,7 @@ import {
     types as gwTypes
 } from "../../gateway";
 
-export const handlers: Handlers = {};
+export const handlers: webApi.Handlers = {};
 
 //TODO: regexp for password once and for all!!!
 //TODO: regexp for friendly name!!!
@@ -33,7 +28,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.registerUser.Params;
     type Response = apiDeclaration.registerUser.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -89,7 +84,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.validateEmail.Params;
     type Response = apiDeclaration.validateEmail.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -112,7 +107,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.loginUser.Params;
     type Response = apiDeclaration.loginUser.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -147,7 +142,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.logoutUser.Params;
     type Response = apiDeclaration.logoutUser.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
@@ -170,7 +165,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.sendRenewPasswordEmail.Params;
     type Response = apiDeclaration.sendRenewPasswordEmail.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -202,7 +197,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.renewPassword.Params;
     type Response = apiDeclaration.renewPassword.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -240,7 +235,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.getCountryIso.Params;
     type Response = apiDeclaration.getCountryIso.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
@@ -286,7 +281,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.getChangesRates.Params;
     type Response = apiDeclaration.getChangesRates.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
@@ -310,7 +305,7 @@ export const handlers: Handlers = {};
     type Response = apiDeclaration.getSubscriptionInfos.Response;
 
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
@@ -334,7 +329,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.subscribeOrUpdateSource.Params;
     type Response = apiDeclaration.subscribeOrUpdateSource.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
@@ -365,7 +360,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.unsubscribe.Params;
     type Response = apiDeclaration.unsubscribe.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
@@ -390,7 +385,7 @@ export const handlers: Handlers = {};
     type Params = apiDeclaration.createStripeCheckoutSession.Params;
     type Response = apiDeclaration.createStripeCheckoutSession.Response;
 
-    const handler: Handler.JSON<Params, Response> = {
+    const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
@@ -399,7 +394,7 @@ export const handlers: Handlers = {};
             const auth = sessionManager.getAuth(session)!;
 
             return {
-                "stripePublicApiKey": stripe.stripePublicApiKey,
+                "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
                 "checkoutSessionId": await stripe.createStripeCheckoutSession(
                     auth,
                     cartDescription,
@@ -420,7 +415,7 @@ export const handlers: Handlers = {};
     const methodName = "version";
     type Params = {};
 
-    const handler: Handler.Generic<Params> = {
+    const handler: webApi.Handler.Generic<Params> = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
         "sanityCheck": (params) => params instanceof Object,
@@ -461,7 +456,7 @@ export const handlers: Handlers = {};
         ].join("\n")
     ).join("\n\n");
 
-    const handler: Handler.Generic<Params> = {
+    const handler: webApi.Handler.Generic<Params> = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
         "sanityCheck": params => {
@@ -492,7 +487,7 @@ export const handlers: Handlers = {};
 
                     const error = new Error("Account temporally locked");
 
-                    errorHttpCode.set(error, httpCodes.LOCKED);
+                    webApi.errorHttpCode.set(error, webApi.httpCodes.LOCKED);
 
                     throw error;
 
@@ -503,7 +498,7 @@ export const handlers: Handlers = {};
 
                     const error = new Error("User not authenticated");
 
-                    errorHttpCode.set(error, httpCodes.UNAUTHORIZED);
+                    webApi.errorHttpCode.set(error, webApi.httpCodes.UNAUTHORIZED);
 
                     throw error;
 
@@ -529,7 +524,7 @@ export const handlers: Handlers = {};
 
                 const error = new Error("User does not have mobile subscription");
 
-                errorHttpCode.set(error, httpCodes.PAYMENT_REQUIRED);
+                webApi.errorHttpCode.set(error, webApi.httpCodes.PAYMENT_REQUIRED);
 
                 throw error;
 

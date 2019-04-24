@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const frontend_1 = require("../../frontend");
 const dbSemasim = require("../dbSemasim");
-const webApi_1 = require("../../tools/webApi");
+const load_balancer_1 = require("../../load-balancer");
 const sessionManager = require("./sessionManager");
 const localApiHandlers_1 = require("../toUa/localApiHandlers");
 const emailSender = require("../emailSender");
@@ -233,7 +233,7 @@ exports.handlers = {};
         "handler": ({ cartDescription, shippingFormData, currency }, session) => __awaiter(this, void 0, void 0, function* () {
             const auth = sessionManager.getAuth(session);
             return {
-                "stripePublicApiKey": stripe.stripePublicApiKey,
+                "stripePublicApiKey": deploy_1.deploy.getStripeApiKeys().publicApiKey,
                 "checkoutSessionId": yield stripe.createStripeCheckoutSession(auth, cartDescription, shippingFormData, currency)
             };
         })
@@ -282,14 +282,14 @@ exports.handlers = {};
             switch (authResp.status) {
                 case "RETRY STILL FORBIDDEN": {
                     const error = new Error("Account temporally locked");
-                    webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.LOCKED);
+                    load_balancer_1.webApi.errorHttpCode.set(error, load_balancer_1.webApi.httpCodes.LOCKED);
                     throw error;
                 }
                 case "NOT VALIDATED YET":
                 case "NO SUCH ACCOUNT":
                 case "WRONG PASSWORD": {
                     const error = new Error("User not authenticated");
-                    webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.UNAUTHORIZED);
+                    load_balancer_1.webApi.errorHttpCode.set(error, load_balancer_1.webApi.httpCodes.UNAUTHORIZED);
                     throw error;
                 }
                 case "SUCCESS": break;
@@ -306,7 +306,7 @@ exports.handlers = {};
             }
             if (!(yield stripe.isUserSubscribed(authResp.auth))) {
                 const error = new Error("User does not have mobile subscription");
-                webApi_1.errorHttpCode.set(error, webApi_1.httpCodes.PAYMENT_REQUIRED);
+                load_balancer_1.webApi.errorHttpCode.set(error, load_balancer_1.webApi.httpCodes.PAYMENT_REQUIRED);
                 throw error;
             }
             const p_email = `enc_email=${gateway_1.misc.urlSafeB64.enc(auth.email)}`;

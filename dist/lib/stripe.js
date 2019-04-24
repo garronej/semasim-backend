@@ -9,84 +9,82 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const Stripe = require("stripe");
-const f = require("../tools/mysqlCustom");
 const deploy_1 = require("../deploy");
-const misc_1 = require("../tools/webApi/misc");
-const ts_events_extended_1 = require("ts-events-extended");
 const frontend_1 = require("../frontend");
-//import * as logger from "logger";
 const assert = require("assert");
-//const debug = logger.debugFactory();
-var db;
-(function (db) {
-    let buildInsertQuery;
-    /** Must be called and before use */
-    function launch() {
-        const api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_stripe" }), "HANDLE STRING ENCODING");
-        db.query = api.query;
-        db.esc = api.esc;
-        buildInsertQuery = api.buildInsertQuery;
-    }
-    db.launch = launch;
-    function setCustomerId(auth, customerId) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const sql = buildInsertQuery("customer", { "id": customerId, "user": auth.user }, "THROW ERROR");
-            yield db.query(sql, { "user": auth.user });
-        });
-    }
-    db.setCustomerId = setCustomerId;
-    function getCustomerId(auth) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const sql = [
-                `SELECT 1 FROM exempted WHERE email=${db.esc(auth.email)};`,
-                `SELECT id FROM customer WHERE user=${db.esc(auth.user)}`
-            ].join("\n");
-            const resp = yield db.query(sql, { "user": auth.user });
-            if (resp[0].length === 1) {
-                return {
-                    "customerStatus": "EXEMPTED",
-                    "customerId": undefined
-                };
-            }
-            return {
-                "customerStatus": "REGULAR",
-                "customerId": resp[1].length === 0 ? undefined : resp[1][0]["id"]
-            };
-        });
-    }
-    db.getCustomerId = getCustomerId;
-})(db || (db = {}));
+const loadBalancerLocalApiHandler = require("./toLoadBalancer/localApiHandlers");
 let stripe;
 const planByCurrency = {};
 const pricingByCurrency = {};
-exports.stripePublicApiKey = "";
+const customers = [];
 function launch() {
     return __awaiter(this, void 0, void 0, function* () {
-        db.launch();
-        const [public_key, secret_key] = (() => {
-            switch (deploy_1.deploy.getEnv()) {
-                case "DEV":
-                    return [
-                        "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
-                        "sk_test_tjDeOW7JrFihMOM3134bNpIO"
-                    ];
-                case "PROD":
-                    return [
-                        "pk_live_8DO3QFFWrOcwPslRVIHuGOMA",
-                        "sk_live_ipldnIG1MKgIvt8VhGCrDrff"
-                    ];
+        stripe = new Stripe(deploy_1.deploy.getStripeApiKeys().secretApiKey);
+        //NOTE: Fetch priceByCurrency
+        {
+            const { data } = yield stripe.plans.list({ "limit": 100 });
+            for (const { id, currency, amount } of data) {
+                planByCurrency[currency] = { id, amount };
+                pricingByCurrency[currency] = amount;
             }
-        })();
-        exports.stripePublicApiKey = public_key;
-        stripe = new Stripe(secret_key);
-        const { data } = yield stripe.plans.list({ "limit": 250 });
-        for (const { id, currency, amount } of data) {
-            planByCurrency[currency] = { id, amount };
-            pricingByCurrency[currency] = amount;
         }
+        //NOTE: Fetching of customer list.
+        {
+            let starting_after = undefined;
+            while (true) {
+                const customers_list_result = yield stripe.customers.list((() => {
+                    const customerListOptions = {
+                        "limit": 100,
+                        starting_after
+                    };
+                    return customerListOptions;
+                })());
+                customers_list_result.data.forEach(customer => customers.push(customer));
+                if (customers_list_result.has_more) {
+                    //TODO: test! 
+                    starting_after = customers_list_result.data[customers_list_result.data.length - 1].id;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        console.log(JSON.stringify(customers, null, 2));
+        loadBalancerLocalApiHandler.evtStripe.attach(({ type }) => type === "customer.updated", ({ data: { object } }) => {
+            const customer = object;
+            customers[customers.indexOf(customers.find(({ id }) => id === customer.id))] = customer;
+            console.log("customer.updated", JSON.stringify(customers, null, 2));
+        });
+        loadBalancerLocalApiHandler.evtStripe.attach(({ type }) => type === "customer.created", ({ data: { object } }) => {
+            const customer = object;
+            customers.push(customer);
+            console.log("customer.created", JSON.stringify(customers, null, 2));
+        });
+        loadBalancerLocalApiHandler.evtStripe.attach(({ type }) => type === "customer.deleted", ({ data: { object } }) => {
+            const { id } = object;
+            customers.splice(customers.indexOf(customers.find(customer => customer.id === id)), 1);
+            console.log("customer.deleted", JSON.stringify(customers, null, 2));
+        });
     });
 }
 exports.launch = launch;
+function getCustomerFromAuth(auth, one_time_or_subscription, customers) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return customers
+            .filter(({ metadata }) => metadata.one_time_or_subscription === one_time_or_subscription)
+            .find(({ metadata }) => metadata.auth_user === `${auth.user}`);
+    });
+}
+function createCustomerForAuth(auth, one_time_or_subscription) {
+    const metadata = {
+        one_time_or_subscription,
+        "auth_user": `${auth.user}`
+    };
+    return stripe.customers.create({
+        "email": auth.email,
+        metadata
+    });
+}
 /**
  * -Create new subscription
  * -Re-enable subscription that have been canceled.
@@ -94,23 +92,23 @@ exports.launch = launch;
  */
 function subscribeUser(auth, sourceId) {
     return __awaiter(this, void 0, void 0, function* () {
-        let { customerStatus, customerId } = yield db.getCustomerId(auth);
+        //let { customerStatus, customerId } = await db.getCustomerId(auth);
+        //TODO: Re-implement
+        const customerStatus = "REGULAR";
         if (customerStatus === "EXEMPTED") {
             return;
         }
-        if (customerId === undefined) {
+        let customer = yield getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
+        if (customer === undefined) {
             if (sourceId === undefined) {
                 throw new Error("assert");
             }
-            const { id } = yield stripe.customers.create({ "email": auth.email });
-            customerId = id;
-            yield db.setCustomerId(auth, customerId);
+            customer = yield createCustomerForAuth(auth, "SUBSCRIPTION");
         }
         if (sourceId !== undefined) {
-            yield stripe.customers.update(customerId, { "source": sourceId });
+            customer = yield stripe.customers.update(customer.id, { "source": sourceId });
         }
         else {
-            const customer = yield stripe.customers.retrieve(customerId);
             if (customer.default_source === null) {
                 throw new Error("assert");
             }
@@ -120,20 +118,19 @@ function subscribeUser(auth, sourceId) {
                 throw new Error("assert");
             }
         }
-        let { subscriptions: { data: subscriptions } } = yield stripe.customers.retrieve(customerId);
+        let { subscriptions: { data: subscriptions } } = customer;
         subscriptions = subscriptions.filter(({ status }) => status !== "canceled");
         if (subscriptions.length === 0) {
             yield stripe.subscriptions.create({
-                "customer": customerId,
+                "customer": customer.id,
                 "items": [{
-                        "plan": yield (() => __awaiter(this, void 0, void 0, function* () {
-                            const customer = yield stripe.customers.retrieve(customerId);
+                        "plan": (() => {
                             const currency = frontend_1.currencyLib.getCardCurrency(customer
                                 .sources
                                 .data
                                 .find(({ id }) => id === customer.default_source)["card"], pricingByCurrency);
                             return planByCurrency[currency].id;
-                        }))()
+                        })()
                     }]
             });
         }
@@ -151,14 +148,16 @@ exports.subscribeUser = subscribeUser;
 /** Assert customer exist and is subscribed */
 function unsubscribeUser(auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { customerStatus, customerId } = yield db.getCustomerId(auth);
+        //TODO: Re-implement
+        const customerStatus = "REGULAR";
         if (customerStatus === "EXEMPTED") {
             return;
         }
-        if (customerId === undefined) {
+        const customer = yield getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
+        if (customer === undefined) {
             throw new Error("assert");
         }
-        const { subscriptions: { data: subscriptions } } = yield stripe.customers.retrieve(customerId);
+        const { subscriptions: { data: subscriptions } } = customer;
         assert(subscriptions.length !== 0);
         const [{ id: subscriptionId }] = subscriptions;
         yield stripe.subscriptions.update(subscriptionId, {
@@ -167,22 +166,22 @@ function unsubscribeUser(auth) {
     });
 }
 exports.unsubscribeUser = unsubscribeUser;
-//TODO: Implement cache but first implement 3D Secure.
 function getSubscriptionInfos(auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { customerId, customerStatus } = yield db.getCustomerId(auth);
+        //TODO: Re-implement
+        const customerStatus = "REGULAR";
         if (customerStatus === "EXEMPTED") {
             return { customerStatus };
         }
         const out = {
             customerStatus,
-            stripePublicApiKey: exports.stripePublicApiKey,
+            "stripePublicApiKey": deploy_1.deploy.getStripeApiKeys().publicApiKey,
             pricingByCurrency
         };
-        if (customerId === undefined) {
+        const customer = yield getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
+        if (customer === undefined) {
             return out;
         }
-        const customer = yield stripe.customers.retrieve(customerId);
         const { account_balance } = customer;
         if (account_balance < 0) {
             out.due = {
@@ -222,25 +221,14 @@ function isUserSubscribed(auth) {
     });
 }
 exports.isUserSubscribed = isUserSubscribed;
-const evt = new ts_events_extended_1.SyncEvent();
-evt.attach(data => {
-    //TODO: Keep a local copy of subscriptions thanks to webhooks.
-    console.log("stripe webhook", JSON.stringify(data, null, 2));
-});
-function registerWebHooks(app) {
-    app.post("/stripe_webhooks", (res, req) => __awaiter(this, void 0, void 0, function* () {
-        const { isSuccess, data } = yield misc_1.bodyParser(res);
-        if (isSuccess) {
-            evt.post(JSON.parse(data.toString("utf8")));
-        }
-        req.status(200).send();
-    }));
-}
-exports.registerWebHooks = registerWebHooks;
 //TODO: Cart should be a set of product name quantity
 function createStripeCheckoutSession(auth, cartDescription, shippingFormData, currency) {
     return __awaiter(this, void 0, void 0, function* () {
         yield frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
+        let customer = yield getCustomerFromAuth(auth, "ONE-TIME", customers);
+        if (customer === undefined) {
+            customer = yield createCustomerForAuth(auth, "ONE-TIME");
+        }
         const cart = cartDescription.map(({ productName, quantity }) => ({
             "product": frontend_1.getShopProducts().find(({ name }) => name === productName),
             quantity
@@ -250,10 +238,15 @@ function createStripeCheckoutSession(auth, cartDescription, shippingFormData, cu
             .short_name.toLowerCase(), frontend_1.types.shop.Cart.getOverallFootprint(cart), frontend_1.types.shop.Cart.getOverallWeight(cart));
         const stripeShipping = frontend_1.types.shop.ShippingFormData.toStripeShippingInformation(shippingFormData, shipping.carrier);
         const sessionParams = {
+            /*
+            "subscription_data": {
+                "items": [ { "plan": "plan_E25sJsRtiJ0hh1", } ],
+                "trial_period_days": 180
+            },
+            */
             "success_url": `https://web.${deploy_1.deploy.getBaseDomain()}/shop?sucess=true`,
             "cancel_url": `https://web.${deploy_1.deploy.getBaseDomain()}/shop?success=false`,
-            "customer_email": auth.email,
-            "locale": "fr",
+            "customer": customer.id,
             "payment_method_types": ["card"],
             "payment_intent_data": {
                 "metadata": (() => {

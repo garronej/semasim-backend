@@ -2,14 +2,13 @@ import * as express from "express";
 import * as https from "https";
 import * as http from "http";
 import { handlers as apiHandlers } from "./apiHandlers";
-import * as apiServer from "../../tools/webApi";
+import { webApi as apiServer} from "../../load-balancer";
 import * as frontend from "../../frontend";
 import * as sessionManager from "./sessionManager";
 import * as morgan from "morgan";
 import * as logger from "logger";
 import { deploy } from "../../deploy";
 import * as compression from "compression";
-import * as stripe from "../stripe";
 import * as dbSemasim from "../dbSemasim";
 
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
@@ -94,9 +93,6 @@ export function launch(
             res.send(!!req.query.webview ? webView : unaltered);
 
         };
-
-
-    stripe.registerWebHooks(app);
 
     app
         .use(compression())

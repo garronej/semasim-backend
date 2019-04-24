@@ -1,80 +1,11 @@
 
 import * as Stripe from "stripe";
 import { Auth } from "../lib/web/sessionManager";
-import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
-import { bodyParser } from "../tools/webApi/misc";
-import { SyncEvent } from "ts-events-extended";
 import { types as feTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
-//import * as logger from "logger";
 import * as assert from "assert";
+import * as loadBalancerLocalApiHandler from "./toLoadBalancer/localApiHandlers";
 
-//const debug = logger.debugFactory();
-
-namespace db {
-
-    /** exported only for tests */
-    export let query: f.Api["query"];
-    export let esc: f.Api["esc"];
-    let buildInsertQuery: f.Api["buildInsertQuery"];
-
-    /** Must be called and before use */
-    export function launch() {
-
-        const api = f.createPoolAndGetApi({
-            ...deploy.dbAuth.value!,
-            "database": "semasim_stripe"
-        }, "HANDLE STRING ENCODING");
-
-        query = api.query;
-        esc = api.esc;
-        buildInsertQuery = api.buildInsertQuery;
-
-    }
-
-    export async function setCustomerId(auth: Auth, customerId: string): Promise<void> {
-
-        const sql = buildInsertQuery(
-            "customer",
-            { "id": customerId, "user": auth.user },
-            "THROW ERROR"
-        );
-
-        await query(sql, { "user": auth.user });
-
-    }
-
-    export async function getCustomerId(auth: Auth): Promise<{
-        customerStatus: "EXEMPTED";
-        customerId: undefined;
-    } | {
-        customerStatus: "REGULAR";
-        customerId: string | undefined;
-    }> {
-
-        const sql = [
-            `SELECT 1 FROM exempted WHERE email=${esc(auth.email)};`,
-            `SELECT id FROM customer WHERE user=${esc(auth.user)}`
-        ].join("\n");
-
-        const resp = await query(sql, { "user": auth.user });
-
-        if (resp[0].length === 1) {
-            return { 
-                "customerStatus": "EXEMPTED",
-                "customerId": undefined
-             };
-        }
-
-        return {
-            "customerStatus": "REGULAR",
-            "customerId": resp[1].length === 0 ? undefined : resp[1][0]["id"]
-        };
-
-
-    }
-
-}
 
 
 let stripe: Stripe;
@@ -83,41 +14,163 @@ const planByCurrency: { [currency: string]: { id: string; amount: number; } } = 
 
 const pricingByCurrency: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
 
-export let stripePublicApiKey = "";
+const customers: Stripe.customers.ICustomer[] = [];
 
 export async function launch() {
 
-    db.launch();
+    stripe = new Stripe(deploy.getStripeApiKeys().secretApiKey);
 
-    const [public_key, secret_key] = (() => {
-        switch (deploy.getEnv()) {
-            case "DEV":
-                return [
-                    "pk_test_Ai9vCY4RKGRCcRdXHCRMuZ4i",
-                    "sk_test_tjDeOW7JrFihMOM3134bNpIO"
-                ];
-            case "PROD":
-                return [
-                    "pk_live_8DO3QFFWrOcwPslRVIHuGOMA",
-                    "sk_live_ipldnIG1MKgIvt8VhGCrDrff"
-                ];
+    //NOTE: Fetch priceByCurrency
+    {
+
+        const { data } = await stripe.plans.list({ "limit": 100 });
+
+        for (const { id, currency, amount } of data) {
+
+            planByCurrency[currency] = { id, amount };
+            pricingByCurrency[currency] = amount;
+
         }
-    })();
-
-    stripePublicApiKey = public_key;
-
-    stripe = new Stripe(secret_key);
-
-    const { data } = await stripe.plans.list({ "limit": 250 });
-
-    for (const { id, currency, amount } of data) {
-
-        planByCurrency[currency] = { id, amount };
-        pricingByCurrency[currency] = amount;
 
     }
 
+
+    //NOTE: Fetching of customer list.
+    {
+
+        let starting_after: string | undefined = undefined;
+
+        while (true) {
+
+            const customers_list_result = await stripe.customers.list((() => {
+
+                const customerListOptions: Stripe.customers.ICustomerListOptions = {
+                    "limit": 100,
+                    starting_after
+                };
+
+
+                return customerListOptions;
+
+            })());
+
+            customers_list_result.data.forEach(customer => customers.push(customer));
+
+            if (customers_list_result.has_more) {
+
+                //TODO: test! 
+                starting_after = customers_list_result.data[customers_list_result.data.length - 1].id;
+
+            } else {
+
+                break;
+
+            }
+
+        }
+
+    }
+
+    console.log(JSON.stringify(customers, null, 2));
+
+
+    loadBalancerLocalApiHandler.evtStripe.attach(
+        ({ type }) => type === "customer.updated",
+        ({ data: { object } }) => {
+
+            const customer = object as Stripe.customers.ICustomer;
+
+            customers[
+                customers.indexOf(
+                    customers.find(
+                        ({ id }) => id === customer.id
+                    )!
+                )
+            ] = customer;
+
+            console.log("customer.updated", JSON.stringify(customers, null, 2));
+
+        }
+    );
+
+    loadBalancerLocalApiHandler.evtStripe.attach(
+        ({ type }) => type === "customer.created",
+        ({ data: { object } }) => {
+
+            const customer = object as Stripe.customers.ICustomer;
+
+            customers.push(customer);
+
+            console.log("customer.created", JSON.stringify(customers, null, 2));
+
+        }
+    );
+
+    loadBalancerLocalApiHandler.evtStripe.attach(
+        ({ type }) => type === "customer.deleted",
+        ({ data: { object } }) => {
+
+
+            const { id } = object as Stripe.customers.ICustomer;
+
+            customers.splice(
+                customers.indexOf(
+                    customers.find(customer => customer.id === id)!
+                ),
+                1
+            );
+
+            console.log("customer.deleted", JSON.stringify(customers, null, 2));
+
+
+        }
+    );
+
 }
+
+
+type CustomerMetadata = {
+    one_time_or_subscription: "ONE-TIME" | "SUBSCRIPTION"
+    auth_user: string;
+}
+
+async function getCustomerFromAuth(
+    auth: Auth,
+    one_time_or_subscription: CustomerMetadata["one_time_or_subscription"],
+    customers: Stripe.customers.ICustomer[]
+): Promise<Stripe.customers.ICustomer | undefined> {
+
+    return customers
+        .filter(({ metadata }) => (metadata as CustomerMetadata).one_time_or_subscription === one_time_or_subscription)
+        .find(({ metadata }) => (metadata as CustomerMetadata).auth_user === `${auth.user}`);
+
+}
+
+function createCustomerForAuth(
+    auth: Auth,
+    one_time_or_subscription: CustomerMetadata["one_time_or_subscription"]
+): Promise<Stripe.customers.ICustomer> {
+
+    const metadata: CustomerMetadata = {
+        one_time_or_subscription,
+        "auth_user": `${auth.user}`
+    };
+
+    return stripe.customers.create({
+        "email": auth.email,
+        metadata
+    });
+
+}
+
+
+
+
+
+
+
+
+
 
 /** 
  * -Create new subscription
@@ -126,41 +179,43 @@ export async function launch() {
  */
 export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void> {
 
-    let { customerStatus, customerId } = await db.getCustomerId(auth);
+    //let { customerStatus, customerId } = await db.getCustomerId(auth);
+
+
+    //TODO: Re-implement
+    const customerStatus: string = "REGULAR";
 
     if (customerStatus === "EXEMPTED") {
         return;
     }
 
-    if (customerId === undefined) {
+    let customer = await getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
+
+    if (customer === undefined) {
 
         if (sourceId === undefined) {
             throw new Error("assert");
         }
 
-        const { id } = await stripe.customers.create({ "email": auth.email });
-
-        customerId = id;
-
-        await db.setCustomerId(auth, customerId);
+        customer = await createCustomerForAuth(auth, "SUBSCRIPTION");
 
     }
 
     if (sourceId !== undefined) {
 
-        await stripe.customers.update(customerId, { "source": sourceId });
+        customer = await stripe.customers.update(
+            customer.id,
+            { "source": sourceId }
+        );
 
     } else {
-
-        const customer = await stripe.customers.retrieve(customerId);
 
         if (customer.default_source === null) {
             throw new Error("assert");
         }
 
-
         const state: string = customer.sources!.data
-            .find(({ id }) => id === customer.default_source)!["status"];
+            .find(({ id }) => id === customer!.default_source)!["status"];
 
         if (state !== "chargeable") {
             throw new Error("assert");
@@ -168,24 +223,22 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 
     }
 
-    let { subscriptions: { data: subscriptions } } = await stripe.customers.retrieve(customerId);
+    let { subscriptions: { data: subscriptions } } = customer;
 
     subscriptions = subscriptions.filter(({ status }) => status !== "canceled");
 
     if (subscriptions.length === 0) {
 
-        await stripe.subscriptions.create({
-            "customer": customerId,
+        await (stripe as any).subscriptions.create({
+            "customer": customer.id,
             "items": [{
-                "plan": await (async () => {
-
-                    const customer = await stripe.customers.retrieve(customerId);
+                "plan": (() => {
 
                     const currency = currencyLib.getCardCurrency(
                         customer
                             .sources!
                             .data
-                            .find(({ id }) => id === customer.default_source)!["card"],
+                            .find(({ id }) => id === customer!.default_source)!["card"],
                         pricingByCurrency
                     );
 
@@ -215,17 +268,20 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 /** Assert customer exist and is subscribed */
 export async function unsubscribeUser(auth: Auth): Promise<void> {
 
-    const { customerStatus, customerId } = await db.getCustomerId(auth);
+    //TODO: Re-implement
+    const customerStatus: string = "REGULAR";
 
     if (customerStatus === "EXEMPTED") {
         return;
     }
 
-    if (customerId === undefined) {
+    const customer = await getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
+
+    if (customer === undefined) {
         throw new Error("assert");
     }
 
-    const { subscriptions: { data: subscriptions } } = await stripe.customers.retrieve(customerId);
+    const { subscriptions: { data: subscriptions } } = customer;
 
     assert(subscriptions.length !== 0);
 
@@ -240,10 +296,11 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
 
 
-//TODO: Implement cache but first implement 3D Secure.
 export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.SubscriptionInfos> {
 
-    const { customerId, customerStatus } = await db.getCustomerId(auth);
+
+    //TODO: Re-implement
+    const customerStatus: "REGULAR" | "EXEMPTED" = "REGULAR" as any;
 
     if (customerStatus === "EXEMPTED") {
         return { customerStatus };
@@ -251,17 +308,16 @@ export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.Subscrip
 
     const out: feTypes.SubscriptionInfos.Regular = {
         customerStatus,
-        stripePublicApiKey,
+        "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
         pricingByCurrency
     };
 
-    if (customerId === undefined) {
+    const customer = await getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
 
+    if (customer === undefined) {
         return out;
-
     }
 
-    const customer = await stripe.customers.retrieve(customerId);
 
     const { account_balance } = customer;
 
@@ -305,7 +361,6 @@ export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.Subscrip
         };
 
     }
-
     return out;
 
 }
@@ -321,34 +376,11 @@ export async function isUserSubscribed(auth: Auth): Promise<boolean> {
 
 }
 
-const evt = new SyncEvent<any>();
 
-evt.attach(data => {
 
-    //TODO: Keep a local copy of subscriptions thanks to webhooks.
-    console.log("stripe webhook", JSON.stringify(data,null,2));
 
-});
 
-export function registerWebHooks(app: import("express").Express) {
 
-    app.post("/stripe_webhooks", async (res, req) => {
-
-        const { isSuccess, data } = await bodyParser(res);
-
-        if (isSuccess) {
-
-            evt.post(
-                JSON.parse(data.toString("utf8"))
-            );
-
-        }
-
-        req.status(200).send();
-
-    });
-
-}
 
 //TODO: Cart should be a set of product name quantity
 export async function createStripeCheckoutSession(
@@ -359,6 +391,14 @@ export async function createStripeCheckoutSession(
 ): Promise<string> {
 
     await currencyLib.convertFromEuro.refreshChangeRates();
+
+    let customer = await getCustomerFromAuth(auth, "ONE-TIME", customers);
+
+    if (customer === undefined) {
+
+        customer = await createCustomerForAuth(auth, "ONE-TIME");
+
+    }
 
     const cart: feTypes.shop.Cart = cartDescription.map(
         ({ productName, quantity }) => ({
@@ -381,10 +421,15 @@ export async function createStripeCheckoutSession(
     );
 
     const sessionParams = {
+        /*
+        "subscription_data": {
+            "items": [ { "plan": "plan_E25sJsRtiJ0hh1", } ],
+            "trial_period_days": 180
+        },
+        */
         "success_url": `https://web.${deploy.getBaseDomain()}/shop?sucess=true`,
         "cancel_url": `https://web.${deploy.getBaseDomain()}/shop?success=false`,
-        "customer_email": auth.email,
-        "locale": "fr", //TODO
+        "customer": customer.id,
         "payment_method_types": ["card"],
         "payment_intent_data": {
             "metadata": (() => {
@@ -421,9 +466,9 @@ export async function createStripeCheckoutSession(
             })),
             {
                 "amount": currencyLib.convertFromEuro(
-                    shipping.eurAmount, 
+                    shipping.eurAmount,
                     currency
-                    ),
+                ),
                 currency,
                 "name": `Shipping to ${stripeShipping.address.country}`,
                 "description": `~ ${shipping.delay.join("-")} working days`,

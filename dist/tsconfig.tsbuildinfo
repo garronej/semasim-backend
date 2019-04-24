@@ -46,8 +46,8 @@
         "signature": "3e0a459888f32b42138d5a39f706ff2d55d500ab1031e0988b5568b0f67c2303"
       },
       "c:/users/joseph/dropbox/shell/semasim/deploy/dist/lib/deploy.d.ts": {
-        "version": "a810b7a99446d402dbfa67dd03e20f487c8fcb5830eb4b1d8685b9465afc7c47",
-        "signature": "a810b7a99446d402dbfa67dd03e20f487c8fcb5830eb4b1d8685b9465afc7c47"
+        "version": "17f1ca4d6b2ff4a2e89211024cc220025cc0435375351e41cd9dcd4bca4453fb",
+        "signature": "17f1ca4d6b2ff4a2e89211024cc220025cc0435375351e41cd9dcd4bca4453fb"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/events/index.d.ts": {
         "version": "400db42c3a46984118bff14260d60cec580057dc1ab4c2d7310beb643e4f5935",
@@ -242,44 +242,24 @@
         "signature": "3f92806d53cc11f2c27c8f49d491fae9f05cb3e8bec01051c03c12f2a8a8627f"
       },
       "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts": {
-        "version": "e854913f5790943258937b3d979966b90f213f52b6b0078f25fdc92022b62074",
-        "signature": "e854913f5790943258937b3d979966b90f213f52b6b0078f25fdc92022b62074"
+        "version": "fb5c2b195af82499843e3c48ff562aaf69bf9a520899520f9df1cc3d1a6f6d5e",
+        "signature": "fb5c2b195af82499843e3c48ff562aaf69bf9a520899520f9df1cc3d1a6f6d5e"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/misc.d.ts": {
+        "version": "a5388263f60043ce9564e3956f6da1d66fc3979a1cc11e90acfeff694ad3dc5d",
+        "signature": "a5388263f60043ce9564e3956f6da1d66fc3979a1cc11e90acfeff694ad3dc5d"
       },
       "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts": {
         "version": "fa6a0d3af1141bbe9ae9351a8f13fb7ee803888ca673c9042e39808233682869",
         "signature": "fa6a0d3af1141bbe9ae9351a8f13fb7ee803888ca673c9042e39808233682869"
       },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts": {
-        "version": "9b0086b82bd1e0bb61bab78e3d2802fe01728088a8e66ac2676b7215e0f8069e",
-        "signature": "89a7b4f26bf959246b177b08f600380ba818fb533148e2576ffc19650a087089"
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/stripe/index.d.ts": {
+        "version": "347a9ae94ffc64b6e5a1f40941674c7ba671751b7ff422d2d593338b4bcb12b7",
+        "signature": "347a9ae94ffc64b6e5a1f40941674c7ba671751b7ff422d2d593338b4bcb12b7"
       },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts": {
-        "version": "e64648c5d646fde7e056578ade957887b730713df1723afdfb40a4ddcf235f8c",
-        "signature": "e64648c5d646fde7e056578ade957887b730713df1723afdfb40a4ddcf235f8c"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts": {
-        "version": "136824b23161cc778dbe946e929036241396711e2b6a32ff1f9ea002af65e7cf",
-        "signature": "136824b23161cc778dbe946e929036241396711e2b6a32ff1f9ea002af65e7cf"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts": {
-        "version": "99cdf357eb3ce861fad33cecf2089164825373402fff78c5e39c7a7396c4a830",
-        "signature": "e3faf14042df10c9f9c411147ad3d38141db1fda72f1b324cad55cf185f23b47"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/commander/typings/index.d.ts": {
-        "version": "ce0594a0432dce2f4e9f6130d538a52d6292ca323e729b75d8e0febd9134dc65",
-        "signature": "ce0594a0432dce2f4e9f6130d538a52d6292ca323e729b75d8e0febd9134dc65"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/installer.ts": {
-        "version": "70ab39aa6931003f4786c4f8fe108b5facb270d4e6bcf96d5551187dbb2194d9",
-        "signature": "9c0c310f10ca7bbb91e100100ea1d1b537c521d9e9ec68bef7d74cab946d81ee"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts": {
-        "version": "f222721b31f8150d845bdee0a70e26244cc4116b4bc998aad12206419c582ebb",
-        "signature": "f222721b31f8150d845bdee0a70e26244cc4116b4bc998aad12206419c582ebb"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts": {
-        "version": "5e90465e080e1b8b61285e84b403c619b1d4c241a3573305f2887eec187eaa92",
-        "signature": "5e90465e080e1b8b61285e84b403c619b1d4c241a3573305f2887eec187eaa92"
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/backendtoloadbalancer.d.ts": {
+        "version": "7b706c8de1d14c5575c682291a961241f03206346d978cee2466e31f2bd70f5d",
+        "signature": "7b706c8de1d14c5575c682291a961241f03206346d978cee2466e31f2bd70f5d"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/range-parser/index.d.ts": {
         "version": "4e88b833be14c7f384e0dcd57bb30acd799e8e34d212635d693e41a75a71164b",
@@ -312,6 +292,62 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts": {
         "version": "f85472756f9a0cdfc1beec784c8f73829ffd784816241c5b0480fb75506838a6",
         "signature": "f85472756f9a0cdfc1beec784c8f73829ffd784816241c5b0480fb75506838a6"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/express/index.d.ts": {
+        "version": "434d7d3188d85bd46c64dcc8268422ffdfdd19fdbc98ec01446d650414fcaa0b",
+        "signature": "434d7d3188d85bd46c64dcc8268422ffdfdd19fdbc98ec01446d650414fcaa0b"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/colors/index.d.ts": {
+        "version": "a17e831d16c27cbe4d6f0bb238c1ded0d4a26c282009e431c68733be0b792f4f",
+        "signature": "a17e831d16c27cbe4d6f0bb238c1ded0d4a26c282009e431c68733be0b792f4f"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts": {
+        "version": "7252bc96a49769a9e5ec60d9b78cf03e0421425bfe4f224dfbeeaa19d381cfc8",
+        "signature": "7252bc96a49769a9e5ec60d9b78cf03e0421425bfe4f224dfbeeaa19d381cfc8"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts": {
+        "version": "0040469b4f63c67294412e70af3a7a89080ba90c13893b87941141b12ed1407a",
+        "signature": "0040469b4f63c67294412e70af3a7a89080ba90c13893b87941141b12ed1407a"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/server.d.ts": {
+        "version": "c6123489b86b3236eda3429c7a6a3284f1ea9a19507df2671cc1f51458d7f95d",
+        "signature": "c6123489b86b3236eda3429c7a6a3284f1ea9a19507df2671cc1f51458d7f95d"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/index.d.ts": {
+        "version": "97defc208bb661badbe44044ecb84e32c7cceac11febd59c6ff298da66ea42cb",
+        "signature": "97defc208bb661badbe44044ecb84e32c7cceac11febd59c6ff298da66ea42cb"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts": {
+        "version": "f45a497058346a7f5fc7b6b31fb5fc8ccf26fd6f73bd21fd60d8861406fac7c9",
+        "signature": "b5dab0ec504175b1baad89b7af7e055f0e2542029b903cb224f57a2abadef1d1"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts": {
+        "version": "e64648c5d646fde7e056578ade957887b730713df1723afdfb40a4ddcf235f8c",
+        "signature": "e64648c5d646fde7e056578ade957887b730713df1723afdfb40a4ddcf235f8c"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts": {
+        "version": "136824b23161cc778dbe946e929036241396711e2b6a32ff1f9ea002af65e7cf",
+        "signature": "136824b23161cc778dbe946e929036241396711e2b6a32ff1f9ea002af65e7cf"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts": {
+        "version": "99cdf357eb3ce861fad33cecf2089164825373402fff78c5e39c7a7396c4a830",
+        "signature": "e3faf14042df10c9f9c411147ad3d38141db1fda72f1b324cad55cf185f23b47"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/commander/typings/index.d.ts": {
+        "version": "ce0594a0432dce2f4e9f6130d538a52d6292ca323e729b75d8e0febd9134dc65",
+        "signature": "ce0594a0432dce2f4e9f6130d538a52d6292ca323e729b75d8e0febd9134dc65"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/installer.ts": {
+        "version": "70ab39aa6931003f4786c4f8fe108b5facb270d4e6bcf96d5551187dbb2194d9",
+        "signature": "9c0c310f10ca7bbb91e100100ea1d1b537c521d9e9ec68bef7d74cab946d81ee"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts": {
+        "version": "f222721b31f8150d845bdee0a70e26244cc4116b4bc998aad12206419c582ebb",
+        "signature": "f222721b31f8150d845bdee0a70e26244cc4116b4bc998aad12206419c582ebb"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts": {
+        "version": "5e90465e080e1b8b61285e84b403c619b1d4c241a3573305f2887eec187eaa92",
+        "signature": "5e90465e080e1b8b61285e84b403c619b1d4c241a3573305f2887eec187eaa92"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts": {
         "version": "7391882d3b1b55829a684985466ed58a10dc41bfad78a4a0cfc1d1c345918ddb",
@@ -1317,29 +1353,21 @@
         "version": "365e0a8fb98622476c6bc1edab608cda47af5c5120a6b319a0174f63ed3ceb05",
         "signature": "365e0a8fb98622476c6bc1edab608cda47af5c5120a6b319a0174f63ed3ceb05"
       },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/json_custom.d.ts": {
-        "version": "c5b52409ab13729e63743505f73f148d598f14ed04616615ad0f66bc53946c8e",
-        "signature": "c5b52409ab13729e63743505f73f148d598f14ed04616615ad0f66bc53946c8e"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts": {
-        "version": "19392ba86a997b19ff0eb57795df385037971eca701ee2d78ba7ad451d40e46f",
-        "signature": "0040469b4f63c67294412e70af3a7a89080ba90c13893b87941141b12ed1407a"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/colors/index.d.ts": {
-        "version": "a17e831d16c27cbe4d6f0bb238c1ded0d4a26c282009e431c68733be0b792f4f",
-        "signature": "a17e831d16c27cbe4d6f0bb238c1ded0d4a26c282009e431c68733be0b792f4f"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts": {
-        "version": "20a921b363afa2e0131540b1fd995fd8609d3e51ae5d6cafe73ba5b98f163736",
-        "signature": "7252bc96a49769a9e5ec60d9b78cf03e0421425bfe4f224dfbeeaa19d381cfc8"
-      },
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/ts-events-extended/dist/lib/index.d.ts": {
         "version": "bc2aa2a3e1a5a6bb6366f9a9427632197796d75658ce9ef545ec829738850e45",
         "signature": "bc2aa2a3e1a5a6bb6366f9a9427632197796d75658ce9ef545ec829738850e45"
       },
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/backendtoloadbalancer.ts": {
+        "version": "115eaa821e10d1153a3cd1e2d59abdd2bb2d76e97f3343a47636563366a1a459",
+        "signature": "6d74696d88ea651cee69dee159e83799dfc3f821b5d110eb09ca981c20d386b2"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/localapihandlers.ts": {
+        "version": "2f6db18f37aaa13ca97203bd87876cfe5dde2e8772e07b2cacb2528b69e286cf",
+        "signature": "4309d9df855bb934be48486042455dc63e28ffaba6115df00e85960fa6b82e82"
+      },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/stripe.ts": {
-        "version": "e7f8db922bff9d6c6e97607e03365e13ccf8bb155485feec7473e6acdf06fd4d",
-        "signature": "f942ecd9bd52a9187f67b944fd643f8d1f4b78401c6b86b321c5af5467df2332"
+        "version": "c94db653b2bbb24098578336395cd8483fdb2f323af7ab7b46b697ec32ed35c5",
+        "signature": "6eb7f654313d2bcb2151403e79ebf32352591d553abf8441538054458a59df3b"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toua/localapihandlers.ts": {
         "version": "b642e3b43ca561a4115f174d8ed8be7bad0fd5564136414b0960d45af61ed4e2",
@@ -1374,20 +1402,12 @@
         "signature": "1d199568110d821510b7687d0dee5a34440e5a885b433c9bd8605aeccf41b21d"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/connection.ts": {
-        "version": "990d9874e013e91bf4c82c4cc598736de463699c1a998b917e454d29ed6b26db",
+        "version": "f8ba6d4c334dacc9611b88656c61d71589a0be4a43e832ca11891a21622fb426",
         "signature": "c9ee96d68bf26060bc61b51b57c54dd9ade3b13dd20968ce9a2b7555905973f9"
       },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/server.ts": {
-        "version": "718f842f3c0218f4611b160528e1ee13321e948260a59261b3c3be4369a9f80f",
-        "signature": "c6123489b86b3236eda3429c7a6a3284f1ea9a19507df2671cc1f51458d7f95d"
-      },
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts": {
-        "version": "dbcec62b1d4958c7b26f6965ce298aa34f1c6d5beb5dd851b21456823c2eb437",
-        "signature": "97defc208bb661badbe44044ecb84e32c7cceac11febd59c6ff298da66ea42cb"
-      },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts": {
-        "version": "e0bb187c691bb7d68d05ce1ea051f85927ad6e6c144f7d96df5929cb8158c8f8",
-        "signature": "1a297799717adbac1f1e547acc9f15304c264f28af753dd3b3c16efc8ec9b997"
+        "version": "fc36a3c6e6cfe9745f4f4d72d10e23b072a72e2dcb16d4a8d1862ad01d23bd81",
+        "signature": "7757e0f36fbabe86a1bcb58b9bd01910dca4985d4b68d866b3131b5bb29e88f0"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/morgan/index.d.ts": {
         "version": "fc20fb48224b5162c584b7907221cce2c03bd01a1af59036ccbb23e094796350",
@@ -1398,7 +1418,7 @@
         "signature": "96540c10532f7cab762185084744738f504244164689dfa11c140008cc321177"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/launch.ts": {
-        "version": "048af2b02db20dfdce3e0a6bd0e2543f52bec0789e65dc9c3a0fbad54dd94cda",
+        "version": "8d4b4ed7d4d5a3ebf576e5e7092d19cb6dd404d9212186c845b6e072d07088ad",
         "signature": "c5aa1b7f6543a77fb5e0468790a227a4587e679851225da978aa5fe1a825e3dd"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/changerates.ts": {
@@ -1416,6 +1436,10 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/chan-dongle-extended-client/dist/lib/misc.d.ts": {
         "version": "b29b97f871986793b5398c581650235202eba60ed9ed600aa46c0eae77b5cc84",
         "signature": "b29b97f871986793b5398c581650235202eba60ed9ed600aa46c0eae77b5cc84"
+      },
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/json_custom.d.ts": {
+        "version": "c5b52409ab13729e63743505f73f148d598f14ed04616615ad0f66bc53946c8e",
+        "signature": "c5b52409ab13729e63743505f73f148d598f14ed04616615ad0f66bc53946c8e"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/stringtransform.d.ts": {
         "version": "0efcf10d28e9dfb1cb6ecd192337de56e7b930cf23a47434cf284502cd4992a1",
@@ -1643,29 +1667,11 @@
       "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts": [
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/stripe/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/installer.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/deploy.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/commander/typings/index.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/backendtoloadbalancer.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/stripe/index.d.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-serve-static-core/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
@@ -1689,6 +1695,60 @@
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/express/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/body-parser/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/serve-static/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-serve-static-core/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/colors/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/server.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/server.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/misc.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/backendtoloadbalancer.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/installer.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/deploy.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/commander/typings/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts": [
@@ -3438,31 +3498,26 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/stripe/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/json_custom.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/colors/index.d.ts"
-      ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/ts-events-extended/dist/lib/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/syncevent.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/defs.d.ts"
       ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/backendtoloadbalancer.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/localapihandlers.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/ts-sip/dist/lib/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/backendtoloadbalancer.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/stripe/index.d.ts"
+      ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/stripe.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/stripe/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/mysqlcustom.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/deploy.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts",
-        "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/frontend.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts"
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/localapihandlers.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toua/localapihandlers.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/backendtoua.ts",
@@ -3546,23 +3601,14 @@
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/logger/dist/lib/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/tobackend/connections.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/launch.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/dbsemasim.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/server.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/server.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts"
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/dbsemasim.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/localapihandlers.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/deploy.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/src/frontend.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/dbsemasim.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toua/localapihandlers.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/emailsender.ts",
@@ -3582,14 +3628,13 @@
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/frontend.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/morgan/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/logger/dist/lib/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/deploy.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/compression/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/stripe.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/dbsemasim.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/changerates.ts": [
@@ -3817,19 +3862,11 @@
       "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts": [
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/stripe/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/backendtoloadbalancer.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/stripe/index.d.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-serve-static-core/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
@@ -3853,6 +3890,50 @@
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/express/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/body-parser/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/serve-static/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-serve-static-core/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/colors/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/server.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/server.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/misc.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/backendtoloadbalancer.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts": [
@@ -5545,21 +5626,19 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/stripe/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/node/index.d.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/colors/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts"
-      ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/ts-events-extended/dist/lib/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/syncevent.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/defs.d.ts"
       ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/backendtoloadbalancer.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts"
+      ],
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/localapihandlers.ts": [
+        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/stripe/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/ts-sip/dist/lib/index.d.ts",
+        "c:/users/joseph/dropbox/shell/semasim/frontend/shared/node_modules/ts-events-extended/dist/lib/index.d.ts"
+      ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/stripe.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/frontend.ts"
       ],
@@ -5591,17 +5670,8 @@
         "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/ts-sip/dist/lib/index.d.ts",
         "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts"
       ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/server.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts"
-      ],
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/server.ts",
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts"
-      ],
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts": [
-        "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts"
+        "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts"
       ],
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/morgan/index.d.ts": [
         "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts"
@@ -5700,15 +5770,10 @@
       "c:/users/joseph/dropbox/shell/semasim/gateway/dist/sip_api_declarations/gatewaytobackend.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/gateway.ts",
       "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/types.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/lib/misc.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/loadbalancertobackend.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/commander/typings/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/installer.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/stripe/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/sip_api_declarations/backendtoloadbalancer.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/range-parser/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-serve-static-core/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mime/index.d.ts",
@@ -5717,6 +5782,20 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/body-parser/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/express-session/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/@types/express/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/node_modules/colors/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/misc.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/types.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/server.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/load-balancer/dist/tools/webapi/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/load-balancer.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/get_caller_file_path.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/scripting-tools/dist/lib/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/geoiplookup.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/commander/typings/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/installer.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ws/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/mysql/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/sessionmanager.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/async-lock/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/mysqlcustom.ts",
@@ -5968,11 +6047,9 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/phone-number/dist/lib/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/emailsender.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/stripe/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/json_custom.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/types.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/colors/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/misc.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/ts-events-extended/dist/lib/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/backendtoloadbalancer.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/localapihandlers.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/stripe.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toua/localapihandlers.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/cookie/index.d.ts",
@@ -5983,8 +6060,7 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/src/sip_api_declarations/loadbalancertobackend.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/remoteapicaller.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/toloadbalancer/connection.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/server.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/webapi/index.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/morgan/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/compression/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/launch.ts",
@@ -5992,6 +6068,7 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/launch.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/main.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/chan-dongle-extended-client/dist/lib/misc.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/json_custom.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/stringtransform.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/stringtransformext.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/transfer-tools/dist/lib/testing.d.ts",
@@ -6002,8 +6079,7 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/html-entities/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/long/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/uuid/interfaces.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/uuid/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts"
+      "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/uuid/index.d.ts"
     ]
   },
   "version": "3.4.1"

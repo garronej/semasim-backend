@@ -1,2 +1,2 @@
-import { Handlers } from "../../tools/webApi";
-export declare const handlers: Handlers;
+import { webApi } from "../../load-balancer";
+export declare const handlers: webApi.Handlers;

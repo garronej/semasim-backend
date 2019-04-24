@@ -36,13 +36,13 @@
     "phone-number": "github:garronej/phone-number",
     "scripting-tools": "github:garronej/scripting-tools",
     "stripe": "^6.29.0",
-    "transfer-tools": "garronej/transfer-tools",
     "ts-events-extended": "garronej/ts-events-extended",
     "ts-sip": "github:garronej/ts-sip",
     "uuid": "^3.2.1",
     "ws": "^4.0.0"
   },
   "devDependencies": {
+    "transfer-tools": "garronej/transfer-tools",
     "@types/async-lock": "^1.1.0",
     "@types/compression": "0.0.36",
     "@types/cookie": "^0.3.2",

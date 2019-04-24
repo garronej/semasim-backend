@@ -10,14 +10,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
 const apiHandlers_1 = require("./apiHandlers");
-const apiServer = require("../../tools/webApi");
+const load_balancer_1 = require("../../load-balancer");
 const frontend = require("../../frontend");
 const sessionManager = require("./sessionManager");
 const morgan = require("morgan");
 const logger = require("logger");
 const deploy_1 = require("../../deploy");
 const compression = require("compression");
-const stripe = require("../stripe");
 const dbSemasim = require("../dbSemasim");
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
 const debug = logger.debugFactory();
@@ -35,7 +34,7 @@ function launch(httpsServer, httpServer) {
     app
         .use((req, res, next) => req.get("host") === deploy_1.deploy.getBaseDomain() ?
         res.redirect(`https://www.semasim.com${req.originalUrl}`) : next());
-    apiServer.init({
+    load_balancer_1.webApi.init({
         app,
         "apiPath": frontend.webApiDeclaration.apiPath,
         "handlers": apiHandlers_1.handlers,
@@ -50,7 +49,7 @@ function launch(httpsServer, httpServer) {
                 }
             }
         },
-        "logger": apiServer.getDefaultLogger({
+        "logger": load_balancer_1.webApi.getDefaultLogger({
             "logOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true,
             "log": logger.log,
             "stringifyAuthentication": req => {
@@ -71,7 +70,6 @@ function launch(httpsServer, httpServer) {
         const { unaltered, webView } = frontend.getPage(pageName);
         res.send(!!req.query.webview ? webView : unaltered);
     };
-    stripe.registerWebHooks(app);
     app
         .use(compression())
         .use(express.static(frontend.static_dir_path))
@@ -146,7 +144,7 @@ function launch(httpsServer, httpServer) {
         if (resp instanceof Error) {
             debug("Authenticate user db error", resp);
             //NOTE: Probably hack attempt but in the doubt blame our code.
-            res.status(apiServer.httpCodes.INTERNAL_SERVER_ERROR).end();
+            res.status(load_balancer_1.webApi.httpCodes.INTERNAL_SERVER_ERROR).end();
             return;
         }
         if (resp.status === "SUCCESS") {

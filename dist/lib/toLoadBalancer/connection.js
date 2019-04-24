@@ -16,16 +16,28 @@ const logger = require("logger");
 const backendConnections = require("../toBackend/connections");
 const launch_1 = require("../launch");
 const dbSemasim = require("../dbSemasim");
+const localApiHandlers_1 = require("./localApiHandlers");
+const deploy_1 = require("../../deploy");
 const debug = logger.debugFactory();
+const idString = "backendToLoadBalancer";
+//NOTE: we create it dynamically so we do not call deploy.getEnv on import.
+let apiServer = undefined;
 function connect() {
     return __awaiter(this, void 0, void 0, function* () {
         const loadBalancerSocket = new sip.Socket(net.connect({
-            "host": yield load_balancer_1.types.getAddress(),
-            "port": load_balancer_1.types.port,
+            "host": yield load_balancer_1.misc.getListeningAddressForBackendConnection(),
+            "port": load_balancer_1.misc.listeningPortForBackendConnection,
             "localAddress": launch_1.getLocalRunningInstance().interfaceAddress
         }), true);
+        if (apiServer === undefined) {
+            apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
+                idString,
+                "log": logger.log,
+                "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
+            }));
+        }
+        apiServer.startListening(loadBalancerSocket);
         sip.api.client.enableKeepAlive(loadBalancerSocket);
-        const idString = "backendToLoadBalancer";
         sip.api.client.enableErrorLogging(loadBalancerSocket, sip.api.client.getDefaultErrorLogger({
             idString,
             "log": logger.log
