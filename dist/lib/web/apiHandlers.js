@@ -225,16 +225,33 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.createStripeCheckoutSession.methodName;
+    const methodName = frontend_1.webApiDeclaration.createStripeCheckoutSessionForShop.methodName;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": ({ cartDescription, shippingFormData, currency }, session) => __awaiter(this, void 0, void 0, function* () {
+        "handler": (params, session) => __awaiter(this, void 0, void 0, function* () {
+            const { cartDescription, shippingFormData, currency, success_url, cancel_url } = params;
             const auth = sessionManager.getAuth(session);
             return {
                 "stripePublicApiKey": deploy_1.deploy.getStripeApiKeys().publicApiKey,
-                "checkoutSessionId": yield stripe.createStripeCheckoutSession(auth, cartDescription, shippingFormData, currency)
+                "checkoutSessionId": yield stripe.createCheckoutSessionForShop(auth, cartDescription, shippingFormData, currency, success_url, cancel_url)
+            };
+        })
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const methodName = frontend_1.webApiDeclaration.createStripeCheckoutSessionForSubscription.methodName;
+    const handler = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => { /*TODO*/ return true; },
+        "handler": ({ currency, success_url, cancel_url }, session) => __awaiter(this, void 0, void 0, function* () {
+            const auth = sessionManager.getAuth(session);
+            return {
+                "stripePublicApiKey": deploy_1.deploy.getStripeApiKeys().publicApiKey,
+                "checkoutSessionId": yield stripe.createCheckoutSessionForSubscription(auth, currency, success_url, cancel_url)
             };
         })
     };
@@ -245,7 +262,7 @@ exports.handlers = {};
     const handler = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
-        "sanityCheck": (params) => params instanceof Object,
+        "sanityCheck": params => params instanceof Object,
         "handler": () => __awaiter(this, void 0, void 0, function* () { return Buffer.from(gateway_1.version, "utf8"); })
     };
     exports.handlers[methodName] = handler;

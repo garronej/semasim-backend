@@ -3,9 +3,11 @@ import * as Stripe from "stripe";
 import { Auth } from "../lib/web/sessionManager";
 import { deploy } from "../deploy";
 import { types as feTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
+import { types as lbTypes } from "../load-balancer";
 import * as assert from "assert";
 import * as loadBalancerLocalApiHandler from "./toLoadBalancer/localApiHandlers";
-
+import * as fs from "fs";
+import * as path from "path";
 
 
 let stripe: Stripe;
@@ -15,6 +17,28 @@ const planByCurrency: { [currency: string]: { id: string; amount: number; } } = 
 const pricingByCurrency: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
 
 const customers: Stripe.customers.ICustomer[] = [];
+
+async function getCustomerStatus(email: string) {
+    return JSON.parse(
+        (await new Promise<Buffer>(
+            (resolve, reject) =>
+                fs.readFile(
+                    path.join(__dirname, "..", "..", "res", "exempted_customers.json"),
+                    (error, data) => {
+
+                        if (!!error) {
+                            reject(error);
+
+                        } else {
+                            resolve(data);
+                        }
+
+                    }
+                )
+        )).toString("utf8")
+    ).indexOf(email) >= 0 ? "EXEMPTED" : "REGULAR";
+
+}
 
 export async function launch() {
 
@@ -33,7 +57,6 @@ export async function launch() {
         }
 
     }
-
 
     //NOTE: Fetching of customer list.
     {
@@ -71,60 +94,112 @@ export async function launch() {
 
     }
 
-    console.log(JSON.stringify(customers, null, 2));
+    {
 
+        const eventName: lbTypes.StripeEventsType = "customer.updated";
 
-    loadBalancerLocalApiHandler.evtStripe.attach(
-        ({ type }) => type === "customer.updated",
-        ({ data: { object } }) => {
+        loadBalancerLocalApiHandler.evtStripe.attach(
+            ({ type }) => type === eventName,
+            ({ data: { object } }) => {
 
-            const customer = object as Stripe.customers.ICustomer;
+                const customer = object as Stripe.customers.ICustomer;
 
-            customers[
-                customers.indexOf(
+                let index = customers.indexOf(
                     customers.find(
                         ({ id }) => id === customer.id
                     )!
-                )
-            ] = customer;
+                );
 
-            console.log("customer.updated", JSON.stringify(customers, null, 2));
+                if (index < 0) {
 
-        }
-    );
+                    index = customers.length;
+                }
 
-    loadBalancerLocalApiHandler.evtStripe.attach(
-        ({ type }) => type === "customer.created",
-        ({ data: { object } }) => {
+                customers[index] = customer;
 
-            const customer = object as Stripe.customers.ICustomer;
+                console.log(eventName, JSON.stringify(customers, null, 2));
 
-            customers.push(customer);
+            }
+        );
 
-            console.log("customer.created", JSON.stringify(customers, null, 2));
+    }
 
-        }
-    );
+    {
 
-    loadBalancerLocalApiHandler.evtStripe.attach(
-        ({ type }) => type === "customer.deleted",
-        ({ data: { object } }) => {
+        const eventName: lbTypes.StripeEventsType = "customer.created";
 
+        loadBalancerLocalApiHandler.evtStripe.attach(
+            ({ type }) => type === eventName,
+            ({ data: { object } }) => {
 
-            const { id } = object as Stripe.customers.ICustomer;
+                const customer = object as Stripe.customers.ICustomer;
 
-            customers.splice(
-                customers.indexOf(
-                    customers.find(customer => customer.id === id)!
-                ),
-                1
-            );
+                if ((customer.metadata as CustomerMetadata).auth_user === undefined) {
+                    return;
+                }
 
-            console.log("customer.deleted", JSON.stringify(customers, null, 2));
+                customers.push(customer);
 
+                console.log(eventName, JSON.stringify(customers, null, 2));
 
-        }
-    );
+            }
+        );
+
+    }
+
+    {
+
+        const eventName: lbTypes.StripeEventsType = "customer.deleted";
+
+        loadBalancerLocalApiHandler.evtStripe.attach(
+            ({ type }) => type === eventName,
+            ({ data: { object } }) => {
+
+                const { id } = object as Stripe.customers.ICustomer;
+
+                customers.splice(
+                    customers.indexOf(
+                        customers.find(customer => customer.id === id)!
+                    ),
+                    1
+                );
+
+                console.log(eventName, JSON.stringify(customers, null, 2));
+
+            }
+        );
+
+    }
+
+    {
+
+        const eventName: lbTypes.StripeEventsType = "customer.subscription.updated";
+
+        loadBalancerLocalApiHandler.evtStripe.attach(
+            ({ type }) => type === eventName,
+            ({ data: { object } }) => {
+
+                const subscription: Stripe.subscriptions.ISubscription = object as any;
+
+                {
+
+                    const customerSubscriptions = customers.find(({ id }) => id === subscription.customer)!
+                        .subscriptions
+                        .data;
+
+                    customerSubscriptions[
+                        customerSubscriptions.indexOf(
+                            customerSubscriptions.find(({ id }) => id === subscription.id)!
+                        )
+                    ] = subscription;
+                }
+
+                console.log(eventName, JSON.stringify(customers, null, 2));
+
+            }
+        );
+
+    }
 
 }
 
@@ -133,6 +208,7 @@ type CustomerMetadata = {
     one_time_or_subscription: "ONE-TIME" | "SUBSCRIPTION"
     auth_user: string;
 }
+
 
 async function getCustomerFromAuth(
     auth: Auth,
@@ -172,104 +248,13 @@ function createCustomerForAuth(
 
 
 
-/** 
- * -Create new subscription
- * -Re-enable subscription that have been canceled.
- * -Update default source for user.
- */
-export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void> {
-
-    //let { customerStatus, customerId } = await db.getCustomerId(auth);
-
-
-    //TODO: Re-implement
-    const customerStatus: string = "REGULAR";
-
-    if (customerStatus === "EXEMPTED") {
-        return;
-    }
-
-    let customer = await getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
-
-    if (customer === undefined) {
-
-        if (sourceId === undefined) {
-            throw new Error("assert");
-        }
-
-        customer = await createCustomerForAuth(auth, "SUBSCRIPTION");
-
-    }
-
-    if (sourceId !== undefined) {
-
-        customer = await stripe.customers.update(
-            customer.id,
-            { "source": sourceId }
-        );
-
-    } else {
-
-        if (customer.default_source === null) {
-            throw new Error("assert");
-        }
-
-        const state: string = customer.sources!.data
-            .find(({ id }) => id === customer!.default_source)!["status"];
-
-        if (state !== "chargeable") {
-            throw new Error("assert");
-        }
-
-    }
-
-    let { subscriptions: { data: subscriptions } } = customer;
-
-    subscriptions = subscriptions.filter(({ status }) => status !== "canceled");
-
-    if (subscriptions.length === 0) {
-
-        await (stripe as any).subscriptions.create({
-            "customer": customer.id,
-            "items": [{
-                "plan": (() => {
-
-                    const currency = currencyLib.getCardCurrency(
-                        customer
-                            .sources!
-                            .data
-                            .find(({ id }) => id === customer!.default_source)!["card"],
-                        pricingByCurrency
-                    );
-
-                    return planByCurrency[currency].id;
-
-                })()
-            }]
-        });
-
-    } else {
-
-        const [subscription] = subscriptions;
-
-        if (subscription.cancel_at_period_end) {
-
-            await stripe.subscriptions.update(subscription.id, {
-                "cancel_at_period_end": false
-            });
-
-        }
-
-    }
-
-}
 
 
 /** Assert customer exist and is subscribed */
 export async function unsubscribeUser(auth: Auth): Promise<void> {
 
     //TODO: Re-implement
-    const customerStatus: string = "REGULAR";
+    const customerStatus= await getCustomerStatus(auth.email);
 
     if (customerStatus === "EXEMPTED") {
         return;
@@ -287,11 +272,27 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
     const [{ id: subscriptionId }] = subscriptions;
 
-    await stripe.subscriptions.update(subscriptionId, {
-        "cancel_at_period_end": true
-    });
+    stripe.subscriptions.update(
+        subscriptionId,
+        { "cancel_at_period_end": true }
+    );
+
+    {
+
+        const eventName: lbTypes.StripeEventsType = "customer.subscription.updated";
+
+        await loadBalancerLocalApiHandler.evtStripe.waitFor(
+            ({ type, data: { object } }) => (
+                type === eventName &&
+                (object as Stripe.subscriptions.ISubscription).id === subscriptionId
+            )
+        );
+
+    }
+
 
 }
+
 
 
 
@@ -300,7 +301,7 @@ export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.Subscrip
 
 
     //TODO: Re-implement
-    const customerStatus: "REGULAR" | "EXEMPTED" = "REGULAR" as any;
+    const customerStatus= await getCustomerStatus(auth.email);
 
     if (customerStatus === "EXEMPTED") {
         return { customerStatus };
@@ -345,6 +346,8 @@ export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.Subscrip
 
     }
 
+    //TODO: Fetch payment method instead. 
+    /*
     if (customer.default_source !== null) {
 
         const source = customer.sources!.data
@@ -361,6 +364,8 @@ export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.Subscrip
         };
 
     }
+    */
+
     return out;
 
 }
@@ -377,17 +382,169 @@ export async function isUserSubscribed(auth: Auth): Promise<boolean> {
 }
 
 
+/** 
+ * -Create new subscription
+ * -Re-enable subscription that have been canceled.
+ * -Update default source for user.
+ */
+export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void> {
+
+    const customerStatus= await getCustomerStatus(auth.email);
+
+    if (customerStatus === "EXEMPTED") {
+        return;
+    }
+
+    let customer = await getCustomerFromAuth(auth, "SUBSCRIPTION", customers);
+
+    if (customer === undefined) {
+
+        if (sourceId === undefined) {
+            throw new Error("assert");
+        }
+
+        customer = await createCustomerForAuth(auth, "SUBSCRIPTION");
+
+    }
+
+    if (sourceId !== undefined) {
+
+        customer = await stripe.customers.update(
+            customer.id,
+            { "source": sourceId }
+        );
+
+    } else {
+
+        if (customer.default_source === null) {
+            throw new Error("assert");
+        }
+
+        const state: string = customer.sources!.data
+            .find(({ id }) => id === customer!.default_source)!["status"];
+
+        if (state !== "chargeable") {
+            throw new Error("assert");
+        }
+
+    }
 
 
+    const subscriptions = customer.subscriptions.data
+        .filter(({ status }) => status !== "canceled");
+
+    if (subscriptions.length === 0) {
+
+        await (stripe as any).subscriptions.create({
+            "customer": customer.id,
+            "items": [{
+                "plan": (() => {
+
+                    const currency = currencyLib.getCardCurrency(
+                        customer
+                            .sources!
+                            .data
+                            .find(({ id }) => id === customer!.default_source)!["card"],
+                        pricingByCurrency
+                    );
+
+                    return planByCurrency[currency].id;
+
+                })()
+            }]
+        });
+
+    } else {
+
+        const [subscription] = subscriptions;
+
+        if (subscription.cancel_at_period_end) {
+
+            await stripe.subscriptions.update(subscription.id, {
+                "cancel_at_period_end": false
+            });
+
+        }
+
+    }
+
+}
+
+
+
+//TODO: validate that currency is one of the supported
+export async function createCheckoutSessionForSubscription(
+    auth: Auth,
+    currency: string,
+    success_url: string,
+    cancel_url: string
+): Promise<string> {
+
+    await currencyLib.convertFromEuro.refreshChangeRates();
+
+    assert(await getCustomerFromAuth(auth, "SUBSCRIPTION", customers) === undefined);
+
+    //TODO: Implement for real 
+    const shouldHaveTrialPeriodOffered = await getCustomerFromAuth(auth, "ONE-TIME", customers) !== undefined;
+
+    const sessionParams = {
+        success_url,
+        cancel_url,
+        "customer_email": auth.email,
+        "payment_method_types": ["card"],
+        "subscription_data": {
+            "items": [{ "plan": planByCurrency[currency].id, }],
+            "trial_period_days": shouldHaveTrialPeriodOffered ? 180 : undefined
+        },
+    };
+
+    {
+
+        const eventName: lbTypes.StripeEventsType = "customer.created";
+
+        const metadata: CustomerMetadata = {
+            "one_time_or_subscription": "SUBSCRIPTION",
+            "auth_user": `${auth.user}`
+        };
+
+        loadBalancerLocalApiHandler.evtStripe.attachOnce(
+            ({ type, data: { object: customer } }) => (
+                type === eventName &&
+                (customer as Stripe.customers.ICustomer).email === auth.email
+            ),
+            ({ data: { object } }) => stripe.customers.update(
+                (object as Stripe.customers.ICustomer).id,
+                { metadata }
+            )
+
+        );
+
+    }
+
+    const session = await (stripe as any).checkout.sessions.create(
+        sessionParams
+    ).catch(error => error as Error);
+
+    if (session instanceof Error) {
+
+        throw session;
+
+    }
+
+    return session.id;
+
+}
 
 
 
 //TODO: Cart should be a set of product name quantity
-export async function createStripeCheckoutSession(
+export async function createCheckoutSessionForShop(
     auth: Auth,
     cartDescription: { productName: string; quantity: number; }[],
     shippingFormData: feTypes.shop.ShippingFormData,
-    currency: string
+    currency: string,
+    success_url: string,
+    cancel_url: string
 ): Promise<string> {
 
     await currencyLib.convertFromEuro.refreshChangeRates();
@@ -421,14 +578,8 @@ export async function createStripeCheckoutSession(
     );
 
     const sessionParams = {
-        /*
-        "subscription_data": {
-            "items": [ { "plan": "plan_E25sJsRtiJ0hh1", } ],
-            "trial_period_days": 180
-        },
-        */
-        "success_url": `https://web.${deploy.getBaseDomain()}/shop?sucess=true`,
-        "cancel_url": `https://web.${deploy.getBaseDomain()}/shop?success=false`,
+        success_url,
+        cancel_url,
         "customer": customer.id,
         "payment_method_types": ["card"],
         "payment_intent_data": {

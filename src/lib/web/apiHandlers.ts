@@ -381,25 +381,67 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.createStripeCheckoutSession.methodName;
-    type Params = apiDeclaration.createStripeCheckoutSession.Params;
-    type Response = apiDeclaration.createStripeCheckoutSession.Response;
+    const methodName = apiDeclaration.createStripeCheckoutSessionForShop.methodName;
+    type Params = apiDeclaration.createStripeCheckoutSessionForShop.Params;
+    type Response = apiDeclaration.createStripeCheckoutSessionForShop.Response;
 
     const handler: webApi.Handler.JSON<Params, Response> = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": async ({ cartDescription, shippingFormData, currency }, session) => {
+        "handler": async (params, session) => {
+
+            const { 
+                cartDescription, 
+                shippingFormData, 
+                currency, 
+                success_url, 
+                cancel_url 
+            } = params;
+            
 
             const auth = sessionManager.getAuth(session)!;
 
             return {
                 "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
-                "checkoutSessionId": await stripe.createStripeCheckoutSession(
+                "checkoutSessionId": await stripe.createCheckoutSessionForShop(
                     auth,
                     cartDescription,
                     shippingFormData,
-                    currency
+                    currency,
+                    success_url,
+                    cancel_url
+                )
+            };
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const methodName = apiDeclaration.createStripeCheckoutSessionForSubscription.methodName;
+    type Params = apiDeclaration.createStripeCheckoutSessionForSubscription.Params;
+    type Response = apiDeclaration.createStripeCheckoutSessionForSubscription.Response;
+
+    const handler: webApi.Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => { /*TODO*/ return true; },
+        "handler": async ({ currency, success_url, cancel_url }, session) => {
+
+            const auth = sessionManager.getAuth(session)!;
+
+            return {
+                "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
+                "checkoutSessionId": await stripe.createCheckoutSessionForSubscription(
+                    auth,
+                    currency,
+                    success_url,
+                    cancel_url
                 )
             };
 
@@ -418,7 +460,7 @@ export const handlers: webApi.Handlers = {};
     const handler: webApi.Handler.Generic<Params> = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
-        "sanityCheck": (params) => params instanceof Object,
+        "sanityCheck": params => params instanceof Object,
         "handler": async () => Buffer.from(semasim_gateway_version, "utf8")
     };
 
