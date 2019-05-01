@@ -47,7 +47,7 @@ function getPage(pageName) {
     const ejs_file_path = path.join(page_dir_path, "page.ejs");
     const read = () => {
         const [unaltered, webView] = [false, true]
-            .map(isWebView => ({ "assets_root": getAssetsRoot(deploy_1.deploy.getEnv()), isWebView }))
+            .map(isWebView => ({ "assets_root": getAssetsRoot(deploy_1.deploy.getEnv()), isWebView, "isDevEnv": deploy_1.deploy.getEnv() === "DEV" }))
             .map(data => ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), data, { "root": templates_dir_path }))
             .map(renderedPage => Buffer.from(renderedPage, "utf8"));
         getPage.cache[pageName] = { unaltered, webView };

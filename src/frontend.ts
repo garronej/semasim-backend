@@ -64,7 +64,7 @@ export function getPage(pageName: string): typeof getPage.cache["string"] {
     const read = () => {
 
         const [unaltered, webView] = [false, true]
-            .map(isWebView => ({ "assets_root": getAssetsRoot(deploy.getEnv()), isWebView }))
+            .map(isWebView => ({ "assets_root": getAssetsRoot(deploy.getEnv()), isWebView, "isDevEnv": deploy.getEnv() === "DEV" }))
             .map(data => ejs.render(fs.readFileSync(ejs_file_path).toString("utf8"), data, { "root": templates_dir_path }))
             .map(renderedPage => Buffer.from(renderedPage, "utf8"))
 
