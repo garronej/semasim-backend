@@ -1418,7 +1418,7 @@
         "signature": "96540c10532f7cab762185084744738f504244164689dfa11c140008cc321177"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/launch.ts": {
-        "version": "8d4b4ed7d4d5a3ebf576e5e7092d19cb6dd404d9212186c845b6e072d07088ad",
+        "version": "60311ed09ca21a38cf330fc0a366aa7de5bf064fd206b3c9b9c010aed3b86b95",
         "signature": "c5aa1b7f6543a77fb5e0468790a227a4587e679851225da978aa5fe1a825e3dd"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/changerates.ts": {
@@ -5748,6 +5748,7 @@
       "c:/users/joseph/dropbox/shell/semasim/frontend/shared/dist/sip_api_declarations/uatobackend.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/ejs/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/logger/dist/lib/index.d.ts",
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/frontend.ts",
       "c:/users/joseph/dropbox/shell/semasim/gateway/dist/lib/types.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/gateway/dist/lib/misc/bundleddata.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/gateway/dist/lib/misc/sanitychecks.d.ts",
@@ -6063,7 +6064,6 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/apihandlers.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/morgan/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/compression/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/launch.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/tools/changerates.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/launch.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/src/bin/main.ts",
@@ -6080,7 +6080,7 @@
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/long/index.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/uuid/interfaces.d.ts",
       "c:/users/joseph/dropbox/shell/semasim/backend/node_modules/@types/uuid/index.d.ts",
-      "c:/users/joseph/dropbox/shell/semasim/backend/src/frontend.ts"
+      "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/web/launch.ts"
     ]
   },
   "version": "3.4.1"

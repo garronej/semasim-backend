@@ -108,7 +108,7 @@ export function launch(
                 "webphone",
                 "subscription",
                 "shop",
-                "_android",
+                "webviewphone",
             ].map(v => `/${v}`).indexOf(req.path.toLowerCase()) === -1) {
 
                 debug(`Consider banning IP ${req.connection.remoteAddress} asking for ${req.method} ${req.originalUrl}`);
@@ -248,7 +248,7 @@ export function launch(
         .get("/webphone", sendHtml("webphone"))
         .get("/subscription", sendHtml("subscription"))
         .get("/shop", sendHtml("shop"))
-        .get("/_android", sendHtml("_android"))
+        .get("/webviewphone", sendHtml("webviewphone"))
         ;
 
     httpsServer.on("request", app);
