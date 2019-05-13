@@ -9,6 +9,7 @@ import * as loadBalancerLocalApiHandler from "./toLoadBalancer/localApiHandlers"
 import * as fs from "fs";
 import * as path from "path";
 
+const ALL_CUSTOMERS_EXEMPTED= true;
 
 let stripe: Stripe;
 
@@ -18,7 +19,12 @@ const pricingByCurrency: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] 
 
 const customers: Stripe.customers.ICustomer[] = [];
 
-async function getCustomerStatus(email: string) {
+async function getCustomerStatus(email: string): Promise<"EXEMPTED" | "REGULAR"> {
+
+    if( ALL_CUSTOMERS_EXEMPTED ){
+        return "EXEMPTED";
+    }
+
     return JSON.parse(
         (await new Promise<Buffer>(
             (resolve, reject) =>

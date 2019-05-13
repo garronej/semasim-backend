@@ -15,12 +15,16 @@ const assert = require("assert");
 const loadBalancerLocalApiHandler = require("./toLoadBalancer/localApiHandlers");
 const fs = require("fs");
 const path = require("path");
+const ALL_CUSTOMERS_EXEMPTED = true;
 let stripe;
 const planByCurrency = {};
 const pricingByCurrency = {};
 const customers = [];
 function getCustomerStatus(email) {
     return __awaiter(this, void 0, void 0, function* () {
+        if (ALL_CUSTOMERS_EXEMPTED) {
+            return "EXEMPTED";
+        }
         return JSON.parse((yield new Promise((resolve, reject) => fs.readFile(path.join(__dirname, "..", "..", "res", "exempted_customers.json"), (error, data) => {
             if (!!error) {
                 reject(error);
