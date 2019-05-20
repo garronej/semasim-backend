@@ -1,6 +1,9 @@
 
-import * as types from "../../frontend/shared/dist/lib/types";
-import * as currencyLib from "../../frontend/shared/dist/lib/tools/currency";
+import * as types from "../../frontend/shared/dist/lib/types/userSim";
+import * as subscriptionTypes from "../../frontend/shared/dist/lib/types/subscription";
+import * as shopTypes from "../../frontend/shared/dist/lib/types/shop";
+import * as wd from "../../frontend/shared/dist/lib/types/webphoneData/types";
+import * as currencyLib from "../../frontend/shared/dist/tools/currency";
 import { getProducts } from "../../frontend/shared/dist/lib/shopProducts";
 import * as shipping from "../../frontend/shared/dist/lib/shipping";
 import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declaration";
@@ -16,6 +19,9 @@ const debug = logger.debugFactory();
 export {
     webApiDeclaration,
     types,
+    subscriptionTypes,
+    shopTypes,
+    wd,
     currencyLib,
     shipping,
     api_decl_backendToUa,

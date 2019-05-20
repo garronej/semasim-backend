@@ -445,7 +445,6 @@ exports.handlers = {};
     };
     exports.handlers[methodName] = handler;
 }
-//Web UA data
 /**
  format: `"<urn:uuid:f0c12631-a721-3da9-aa41-7122952b90ba>"`
 */
@@ -467,6 +466,7 @@ exports.getUserWebUaInstanceId = getUserWebUaInstanceId;
     };
     exports.handlers[methodName] = handler;
 }
+//Web UA data
 {
     const methodName = backendToUa_1.apiDeclaration.getOrCreateInstance.methodName;
     const handler = {
@@ -481,10 +481,12 @@ exports.getUserWebUaInstanceId = getUserWebUaInstanceId;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             typeof params.instance_id === "number" &&
-            typeof params.contactNumber === "string" &&
-            typeof params.contactName === "string" &&
-            (typeof params.contactIndexInSim === "number" ||
-                params.contactIndexInSim === null)),
+            params.contactNumber instanceof Object &&
+            typeof params.contactNumber.encrypted_string === "string" &&
+            params.contactName instanceof Object &&
+            typeof params.contactName.encrypted_string === "string" &&
+            params.contactIndexInSim instanceof Object &&
+            typeof params.contactIndexInSim.encrypted_number_or_null === "string"),
         "handler": (params, socket) => dbWebphone.newChat(connections.getAuth(socket), params.instance_id, params.contactNumber, params.contactName, params.contactIndexInSim)
     };
     exports.handlers[methodName] = handler;
@@ -503,10 +505,12 @@ exports.getUserWebUaInstanceId = getUserWebUaInstanceId;
     const methodName = backendToUa_1.apiDeclaration.updateChat.methodName;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
-            typeof params.chat_id === "number" && (params.contactIndexInSim === undefined ||
-            params.contactIndexInSim === null ||
-            typeof params.contactIndexInSim === "number") && (params.contactName === undefined ||
-            typeof params.contactName === "string") && (params.idOfLastMessageSeen === undefined ||
+            typeof params.chat_id === "number" &&
+            (params.contactIndexInSim === undefined ||
+                params.contactIndexInSim instanceof Object &&
+                    typeof params.contactIndexInSim.encrypted_number_or_null === "string") && (params.contactName === undefined ||
+            params.contactName instanceof Object &&
+                typeof params.contactName.encrypted_string === "string") && (params.idOfLastMessageSeen === undefined ||
             params.idOfLastMessageSeen === null ||
             typeof params.idOfLastMessageSeen === "number")),
         "handler": (params, socket) => dbWebphone.updateChat(connections.getAuth(socket), params.chat_id, params.contactIndexInSim, params.contactName, params.idOfLastMessageSeen).then(() => undefined)
@@ -526,23 +530,26 @@ exports.getUserWebUaInstanceId = getUserWebUaInstanceId;
     const methodName = backendToUa_1.apiDeclaration.newMessage.methodName;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
-            typeof params.chat_id === "number" && (() => {
-            const m = params.message;
-            return (m instanceof Object &&
-                typeof m.time === "number" &&
-                typeof m.text === "string" &&
-                ((m.direction === "INCOMING" &&
-                    typeof m.isNotification === "boolean")
-                    ||
-                        (m.direction === "OUTGOING" && ((m.status === "PENDING" &&
-                            true) || (m.status === "SEND REPORT RECEIVED" &&
-                            typeof m.isSentSuccessfully === "boolean") || (m.status === "STATUS REPORT RECEIVED" &&
-                            (typeof m.deliveredTime === "number" ||
-                                m.deliveredTime === null) && (m.sentBy instanceof Object &&
-                            (m.sentBy.who === "USER" ||
-                                (m.sentBy.who === "OTHER" &&
-                                    typeof m.sentBy.email === "string"))))))));
-        })()),
+            typeof params.chat_id === "number" &&
+            (() => {
+                const m = params.message;
+                return (m instanceof Object &&
+                    typeof m.time === "number" &&
+                    m.text instanceof Object &&
+                    typeof m.text.encrypted_string === "string" &&
+                    ((m.direction === "INCOMING" &&
+                        typeof m.isNotification === "boolean")
+                        ||
+                            (m.direction === "OUTGOING" && ((m.status === "PENDING" &&
+                                true) || (m.status === "SEND REPORT RECEIVED" &&
+                                typeof m.isSentSuccessfully === "boolean") || (m.status === "STATUS REPORT RECEIVED" &&
+                                (typeof m.deliveredTime === "number" ||
+                                    m.deliveredTime === null) && (m.sentBy instanceof Object &&
+                                (m.sentBy.who === "USER" ||
+                                    (m.sentBy.who === "OTHER" &&
+                                        m.sentBy.email instanceof Object &&
+                                        typeof m.sentBy.email.encrypted_string === "string"))))))));
+            })()),
         "handler": ({ chat_id, message }, socket) => dbWebphone.newMessage(connections.getAuth(socket), chat_id, message)
     };
     exports.handlers[methodName] = handler;

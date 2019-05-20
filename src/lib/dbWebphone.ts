@@ -1,5 +1,4 @@
-import { types as feTypes } from "../frontend";
-import wd = feTypes.webphoneData;
+import { wd } from "../frontend";
 import { Auth } from "./web/sessionManager";
 import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
@@ -14,10 +13,10 @@ let buildInsertQuery: f.Api["buildInsertQuery"];
 /** Must be called and awaited before use */
 export function launch() {
 
-    let api = f.createPoolAndGetApi({
+    const api = f.createPoolAndGetApi({
         ...deploy.dbAuth.value,
         "database": "semasim_webphone",
-    }, "HANDLE STRING ENCODING");
+    });
 
     query = api.query;
     esc = api.esc;
@@ -30,25 +29,25 @@ export async function flush() {
     await query("DELETE FROM instance");
 }
 
-function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
+function parseMessage(row: Record<string, f.TSql>): { message: wd.Message<"ENCRYPTED">; chat_id: number; } {
 
     //NOTE: Typescript fail to infer that message is always init.
-    let message: wd.Message = null as any;
+    let message: wd.Message<"ENCRYPTED"> = null as any;
 
-    const id_: number = row["id_"];
-    const time: number = row["time"];
-    const text: string = row["text"];
-    const direction: wd.Message._Base["direction"] =
+    const id_= row["id_"] as number;
+    const time= row["time"] as number;
+    const text = { "encrypted_string": row["text_enc"] as string };
+    const direction: wd.Message._Base<"ENCRYPTED">["direction"] =
         row["is_incoming"] === 1 ? "INCOMING" : "OUTGOING";
 
     switch (direction) {
         case "INCOMING": {
 
-            const isNotification: boolean = row["incoming_is_notification"] === 1;
+            const isNotification = row["incoming_is_notification"] === 1;
 
             if (isNotification) {
 
-                const m: wd.Message.Incoming.Notification = {
+                const m: wd.Message.Incoming.Notification<"ENCRYPTED"> = {
                     id_, time, text, direction, isNotification
                 };
 
@@ -56,7 +55,7 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
 
             } else {
 
-                const m: wd.Message.Incoming.Text = {
+                const m: wd.Message.Incoming.Text<"ENCRYPTED"> = {
                     id_, time, text, direction, isNotification
                 };
 
@@ -67,7 +66,7 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
         } break;
         case "OUTGOING": {
 
-            const status: wd.Message.Outgoing._Base["status"] = (() => {
+            const status: wd.Message.Outgoing._Base<"ENCRYPTED">["status"] = (() => {
                 switch (row["outgoing_status_code"] as (0 | 1 | 2)) {
                     case 0: return "PENDING";
                     case 1: return "SEND REPORT RECEIVED";
@@ -78,7 +77,7 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
             switch (status) {
                 case "PENDING": {
 
-                    const m: wd.Message.Outgoing.Pending = {
+                    const m: wd.Message.Outgoing.Pending<"ENCRYPTED"> = {
                         id_, time, text, direction, status
                     };
 
@@ -87,7 +86,7 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
                 } break;
                 case "SEND REPORT RECEIVED": {
 
-                    const m: wd.Message.Outgoing.SendReportReceived = {
+                    const m: wd.Message.Outgoing.SendReportReceived<"ENCRYPTED"> = {
                         id_, time, text, direction, status,
                         "isSentSuccessfully":
                             row["outgoing_is_sent_successfully"] === 1
@@ -99,15 +98,15 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
                 } break;
                 case "STATUS REPORT RECEIVED": {
 
-                    const deliveredTime: number | null =
-                        row["outgoing_delivered_time"];
+                    const deliveredTime=
+                        row["outgoing_delivered_time"] as number | null;
 
-                    const email: string | null =
-                        row["outgoing_sent_by_email"];
+                    const email_enc =
+                        row["outgoing_sent_by_email_enc"] as string | null;
 
-                    if (email === null) {
+                    if (email_enc === null) {
 
-                        const m: wd.Message.Outgoing.StatusReportReceived.SentByUser = {
+                        const m: wd.Message.Outgoing.StatusReportReceived.SentByUser<"ENCRYPTED"> = {
                             id_, time, text, direction, status,
                             deliveredTime,
                             "sentBy": { "who": "USER" }
@@ -115,17 +114,15 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
 
                         message = m;
 
-
                     } else {
 
-                        const m: wd.Message.Outgoing.StatusReportReceived.SentByOther = {
+                        const m: wd.Message.Outgoing.StatusReportReceived.SentByOther<"ENCRYPTED"> = {
                             id_, time, text, direction, status,
                             deliveredTime,
-                            "sentBy": { "who": "OTHER", email }
+                            "sentBy": { "who": "OTHER", "email": { "encrypted_string": email_enc } }
                         };
 
                         message = m;
-
 
                     }
 
@@ -138,14 +135,14 @@ function parseMessage(row: any): { message: wd.Message; chat_id: number; } {
 
     assert(!!message);
 
-    return { message, "chat_id": row["chat"] };
+    return { message, "chat_id": row["chat"] as number };
 
 }
 
 export async function getOrCreateInstance(
     auth: Auth,
     imsi: string
-): Promise<{ instance_id: number; chats: wd.Chat[]; }> {
+): Promise<{ instance_id: number; chats: wd.Chat<"ENCRYPTED">[]; }> {
 
     const sql = [
         "SELECT @instance_ref:=NULL;",
@@ -168,17 +165,17 @@ export async function getOrCreateInstance(
 
     const resp = await query(sql, { "user": auth.user });
 
-    const chatById = new Map<number, wd.Chat>();
+    const chatById = new Map<number, wd.Chat<"ENCRYPTED">>();
 
-    for (const row of resp[3]) {
+    for (const row of resp[3] as Record<string,f.TSql>[]) {
 
-        const chat: wd.Chat = {
-            "id_": row["id_"],
-            "contactNumber": row["contact_number"],
-            "contactName": row["contact_name"],
-            "contactIndexInSim": row["contact_index_in_sim"],
+        const chat: wd.Chat<"ENCRYPTED"> = {
+            "id_": row["id_"] as number,
+            "contactNumber": { "encrypted_string": row["contact_number_enc"] as string },
+            "contactName": { "encrypted_string": row["contact_name_enc"] as string },
+            "contactIndexInSim": { "encrypted_number_or_null": row["contact_index_in_sim_enc"] as string },
             "messages": [],
-            "idOfLastMessageSeen": row["last_message_seen"]
+            "idOfLastMessageSeen": row["last_message_seen"] as number | null
         };
 
         chatById.set(chat.id_, chat);
@@ -212,9 +209,9 @@ export async function getOrCreateInstance(
 export async function newChat(
     auth: Auth,
     instance_id: number,
-    contactNumber: string,
-    contactName: string,
-    contactIndexInSim: number | null
+    contactNumber: wd.Encryptable["string"]["ENCRYPTED"],
+    contactName: wd.Encryptable["string"]["ENCRYPTED"],
+    contactIndexInSim: wd.Encryptable["number | null"]["ENCRYPTED"]
 ): Promise<{ chat_id: number; }> {
 
 
@@ -225,9 +222,9 @@ export async function newChat(
         `;`,
         buildInsertQuery("chat", {
             "instance": instance_id,
-            "contact_number": contactNumber,
-            "contact_name": contactName,
-            "contact_index_in_sim": contactIndexInSim,
+            "contact_number_enc": contactNumber.encrypted_string,
+            "contact_name_enc": contactName.encrypted_string,
+            "contact_index_in_sim_enc": contactIndexInSim.encrypted_number_or_null,
             "last_message_seen": null
         }, "THROW ERROR")
     ].join("\n");
@@ -243,7 +240,7 @@ export async function fetchOlderMessages(
     auth: Auth,
     chat_id: number,
     olderThanMessageId: number
-): Promise<wd.Message[]> {
+): Promise<wd.Message<"ENCRYPTED">[]> {
 
     const sql = [
         `SELECT @older_than_time:=NULL`,
@@ -276,27 +273,22 @@ export async function fetchOlderMessages(
 
 }
 
-
-
-
-
-
 export async function updateChat(
     auth: Auth,
     chat_id: number,
-    contactIndexInSim: number | null | undefined,
-    contactName: string | undefined,
+    contactIndexInSim: wd.Encryptable["number | null"]["ENCRYPTED"] | undefined,
+    contactName: wd.Encryptable["string"]["ENCRYPTED"] | undefined,
     idOfLastMessageSeen: number | null | undefined
 ): Promise<void> {
 
     const fields: { [key: string]: f.TSql } = { "id_": chat_id };
 
     if (contactIndexInSim !== undefined) {
-        fields["contact_index_in_sim"] = contactIndexInSim;
+        fields["contact_index_in_sim_enc"] = contactIndexInSim.encrypted_number_or_null;
     }
 
     if (contactName !== undefined) {
-        fields["contact_name"] = contactName;
+        fields["contact_name_enc"] = contactName.encrypted_string;
     }
 
     if (idOfLastMessageSeen !== undefined) {
@@ -343,21 +335,20 @@ export async function newMessage(
     auth: Auth,
     chat_id: number,
     message: wd.NoId<
-        wd.Message.Incoming |
-        wd.Message.Outgoing.Pending |
-        wd.Message.Outgoing.StatusReportReceived
+        wd.Message.Incoming<"ENCRYPTED"> |
+        wd.Message.Outgoing.Pending<"ENCRYPTED"> |
+        wd.Message.Outgoing.StatusReportReceived<"ENCRYPTED">
         >
 ): Promise<{ message_id: number; }> {
 
-    const m: wd.Message = { ...message, "id_": NaN } as any;
+    const m: wd.Message<"ENCRYPTED"> = { ...message, "id_": NaN } as any;
 
     let is_incoming: 0 | 1;
     let incoming_is_notification: 0 | 1 | null = null;
     let outgoing_status_code: 0 | 1 | 2 | null = null;
     let outgoing_is_sent_successfully: 0 | 1 | null = null;
     let outgoing_delivered_time: number | null = null;
-    let outgoing_sent_by_email: string | null = null;
-
+    let outgoing_sent_by_email_enc: string | null = null;
 
     if (m.direction === "INCOMING") {
 
@@ -381,7 +372,7 @@ export async function newMessage(
                 outgoing_status_code = 2;
                 outgoing_delivered_time = m.deliveredTime;
                 if (m.sentBy.who === "OTHER") {
-                    outgoing_sent_by_email = m.sentBy.email;
+                    outgoing_sent_by_email_enc = m.sentBy.email.encrypted_string;
                 }
                 break;
         }
@@ -397,13 +388,13 @@ export async function newMessage(
         buildInsertQuery("message", {
             "chat": chat_id,
             "time": message.time,
-            "text": message.text,
+            "text_enc": message.text.encrypted_string,
             is_incoming,
             incoming_is_notification,
             outgoing_status_code,
             outgoing_is_sent_successfully,
             outgoing_delivered_time,
-            outgoing_sent_by_email
+            outgoing_sent_by_email_enc
         }, "THROW ERROR")
     ].join("\n");
 

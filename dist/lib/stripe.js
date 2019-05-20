@@ -325,8 +325,8 @@ function createCheckoutSessionForShop(auth, cartDescription, shippingFormData, c
         }));
         const shipping = frontend_1.shipping.solve(shippingFormData.addressComponents
             .find(({ types: [type] }) => type === "country")
-            .short_name.toLowerCase(), frontend_1.types.shop.Cart.getOverallFootprint(cart), frontend_1.types.shop.Cart.getOverallWeight(cart));
-        const stripeShipping = frontend_1.types.shop.ShippingFormData.toStripeShippingInformation(shippingFormData, shipping.carrier);
+            .short_name.toLowerCase(), frontend_1.shopTypes.Cart.getOverallFootprint(cart), frontend_1.shopTypes.Cart.getOverallWeight(cart));
+        const stripeShipping = frontend_1.shopTypes.ShippingFormData.toStripeShippingInformation(shippingFormData, shipping.carrier);
         const sessionParams = {
             success_url,
             cancel_url,
@@ -345,7 +345,7 @@ function createCheckoutSessionForShop(auth, cartDescription, shippingFormData, c
             },
             "line_items": [
                 ...cart.map(({ product, quantity }) => ({
-                    "amount": frontend_1.types.shop.Price.getAmountInCurrency(product.price, currency, frontend_1.currencyLib.convertFromEuro),
+                    "amount": frontend_1.shopTypes.Price.getAmountInCurrency(product.price, currency, frontend_1.currencyLib.convertFromEuro),
                     currency,
                     "name": product.name,
                     "description": product.shortDescription,

@@ -15,7 +15,7 @@ let esc;
 let buildInsertQuery;
 /** Must be called and awaited before use */
 function launch() {
-    let api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_webphone" }), "HANDLE STRING ENCODING");
+    const api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_webphone" }));
     exports.query = api.query;
     esc = api.esc;
     buildInsertQuery = api.buildInsertQuery;
@@ -33,7 +33,7 @@ function parseMessage(row) {
     let message = null;
     const id_ = row["id_"];
     const time = row["time"];
-    const text = row["text"];
+    const text = { "encrypted_string": row["text_enc"] };
     const direction = row["is_incoming"] === 1 ? "INCOMING" : "OUTGOING";
     switch (direction) {
         case "INCOMING":
@@ -83,8 +83,8 @@ function parseMessage(row) {
                     case "STATUS REPORT RECEIVED":
                         {
                             const deliveredTime = row["outgoing_delivered_time"];
-                            const email = row["outgoing_sent_by_email"];
-                            if (email === null) {
+                            const email_enc = row["outgoing_sent_by_email_enc"];
+                            if (email_enc === null) {
                                 const m = {
                                     id_, time, text, direction, status,
                                     deliveredTime,
@@ -96,7 +96,7 @@ function parseMessage(row) {
                                 const m = {
                                     id_, time, text, direction, status,
                                     deliveredTime,
-                                    "sentBy": { "who": "OTHER", email }
+                                    "sentBy": { "who": "OTHER", "email": { "encrypted_string": email_enc } }
                                 };
                                 message = m;
                             }
@@ -134,9 +134,9 @@ function getOrCreateInstance(auth, imsi) {
         for (const row of resp[3]) {
             const chat = {
                 "id_": row["id_"],
-                "contactNumber": row["contact_number"],
-                "contactName": row["contact_name"],
-                "contactIndexInSim": row["contact_index_in_sim"],
+                "contactNumber": { "encrypted_string": row["contact_number_enc"] },
+                "contactName": { "encrypted_string": row["contact_name_enc"] },
+                "contactIndexInSim": { "encrypted_number_or_null": row["contact_index_in_sim_enc"] },
                 "messages": [],
                 "idOfLastMessageSeen": row["last_message_seen"]
             };
@@ -166,9 +166,9 @@ function newChat(auth, instance_id, contactNumber, contactName, contactIndexInSi
             `;`,
             buildInsertQuery("chat", {
                 "instance": instance_id,
-                "contact_number": contactNumber,
-                "contact_name": contactName,
-                "contact_index_in_sim": contactIndexInSim,
+                "contact_number_enc": contactNumber.encrypted_string,
+                "contact_name_enc": contactName.encrypted_string,
+                "contact_index_in_sim_enc": contactIndexInSim.encrypted_number_or_null,
                 "last_message_seen": null
             }, "THROW ERROR")
         ].join("\n");
@@ -211,10 +211,10 @@ function updateChat(auth, chat_id, contactIndexInSim, contactName, idOfLastMessa
     return __awaiter(this, void 0, void 0, function* () {
         const fields = { "id_": chat_id };
         if (contactIndexInSim !== undefined) {
-            fields["contact_index_in_sim"] = contactIndexInSim;
+            fields["contact_index_in_sim_enc"] = contactIndexInSim.encrypted_number_or_null;
         }
         if (contactName !== undefined) {
-            fields["contact_name"] = contactName;
+            fields["contact_name_enc"] = contactName.encrypted_string;
         }
         if (idOfLastMessageSeen !== undefined) {
             fields["last_message_seen"] = idOfLastMessageSeen;
@@ -256,7 +256,7 @@ function newMessage(auth, chat_id, message) {
         let outgoing_status_code = null;
         let outgoing_is_sent_successfully = null;
         let outgoing_delivered_time = null;
-        let outgoing_sent_by_email = null;
+        let outgoing_sent_by_email_enc = null;
         if (m.direction === "INCOMING") {
             is_incoming = f.bool.enc(true);
             incoming_is_notification = f.bool.enc(m.isNotification);
@@ -276,7 +276,7 @@ function newMessage(auth, chat_id, message) {
                     outgoing_status_code = 2;
                     outgoing_delivered_time = m.deliveredTime;
                     if (m.sentBy.who === "OTHER") {
-                        outgoing_sent_by_email = m.sentBy.email;
+                        outgoing_sent_by_email_enc = m.sentBy.email.encrypted_string;
                     }
                     break;
             }
@@ -290,13 +290,13 @@ function newMessage(auth, chat_id, message) {
             buildInsertQuery("message", {
                 "chat": chat_id,
                 "time": message.time,
-                "text": message.text,
+                "text_enc": message.text.encrypted_string,
                 is_incoming,
                 incoming_is_notification,
                 outgoing_status_code,
                 outgoing_is_sent_successfully,
                 outgoing_delivered_time,
-                outgoing_sent_by_email
+                outgoing_sent_by_email_enc
             }, "THROW ERROR")
         ].join("\n");
         const resp = yield exports.query(sql, { "user": auth.user, chat_id });

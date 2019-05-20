@@ -2,7 +2,7 @@
 import * as Stripe from "stripe";
 import { Auth } from "../lib/web/sessionManager";
 import { deploy } from "../deploy";
-import { types as feTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
+import { subscriptionTypes, shopTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
 import { types as lbTypes } from "../load-balancer";
 import * as assert from "assert";
 import * as loadBalancerLocalApiHandler from "./toLoadBalancer/localApiHandlers";
@@ -15,7 +15,7 @@ let stripe: Stripe;
 
 const planByCurrency: { [currency: string]: { id: string; amount: number; } } = {};
 
-const pricingByCurrency: feTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
+const pricingByCurrency: subscriptionTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
 
 const customers: Stripe.customers.ICustomer[] = [];
 
@@ -303,7 +303,7 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
 
 
-export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.SubscriptionInfos> {
+export async function getSubscriptionInfos(auth: Auth): Promise<subscriptionTypes.SubscriptionInfos> {
 
 
     //TODO: Re-implement
@@ -313,7 +313,7 @@ export async function getSubscriptionInfos(auth: Auth): Promise<feTypes.Subscrip
         return { customerStatus };
     }
 
-    const out: feTypes.SubscriptionInfos.Regular = {
+    const out: subscriptionTypes.SubscriptionInfos.Regular = {
         customerStatus,
         "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
         pricingByCurrency
@@ -547,7 +547,7 @@ export async function createCheckoutSessionForSubscription(
 export async function createCheckoutSessionForShop(
     auth: Auth,
     cartDescription: { productName: string; quantity: number; }[],
-    shippingFormData: feTypes.shop.ShippingFormData,
+    shippingFormData: shopTypes.ShippingFormData,
     currency: string,
     success_url: string,
     cancel_url: string
@@ -563,7 +563,7 @@ export async function createCheckoutSessionForShop(
 
     }
 
-    const cart: feTypes.shop.Cart = cartDescription.map(
+    const cart: shopTypes.Cart = cartDescription.map(
         ({ productName, quantity }) => ({
             "product": getShopProducts().find(({ name }) => name === productName)!,
             quantity
@@ -574,11 +574,11 @@ export async function createCheckoutSessionForShop(
         shippingFormData.addressComponents
             .find(({ types: [type] }) => type === "country")!
             .short_name.toLowerCase(),
-        feTypes.shop.Cart.getOverallFootprint(cart),
-        feTypes.shop.Cart.getOverallWeight(cart),
+        shopTypes.Cart.getOverallFootprint(cart),
+        shopTypes.Cart.getOverallWeight(cart),
     );
 
-    const stripeShipping = feTypes.shop.ShippingFormData.toStripeShippingInformation(
+    const stripeShipping = shopTypes.ShippingFormData.toStripeShippingInformation(
         shippingFormData,
         shipping.carrier
     );
@@ -610,7 +610,7 @@ export async function createCheckoutSessionForShop(
         },
         "line_items": [
             ...cart.map(({ product, quantity }) => ({
-                "amount": feTypes.shop.Price.getAmountInCurrency(
+                "amount": shopTypes.Price.getAmountInCurrency(
                     product.price,
                     currency,
                     currencyLib.convertFromEuro

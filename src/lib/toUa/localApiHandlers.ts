@@ -4,7 +4,7 @@ import { apiDeclaration } from "../../sip_api_declarations/backendToUa";
 import * as connections from "./connections";
 import * as sip from "ts-sip";
 import * as dbSemasim from "../dbSemasim";
-import { types as feTypes } from "../../frontend";
+import { types as feTypes, wd } from "../../frontend";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as pushNotifications from "../pushNotifications";
 import * as gatewayRemoteApiCaller from "../toGateway/remoteApiCaller";
@@ -827,7 +827,6 @@ export const handlers: sip.api.Server.Handlers = {};
 
 }
 
-//Web UA data
 
 /** 
  format: `"<urn:uuid:f0c12631-a721-3da9-aa41-7122952b90ba>"`
@@ -861,6 +860,8 @@ export function getUserWebUaInstanceId(user: number): string {
 
 }
 
+//Web UA data
+
 {
 
     const methodName = apiDeclaration.getOrCreateInstance.methodName;
@@ -891,12 +892,12 @@ export function getUserWebUaInstanceId(user: number): string {
         "sanityCheck": params => (
             params instanceof Object &&
             typeof params.instance_id === "number" &&
-            typeof params.contactNumber === "string" &&
-            typeof params.contactName === "string" &&
-            (
-                typeof params.contactIndexInSim === "number" ||
-                params.contactIndexInSim === null
-            )
+            params.contactNumber instanceof Object &&
+            typeof params.contactNumber.encrypted_string === "string" &&
+            params.contactName instanceof Object &&
+            typeof params.contactName.encrypted_string === "string" &&
+            params.contactIndexInSim instanceof Object &&
+            typeof params.contactIndexInSim.encrypted_number_or_null === "string"
         ),
         "handler": (params, socket) => dbWebphone.newChat(
             connections.getAuth(socket),
@@ -944,13 +945,15 @@ export function getUserWebUaInstanceId(user: number): string {
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
-            typeof params.chat_id === "number" && (
+            typeof params.chat_id === "number" &&
+            (
                 params.contactIndexInSim === undefined ||
-                params.contactIndexInSim === null ||
-                typeof params.contactIndexInSim === "number"
+                params.contactIndexInSim instanceof Object &&
+                typeof params.contactIndexInSim.encrypted_number_or_null === "string"
             ) && (
                 params.contactName === undefined ||
-                typeof params.contactName === "string"
+                params.contactName instanceof Object &&
+                typeof params.contactName.encrypted_string === "string"
             ) && (
                 params.idOfLastMessageSeen === undefined ||
                 params.idOfLastMessageSeen === null ||
@@ -1000,14 +1003,16 @@ export function getUserWebUaInstanceId(user: number): string {
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
-            typeof params.chat_id === "number" && (() => {
+            typeof params.chat_id === "number" &&
+            (() => {
 
-                const m = params.message as feTypes.webphoneData.Message;
+                const m = params.message as wd.Message<"ENCRYPTED">;
 
                 return (
                     m instanceof Object &&
                     typeof m.time === "number" &&
-                    typeof m.text === "string" &&
+                    m.text instanceof Object &&
+                    typeof m.text.encrypted_string === "string" &&
                     (
                         (
                             m.direction === "INCOMING" &&
@@ -1033,7 +1038,8 @@ export function getUserWebUaInstanceId(user: number): string {
                                             m.sentBy.who === "USER" ||
                                             (
                                                 m.sentBy.who === "OTHER" &&
-                                                typeof m.sentBy.email === "string"
+                                                m.sentBy.email instanceof Object &&
+                                                typeof m.sentBy.email.encrypted_string === "string"
                                             )
                                         )
                                     )
@@ -1107,7 +1113,6 @@ export function getUserWebUaInstanceId(user: number): string {
     handlers[methodName] = handler;
 
 }
-
 
 {
 
