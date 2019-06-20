@@ -1,5 +1,3 @@
-
-
 import { apiDeclaration } from "../../sip_api_declarations/backendToUa";
 import * as connections from "./connections";
 import * as sip from "ts-sip";
@@ -11,11 +9,24 @@ import * as gatewayRemoteApiCaller from "../toGateway/remoteApiCaller";
 import * as remoteApiCaller from "./remoteApiCaller";
 import * as dbWebphone from "../dbWebphone";
 import * as emailSender from "../emailSender";
-const uuidv3 = require("uuid/v3");
+import * as sessionManager from "../web/sessionManager";
 import { types as gwTypes, misc as gwMisc } from "../../gateway";
 import * as stripe from "../stripe";
 
 export const handlers: sip.api.Server.Handlers = {};
+
+/** Throw if session object associated with the connection is no longer authenticated. */
+function getAuthenticatedSession(socket: sip.Socket): sessionManager.AuthenticatedSession {
+
+    const session = connections.getSession(socket);
+
+    if (!sessionManager.isAuthenticated(session)) {
+        throw new Error("Connection authentication no longer valid");
+    }
+
+    return session;
+
+}
 
 {
 
@@ -24,24 +35,24 @@ export const handlers: sip.api.Server.Handlers = {};
     type Response = apiDeclaration.getUsableUserSims.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params =>  (
+        "sanityCheck": params => (
             params instanceof Object &&
             typeof params.includeContacts === "boolean"
         ),
         "handler": async ({ includeContacts }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             //TODO: Create a SQL request that pull only usable sims
-            const userSims = await dbSemasim.getUserSims(auth)
+            const userSims = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims.filter(feTypes.UserSim.Usable.match));
 
-            if( !includeContacts ){
+            if (!includeContacts) {
 
-                for( const userSim of userSims ){
+                for (const userSim of userSims) {
 
-                    userSim.sim.storage.contacts= [];
-                    userSim.phonebook= [];
+                    userSim.sim.storage.contacts = [];
+                    userSim.phonebook = [];
 
                 }
 
@@ -94,11 +105,11 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, imei, friendlyName }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             const {
-                dongle, sipPassword
-            } = await gatewayRemoteApiCaller.getDongleAndSipPassword(imsi)
+                dongle, sipPassword, towardSimEncryptKeyStr
+            } = await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi)
                 .then(resp => {
 
                     if (!!resp) {
@@ -111,17 +122,18 @@ export const handlers: sip.api.Server.Handlers = {};
 
             if (dongle.imei !== imei) {
 
-                throw new Error("Attack detected");
+                throw new Error("Attack prevented");
 
             }
 
             //NOTE: The user may have changer ip since he received the request
             //in this case the query will crash... not a big deal.
             const userUas = await dbSemasim.registerSim(
-                auth,
+                session,
                 dongle.sim,
                 friendlyName,
                 sipPassword,
+                towardSimEncryptKeyStr,
                 dongle,
                 socket.remoteAddress
             );
@@ -131,7 +143,7 @@ export const handlers: sip.api.Server.Handlers = {};
             //NOTE: Here we break the rule of gathering all db request
             //but as sim registration is not a so common operation it's not
             //a big deal.
-            return dbSemasim.getUserSims(auth)
+            return dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                     .filter(feTypes.UserSim.Owned.match)
                     .find(({ sim }) => sim.imsi === imsi)!
@@ -157,14 +169,14 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             const { affectedUas, owner } = await dbSemasim.unregisterSim(
-                auth,
+                session,
                 imsi
             );
 
-            if (owner.user === auth.user) {
+            if (owner.user === session.user) {
 
                 /*
                 notify sim permission lost to every user
@@ -175,14 +187,14 @@ export const handlers: sip.api.Server.Handlers = {};
                     affectedUas
                         .filter(({ platform }) => platform === "web")
                         .map(({ userEmail }) => userEmail)
-                        .filter(email => email !== auth.email)
+                        .filter(email => email !== session.shared.email)
                 );
 
             } else {
 
                 remoteApiCaller.notifySharedSimUnregistered(
-                    { imsi, "email": auth.email}, 
-                    owner.email
+                    { imsi, "email": session.shared.email },
+                    owner.shared.email
                 );
 
             }
@@ -213,11 +225,11 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             //TODO: Reboot dongle should be by imei
 
-            const isAllowedTo = await dbSemasim.getUserSims(auth)
+            const isAllowedTo = await dbSemasim.getUserSims(session)
                 .then(userSims => !!userSims.find(({ sim }) => sim.imsi === imsi))
                 ;
 
@@ -257,22 +269,22 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, emails, message }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             const affectedUsers = await dbSemasim.shareSim(
-                auth, imsi, emails, message
+                session, imsi, emails, message
             );
 
-            dbSemasim.getUserSims(auth).then(
+            dbSemasim.getUserSims(session).then(
                 userSims => userSims
                     .filter(feTypes.UserSim.Owned.match)
                     .find(({ sim }) => sim.imsi === imsi)!
             ).then(userSim => emailSender.sharingRequest(
-                auth,
+                session.shared.email,
                 userSim,
                 message, [
                     ...affectedUsers.notRegistered.map(email => ({ email, "isRegistered": false })),
-                    ...affectedUsers.registered.map(({ email }) => ({ email, "isRegistered": true }))
+                    ...affectedUsers.registered.map(({ shared: { email } }) => ({ email, "isRegistered": true }))
                 ]
             ));
 
@@ -283,7 +295,7 @@ export const handlers: sip.api.Server.Handlers = {};
                         .filter(feTypes.UserSim.Shared.NotConfirmed.match)
                         .find(({ sim }) => sim.imsi === imsi)!
                     ).then(
-                        userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.email)
+                        userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.shared.email)
                     )
                     ;
 
@@ -314,10 +326,10 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, emails }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             const noLongerRegisteredUas = await dbSemasim.stopSharingSim(
-                auth,
+                session,
                 imsi,
                 emails
             );
@@ -356,10 +368,10 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, friendlyName }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             const userUas = await dbSemasim.setSimFriendlyName(
-                auth,
+                session,
                 imsi,
                 friendlyName
             );
@@ -389,24 +401,24 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, friendlyName }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
             const userUas = await dbSemasim.setSimFriendlyName(
-                auth,
+                session,
                 imsi,
                 friendlyName
             );
 
             pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
 
-            return dbSemasim.getUserSims(auth)
+            return dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                     .filter(feTypes.UserSim.Shared.Confirmed.match)
                     .find(({ sim }) => sim.imsi === imsi)!
                 ).then(({ ownership: { ownerEmail }, password }) => {
 
                     remoteApiCaller.notifySharingRequestResponse(
-                        { imsi, "email": auth.email, "isAccepted": true },
+                        { imsi, "email": session.shared.email, "isAccepted": true },
                         ownerEmail
                     )
 
@@ -435,13 +447,13 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
-            const { owner } = await dbSemasim.unregisterSim(auth, imsi);
+            const { owner } = await dbSemasim.unregisterSim(session, imsi);
 
             remoteApiCaller.notifySharingRequestResponse(
-                { imsi, "email": auth.email, "isAccepted": false },
-                owner.email
+                { imsi, "email": session.shared.email, "isAccepted": false },
+                owner.shared.email
             );
 
             return undefined;
@@ -468,9 +480,9 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, name, number }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
-            const userSim = await dbSemasim.getUserSims(auth)
+            const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                     .filter(feTypes.UserSim.Usable.match)
                     .find(({ sim }) => sim.imsi === imsi)
@@ -525,7 +537,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 uasRegisteredToSim
                     .filter(({ platform }) => platform === "web")
                     .map(({ userEmail }) => userEmail)
-                    .filter(email => email !== auth.email)
+                    .filter(email => email !== session.shared.email)
             );
 
             //TODO: see wtf with number local format here why the hell there isn't new_digest.
@@ -562,9 +574,9 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, contactRef, newName }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
-            const userSim = await dbSemasim.getUserSims(auth)
+            const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                     .filter(feTypes.UserSim.Usable.match)
                     .find(({ sim }) => sim.imsi === imsi)
@@ -667,7 +679,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 uasRegisteredToSim
                     .filter(({ platform }) => platform === "web")
                     .map(({ userEmail }) => userEmail)
-                    .filter(email => email !== auth.email)
+                    .filter(email => email !== session.shared.email)
             );
 
             return storageInfos !== undefined ?
@@ -702,9 +714,9 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ imsi, contactRef }, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
-            const userSim = await dbSemasim.getUserSims(auth)
+            const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                     .filter(feTypes.UserSim.Usable.match)
                     .find(({ sim }) => sim.imsi === imsi)
@@ -792,7 +804,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 uasRegisteredToSim
                     .filter(({ platform }) => platform === "web")
                     .map(({ userEmail }) => userEmail)
-                    .filter(email => email !== auth.email)
+                    .filter(email => email !== session.shared.email)
             );
 
             pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
@@ -816,42 +828,9 @@ export const handlers: sip.api.Server.Handlers = {};
         "sanityCheck": params => params === undefined,
         "handler": async (_params, socket) => {
 
-            const auth = connections.getAuth(socket);
+            const session = getAuthenticatedSession(socket);
 
-            return !(await stripe.isUserSubscribed(auth));
-
-        }
-    };
-
-    handlers[methodName] = handler;
-
-}
-
-
-/** 
- format: `"<urn:uuid:f0c12631-a721-3da9-aa41-7122952b90ba>"`
-*/
-export function getUserWebUaInstanceId(user: number): string {
-    return `"<urn:uuid:${uuidv3(`${user}`, "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9")}>"`;
-}
-
-{
-
-    const methodName = apiDeclaration.getUaInstanceId.methodName;
-    type Params = apiDeclaration.getUaInstanceId.Params;
-    type Response = apiDeclaration.getUaInstanceId.Response;
-
-    const handler: sip.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params => params === undefined,
-        "handler": (_params, socket) => {
-
-            const auth = connections.getAuth(socket);
-
-            return Promise.resolve({
-                "uaInstanceId": getUserWebUaInstanceId(auth.user),
-                "email": auth.email
-            });
-
+            return !(await stripe.isUserSubscribed(session));
 
         }
     };
@@ -859,6 +838,9 @@ export function getUserWebUaInstanceId(user: number): string {
     handlers[methodName] = handler;
 
 }
+
+
+
 
 //Web UA data
 
@@ -874,7 +856,8 @@ export function getUserWebUaInstanceId(user: number): string {
             dcSanityChecks.imsi(params.imsi)
         ),
         "handler": ({ imsi }, socket) => dbWebphone.getOrCreateInstance(
-            connections.getAuth(socket), imsi
+            getAuthenticatedSession(socket).user, 
+            imsi
         )
     };
 
@@ -900,7 +883,7 @@ export function getUserWebUaInstanceId(user: number): string {
             typeof params.contactIndexInSim.encrypted_number_or_null === "string"
         ),
         "handler": (params, socket) => dbWebphone.newChat(
-            connections.getAuth(socket),
+            getAuthenticatedSession(socket).user,
             params.instance_id,
             params.contactNumber,
             params.contactName,
@@ -926,7 +909,7 @@ export function getUserWebUaInstanceId(user: number): string {
         ),
         "handler": ({ chat_id, olderThanMessageId }, socket) =>
             dbWebphone.fetchOlderMessages(
-                connections.getAuth(socket),
+                getAuthenticatedSession(socket).user,
                 chat_id,
                 olderThanMessageId
             )
@@ -961,7 +944,7 @@ export function getUserWebUaInstanceId(user: number): string {
             )
         ),
         "handler": (params, socket) => dbWebphone.updateChat(
-            connections.getAuth(socket),
+            getAuthenticatedSession(socket).user,
             params.chat_id,
             params.contactIndexInSim,
             params.contactName,
@@ -985,7 +968,7 @@ export function getUserWebUaInstanceId(user: number): string {
             typeof params.chat_id === "number"
         ),
         "handler": ({ chat_id }, socket) => dbWebphone.destroyChat(
-            connections.getAuth(socket),
+            getAuthenticatedSession(socket).user,
             chat_id
         ).then(() => undefined)
     };
@@ -1053,7 +1036,7 @@ export function getUserWebUaInstanceId(user: number): string {
             })()
         ),
         "handler": ({ chat_id, message }, socket) => dbWebphone.newMessage(
-            connections.getAuth(socket),
+            getAuthenticatedSession(socket).user,
             chat_id,
             message
         )
@@ -1077,7 +1060,7 @@ export function getUserWebUaInstanceId(user: number): string {
         ),
         "handler": ({ message_id, isSentSuccessfully }, socket) =>
             dbWebphone.updateMessageOnSendReport(
-                connections.getAuth(socket),
+                getAuthenticatedSession(socket).user,
                 message_id,
                 isSentSuccessfully
             ).then(() => undefined)
@@ -1104,7 +1087,7 @@ export function getUserWebUaInstanceId(user: number): string {
         ),
         "handler": ({ message_id, deliveredTime }, socket) =>
             dbWebphone.updateMessageOnStatusReport(
-                connections.getAuth(socket),
+                getAuthenticatedSession(socket).user,
                 message_id,
                 deliveredTime
             ).then(() => undefined)
@@ -1131,7 +1114,7 @@ export function getUserWebUaInstanceId(user: number): string {
         ),
         "handler": ({ message_id, deliveredTime }, socket) =>
             dbWebphone.updateMessageOnStatusReport(
-                connections.getAuth(socket),
+                getAuthenticatedSession(socket).user,
                 message_id,
                 deliveredTime
             ).then(() => undefined)

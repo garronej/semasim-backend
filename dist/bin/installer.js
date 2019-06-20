@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
 const path = require("path");
@@ -17,19 +9,17 @@ exports.srv_name = "semasim";
 exports.unix_user = "semasim";
 exports.working_directory_path = path.join(exports.module_dir_path, "working_directory");
 exports.pidfile_path = path.join(exports.working_directory_path, "pid");
-function program_action_install() {
-    return __awaiter(this, void 0, void 0, function* () {
-        program_action_uninstall();
-        yield scriptLib.apt_get_install("geoip-bin");
-        const { db_file_path } = yield Promise.resolve().then(() => require("../tools/geoiplookup"));
-        scriptLib.execSync(`mkdir -p ${path.dirname(db_file_path)}`);
-        yield scriptLib.web_get("https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat", db_file_path);
-        scriptLib.unixUser.create(exports.unix_user);
-        scriptLib.execSync(`mkdir ${exports.working_directory_path}`);
-        scriptLib.execSync(`chown -R ${exports.unix_user}:${exports.unix_user} ${exports.working_directory_path}`);
-        scriptLib.systemd.createConfigFile(exports.srv_name, path.join(__dirname, "main.js"), undefined, "ENABLE", false);
-        console.log(`Start daemon now with:\n$ systemctl start ${exports.srv_name}`);
-    });
+async function program_action_install() {
+    program_action_uninstall();
+    await scriptLib.apt_get_install("geoip-bin");
+    const { db_file_path } = await Promise.resolve().then(() => require("../tools/geoiplookup"));
+    scriptLib.execSync(`mkdir -p ${path.dirname(db_file_path)}`);
+    await scriptLib.web_get("https://github.com/garronej/releases/releases/download/misc/GeoLiteCity.dat", db_file_path);
+    scriptLib.unixUser.create(exports.unix_user);
+    scriptLib.execSync(`mkdir ${exports.working_directory_path}`);
+    scriptLib.execSync(`chown -R ${exports.unix_user}:${exports.unix_user} ${exports.working_directory_path}`);
+    scriptLib.systemd.createConfigFile(exports.srv_name, path.join(__dirname, "main.js"), undefined, "ENABLE", false);
+    console.log(`Start daemon now with:\n$ systemctl start ${exports.srv_name}`);
 }
 function program_action_uninstall() {
     scriptLib.stopProcessSync(exports.pidfile_path);
@@ -44,7 +34,7 @@ function program_action_uninstall() {
 if (require.main === module) {
     process.once("unhandledRejection", error => { throw error; });
     scriptLib.exit_if_not_root();
-    Promise.resolve().then(() => require("commander")).then((program) => __awaiter(this, void 0, void 0, function* () {
+    Promise.resolve().then(() => require("commander")).then(async (program) => {
         deploy_1.deploy.assertInstance(/^(load_balancer|i[0-9]+)$/);
         program
             .command("install")
@@ -53,5 +43,5 @@ if (require.main === module) {
             .command("uninstall")
             .action(() => program_action_uninstall());
         program.parse(process.argv);
-    }));
+    });
 }

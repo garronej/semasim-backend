@@ -221,7 +221,7 @@ function decodeResults(results: any): void {
 
                 if (typeof row[key] === "string") {
 
-                    row[key] = (new Buffer(row[key], "binary")).toString("utf8");
+                    row[key] = Buffer.from(row[key], "binary").toString("utf8");
 
                 }
 

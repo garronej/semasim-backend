@@ -2,18 +2,19 @@ import * as express from "express";
 import * as https from "https";
 import * as http from "http";
 import { handlers as apiHandlers } from "./apiHandlers";
-import { webApi as apiServer} from "../../load-balancer";
+import { webApi as apiServer } from "../../load-balancer";
 import * as frontend from "../../frontend";
 import * as sessionManager from "./sessionManager";
 import * as morgan from "morgan";
+import * as cookieParser from "cookie-parser";
 import * as logger from "logger";
 import { deploy } from "../../deploy";
 import * as compression from "compression";
-import * as dbSemasim from "../dbSemasim";
 
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
 
 const debug = logger.debugFactory();
+const cookieSecret = "xSoLe9d3=";
 
 export function launch(
     httpsServer: https.Server,
@@ -34,7 +35,7 @@ export function launch(
 
     }
 
-    sessionManager.launch();
+    sessionManager.launch(cookieSecret);
 
     const app = express();
 
@@ -42,6 +43,7 @@ export function launch(
         .use((req, res, next) => req.get("host") === deploy.getBaseDomain() ?
             res.redirect(`https://www.semasim.com${req.originalUrl}`) : next()
         )
+        .use(cookieParser(cookieSecret))
         ;
 
     apiServer.init({
@@ -52,64 +54,46 @@ export function launch(
 
             await sessionManager.loadRequestSession(req, res);
 
-            return !!sessionManager.getAuth(req.session!);
+            return sessionManager.isAuthenticated(req.session!);
 
         },
         "onError": {
-            "badRequest": req => {
-                if (!!req.session) {
-
-                    sessionManager.setAuth(req.session!, undefined);
-
+            "badRequest": ({ session }) => {
+                if (session !== undefined) {
+                    sessionManager.eraseSessionAuthentication(session);
                 }
             }
         },
         "logger": apiServer.getDefaultLogger({
             "logOnlyErrors": deploy.getEnv() === "DEV" ? false : true,
             "log": logger.log,
-            "stringifyAuthentication": req => {
-
-                let auth = req.session !== undefined ?
-                    sessionManager.getAuth(req.session) :
-                    undefined;
-
-                if (!!auth) {
-                    return `user: ${auth.email}`;
-                } else {
-                    return "user not authenticated";
-                }
-
-            }
+            "stringifyAuthentication": ({ session }) =>
+                session !== undefined && sessionManager.isAuthenticated(session) ?
+                    `user: ${session.shared.email}` :
+                    "anonymous"
         })
     });
-
-    const sendHtml = (pageName: string) =>
-        (req, res: express.Response) => {
-
-            res.set("Content-Type", "text/html; charset=utf-8");
-
-            const { unaltered, webView }= frontend.getPage(pageName);
-
-            res.send(!!req.query.webview ? webView : unaltered);
-
-        };
 
     app
         .use(compression())
         .use(express.static(frontend.static_dir_path))
         .head(["/img/logo@2x@2x.png", "/img/logosm@2x@2x.png"], (_req, res) => res.status(404).end())
-        .use((req, res, next) => {
+        .use((req, res, next) =>
+            sessionManager.loadRequestSession(req, res)
+                .then(() => next())
+        )
+        .use((() => {
+            switch (deploy.getEnv()) {
+                case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
+                case "PROD": return (_req, _res, next: express.NextFunction) => next();
+            }
+        })())
+        .get("/", (_req, res) => res.redirect(`/${frontend.availablePages.PageName.webphone}`))
+        .get("*", (req, res) => {
 
-            if ([
-                "",
-                "login",
-                "register",
-                "manager",
-                "webphone",
-                "subscription",
-                "shop",
-                "webviewphone",
-            ].map(v => `/${v}`).indexOf(req.path.toLowerCase()) === -1) {
+            const pageName = req.path.match(/^\/(.*)$/)![1].toLowerCase();
+
+            if (!frontend.isPageName(pageName)) {
 
                 debug(`Consider banning IP ${req.connection.remoteAddress} asking for ${req.method} ${req.originalUrl}`);
 
@@ -119,136 +103,40 @@ export function launch(
 
             }
 
-            next();
-
-        })
-        .use((req, res, next) =>
-            sessionManager
-                .loadRequestSession(req, res)
-                .then(() => next())
-        )
-        .use((() => {
-            switch (deploy.getEnv()) {
-                case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
-                case "PROD": return (_req, _res, next: express.NextFunction) => next();
-            }
-        })())
-        .get("*", async (req, res, next) => {
-
-            const { email_as_hex, password_as_hex } = req.query;
-
-            if (email_as_hex === undefined) {
-                next();
-                return;
-            }
-
-            let email: string;
-
-            try {
-
-                email = Buffer.from(email_as_hex, "hex")
-                    .toString("utf8")
-                    .toLowerCase()
-                    ;
-
-            } catch{
-
-                res.status(400).end();
-
-                return;
-
-            }
-
             const session = req.session!;
 
-            {
-
-                const auth = sessionManager.getAuth(session);
-
-                if (!!auth) {
-
-                    if (auth.email !== email || "renew_password_token" in req.query) {
-
-                        sessionManager.setAuth(session, undefined);
-
-                    }
-
-                }
-
+            if (pageName === "login" || pageName === "register") {
+                sessionManager.eraseSessionAuthentication(session);
             }
 
-            if (password_as_hex === undefined) {
+            const isRequestFromWebview = (() => {
 
-                next();
+                const { webview } = req.query as frontend.availablePages.urlParams.Common;
+
+                return webview === "true";
+
+            })();
+
+            if (
+                frontend.doesRequireAuth(pageName) &&
+                !sessionManager.isAuthenticated(session) &&
+                !isRequestFromWebview
+            ) {
+                res.redirect(`/${frontend.availablePages.PageName.login}`);
                 return;
-
             }
 
-            let password: string;
+            res.set("Content-Type", "text/html; charset=utf-8");
 
-            try {
-
-                password = Buffer.from(password_as_hex, "hex")
-                    .toString("utf8")
-                    ;
-
-            } catch{
-
-                res.status(400).end();
-
-                return;
-
-            }
-
-            //NOTE: not using try catch because it's a pain to infer the return type.
-            const resp = await dbSemasim.authenticateUser(email, password)
-                .catch((error: Error) => error);
-
-            if (resp instanceof Error) {
-
-                debug("Authenticate user db error", resp);
-
-                //NOTE: Probably hack attempt but in the doubt blame our code.
-                res.status(apiServer.httpCodes.INTERNAL_SERVER_ERROR).end();
-                return;
-
-            }
-
-            if (resp.status === "SUCCESS") {
-
-                sessionManager.setAuth(session, resp.auth);
-
-            } else {
-
-                res.status(400).end();
-
-                return;
-
-            }
-
-            next();
+            res.send(
+                frontend.getPage(pageName)[
+                isRequestFromWebview ?
+                    "webView" :
+                    "unaltered"
+                ]
+            );
 
         })
-        .get(
-            ["/login", "/register"],
-            (req, res, next) =>
-                !!sessionManager.getAuth(req.session!) ?
-                    res.redirect("/") :
-                    next()
-        )
-        .get("/login", sendHtml("login"))
-        .get("/register", sendHtml("register"))
-        .use((req, res, next) =>
-            !!sessionManager.getAuth(req.session!) ?
-                next() :
-                res.redirect("/login")
-        )
-        .get("/", (_req, res) => res.redirect("/webphone"))
-        .get("/manager", sendHtml("manager"))
-        .get("/webphone", sendHtml("webphone"))
-        .get("/subscription", sendHtml("subscription"))
-        .get("/shop", sendHtml("shop"))
-        .get("/webviewphone", sendHtml("webviewphone"))
         ;
 
     httpsServer.on("request", app);

@@ -1,18 +1,10 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const frontend_1 = require("../../frontend");
 const dbSemasim = require("../dbSemasim");
+const dbWebphone = require("../dbWebphone");
 const load_balancer_1 = require("../../load-balancer");
 const sessionManager = require("./sessionManager");
-const localApiHandlers_1 = require("../toUa/localApiHandlers");
 const emailSender = require("../emailSender");
 const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
@@ -30,20 +22,15 @@ exports.handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.isValidEmail(params.email) &&
-            typeof params.password === "string"),
-        "handler": ({ email, password }, _session, remoteAddress) => __awaiter(this, void 0, void 0, function* () {
+            typeof params.secret === "string" &&
+            typeof params.towardUserEncryptKeyStr === "string" &&
+            typeof params.encryptedSymmetricKey === "string"),
+        "handler": async ({ email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey }, _session, remoteAddress) => {
             email = email.toLowerCase();
-            const accountCreationResp = yield dbSemasim.createUserAccount(email, password, remoteAddress);
+            const accountCreationResp = await dbSemasim.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, remoteAddress);
             if (!accountCreationResp) {
                 return "EMAIL NOT AVAILABLE";
             }
-            yield dbSemasim.addOrUpdateUa({
-                "instance": localApiHandlers_1.getUserWebUaInstanceId(accountCreationResp.user),
-                "userEmail": email,
-                "platform": "web",
-                "pushToken": "",
-                "messagesEnabled": true
-            });
             if (accountCreationResp.activationCode !== null) {
                 emailSender.emailValidation(email, accountCreationResp.activationCode);
                 return "CREATED";
@@ -51,7 +38,7 @@ exports.handlers = {};
             else {
                 return "CREATED NO ACTIVATION REQUIRED";
             }
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -75,15 +62,16 @@ exports.handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.isValidEmail(params.email) &&
-            typeof params.password === "string"),
-        "handler": ({ email, password }, session) => __awaiter(this, void 0, void 0, function* () {
-            const resp = yield dbSemasim.authenticateUser(email, password);
+            typeof params.secret === "string"),
+        "handler": async ({ email, secret }, req) => {
+            req.res;
+            const resp = await dbSemasim.authenticateUser(email, secret);
             if (resp.status === "SUCCESS") {
-                sessionManager.setAuth(session, resp.auth);
+                sessionManager.authenticateSession(req, resp.authenticatedSessionDescriptor);
                 return { "status": "SUCCESS" };
             }
             return resp;
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -93,8 +81,8 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, session) => {
-            sessionManager.setAuth(session, undefined);
+        "handler": (_params, { session }) => {
+            sessionManager.eraseSessionAuthentication(session);
             return undefined;
         }
     };
@@ -107,13 +95,13 @@ exports.handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.isValidEmail(params.email)),
-        "handler": ({ email }) => __awaiter(this, void 0, void 0, function* () {
-            const token = yield dbSemasim.setPasswordRenewalToken(email);
+        "handler": async ({ email }) => {
+            const token = await dbSemasim.setPasswordRenewalToken(email);
             if (token !== undefined) {
-                yield emailSender.passwordRenewalRequest(email, token);
+                await emailSender.passwordRenewalRequest(email, token);
             }
             return token !== undefined;
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -124,16 +112,20 @@ exports.handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.isValidEmail(params.email) &&
-            typeof params.newPassword === "string" &&
+            typeof params.newSecret === "string" &&
+            typeof params.newTowardUserEncryptKeyStr === "string" &&
+            typeof params.newEncryptedSymmetricKey === "string" &&
             typeof params.token === "string"),
-        "handler": ({ email, newPassword, token }) => __awaiter(this, void 0, void 0, function* () {
-            const wasTokenStillValid = yield dbSemasim.renewPassword(email, token, newPassword);
-            if (wasTokenStillValid) {
-                dbSemasim.getUserUa(email)
-                    .then(uas => pushNotifications.send(uas, { "type": "RELOAD CONFIG" }));
+        "handler": async ({ email, newSecret, newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token }) => {
+            const renewPasswordResult = await dbSemasim.renewPassword(email, newSecret, newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token);
+            if (!renewPasswordResult.wasTokenStillValid) {
+                return false;
             }
-            return wasTokenStillValid;
-        })
+            await dbWebphone.deleteAllUserInstance(renewPasswordResult.user);
+            dbSemasim.getUserUa(email)
+                .then(uas => pushNotifications.send(uas, { "type": "RELOAD CONFIG" }));
+            return true;
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -143,27 +135,25 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, _session, remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
-            return ({
-                "language": (() => {
-                    const hv = req.header("Accept-Language");
-                    if (hv === undefined) {
-                        return undefined;
-                    }
-                    const match = hv.match(/\-([A-Z]{2})/);
-                    if (match === null) {
-                        return undefined;
-                    }
-                    const countryIsoGuessed = match[1].toLowerCase();
-                    if (!frontend_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
-                        return undefined;
-                    }
-                    return countryIsoGuessed;
-                })(),
-                "location": yield geoiplookup_1.geoiplookup(remoteAddress)
-                    .then(({ countryIso }) => countryIso)
-                    .catch(() => undefined)
-            });
+        "handler": async (_params, req, remoteAddress) => ({
+            "language": (() => {
+                const hv = req.header("Accept-Language");
+                if (hv === undefined) {
+                    return undefined;
+                }
+                const match = hv.match(/\-([A-Z]{2})/);
+                if (match === null) {
+                    return undefined;
+                }
+                const countryIsoGuessed = match[1].toLowerCase();
+                if (!frontend_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                    return undefined;
+                }
+                return countryIsoGuessed;
+            })(),
+            "location": await geoiplookup_1.geoiplookup(remoteAddress)
+                .then(({ countryIso }) => countryIso)
+                .catch(() => undefined)
         })
     };
     exports.handlers[methodName] = handler;
@@ -174,10 +164,10 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": () => __awaiter(this, void 0, void 0, function* () {
-            yield frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
+        "handler": async () => {
+            await frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
             return frontend_1.currencyLib.convertFromEuro.getChangeRates();
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -187,10 +177,11 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, session, _remoteAddress, req) => __awaiter(this, void 0, void 0, function* () {
-            const auth = sessionManager.getAuth(session);
-            return stripe.getSubscriptionInfos(auth);
-        })
+        "handler": async (_params, { session }) => {
+            if (!sessionManager.isAuthenticated(session))
+                throw new Error("never");
+            return stripe.getSubscriptionInfos(session);
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -202,11 +193,12 @@ exports.handlers = {};
         "sanityCheck": params => (params instanceof Object &&
             (params.sourceId === undefined ||
                 typeof params.sourceId === "string")),
-        "handler": ({ sourceId }, session) => __awaiter(this, void 0, void 0, function* () {
-            const auth = sessionManager.getAuth(session);
-            yield stripe.subscribeUser(auth, sourceId);
+        "handler": async ({ sourceId }, { session }) => {
+            if (!sessionManager.isAuthenticated(session))
+                throw new Error("never");
+            await stripe.subscribeUser(session, sourceId);
             return undefined;
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -216,11 +208,12 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, session) => __awaiter(this, void 0, void 0, function* () {
-            const auth = sessionManager.getAuth(session);
-            yield stripe.unsubscribeUser(auth);
+        "handler": async (_params, { session }) => {
+            if (!sessionManager.isAuthenticated(session))
+                throw new Error("never");
+            await stripe.unsubscribeUser(session);
             return undefined;
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -230,14 +223,15 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": (params, session) => __awaiter(this, void 0, void 0, function* () {
+        "handler": async (params, { session }) => {
             const { cartDescription, shippingFormData, currency, success_url, cancel_url } = params;
-            const auth = sessionManager.getAuth(session);
+            if (!sessionManager.isAuthenticated(session))
+                throw new Error("never");
             return {
                 "stripePublicApiKey": deploy_1.deploy.getStripeApiKeys().publicApiKey,
-                "checkoutSessionId": yield stripe.createCheckoutSessionForShop(auth, cartDescription, shippingFormData, currency, success_url, cancel_url)
+                "checkoutSessionId": await stripe.createCheckoutSessionForShop(session, cartDescription, shippingFormData, currency, success_url, cancel_url)
             };
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -247,13 +241,14 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": ({ currency, success_url, cancel_url }, session) => __awaiter(this, void 0, void 0, function* () {
-            const auth = sessionManager.getAuth(session);
+        "handler": async ({ currency, success_url, cancel_url }, { session }) => {
+            if (!sessionManager.isAuthenticated(session))
+                throw new Error("never");
             return {
                 "stripePublicApiKey": deploy_1.deploy.getStripeApiKeys().publicApiKey,
-                "checkoutSessionId": yield stripe.createCheckoutSessionForSubscription(auth, currency, success_url, cancel_url)
+                "checkoutSessionId": await stripe.createCheckoutSessionForSubscription(session, currency, success_url, cancel_url)
             };
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -263,13 +258,12 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
         "sanityCheck": params => params instanceof Object,
-        "handler": () => __awaiter(this, void 0, void 0, function* () { return Buffer.from(gateway_1.version, "utf8"); })
+        "handler": async () => Buffer.from(gateway_1.version, "utf8")
     };
     exports.handlers[methodName] = handler;
 }
 {
     const methodName = "linphonerc";
-    const hexToUtf8 = (hexStr) => Buffer.from(hexStr, "hex").toString("utf8");
     const substitute4BytesChar = (str) => Array.from(str)
         .map(c => Buffer.from(c, "utf8").length <= 3 ? c : "?")
         .join("");
@@ -283,19 +277,19 @@ exports.handlers = {};
         "contentType": "text/plain; charset=utf-8",
         "sanityCheck": params => {
             try {
-                return (gateway_1.misc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
-                    !!hexToUtf8(params.password_as_hex) &&
+                return (gateway_1.misc.isValidEmail(params.email) &&
+                    typeof params.secret === "string" &&
                     !("uuid" in params) ||
                     ("uuid" in params &&
                         gateway_1.misc.sanityChecks.platform(params.platform) &&
-                        !!hexToUtf8(params.push_token_as_hex)));
+                        typeof params.push_token === "string"));
             }
             catch (_a) {
                 return false;
             }
         },
-        "handler": (params) => __awaiter(this, void 0, void 0, function* () {
-            const authResp = yield dbSemasim.authenticateUser(hexToUtf8(params.email_as_hex), hexToUtf8(params.password_as_hex));
+        "handler": async (params) => {
+            const authResp = await dbSemasim.authenticateUser(params.email, params.secret);
             switch (authResp.status) {
                 case "RETRY STILL FORBIDDEN": {
                     const error = new Error("Account temporally locked");
@@ -311,26 +305,25 @@ exports.handlers = {};
                 }
                 case "SUCCESS": break;
             }
-            const auth = authResp.auth;
+            const { authenticatedSessionDescriptor } = authResp;
             if ("uuid" in params) {
-                yield dbSemasim.addOrUpdateUa({
+                await dbSemasim.addOrUpdateUa({
                     "instance": `"<urn:uuid:${params.uuid}>"`,
-                    "userEmail": auth.email,
+                    "userEmail": authenticatedSessionDescriptor.shared.email,
                     "platform": params.platform,
-                    "pushToken": hexToUtf8(params.push_token_as_hex),
+                    "pushToken": params.push_token,
                     "messagesEnabled": true
                 });
             }
-            if (!(yield stripe.isUserSubscribed(authResp.auth))) {
+            if (!await stripe.isUserSubscribed(authenticatedSessionDescriptor)) {
                 const error = new Error("User does not have mobile subscription");
                 load_balancer_1.webApi.errorHttpCode.set(error, load_balancer_1.webApi.httpCodes.PAYMENT_REQUIRED);
                 throw error;
             }
-            const p_email = `enc_email=${gateway_1.misc.urlSafeB64.enc(auth.email)}`;
             const config = {};
             let endpointCount = 0;
             let contactCount = 0;
-            for (const { sim, friendlyName, password, ownership, phonebook, isOnline } of yield dbSemasim.getUserSims(auth)) {
+            for (const { sim, friendlyName, password, ownership, phonebook, isOnline } of await dbSemasim.getUserSims(authenticatedSessionDescriptor)) {
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
                 }
@@ -356,7 +349,15 @@ exports.handlers = {};
                     "reg_route": `sip:${deploy_1.deploy.getBaseDomain()};transport=TLS;lr`,
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
-                    "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"};number=${sim.storage.number || "undefined"}`,
+                    "contact_parameters": [
+                        gateway_1.misc.RegistrationParams.build({
+                            "userEmail": authenticatedSessionDescriptor.shared.email,
+                            "towardUserEncryptKeyStr": authenticatedSessionDescriptor.towardUserEncryptKeyStr,
+                            "messagesEnabled": true
+                        }),
+                        `iso=${sim.country ? sim.country.iso : "undefined"}`,
+                        `number=${sim.storage.number || "undefined"}`
+                    ].join(";"),
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
@@ -378,7 +379,7 @@ exports.handlers = {};
                 endpointCount++;
             }
             return Buffer.from(toIni(config), "utf8");
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }

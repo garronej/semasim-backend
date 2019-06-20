@@ -9,13 +9,12 @@ import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import * as backendConnections from "../toBackend/connections";
 import * as remoteApiCaller from "./remoteApiCaller";
 import * as logger from "logger";
-import { handlers as localApiHandlers, getUserWebUaInstanceId } from "./localApiHandlers";
+import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as dbSemasim from "../dbSemasim";
-import { types as feTypes } from "../../frontend";
+import { types as feTypes, WebsocketConnectionParams } from "../../frontend";
 import * as dbTurn from "../dbTurn";
 import { deploy } from "../../deploy";
 import * as cookie from "cookie";
-import * as assert from "assert";
 
 const enableLogger = (socket: sip.Socket) => socket.enableLogger({
     "socketId": idString,
@@ -71,63 +70,34 @@ export function listen(
 
                 enableLogger(socket);
 
-                const auth = await sessionManager.getAuth(req)
+                const session = await sessionManager.getSessionFromHttpIncomingMessage(req);
 
-                if (!auth) {
+                if (!session) {
 
-                    socket.destroy("User is not authenticated ( no auth for this websocket)");
-
-                    return;
-
-                }
-
-                const sessionParameters = (() => {
-
-                    try {
-
-                        const { requestTurnCred, uaInstanceId } = cookie.parse(
-                            req.headers.cookie as string
-                        );
-
-                        assert.ok(
-                            /^(true|false)$/.test(requestTurnCred)
-                            &&
-                            (
-                                uaInstanceId === undefined ||
-                                /"<urn:uuid:[0-9a-f\-]{30,50}>"$/.test(uaInstanceId)
-                            )
-                        );
-
-                        return {
-                            "requestTurnCred": requestTurnCred === "true",
-                            "uaInstanceId": uaInstanceId as (string | undefined)
-                        };
-
-                    } catch{
-
-                        return undefined;
-
-                    }
-
-                })();
-
-                if (sessionParameters === undefined) {
-
-                    socket.destroy("Client did not provide the correct session parameter ( on cookies )");
+                    socket.destroy("Anonymous websocket connection");
 
                     return;
 
                 }
 
-                const { requestTurnCred, uaInstanceId } = sessionParameters;
+                const connectionParams = WebsocketConnectionParams.get(
+                    cookie.parse(req.headers.cookie as string)
+                );
+
+                if (connectionParams === undefined) {
+
+                    socket.destroy("Client did not provide correct websocket connection parameters");
+
+                    return;
+
+                }
 
                 registerSocket(
                     socket,
                     {
                         "platform": "web",
-                        auth,
-                        requestTurnCred,
-                        uaInstanceId
+                        session,
+                        connectionParams
                     }
                 );
 
@@ -151,16 +121,14 @@ const apiServer = new sip.api.Server(
     })
 );
 
-
 function registerSocket(
     socket: sip.Socket,
     o: {
         platform: "android";
     } | {
         platform: "web";
-        auth: sessionManager.Auth;
-        requestTurnCred: boolean;
-        uaInstanceId: string | undefined;
+        session: sessionManager.AuthenticatedSession;
+        connectionParams: WebsocketConnectionParams;
     }
 ) {
 
@@ -187,11 +155,11 @@ function registerSocket(
 
     if (o.platform === "web") {
 
-        const { auth, requestTurnCred, uaInstanceId } = o;
+        const { session, connectionParams } = o;
 
         apiServer.startListening(socket);
 
-        setAuth(socket, auth);
+        setSession(socket, session);
 
         sip.api.client.enableKeepAlive(socket);
 
@@ -203,24 +171,24 @@ function registerSocket(
             })
         );
 
-        if (uaInstanceId === undefined) {
+        if (connectionParams.connectionType === "MAIN") {
             //Main connection
 
             if (
-                !!getByEmail(auth.email) ||
-                !!backendConnections.getBindedToEmail(auth.email)
+                !!getByEmail(session.shared.email) ||
+                !!backendConnections.getBindedToEmail(session.shared.email)
             ) {
 
                 //NOTE: this request will end before notify new route so we do not risk to close the new socket.
-                remoteApiCaller.notifyLoggedFromOtherTab(auth.email);
+                remoteApiCaller.notifyLoggedFromOtherTab(session.shared.email);
 
             }
 
-            byEmail.set(auth.email, socket);
+            byEmail.set(session.shared.email, socket);
 
             //TODO: Send a push notification.
             backendRemoteApiCaller.collectDonglesOnLan(
-                socket.remoteAddress, auth
+                socket.remoteAddress, session
             ).then(dongles => dongles.forEach(
                 dongle => remoteApiCaller.notifyDongleOnLan(
                     dongle, socket
@@ -228,19 +196,19 @@ function registerSocket(
             ));
 
             //TODO: Send push notification.
-            dbSemasim.getUserSims(auth).then(
+            dbSemasim.getUserSims(session).then(
                 userSims => userSims
                     .filter(feTypes.UserSim.Shared.NotConfirmed.match)
                     .forEach(userSim =>
                         remoteApiCaller.notifySimSharingRequest(
-                            userSim, auth.email
+                            userSim, session.shared.email
                         )
                     )
             );
 
         }
 
-        if (requestTurnCred) {
+        if (connectionParams.requestTurnCred) {
 
             (async () => {
 
@@ -248,11 +216,12 @@ function registerSocket(
                     return undefined;
                 }
 
-                const { username, credential, revoke } = await dbTurn.renewAndGetCred(
-                    uaInstanceId === undefined ?
-                        getUserWebUaInstanceId(auth.user) :
-                        uaInstanceId
-                );
+                const { username, credential, revoke } = await dbTurn.renewAndGetCred((() => {
+                    switch (connectionParams.connectionType) {
+                        case "MAIN": return session.shared.webUaInstanceId;
+                        case "AUXILIARY": return connectionParams.uaInstanceId;
+                    }
+                })());
 
                 socket.evtClose.attachOnce(() => revoke());
 
@@ -268,14 +237,12 @@ function registerSocket(
                         `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
                     ],
                     username, credential,
-                    "credentialType": "password" as "password"
+                    "credentialType": "password" as const
                 };
 
             })().then(params => remoteApiCaller.notifyIceServer(socket, params));
 
         }
-
-
 
     }
 
@@ -295,8 +262,9 @@ function registerSocket(
 
         }
 
-        const boundToEmail = o.platform === "web" && o.uaInstanceId === undefined ?
-            o.auth.email : undefined;
+        const boundToEmail = o.platform === "web" && o.connectionParams.connectionType === "MAIN" ?
+            o.session.shared.email : undefined
+            ;
 
         if (boundToEmail !== undefined && byEmail.get(boundToEmail) === socket) {
 
@@ -317,22 +285,28 @@ function registerSocket(
 
     backendRemoteApiCaller.notifyRoute({
         "type": "ADD",
-        "emails": o.platform === "web" ? [o.auth.email] : undefined,
+        "emails": o.platform === "web" ? [o.session.shared.email] : undefined,
         "uaAddresses": getByAddress(socket.remoteAddress).size === 1 ?
             [socket.remoteAddress] : undefined,
     });
 
 }
 
-const __auth__ = "   auth   ";
+const __session__ = "   session   ";
 
-function setAuth(socket: sip.Socket, auth: sessionManager.Auth): void {
-    socket.misc[__auth__] = auth;
+function setSession(socket: sip.Socket, session: sessionManager.AuthenticatedSession): void {
+    socket.misc[__session__] = session;
 }
 
-/** Assert socket has auth ( i.e: it's a web socket ) */
-export function getAuth(socket: sip.Socket): sessionManager.Auth {
-    return socket.misc[__auth__]! as sessionManager.Auth;
+/** 
+ * Assert socket has auth ( i.e: it's a web socket ) 
+ * If the session have expired there is no longer the "user" field on the session
+ * object.
+ * TODO: Manually test if session has expired.
+ * Maybe implement it with a getter in sessionManager.
+ * */
+export function getSession(socket: sip.Socket): sessionManager.AuthenticatedSession | Express.Session {
+    return socket.misc[__session__]! as sessionManager.AuthenticatedSession;
 }
 
 const byConnectionId = new Map<string, sip.Socket>();

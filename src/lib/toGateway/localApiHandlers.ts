@@ -40,7 +40,14 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async (params, fromSocket) => {
 
-            const { imsi, storageDigest, password, replacementPassword, simDongle } = params;
+            const { 
+                imsi, 
+                storageDigest, 
+                password, 
+                replacementPassword, 
+                towardSimEncryptKeyStr, 
+                simDongle 
+            } = params;
 
             {
                 /*
@@ -107,7 +114,12 @@ export const handlers: sip.api.Server.Handlers = {};
             }
 
             const dbResp = await dbSemasim.setSimOnline(
-                imsi, password, replacementPassword, fromSocket.remoteAddress, simDongle
+                imsi,
+                password,
+                replacementPassword,
+                towardSimEncryptKeyStr,
+                fromSocket.remoteAddress,
+                simDongle
             );
 
             (async () => {
@@ -116,9 +128,9 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     gatewayConnections.addImei(fromSocket, simDongle.imei);
 
-                    const dongle= await remoteApiCaller.getDongle(simDongle.imei, fromSocket);
+                    const dongle = await remoteApiCaller.getDongle(simDongle.imei, fromSocket);
 
-                    if( ! dongle ){
+                    if (!dongle) {
                         return;
                     }
 
@@ -126,7 +138,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                 } else {
 
-                    let hasInternalSimStorageChanged: boolean = dbResp.storageDigest !== storageDigest;
+                    let hasInternalSimStorageChanged = dbResp.storageDigest !== storageDigest;
 
                     if (hasInternalSimStorageChanged) {
 
@@ -153,7 +165,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     pushNotifications.send(
                         dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"),
                         (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
-                            { "type": "RELOAD CONFIG" } : 
+                            { "type": "RELOAD CONFIG" } :
                             { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi }
                     );
 
@@ -161,8 +173,8 @@ export const handlers: sip.api.Server.Handlers = {};
                         {
                             imsi,
                             hasInternalSimStorageChanged,
-                            "password": (()=>{
-                                switch(dbResp.passwordStatus){
+                            "password": (() => {
+                                switch (dbResp.passwordStatus) {
                                     case "UNCHANGED":
                                     case "WAS DIFFERENT": return password;
                                     case "PASSWORD REPLACED": return replacementPassword;
@@ -238,13 +250,13 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async (params, fromSocket) => {
 
-            if( "imei" in params ){
-                
-                const { imei }= params;
+            if ("imei" in params) {
+
+                const { imei } = params;
 
                 gatewayConnections.deleteImei(fromSocket, imei);
 
-            }else{
+            } else {
 
                 const { imsi } = params;
 
@@ -276,9 +288,9 @@ export const handlers: sip.api.Server.Handlers = {};
 
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params =>
-            gwMisc.sanityChecks.ua(params)
+            gwMisc.sanityChecks.uaWithoutUserKeys(params)
         ,
-        "handler":  ua => dbSemasim.addOrUpdateUa(ua)
+        "handler": ua => dbSemasim.addOrUpdateUa(ua)
             .then(() => undefined)
     };
 
@@ -299,9 +311,9 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ contact }) => {
 
-            const pushPayload: pushNotifications.Payload= { 
-                "type": "WAKE UP", 
-                "imsi": contact.uaSim.imsi 
+            const pushPayload: pushNotifications.Payload = {
+                "type": "WAKE UP",
+                "imsi": contact.uaSim.imsi
             };
 
             const prIsReached = backendRemoteApiCaller.qualifyContact(contact);
@@ -321,7 +333,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     }
 
                     const prPushNotificationSent = pushNotifications.send(
-                        [ contact.uaSim.ua ], 
+                        [contact.uaSim.ua],
                         pushPayload
                     );
 
@@ -349,7 +361,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     } else {
 
                         await pushNotifications.send(
-                            [ contact.uaSim.ua ], 
+                            [contact.uaSim.ua],
                             pushPayload
                         );
 
@@ -397,8 +409,8 @@ export const handlers: sip.api.Server.Handlers = {};
              */
 
             await pushNotifications.send(
-                [ contact.uaSim.ua ], 
-                { "type": "RE REGISTER ON NEW CONNECTION"  }
+                [contact.uaSim.ua],
+                { "type": "RE REGISTER ON NEW CONNECTION" }
             );
 
             return true;

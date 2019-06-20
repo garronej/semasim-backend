@@ -1,6 +1,5 @@
 import { types as feTypes } from "../frontend";
-import * as sessionManager from "./web/sessionManager";
-export declare const sharingRequest: (user: sessionManager.Auth, userSim: feTypes.UserSim._Base<feTypes.SimOwnership.Owned>, message: string, targetUsers: {
+export declare const sharingRequest: (simOwnerEmail: string, userSim: feTypes.UserSim._Base<feTypes.SimOwnership.Owned>, message: string, targetUsers: {
     email: string;
     isRegistered: boolean;
 }[]) => Promise<void>;

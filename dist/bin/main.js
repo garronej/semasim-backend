@@ -1,25 +1,17 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const scriptLib = require("scripting-tools");
 const assert = require("assert");
 scriptLib.createService({
-    "rootProcess": () => __awaiter(this, void 0, void 0, function* () {
-        const [{ pidfile_path, unix_user, working_directory_path, srv_name }, fs, { deploy },] = yield Promise.all([
+    "rootProcess": async () => {
+        const [{ pidfile_path, unix_user, working_directory_path, srv_name }, fs, { deploy },] = await Promise.all([
             Promise.resolve().then(() => require("./installer")),
             Promise.resolve().then(() => require("fs")),
             Promise.resolve().then(() => require("../deploy"))
         ]);
         assert(fs.existsSync(working_directory_path), "semasim does not seems to be installed.");
         {
-            const { name: instanceName } = yield deploy.getHostInstance();
+            const { name: instanceName } = await deploy.getHostInstance();
             if (instanceName === "load_balancer") {
                 if (deploy.isDistributed()) {
                     console.log("load_balancer does not run semasim-backend in when distributed mode is enabled");
@@ -47,9 +39,9 @@ scriptLib.createService({
                     parseInt(process.argv[2]) :
                     parseInt(scriptLib.sh_eval("nproc")) + 1
         };
-    }),
-    "daemonProcess": (daemon_number, daemon_count) => __awaiter(this, void 0, void 0, function* () {
-        const [path, { working_directory_path }, { launch, beforeExit }, logger, fs] = yield Promise.all([
+    },
+    "daemonProcess": async (daemon_number, daemon_count) => {
+        const [path, { working_directory_path }, { launch, beforeExit }, logger, fs] = await Promise.all([
             Promise.resolve().then(() => require("path")),
             Promise.resolve().then(() => require("./installer")),
             Promise.resolve().then(() => require("../lib/launch")),
@@ -67,11 +59,11 @@ scriptLib.createService({
                 process.on("warning", error => logger.log("WARNING", error));
                 launch(daemon_number);
             },
-            "beforeExitTask": (error) => __awaiter(this, void 0, void 0, function* () {
+            "beforeExitTask": async (error) => {
                 if (!!error) {
                     logger.log(error);
                 }
-                yield Promise.all([
+                await Promise.all([
                     logger.file.terminate().then(() => {
                         if (!!error) {
                             scriptLib.execSync([
@@ -85,7 +77,7 @@ scriptLib.createService({
                     }),
                     scriptLib.safePr(beforeExit())
                 ]);
-            })
+            }
         };
-    })
+    }
 });

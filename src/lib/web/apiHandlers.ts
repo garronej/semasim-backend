@@ -1,9 +1,9 @@
 
 import { webApiDeclaration as apiDeclaration, currencyLib } from "../../frontend";
 import * as dbSemasim from "../dbSemasim";
+import * as dbWebphone from "../dbWebphone";
 import { webApi } from "../../load-balancer";
 import * as sessionManager from "./sessionManager";
-import { getUserWebUaInstanceId } from "../toUa/localApiHandlers";
 import * as emailSender from "../emailSender";
 import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
@@ -34,27 +34,21 @@ export const handlers: webApi.Handlers = {};
         "sanityCheck": params => (
             params instanceof Object &&
             gwMisc.isValidEmail(params.email) &&
-            typeof params.password === "string"
+            typeof params.secret === "string" &&
+            typeof params.towardUserEncryptKeyStr === "string" &&
+            typeof params.encryptedSymmetricKey === "string"
         ),
-        "handler": async ({ email, password }, _session, remoteAddress) => {
+        "handler": async ({ email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey }, _session, remoteAddress) => {
 
             email = email.toLowerCase();
 
             const accountCreationResp = await dbSemasim.createUserAccount(
-                email, password, remoteAddress
+                email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, remoteAddress
             );
 
             if (!accountCreationResp) {
                 return "EMAIL NOT AVAILABLE";
             }
-
-            await dbSemasim.addOrUpdateUa({
-                "instance": getUserWebUaInstanceId(accountCreationResp.user),
-                "userEmail": email,
-                "platform": "web",
-                "pushToken": "",
-                "messagesEnabled": true
-            });
 
             if (accountCreationResp.activationCode !== null) {
 
@@ -113,17 +107,19 @@ export const handlers: webApi.Handlers = {};
         "sanityCheck": params => (
             params instanceof Object &&
             gwMisc.isValidEmail(params.email) &&
-            typeof params.password === "string"
+            typeof params.secret === "string"
         ),
-        "handler": async ({ email, password }, session) => {
+        "handler": async ({ email, secret }, req) => {
 
-            const resp = await dbSemasim.authenticateUser(email, password);
+            req.res
+
+            const resp = await dbSemasim.authenticateUser(email, secret);
 
             if (resp.status === "SUCCESS") {
 
-                sessionManager.setAuth(session, resp.auth);
+                sessionManager.authenticateSession(req, resp.authenticatedSessionDescriptor);
 
-                return { "status": "SUCCESS" as "SUCCESS" };
+                return { "status": "SUCCESS" as const };
 
             }
 
@@ -146,9 +142,9 @@ export const handlers: webApi.Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": (_params, session) => {
+        "handler": (_params, { session }) => {
 
-            sessionManager.setAuth(session, undefined);
+            sessionManager.eraseSessionAuthentication(session!);
 
             return undefined;
 
@@ -203,24 +199,31 @@ export const handlers: webApi.Handlers = {};
         "sanityCheck": params => (
             params instanceof Object &&
             gwMisc.isValidEmail(params.email) &&
-            typeof params.newPassword === "string" &&
+            typeof params.newSecret === "string" &&
+            typeof params.newTowardUserEncryptKeyStr === "string" &&
+            typeof params.newEncryptedSymmetricKey === "string" &&
             typeof params.token === "string"
         ),
-        "handler": async ({ email, newPassword, token }) => {
+        "handler": async ({ email, newSecret, newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token }) => {
 
-            const wasTokenStillValid = await dbSemasim.renewPassword(email, token, newPassword)
+            const renewPasswordResult = await dbSemasim.renewPassword(
+                email, newSecret, newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token
+            );
 
-            if (wasTokenStillValid) {
-
-                dbSemasim.getUserUa(email)
-                    .then(uas => pushNotifications.send(
-                        uas,
-                        { "type": "RELOAD CONFIG" }
-                    ));
-
+            if (!renewPasswordResult.wasTokenStillValid) {
+                return false;
             }
 
-            return wasTokenStillValid;
+            await dbWebphone.deleteAllUserInstance(renewPasswordResult.user);
+
+            dbSemasim.getUserUa(email)
+                .then(uas => pushNotifications.send(
+                    uas,
+                    { "type": "RELOAD CONFIG" }
+                ))
+                ;
+
+            return true;
 
         }
     };
@@ -239,34 +242,34 @@ export const handlers: webApi.Handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": async (_params, _session, remoteAddress, req) => ({
-                "language": (() => {
+        "handler": async (_params, req, remoteAddress) => ({
+            "language": (() => {
 
-                    const hv = req.header("Accept-Language");
+                const hv = req.header("Accept-Language");
 
-                    if (hv === undefined) {
-                        return undefined;
-                    }
+                if (hv === undefined) {
+                    return undefined;
+                }
 
-                    const match = hv.match(/\-([A-Z]{2})/);
+                const match = hv.match(/\-([A-Z]{2})/);
 
-                    if (match === null) {
-                        return undefined;
-                    }
+                if (match === null) {
+                    return undefined;
+                }
 
-                    const countryIsoGuessed = match[1].toLowerCase();
+                const countryIsoGuessed = match[1].toLowerCase();
 
-                    if (!currencyLib.isValidCountryIso(countryIsoGuessed)) {
-                        return undefined;
-                    }
+                if (!currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                    return undefined;
+                }
 
-                    return countryIsoGuessed;
+                return countryIsoGuessed;
 
-                })(),
-                "location": await geoiplookup(remoteAddress)
-                    .then(({ countryIso }) => countryIso)
-                    .catch(() => undefined)
-            })
+            })(),
+            "location": await geoiplookup(remoteAddress)
+                .then(({ countryIso }) => countryIso)
+                .catch(() => undefined)
+        })
     };
 
     handlers[methodName] = handler;
@@ -309,11 +312,12 @@ export const handlers: webApi.Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": async (_params, session, _remoteAddress, req) => {
+        "handler": async (_params, { session }) => {
 
-            const auth = sessionManager.getAuth(session)!;
+            if (!sessionManager.isAuthenticated(session!))
+                throw new Error("never");
 
-            return stripe.getSubscriptionInfos(auth);
+            return stripe.getSubscriptionInfos(session);
 
         }
     };
@@ -339,11 +343,12 @@ export const handlers: webApi.Handlers = {};
                 typeof params.sourceId === "string"
             )
         ),
-        "handler": async ({ sourceId }, session) => {
+        "handler": async ({ sourceId }, { session }) => {
 
-            const auth = sessionManager.getAuth(session)!;
+            if (!sessionManager.isAuthenticated(session!))
+                throw new Error("never");
 
-            await stripe.subscribeUser(auth, sourceId);
+            await stripe.subscribeUser(session, sourceId);
 
             return undefined;
 
@@ -364,11 +369,12 @@ export const handlers: webApi.Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
-        "handler": async (_params, session) => {
+        "handler": async (_params, { session }) => {
 
-            const auth = sessionManager.getAuth(session)!;
+            if (!sessionManager.isAuthenticated(session!))
+                throw new Error("never");
 
-            await stripe.unsubscribeUser(auth);
+            await stripe.unsubscribeUser(session);
 
             return undefined;
 
@@ -389,23 +395,23 @@ export const handlers: webApi.Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": async (params, session) => {
+        "handler": async (params, { session }) => {
 
-            const { 
-                cartDescription, 
-                shippingFormData, 
-                currency, 
-                success_url, 
-                cancel_url 
+            const {
+                cartDescription,
+                shippingFormData,
+                currency,
+                success_url,
+                cancel_url
             } = params;
-            
 
-            const auth = sessionManager.getAuth(session)!;
+            if (!sessionManager.isAuthenticated(session!))
+                throw new Error("never");
 
             return {
                 "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
                 "checkoutSessionId": await stripe.createCheckoutSessionForShop(
-                    auth,
+                    session,
                     cartDescription,
                     shippingFormData,
                     currency,
@@ -431,14 +437,15 @@ export const handlers: webApi.Handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => { /*TODO*/ return true; },
-        "handler": async ({ currency, success_url, cancel_url }, session) => {
+        "handler": async ({ currency, success_url, cancel_url }, { session }) => {
 
-            const auth = sessionManager.getAuth(session)!;
+            if (!sessionManager.isAuthenticated(session!))
+                throw new Error("never");
 
             return {
                 "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
                 "checkoutSessionId": await stripe.createCheckoutSessionForSubscription(
-                    auth,
+                    session,
                     currency,
                     success_url,
                     cancel_url
@@ -473,17 +480,15 @@ export const handlers: webApi.Handlers = {};
     const methodName = "linphonerc";
 
     type Params = {
-        email_as_hex: string;
-        password_as_hex: string;
+        email: string;
+        secret: string;
     } | {
-        email_as_hex: string;
-        password_as_hex: string;
+        email: string;
+        secret: string;
         uuid: string;
         platform: gwTypes.Ua.Platform;
-        push_token_as_hex: string;
+        push_token: string;
     };
-
-    const hexToUtf8 = (hexStr: string) => Buffer.from(hexStr, "hex").toString("utf8");
 
     const substitute4BytesChar = (str: string) => Array.from(str)
         .map(c => Buffer.from(c, "utf8").length <= 3 ? c : "?")
@@ -504,13 +509,13 @@ export const handlers: webApi.Handlers = {};
         "sanityCheck": params => {
             try {
                 return (
-                    gwMisc.isValidEmail(hexToUtf8(params.email_as_hex)) &&
-                    !!hexToUtf8(params.password_as_hex) &&
+                    gwMisc.isValidEmail(params.email) &&
+                    typeof params.secret === "string" &&
                     !("uuid" in params) ||
                     (
                         "uuid" in params &&
                         gwMisc.sanityChecks.platform(params.platform) &&
-                        !!hexToUtf8(params.push_token_as_hex)
+                        typeof params.push_token === "string"
                     )
                 );
             } catch {
@@ -520,8 +525,8 @@ export const handlers: webApi.Handlers = {};
         "handler": async params => {
 
             const authResp = await dbSemasim.authenticateUser(
-                hexToUtf8(params.email_as_hex),
-                hexToUtf8(params.password_as_hex)
+                params.email,
+                params.secret
             );
 
             switch (authResp.status) {
@@ -548,21 +553,21 @@ export const handlers: webApi.Handlers = {};
                 case "SUCCESS": break;
             }
 
-            const auth = authResp.auth;
+            const { authenticatedSessionDescriptor } = authResp;
 
             if ("uuid" in params) {
 
                 await dbSemasim.addOrUpdateUa({
                     "instance": `"<urn:uuid:${params.uuid}>"`,
-                    "userEmail": auth.email,
+                    "userEmail": authenticatedSessionDescriptor.shared.email,
                     "platform": params.platform,
-                    "pushToken": hexToUtf8(params.push_token_as_hex),
+                    "pushToken": params.push_token,
                     "messagesEnabled": true
                 });
 
             }
 
-            if (!await stripe.isUserSubscribed(authResp.auth)) {
+            if (!await stripe.isUserSubscribed(authenticatedSessionDescriptor)) {
 
                 const error = new Error("User does not have mobile subscription");
 
@@ -572,14 +577,13 @@ export const handlers: webApi.Handlers = {};
 
             }
 
-            const p_email = `enc_email=${gwMisc.urlSafeB64.enc(auth.email)}`;
             const config: object = {};
             let endpointCount = 0;
             let contactCount = 0;
 
             for (
                 const { sim, friendlyName, password, ownership, phonebook, isOnline }
-                of await dbSemasim.getUserSims(auth)
+                of await dbSemasim.getUserSims(authenticatedSessionDescriptor)
             ) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {
@@ -610,7 +614,15 @@ export const handlers: webApi.Handlers = {};
                     "reg_route": `sip:${deploy.getBaseDomain()};transport=TLS;lr`,
                     "reg_expires": `${21601}`,
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@${deploy.getBaseDomain()};transport=TLS>`,
-                    "contact_parameters": `${p_email};iso=${sim.country ? sim.country.iso : "undefined"};number=${sim.storage.number || "undefined"}`,
+                    "contact_parameters": [
+                        gwMisc.RegistrationParams.build({
+                            "userEmail": authenticatedSessionDescriptor.shared.email,
+                            "towardUserEncryptKeyStr": authenticatedSessionDescriptor.towardUserEncryptKeyStr,
+                            "messagesEnabled": true
+                        }),
+                        `iso=${sim.country ? sim.country.iso : "undefined"}`,
+                        `number=${sim.storage.number || "undefined"}`
+                    ].join(";"),
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`

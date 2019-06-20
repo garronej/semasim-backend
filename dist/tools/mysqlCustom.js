@@ -111,7 +111,7 @@ function decodeResults(results) {
         for (let row of rows) {
             for (let key in row) {
                 if (typeof row[key] === "string") {
-                    row[key] = (new Buffer(row[key], "binary")).toString("utf8");
+                    row[key] = Buffer.from(row[key], "binary").toString("utf8");
                 }
             }
         }

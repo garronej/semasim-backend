@@ -58,8 +58,8 @@ export declare const destroyUaSocket: (contact: gwTypes.Contact) => Promise<void
  * gatewayAddress: get only from this address
  * auth: id of the user used to exclude the dongle he should not have access to
  * */
-export declare const collectDonglesOnLan: (gatewayAddress: string, auth: import("../web/sessionManager").Auth) => Promise<dcTypes.Dongle[]>;
+export declare const collectDonglesOnLan: (gatewayAddress: string, auth: import("../web/sessionManager").UserAuthentication) => Promise<dcTypes.Dongle[]>;
 /** Don't throw */
 export declare const notifyDongleOnLanProxy: (dongle: dcTypes.Dongle, gatewayAddress: string) => Promise<undefined>;
 export declare const notifyLoggedFromOtherTabProxy: (email: string) => Promise<void>;
-export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<import("../../../../frontend/shared/dist/sip_api_declarations/backendToUa").unlockSim.Response>;
+export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<apiDeclaration.unlockSimProxy.Response>;

@@ -1,5 +1,6 @@
-<p><strong><%= ownerName; %></strong> want to share <strong><%= simFriendlyName; %></strong> with you.</p>
-<p><span><em>"<%= message; %>"</em></span></p>
+<html>
+<p><strong><%-ownerName%></strong> want to share <strong><%-simFriendlyName%></strong> with you.</p>
+<p><span><em>"<%-message%>"</em></span></p>
 <% if( !!prettyNumber ){ %>
 <p>SIM number: <%-prettyNumber%></p>
 <% } %>
@@ -7,4 +8,5 @@
 <% if( !isTargetUserRegistered ){ %>
 <p>As you do not have a Semasim account yet you will be asked to chose a password to proceed.</p>
 <% } %>
-<a href="https://web.<%-baseDomain%>/<%-isTargetUserRegistered?"login":"register"%>?email_as_hex=<%-Buffer.from(targetUserEmail, "utf8").toString("hex")%>">Accept sharing request</a>
+<a href="<%-url%>">Accept sharing request</a>
+</html>

@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const apn = require("apn");
 const fbAdmin = require("firebase-admin");
@@ -26,26 +18,26 @@ function launch(credentials) {
     const fbApp = fbAdmin.initializeApp({
         "credential": fbAdmin.credential.cert(serviceAccount)
     });
-    _close = () => __awaiter(this, void 0, void 0, function* () {
+    _close = async () => {
         //NOTE: Api does not expose methods to track when completed.
         apnProvider.shutdown();
-        yield fbApp.delete();
-    });
+        await fbApp.delete();
+    };
     sendByPlatform = {
-        "android": (tokens, data) => __awaiter(this, void 0, void 0, function* () {
+        "android": async (tokens, data) => {
             if (tokens.length === 0) {
                 return;
             }
             const payload = { "data": data || {} };
             const options = { "priority": "high" };
             try {
-                yield fbApp.messaging().sendToDevice(tokens, payload, options);
+                await fbApp.messaging().sendToDevice(tokens, payload, options);
             }
             catch (error) {
                 throw error;
             }
-        }),
-        "iOS": (tokens) => __awaiter(this, void 0, void 0, function* () {
+        },
+        "iOS": async (tokens) => {
             if (tokens.length === 0) {
                 return;
             }
@@ -55,13 +47,13 @@ function launch(credentials) {
                 "expiry": Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
                 "payload": {}
             });
-            const { failed } = yield apnProvider.send(notification, tokens);
+            const { failed } = await apnProvider.send(notification, tokens);
             if (failed.length) {
                 let error = new Error("Apple send push notification failed");
                 error["responseFailure"] = failed.pop();
                 throw error;
             }
-        })
+        }
     };
 }
 exports.launch = launch;

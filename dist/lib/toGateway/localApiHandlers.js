@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const gateway_1 = require("../../gateway");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
@@ -35,8 +27,8 @@ exports.handlers = {};
                 typeof params.simDongle.isVoiceEnabled === "boolean") &&
             typeof params.simDongle.model === "string" &&
             typeof params.simDongle.firmwareVersion === "string"),
-        "handler": (params, fromSocket) => __awaiter(this, void 0, void 0, function* () {
-            const { imsi, storageDigest, password, replacementPassword, simDongle } = params;
+        "handler": async (params, fromSocket) => {
+            const { imsi, storageDigest, password, replacementPassword, towardSimEncryptKeyStr, simDongle } = params;
             {
                 /*
                 In this block is enforced a security rule:
@@ -89,11 +81,11 @@ exports.handlers = {};
             if (gatewayConnections.getBindedToImsi(imsi) !== fromSocket) {
                 gatewayConnections.bindToImsi(imsi, fromSocket);
             }
-            const dbResp = yield dbSemasim.setSimOnline(imsi, password, replacementPassword, fromSocket.remoteAddress, simDongle);
-            (() => __awaiter(this, void 0, void 0, function* () {
+            const dbResp = await dbSemasim.setSimOnline(imsi, password, replacementPassword, towardSimEncryptKeyStr, fromSocket.remoteAddress, simDongle);
+            (async () => {
                 if (!dbResp.isSimRegistered) {
                     gatewayConnections.addImei(fromSocket, simDongle.imei);
-                    const dongle = yield remoteApiCaller.getDongle(simDongle.imei, fromSocket);
+                    const dongle = await remoteApiCaller.getDongle(simDongle.imei, fromSocket);
                     if (!dongle) {
                         return;
                     }
@@ -103,7 +95,7 @@ exports.handlers = {};
                     let hasInternalSimStorageChanged = dbResp.storageDigest !== storageDigest;
                     if (hasInternalSimStorageChanged) {
                         hasInternalSimStorageChanged = false;
-                        const dongle = (yield remoteApiCaller.getDongle(simDongle.imei, fromSocket));
+                        const dongle = (await remoteApiCaller.getDongle(simDongle.imei, fromSocket));
                         if (!dongle) {
                             /*
                             Can happen only when the dongle is connected and immediately disconnected
@@ -112,7 +104,7 @@ exports.handlers = {};
                             */
                             return;
                         }
-                        yield dbSemasim.updateSimStorage(imsi, dongle.sim.storage);
+                        await dbSemasim.updateSimStorage(imsi, dongle.sim.storage);
                     }
                     pushNotifications.send(dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"), (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
                         { "type": "RELOAD CONFIG" } :
@@ -132,7 +124,7 @@ exports.handlers = {};
                         "gatewayLocation": dbResp.gatewayLocation
                     }, dbResp.uasRegisteredToSim);
                 }
-            }))().catch(error => {
+            })().catch(error => {
                 debug(error);
                 fromSocket.destroy(`Made the triggered actions from setSimOnline throw`);
             });
@@ -141,7 +133,7 @@ exports.handlers = {};
                 dbResp.passwordStatus === "PASSWORD REPLACED" ?
                     ({ "status": "REPLACE PASSWORD", "allowedUas": dbResp.uasRegisteredToSim }) :
                     ({ "status": "OK" });
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -164,7 +156,7 @@ exports.handlers = {};
             ("imsi" in params) ?
             dcSanityChecks.imsi(params.imsi) :
             dcSanityChecks.imei(params.imei)),
-        "handler": (params, fromSocket) => __awaiter(this, void 0, void 0, function* () {
+        "handler": async (params, fromSocket) => {
             if ("imei" in params) {
                 const { imei } = params;
                 gatewayConnections.deleteImei(fromSocket, imei);
@@ -178,7 +170,7 @@ exports.handlers = {};
                 gatewayConnections.unbindFromImsi(imsi, fromSocket);
             }
             return undefined;
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -186,7 +178,7 @@ exports.handlers = {};
 {
     const methodName = backendToGateway_1.apiDeclaration.notifyNewOrUpdatedUa.methodName;
     const handler = {
-        "sanityCheck": params => gateway_1.misc.sanityChecks.ua(params),
+        "sanityCheck": params => gateway_1.misc.sanityChecks.uaWithoutUserKeys(params),
         "handler": ua => dbSemasim.addOrUpdateUa(ua)
             .then(() => undefined)
     };
@@ -197,7 +189,7 @@ exports.handlers = {};
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.sanityChecks.contact(params.contact)),
-        "handler": ({ contact }) => __awaiter(this, void 0, void 0, function* () {
+        "handler": async ({ contact }) => {
             const pushPayload = {
                 "type": "WAKE UP",
                 "imsi": contact.uaSim.imsi
@@ -205,7 +197,7 @@ exports.handlers = {};
             const prIsReached = backendRemoteApiCaller.qualifyContact(contact);
             switch (contact.uaSim.ua.platform) {
                 case "iOS": {
-                    const isReachableWithoutPush = yield Promise.race([
+                    const isReachableWithoutPush = await Promise.race([
                         new Promise(resolve => setTimeout(() => resolve(false), 750)),
                         prIsReached
                     ]);
@@ -213,29 +205,29 @@ exports.handlers = {};
                         return "REACHABLE";
                     }
                     const prPushNotificationSent = pushNotifications.send([contact.uaSim.ua], pushPayload);
-                    const isReached = yield prIsReached;
+                    const isReached = await prIsReached;
                     if (isReached) {
                         return "REACHABLE";
                     }
                     else {
-                        yield prPushNotificationSent;
+                        await prPushNotificationSent;
                         return "PUSH_NOTIFICATION_SENT";
                     }
                 }
                 case "android": {
-                    if (yield prIsReached) {
+                    if (await prIsReached) {
                         return "REACHABLE";
                     }
                     else {
-                        yield pushNotifications.send([contact.uaSim.ua], pushPayload);
+                        await pushNotifications.send([contact.uaSim.ua], pushPayload);
                         return "PUSH_NOTIFICATION_SENT";
                     }
                 }
                 case "web": {
-                    return (yield prIsReached) ? "REACHABLE" : "UNREACHABLE";
+                    return (await prIsReached) ? "REACHABLE" : "UNREACHABLE";
                 }
             }
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -244,7 +236,7 @@ exports.handlers = {};
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.sanityChecks.contact(params.contact)),
-        "handler": ({ contact }) => __awaiter(this, void 0, void 0, function* () {
+        "handler": async ({ contact }) => {
             /*
              * NOTE IMPLEMENTATION IOS:
              *
@@ -253,9 +245,9 @@ exports.handlers = {};
              * Should be handled client side.
              *
              */
-            yield pushNotifications.send([contact.uaSim.ua], { "type": "RE REGISTER ON NEW CONNECTION" });
+            await pushNotifications.send([contact.uaSim.ua], { "type": "RE REGISTER ON NEW CONNECTION" });
             return true;
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }

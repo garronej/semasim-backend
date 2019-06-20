@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const sip = require("ts-sip");
 const localApiHandlers_1 = require("./localApiHandlers");
@@ -46,11 +38,11 @@ function connect(runningInstance, isInstanceStillRunning) {
     }), true);
     //TODO: make sure it's ok to define api listener after connect
     socket.evtConnect.attachOnce(() => registerSocket(socket));
-    socket.evtClose.attachOnce(() => __awaiter(this, void 0, void 0, function* () {
-        if (yield isInstanceStillRunning()) {
+    socket.evtClose.attachOnce(async () => {
+        if (await isInstanceStillRunning()) {
             connect(runningInstance, isInstanceStillRunning);
         }
-    }));
+    });
 }
 exports.connect = connect;
 let idString = "";

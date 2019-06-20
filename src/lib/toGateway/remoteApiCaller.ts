@@ -30,11 +30,11 @@ export const getDongle = (() => {
 
 })();
 
-export const getDongleAndSipPassword = (() => {
+export const getDongleSipPasswordAndTowardSimEncryptKeyStr = (() => {
 
-    const methodName = apiDeclaration.getDongleAndSipPassword.methodName;
-    type Params = apiDeclaration.getDongleAndSipPassword.Params;
-    type Response = apiDeclaration.getDongleAndSipPassword.Response;
+    const methodName = apiDeclaration.getDongleSipPasswordAndTowardSimEncryptKeyStr.methodName;
+    type Params = apiDeclaration.getDongleSipPasswordAndTowardSimEncryptKeyStr.Params;
+    type Response = apiDeclaration.getDongleSipPasswordAndTowardSimEncryptKeyStr.Response;
 
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
 
@@ -46,7 +46,8 @@ export const getDongleAndSipPassword = (() => {
                     response instanceof Object &&
                     dcSanityChecks.dongleUsable(response.dongle) &&
                     typeof response.sipPassword === "string" &&
-                    !!response.sipPassword.match(/^[0-9a-f]{32}$/)
+                    !!response.sipPassword.match(/^[0-9a-f]{32}$/) &&
+                    typeof response.towardSimEncryptKeyStr === "string"
                 )
             );
 

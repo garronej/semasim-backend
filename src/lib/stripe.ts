@@ -1,6 +1,6 @@
 
 import * as Stripe from "stripe";
-import { Auth } from "../lib/web/sessionManager";
+import { UserAuthentication } from "./web/sessionManager";
 import { deploy } from "../deploy";
 import { subscriptionTypes, shopTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
 import { types as lbTypes } from "../load-balancer";
@@ -217,7 +217,7 @@ type CustomerMetadata = {
 
 
 async function getCustomerFromAuth(
-    auth: Auth,
+    auth: UserAuthentication,
     one_time_or_subscription: CustomerMetadata["one_time_or_subscription"],
     customers: Stripe.customers.ICustomer[]
 ): Promise<Stripe.customers.ICustomer | undefined> {
@@ -229,7 +229,7 @@ async function getCustomerFromAuth(
 }
 
 function createCustomerForAuth(
-    auth: Auth,
+    auth: UserAuthentication,
     one_time_or_subscription: CustomerMetadata["one_time_or_subscription"]
 ): Promise<Stripe.customers.ICustomer> {
 
@@ -239,7 +239,7 @@ function createCustomerForAuth(
     };
 
     return stripe.customers.create({
-        "email": auth.email,
+        "email": auth.shared.email,
         metadata
     });
 
@@ -257,10 +257,10 @@ function createCustomerForAuth(
 
 
 /** Assert customer exist and is subscribed */
-export async function unsubscribeUser(auth: Auth): Promise<void> {
+export async function unsubscribeUser(auth: UserAuthentication): Promise<void> {
 
     //TODO: Re-implement
-    const customerStatus= await getCustomerStatus(auth.email);
+    const customerStatus= await getCustomerStatus(auth.shared.email);
 
     if (customerStatus === "EXEMPTED") {
         return;
@@ -303,11 +303,11 @@ export async function unsubscribeUser(auth: Auth): Promise<void> {
 
 
 
-export async function getSubscriptionInfos(auth: Auth): Promise<subscriptionTypes.SubscriptionInfos> {
+export async function getSubscriptionInfos(auth: UserAuthentication): Promise<subscriptionTypes.SubscriptionInfos> {
 
 
     //TODO: Re-implement
-    const customerStatus= await getCustomerStatus(auth.email);
+    const customerStatus= await getCustomerStatus(auth.shared.email);
 
     if (customerStatus === "EXEMPTED") {
         return { customerStatus };
@@ -376,7 +376,7 @@ export async function getSubscriptionInfos(auth: Auth): Promise<subscriptionType
 
 }
 
-export async function isUserSubscribed(auth: Auth): Promise<boolean> {
+export async function isUserSubscribed(auth: UserAuthentication): Promise<boolean> {
 
     const subscriptionInfos = await getSubscriptionInfos(auth);
 
@@ -393,9 +393,9 @@ export async function isUserSubscribed(auth: Auth): Promise<boolean> {
  * -Re-enable subscription that have been canceled.
  * -Update default source for user.
  */
-export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void> {
+export async function subscribeUser(auth: UserAuthentication, sourceId?: string): Promise<void> {
 
-    const customerStatus= await getCustomerStatus(auth.email);
+    const customerStatus= await getCustomerStatus(auth.shared.email);
 
     if (customerStatus === "EXEMPTED") {
         return;
@@ -480,7 +480,7 @@ export async function subscribeUser(auth: Auth, sourceId?: string): Promise<void
 
 //TODO: validate that currency is one of the supported
 export async function createCheckoutSessionForSubscription(
-    auth: Auth,
+    auth: UserAuthentication,
     currency: string,
     success_url: string,
     cancel_url: string
@@ -496,7 +496,7 @@ export async function createCheckoutSessionForSubscription(
     const sessionParams = {
         success_url,
         cancel_url,
-        "customer_email": auth.email,
+        "customer_email": auth.shared.email,
         "payment_method_types": ["card"],
         "subscription_data": {
             "items": [{ "plan": planByCurrency[currency].id, }],
@@ -516,7 +516,7 @@ export async function createCheckoutSessionForSubscription(
         loadBalancerLocalApiHandler.evtStripe.attachOnce(
             ({ type, data: { object: customer } }) => (
                 type === eventName &&
-                (customer as Stripe.customers.ICustomer).email === auth.email
+                (customer as Stripe.customers.ICustomer).email === auth.shared.email
             ),
             ({ data: { object } }) => stripe.customers.update(
                 (object as Stripe.customers.ICustomer).id,
@@ -545,7 +545,7 @@ export async function createCheckoutSessionForSubscription(
 
 //TODO: Cart should be a set of product name quantity
 export async function createCheckoutSessionForShop(
-    auth: Auth,
+    auth: UserAuthentication,
     cartDescription: { productName: string; quantity: number; }[],
     shippingFormData: shopTypes.ShippingFormData,
     currency: string,

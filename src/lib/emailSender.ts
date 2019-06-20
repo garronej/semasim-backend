@@ -5,31 +5,29 @@ import { deploy } from "../deploy";
 import * as path from "path";
 import * as ejs from "ejs";
 import * as fs from "fs";
-import { types as feTypes } from "../frontend";
-import * as sessionManager from "./web/sessionManager";
+import { types as feTypes, availablePages, urlGetParameters } from "../frontend";
 import { phoneNumber } from "phone-number";
 import * as logger from "logger";
 import * as watch from "node-watch";
 
-const debug= logger.debugFactory();
+const debug = logger.debugFactory();
 
 export const sharingRequest = (() => {
 
     const templateName = "sharing-request";
 
-    type Data= {
-        baseDomain: string;
+    type Data = {
         simFriendlyName: string;
         prettyNumber?: string;
         gatewayLocation: string;
         ownerName: string;
-        targetUserEmail: string;
         isTargetUserRegistered: boolean;
         message: string;
+        url: string;
     };
 
     return function (
-        user: sessionManager.Auth,
+        simOwnerEmail: string,
         userSim: feTypes.UserSim.Owned,
         message: string,
         targetUsers: { email: string; isRegistered: boolean; }[]
@@ -47,51 +45,54 @@ export const sharingRequest = (() => {
         ].join("");
 
         /*
+        prettyNumber: 
         Formatted number or undefined: 
         Example: +33 6 36 78 63 85
+
+        simOwnerName example: nikola.tesla@gmail.com => Nikola Tesla
         */
-        const prettyNumber = !!userSim.sim.storage.number ?
-            phoneNumber.prettyPrint(
-                phoneNumber.build(
-                    userSim.sim.storage.number,
-                    userSim.sim.country ? userSim.sim.country.iso : undefined
-                )
-            )
-            : undefined
-            ;
-
-        const gatewayLocation = [
-            userSim.gatewayLocation.city || userSim.gatewayLocation.subdivisions || "",
-            userSim.gatewayLocation.countryIso || ""
-        ].join(" ");
-
-        //example: nikola.tesla@gmail.com => Nikola Tesla
-        const ownerName = user.email
-            .split("@")[0]
-            .split(/[\s-_\.]/)
-            .filter(s => !!s)
-            .map(s => `${s.charAt(0).toUpperCase()}${s.slice(1)}`)
-            .join(" ")
-            ;
-
         return Promise.all(
             targetUsers.map(({ email, isRegistered }) => send(
-                user.email,
                 email,
                 `SIM card sharing request for ${simFriendlyName}`,
                 ejsRenderTemplate<Data>(
                     templateName,
                     {
-                        "baseDomain": deploy.getBaseDomain(),
                         simFriendlyName,
-                        prettyNumber,
-                        gatewayLocation,
-                        ownerName,
-                        "targetUserEmail": email,
+                        "prettyNumber": !!userSim.sim.storage.number ?
+                            phoneNumber.prettyPrint(
+                                phoneNumber.build(
+                                    userSim.sim.storage.number,
+                                    userSim.sim.country ? userSim.sim.country.iso : undefined
+                                )
+                            )
+                            : undefined,
+                        "gatewayLocation": [
+                            userSim.gatewayLocation.city || userSim.gatewayLocation.subdivisions || "",
+                            userSim.gatewayLocation.countryIso || ""
+                        ].join(" "),
+                        "ownerName": simOwnerEmail
+                            .split("@")[0]
+                            .split(/[\s-_\.]/)
+                            .filter(s => !!s)
+                            .map(s => `${s.charAt(0).toUpperCase()}${s.slice(1)}`)
+                            .join(" "),
                         "isTargetUserRegistered": isRegistered,
-                        message
+                        message,
+                        "url": urlGetParameters.buildUrl<availablePages.urlParams.Login | availablePages.urlParams.Register>(
+                            [
+                                `https://web.${deploy.getBaseDomain()}`,
+                                isRegistered ?
+                                    availablePages.PageName.login :
+                                    availablePages.PageName.register
+
+                            ].join("/"),
+                            { email }
+                        )
+
                     }
-                )
+                ),
+                simOwnerEmail
             ))
         ).then(() => { });
 
@@ -105,9 +106,7 @@ export const passwordRenewalRequest = (() => {
     const templateName = "password-renewal";
 
     type Data = {
-        baseDomain: string;
-        email: string;
-        token: string;
+        url: string;
     };
 
     return function (
@@ -115,15 +114,18 @@ export const passwordRenewalRequest = (() => {
         token: string
     ): Promise<void> {
         return send(
-            "semasim@semasim.com",
             email,
             "Semasim password renewal request",
             ejsRenderTemplate<Data>(
                 templateName,
                 {
-                    "baseDomain": deploy.getBaseDomain(),
-                    email,
-                    token
+                    "url": urlGetParameters.buildUrl<availablePages.urlParams.Login>(
+                        `https://web.${deploy.getBaseDomain()}/${availablePages.PageName.login}`,
+                        {
+                            email,
+                            "renew_password_token": token
+                        }
+                    )
                 }
             )
         );
@@ -137,9 +139,8 @@ export const emailValidation = (() => {
     const templateName = "email-validation";
 
     type Data = {
-        baseDomain: string;
-        email: string;
         code: string;
+        url: string;
     };
 
     return function (
@@ -148,15 +149,19 @@ export const emailValidation = (() => {
     ): Promise<void> {
 
         return send(
-            "semasim@semasim.com",
             email,
             `${activationCode} is the Semasim activation code`,
             ejsRenderTemplate<Data>(
                 templateName,
                 {
-                    "baseDomain": deploy.getBaseDomain(),
-                    email,
-                    "code": activationCode
+                    "code": activationCode,
+                    "url": urlGetParameters.buildUrl<availablePages.urlParams.Login>(
+                        `https://web.${deploy.getBaseDomain()}/${availablePages.PageName.login}`,
+                        {
+                            email,
+                            "email_confirmation_code": activationCode
+                        }
+                    )
                 }
             )
         );
@@ -206,10 +211,10 @@ namespace ejsRenderTemplate {
 }
 
 async function send(
-    senderEmail: string,
     destEmail: string,
     subject: string,
-    body: string
+    body: string,
+    senderEmail?: string
 ): Promise<void> {
 
     if (send.ses === undefined) {
@@ -225,11 +230,13 @@ async function send(
 
     }
 
-    const [senderName, senderDomain] = senderEmail.split("@");
-
     const params: AWS.SES.Types.SendEmailRequest = {
-        "Source": `${senderName}@semasim.com`,
-        "ReplyToAddresses": [senderDomain !== "semasim.com" ? "joseph.garrone.gj@gmail.com" : senderEmail],
+        /*
+        Fall in the "Promotion" section 
+        "Source": `"${!!senderEmail ? senderEmail.split("@")[0] : "Semasim"}" <${contactEmail}>`, 
+        const contactEmail= "contact@semasim.com";
+        */
+        "Source": `${!!senderEmail ? senderEmail.split("@")[0] : "semasim-team"}@semasim.com`,
         "Destination": { "ToAddresses": [destEmail] },
         "Message": {
             "Subject": {
@@ -244,6 +251,12 @@ async function send(
             }
         }
     };
+
+    if( !!senderEmail ){
+
+        params["ReplyToAddresses"]= [senderEmail];
+
+    }
 
     await send.ses.sendEmail(params).promise();
 

@@ -6,6 +6,7 @@ import { generateSim, genUniq, genIp } from "./db";
 import { types as feTypes } from "../frontend";
 import { testing as ttTesting } from "transfer-tools";
 import { geoiplookup } from "../tools/geoiplookup";
+import * as crypto from "crypto";
 
 (async () => {
 
@@ -20,6 +21,7 @@ import { geoiplookup } from "../tools/geoiplookup";
             sim,
             "friendlyName": " chinese: 漢字汉字 😅😅",
             "password": ttTesting.genHexStr(32),
+            "towardSimEncryptKeyStr": crypto.randomBytes(150).toString("base64"),
             "dongle": {
                 "imei": genUniq.imsi(),
                 "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
@@ -69,7 +71,7 @@ import { geoiplookup } from "../tools/geoiplookup";
     })();
 
     await emailSender.sharingRequest(
-        { "email": simOwnerEmail, "user": NaN },
+        simOwnerEmail,
         userSim,
         "I will be busy this week end, could you handle customer request for me ?",
         [ { "email": targetUserEmail, "isRegistered": false } ]

@@ -4,12 +4,11 @@ import * as express_mysql_session from "express-mysql-session";
 import * as http from "http";
 import * as express from "express";
 import { deploy } from "../../deploy";
+import { AuthenticatedSessionDescriptorSharedData } from "../../frontend";
 const MySQLStore= express_mysql_session(express_session);
 import * as logger from "logger";
 
 const debug= logger.debugFactory();
-
-export type Auth = { user: number; email: string; };
 
 export function beforeExit(){
     return beforeExit.impl();
@@ -19,7 +18,7 @@ export namespace beforeExit {
     export let impl= ()=> Promise.resolve();
 }
 
-export function launch() {
+export function launch(cookieSecret: string) {
 
     const pool= mysql.createPool({
         ...deploy.dbAuth.value!,
@@ -53,17 +52,15 @@ export function launch() {
     };
 
     const sessionMiddleware: any = express_session({
-        "secret": "xSoLe9d3=",
+        "secret": cookieSecret,
         "store": new MySQLStore({}, pool),
         "resave": false,
         "saveUninitialized": false
     });
 
-    loadRequestSession = (req, res) => {
-        return new Promise<void>(
-            resolve => sessionMiddleware(req, res, () => resolve())
-        )
-    };
+    loadRequestSession = (req, res) => new Promise<void>(
+        resolve => sessionMiddleware(req, res, () => resolve())
+    );
 
 }
 
@@ -78,72 +75,94 @@ export function launch() {
 export let loadRequestSession: (req: express.Request, res: express.Response) => Promise<void>;
 
 /**
- * Assert loadRequestSession have been called and has resolved.
+ * Assert loadRequestSession have been called and has resolved. ( req.session exist )
  * 
- * return undefined if the user is not authenticated.
+ * return false if the user is not authenticated.
  * 
  * @param session req.session!
  * 
  */
-export function getAuth(session: Express.Session): Auth | undefined;
+export function isAuthenticated(session: Express.Session): session is AuthenticatedSession {
+    return typeof (session as AuthenticatedSession).user === "number";
+}
 
 /**
  * Used to get the Auth from a Websocket connection request.
  */
-export function getAuth(req: http.IncomingMessage): Promise<Auth | undefined>;
-export function getAuth(arg: any): any {
+export function getSessionFromHttpIncomingMessage(req: http.IncomingMessage): Promise<AuthenticatedSession | undefined> {
 
-    if (arg["cookie"]) {
+    const session = (req as express.Request).session;;
 
-        let session: Express.Session = arg;
+    return session != undefined ?
+        Promise.resolve(
+            isAuthenticated(session) ?
+                session :
+                undefined
+        ) :
+        new Promise<AuthenticatedSession | undefined>(
+            resolve => loadRequestSession(req as express.Request, {} as express.Response)
+                .then(() => {
 
-        return session["auth"];
+                    const { session } = (req as express.Request);;
 
-    } else {
+                    delete (req as express.Request).session;
 
-        let req: any = arg;
+                    resolve(
+                        session !== undefined && isAuthenticated(session) ?
+                            session :
+                            undefined
+                    );
 
-        if (!!req["session"]) {
-            return getAuth(req["session"] as Express.Session);
-        }
-
-        return new Promise<Auth | undefined>(
-            resolve => loadRequestSession(req, {} as any).then(
-                () => {
-
-                    let session: Express.Session = req["session"];
-
-                    delete req["session"];
-
-                    resolve(getAuth(session));
-
-                }
-            )
+                })
         );
 
-    }
 
 }
 
+/** Properties listed in shared are written in cookie to enable 
+ * access from browser.
+ */
+export type AuthenticatedSessionDescriptor = {
+    user: number;
+    shared: AuthenticatedSessionDescriptorSharedData;
+    towardUserEncryptKeyStr: string;
+};
+
+export type AuthenticatedSession = Express.Session & AuthenticatedSessionDescriptor;
+
+//NOTE: Session assignable
+export type UserAuthentication = {
+    user: number;
+    shared: { email: string; };
+};
+
 /**
  * 
- * Setting the auth object on a session
- * after checking the provided credentials.
+ * Assert loadRequestSession have been called against req ( req.session is defined )
+ * Assert cookie-parser middleware loaded.
  * 
- * @param session req.session! ( Assert loadRequestSession have resolved )
- * @param auth The auth to associate to this session or undefined if
- * we wish to logout the user.
+ * Note:
+ * - sessionDescriptor should not contain any entry not listed in the type.
+ * - SessionDescriptor is not copied in depth.
+ * 
+ * After execution:
+ * isAuthenticated(req.session!) will return true.
  * 
  */
-export function setAuth(session: Express.Session, auth: Auth | undefined): void {
+export function authenticateSession(req: express.Request, authenticatedSessionDescriptor: AuthenticatedSessionDescriptor): void {
 
-    if (!auth) {
-        delete session["auth"];
-    } else {
+    AuthenticatedSessionDescriptorSharedData.set(
+        authenticatedSessionDescriptor.shared,
+        (key, value) => req.res!.cookie(key, value, { "httpOnly": false })
+    );
 
-        session["auth"] = auth;
+    Object.assign(req.session!, authenticatedSessionDescriptor);
 
+}
+
+export function eraseSessionAuthentication(session: Express.Session): void {
+    if (isAuthenticated(session)) {
+        delete session.user;
     }
-
 }
 

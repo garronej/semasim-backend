@@ -1,6 +1,4 @@
 import { types as dcTypes } from "chan-dongle-extended-client";
-import { types as gwTypes } from "../gateway";
-export declare const generateUa: (email?: string) => gwTypes.Ua;
 export declare namespace genUniq {
     function phoneNumber(): string;
     /** Same function for imei  */

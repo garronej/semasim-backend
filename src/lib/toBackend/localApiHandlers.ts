@@ -8,6 +8,7 @@ import { SanityCheck_ } from "./remoteApiCaller";
 import * as gatewayRemoteApiCaller from "../toGateway/remoteApiCaller";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as dbSemasim from "../dbSemasim";
+import * as sessionManager from "../web/sessionManager";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
 import * as util from "util";
 import { deploy } from "../../deploy";
@@ -354,8 +355,14 @@ export const handlers: sip.api.Server.Handlers = {};
                     continue;
                 }
 
+                const session = uaConnections.getSession(uaSocket);
+
+                if( !sessionManager.isAuthenticated(session) ){
+                    continue;
+                }
+
                 tasks[tasks.length] = dbSemasim.filterDongleWithRegistrableSim(
-                    uaConnections.getAuth(uaSocket),
+                    session,
                     [dongle]
                 ).then(([dongle]) => {
 

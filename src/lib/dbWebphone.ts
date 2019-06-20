@@ -1,5 +1,4 @@
 import { wd } from "../frontend";
-import { Auth } from "./web/sessionManager";
 import * as f from "../tools/mysqlCustom";
 import { deploy } from "../deploy";
 import * as assert from "assert";
@@ -34,8 +33,8 @@ function parseMessage(row: Record<string, f.TSql>): { message: wd.Message<"ENCRY
     //NOTE: Typescript fail to infer that message is always init.
     let message: wd.Message<"ENCRYPTED"> = null as any;
 
-    const id_= row["id_"] as number;
-    const time= row["time"] as number;
+    const id_ = row["id_"] as number;
+    const time = row["time"] as number;
     const text = { "encrypted_string": row["text_enc"] as string };
     const direction: wd.Message._Base<"ENCRYPTED">["direction"] =
         row["is_incoming"] === 1 ? "INCOMING" : "OUTGOING";
@@ -98,7 +97,7 @@ function parseMessage(row: Record<string, f.TSql>): { message: wd.Message<"ENCRY
                 } break;
                 case "STATUS REPORT RECEIVED": {
 
-                    const deliveredTime=
+                    const deliveredTime =
                         row["outgoing_delivered_time"] as number | null;
 
                     const email_enc =
@@ -139,17 +138,27 @@ function parseMessage(row: Record<string, f.TSql>): { message: wd.Message<"ENCRY
 
 }
 
+export async function deleteAllUserInstance(
+    user: number
+): Promise<void> {
+
+    const sql = `DELETE FROM instance WHERE user=${esc(user)};`;
+
+    await query(sql, { user });
+
+}
+
 export async function getOrCreateInstance(
-    auth: Auth,
+    user: number,
     imsi: string
 ): Promise<{ instance_id: number; chats: wd.Chat<"ENCRYPTED">[]; }> {
 
     const sql = [
         "SELECT @instance_ref:=NULL;",
-        buildInsertQuery("instance", { "user": auth.user, imsi }, "IGNORE"),
+        buildInsertQuery("instance", { user, imsi }, "IGNORE"),
         `SELECT @instance_ref:=id_ AS id_`,
         `FROM instance`,
-        `WHERE user=${esc(auth.user)} AND imsi=${esc(imsi)}`,
+        `WHERE user=${esc(user)} AND imsi=${esc(imsi)}`,
         `;`,
         `SELECT *`,
         `FROM chat`,
@@ -163,11 +172,11 @@ export async function getOrCreateInstance(
         `LIMIT 20`
     ].join("\n");
 
-    const resp = await query(sql, { "user": auth.user });
+    const resp = await query(sql, { user });
 
     const chatById = new Map<number, wd.Chat<"ENCRYPTED">>();
 
-    for (const row of resp[3] as Record<string,f.TSql>[]) {
+    for (const row of resp[3] as Record<string, f.TSql>[]) {
 
         const chat: wd.Chat<"ENCRYPTED"> = {
             "id_": row["id_"] as number,
@@ -191,9 +200,9 @@ export async function getOrCreateInstance(
 
     }
 
-    const chats= Array.from(chatById.values());
+    const chats = Array.from(chatById.values());
 
-    for( const chat of chats ){
+    for (const chat of chats) {
 
         chat.messages.reverse();
 
@@ -207,7 +216,7 @@ export async function getOrCreateInstance(
 }
 
 export async function newChat(
-    auth: Auth,
+    user: number,
     instance_id: number,
     contactNumber: wd.Encryptable["string"]["ENCRYPTED"],
     contactName: wd.Encryptable["string"]["ENCRYPTED"],
@@ -218,7 +227,7 @@ export async function newChat(
     const sql = [
         `SELECT _ASSERT( COUNT(*) , 'instance not found')`,
         `FROM instance`,
-        `WHERE user= ${esc(auth.user)} AND id_= ${esc(instance_id)}`,
+        `WHERE user= ${esc(user)} AND id_= ${esc(instance_id)}`,
         `;`,
         buildInsertQuery("chat", {
             "instance": instance_id,
@@ -230,14 +239,14 @@ export async function newChat(
     ].join("\n");
 
 
-    const resp = await query(sql, { "user": auth.user, instance_id });
+    const resp = await query(sql, { user, instance_id });
 
     return { "chat_id": resp.pop().insertId };
 
 }
 
 export async function fetchOlderMessages(
-    auth: Auth,
+    user: number,
     chat_id: number,
     olderThanMessageId: number
 ): Promise<wd.Message<"ENCRYPTED">[]> {
@@ -248,7 +257,7 @@ export async function fetchOlderMessages(
         `SELECT _ASSERT( COUNT(*), 'chat not found (fetchOlderMessages)')`,
         `FROM chat`,
         `INNER JOIN instance ON instance.id_=chat.instance`,
-        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(auth.user)}`,
+        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(user)}`,
         `;`,
         `SELECT @older_than_time:=time`,
         `FROM message`,
@@ -263,7 +272,7 @@ export async function fetchOlderMessages(
         `LIMIT 100`
     ].join("\n");
 
-    const resp = await query(sql, { "user": auth.user, chat_id });
+    const resp = await query(sql, { user, chat_id });
 
     return resp
         .pop()
@@ -274,7 +283,7 @@ export async function fetchOlderMessages(
 }
 
 export async function updateChat(
-    auth: Auth,
+    user: number,
     chat_id: number,
     contactIndexInSim: wd.Encryptable["number | null"]["ENCRYPTED"] | undefined,
     contactName: wd.Encryptable["string"]["ENCRYPTED"] | undefined,
@@ -299,19 +308,19 @@ export async function updateChat(
         `SELECT _ASSERT( COUNT(*), 'chat not found (updateChat)')`,
         `FROM chat`,
         `INNER JOIN instance ON instance.id_=chat.instance`,
-        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(auth.user)}`,
+        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(user)}`,
         `;`,
         buildInsertQuery("chat", fields, "UPDATE")
     ].join("\n");
 
-    await query(sql, { "user": auth.user, chat_id });
+    await query(sql, { user, chat_id });
 
     return;
 
 }
 
 export async function destroyChat(
-    auth: Auth,
+    user: number,
     chat_id: number
 ): Promise<undefined> {
 
@@ -319,12 +328,12 @@ export async function destroyChat(
         `SELECT _ASSERT( COUNT(*), 'chat not found (destroy chat)')`,
         `FROM chat`,
         `INNER JOIN instance ON instance.id_=chat.instance`,
-        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(auth.user)}`,
+        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(user)}`,
         `;`,
         `DELETE FROM chat WHERE id_= ${esc(chat_id)}`
     ].join("\n");
 
-    await query(sql, { "user": auth.user, chat_id });
+    await query(sql, { user, chat_id });
 
     return;
 
@@ -332,13 +341,13 @@ export async function destroyChat(
 
 //TODO: Wrap assert user own chat in a template.
 export async function newMessage(
-    auth: Auth,
+    user: number,
     chat_id: number,
     message: wd.NoId<
         wd.Message.Incoming<"ENCRYPTED"> |
         wd.Message.Outgoing.Pending<"ENCRYPTED"> |
         wd.Message.Outgoing.StatusReportReceived<"ENCRYPTED">
-        >
+    >
 ): Promise<{ message_id: number; }> {
 
     const m: wd.Message<"ENCRYPTED"> = { ...message, "id_": NaN } as any;
@@ -383,7 +392,7 @@ export async function newMessage(
         `SELECT _ASSERT( COUNT(*), 'chat not found (newMessage)')`,
         `FROM chat`,
         `INNER JOIN instance ON instance.id_=chat.instance`,
-        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(auth.user)}`,
+        `WHERE chat.id_=${esc(chat_id)} AND instance.user=${esc(user)}`,
         `;`,
         buildInsertQuery("message", {
             "chat": chat_id,
@@ -398,14 +407,14 @@ export async function newMessage(
         }, "THROW ERROR")
     ].join("\n");
 
-    const resp = await query(sql, { "user": auth.user, chat_id });
+    const resp = await query(sql, { user, chat_id });
 
     return { "message_id": resp.pop().insertId };
 
 }
 
 export async function updateMessageOnSendReport(
-    auth: Auth,
+    user: number,
     message_id: number,
     isSentSuccessfully: boolean
 ): Promise<void> {
@@ -416,7 +425,7 @@ export async function updateMessageOnSendReport(
         `INNER JOIN chat ON chat.id_=message.chat`,
         `INNER JOIN instance ON instance.id_=chat.instance`,
         `WHERE ` + [
-            `instance.user=${esc(auth.user)}`,
+            `instance.user=${esc(user)}`,
             `message.id_=${esc(message_id)}`,
             `message.outgoing_status_code=0`
         ].join(" AND "),
@@ -428,12 +437,12 @@ export async function updateMessageOnSendReport(
         }, "UPDATE")
     ].join("\n");
 
-    await query(sql, { "user": auth.user, message_id });
+    await query(sql, { user, message_id });
 
 }
 
 export async function updateMessageOnStatusReport(
-    auth: Auth,
+    user: number,
     message_id: number,
     deliveredTime: number | null
 ): Promise<void> {
@@ -444,7 +453,7 @@ export async function updateMessageOnStatusReport(
         `INNER JOIN chat ON chat.id_=message.chat`,
         `INNER JOIN instance ON instance.id_=chat.instance`,
         `WHERE ` + [
-            `instance.user=${esc(auth.user)}`,
+            `instance.user=${esc(user)}`,
             `message.id_=${esc(message_id)}`,
             `message.outgoing_status_code=1`
         ].join(" AND "),
@@ -456,7 +465,6 @@ export async function updateMessageOnStatusReport(
         }, "UPDATE")
     ].join("\n");
 
-    await query(sql, { "user": auth.user, message_id });
+    await query(sql, { user, message_id });
 
 }
-

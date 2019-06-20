@@ -14,15 +14,16 @@ exports.getDongle = (() => {
         }).catch(() => undefined);
     };
 })();
-exports.getDongleAndSipPassword = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.getDongleAndSipPassword.methodName;
+exports.getDongleSipPasswordAndTowardSimEncryptKeyStr = (() => {
+    const methodName = gatewayToBackend_1.apiDeclaration.getDongleSipPasswordAndTowardSimEncryptKeyStr.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => (response === undefined
             ||
                 (response instanceof Object &&
                     dcSanityChecks.dongleUsable(response.dongle) &&
                     typeof response.sipPassword === "string" &&
-                    !!response.sipPassword.match(/^[0-9a-f]{32}$/)));
+                    !!response.sipPassword.match(/^[0-9a-f]{32}$/) &&
+                    typeof response.towardSimEncryptKeyStr === "string"));
         return sanityCheck;
     })();
     return (imsi) => {

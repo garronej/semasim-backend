@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 if (require.main === module) {
     process.once("unhandledRejection", error => { throw error; });
@@ -19,13 +11,8 @@ const deploy_1 = require("../deploy");
 const geoiplookup_1 = require("../tools/geoiplookup");
 const mysqlCustom = require("../tools/mysqlCustom");
 const db = require("../lib/dbSemasim");
-exports.generateUa = (email = `${transfer_tools_1.testing.genHexStr(10)}@foo.com`) => ({
-    "instance": `"<urn:uuid:${transfer_tools_1.testing.genHexStr(30)}>"`,
-    "platform": Date.now() % 2 ? "android" : "iOS",
-    "pushToken": transfer_tools_1.testing.genHexStr(60),
-    "userEmail": email,
-    "messagesEnabled": true
-});
+const crypto = require("crypto");
+const assert = require("assert");
 var genUniq;
 (function (genUniq) {
     let counter = 1;
@@ -83,24 +70,24 @@ function generateSim(contactCount = ~~(Math.random() * 200), noSpecialChar = fal
         });
     }
     sim.storage.digest = dcMisc.computeSimStorageDigest(sim.storage.number, sim.storage.infos.storageLeft, sim.storage.contacts);
-    console.assert(dcSanityChecks.simStorage(sim.storage));
+    assert(dcSanityChecks.simStorage(sim.storage));
     return sim;
 }
 exports.generateSim = generateSim;
-(() => __awaiter(this, void 0, void 0, function* () {
+(async () => {
     if (require.main === module) {
-        console.assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
+        assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
         console.log("START TESTING...");
-        yield deploy_1.deploy.dbAuth.resolve();
-        yield db.launch();
-        (yield mysqlCustom.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_express_session" }))).query("DELETE FROM sessions");
-        yield testUser();
-        yield testMain();
-        yield db.flush();
+        await deploy_1.deploy.dbAuth.resolve();
+        await db.launch();
+        (await mysqlCustom.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_express_session" }))).query("DELETE FROM sessions");
+        await testUser();
+        await testMain();
+        await db.flush();
         console.log("ALL DB TESTS PASSED");
         process.exit(0);
     }
-}))();
+})();
 function genIp() {
     let genGroup = () => ~~(Math.random() * 255);
     return (new Array(4)).fill("").map(() => `${genGroup()}`).join(".");
@@ -122,7 +109,11 @@ function createUserSimProxy(userSim, ownership) {
         "password": {
             "enumerable": true,
             "get": () => (userSimProxy.ownership.status === "SHARED NOT CONFIRMED") ?
-                "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" : userSim.password
+                "ffffffffffffffffffffffffffffffff" : userSim.password
+        },
+        "towardSimEncryptKeyStr": {
+            "enumerable": true,
+            "get": () => userSim.towardSimEncryptKeyStr
         },
         "dongle": {
             "enumerable": true,
@@ -144,358 +135,390 @@ function createUserSimProxy(userSim, ownership) {
     return userSimProxy;
 }
 //TODO: test unregister not confirmed shared sim
-function testMain() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield db.flush();
-        const genUser = (email = `${transfer_tools_1.testing.genHexStr(20)}@foobar.com`) => __awaiter(this, void 0, void 0, function* () {
-            return ({
-                "user": yield (() => __awaiter(this, void 0, void 0, function* () {
-                    const createUserResp = yield db.createUserAccount(email, transfer_tools_1.testing.genUtf8Str(10), "1.1.1.1");
-                    yield db.validateUserEmail(email, createUserResp.activationCode);
-                    return createUserResp.user;
-                }))(),
-                email,
-                "userSims": [],
-                "uas": []
-            });
+async function testMain() {
+    await db.flush();
+    const genUser = async (email) => {
+        if (!email) {
+            email = `${transfer_tools_1.testing.genHexStr(20)}@foobar.com`;
+        }
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+        const out = {
+            "user": await (async () => {
+                const createUserResp = await db.createUserAccount(email, transfer_tools_1.testing.genUtf8Str(30), towardUserEncryptKeyStr, crypto.randomBytes(128).toString("binary"), "1.1.1.1");
+                await db.validateUserEmail(email, createUserResp.activationCode);
+                return createUserResp.user;
+            })(),
+            "shared": { email },
+            towardUserEncryptKeyStr,
+            "userSims": [],
+            "uas": []
+        };
+        out.uas.push({
+            "instance": (await db.query(`SELECT instance FROM ua WHERE platform='web' AND user=${db.esc(out.user)};`))[0].instance,
+            "userEmail": email,
+            towardUserEncryptKeyStr,
+            "platform": "web",
+            "pushToken": "",
+            "messagesEnabled": true
         });
-        let alice = yield genUser("alice@foo.com");
-        let bob = yield genUser("bob@foo.com");
-        let carol = yield genUser("carol@foo.com");
-        let dave = yield genUser("dave@foo.com");
-        let unregisteredEmail = "eve@foobar.com";
-        for (let user of [alice, bob, carol, dave]) {
-            for (const _ of new Array(~~(Math.random() * 10) + 1)) {
-                //for (let _ of [ null ]) {
-                if (user === carol) {
-                    break;
-                }
-                let ua = exports.generateUa(user.email);
-                user.uas.push(ua);
-                yield db.addOrUpdateUa(ua);
+        return out;
+    };
+    const generateUa = (email, towardUserEncryptKeyStr) => ({
+        "instance": `"<urn:uuid:${transfer_tools_1.testing.genHexStr(30)}>"`,
+        "userEmail": email,
+        towardUserEncryptKeyStr,
+        "platform": Date.now() % 2 ? "android" : "iOS",
+        "pushToken": transfer_tools_1.testing.genHexStr(60),
+        "messagesEnabled": true
+    });
+    const alice = await genUser("alice@foo.com");
+    const bob = await genUser("bob@foo.com");
+    const carol = await genUser("carol@foo.com");
+    const dave = await genUser("dave@foo.com");
+    const unregisteredEmail = "eve@foobar.com";
+    for (let user of [alice, bob, carol, dave]) {
+        for (const _ of new Array(~~(Math.random() * 10) + 1)) {
+            if (user === carol) {
+                break;
             }
-            for (let _ of new Array(~~(Math.random() * 5) + 2)) {
-                //for (let _ of [null]) {
-                if (user === dave) {
-                    break;
+            let ua = generateUa(user.shared.email, user.towardUserEncryptKeyStr);
+            user.uas.push(ua);
+            await db.addOrUpdateUa(ua);
+        }
+        for (let _ of new Array(~~(Math.random() * 5) + 2)) {
+            if (user === dave) {
+                break;
+            }
+            const userSim = await (async () => {
+                const sim = generateSim();
+                const out = {
+                    sim,
+                    "friendlyName": transfer_tools_1.testing.genUtf8Str(12),
+                    "password": transfer_tools_1.testing.genHexStr(32),
+                    "towardSimEncryptKeyStr": crypto.randomBytes(150).toString("base64"),
+                    "dongle": {
+                        "imei": genUniq.imsi(),
+                        "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
+                        "manufacturer": transfer_tools_1.testing.genUtf8Str(7),
+                        "model": transfer_tools_1.testing.genUtf8Str(7),
+                        "firmwareVersion": `1.${transfer_tools_1.testing.genDigits(3)}.${transfer_tools_1.testing.genDigits(3)}`
+                    },
+                    "gatewayLocation": await (async () => {
+                        const ip = genIp();
+                        try {
+                            const { countryIso, subdivisions, city } = await geoiplookup_1.geoiplookup(ip);
+                            return { ip, countryIso, subdivisions, city };
+                        }
+                        catch (_a) {
+                            return {
+                                ip,
+                                "countryIso": undefined,
+                                "subdivisions": undefined,
+                                "city": undefined
+                            };
+                        }
+                    })(),
+                    "isOnline": true,
+                    "ownership": {
+                        "status": "OWNED",
+                        "sharedWith": {
+                            "confirmed": [],
+                            "notConfirmed": []
+                        }
+                    },
+                    "phonebook": sim.storage.contacts.map(c => ({
+                        "mem_index": c.index,
+                        "name": c.name,
+                        "number_raw": c.number
+                    }))
+                };
+                return out;
+            })();
+            await db.addGatewayLocation(userSim.gatewayLocation.ip);
+            await (async () => {
+                let [row] = await db.query(`SELECT * FROM gateway_location WHERE ip= ${db.esc(userSim.gatewayLocation.ip)}`);
+                userSim.gatewayLocation.countryIso = row["country_iso"] || undefined;
+                userSim.gatewayLocation.subdivisions = row["subdivisions"] || undefined;
+                userSim.gatewayLocation.city = row["city"] || undefined;
+            })();
+            user.userSims.push(userSim);
+            assertSame(await db.registerSim(user, userSim.sim, userSim.friendlyName, userSim.password, userSim.towardSimEncryptKeyStr, userSim.dongle, userSim.gatewayLocation.ip), user.uas);
+            assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+            for (let i = 0; i < 7; i++) {
+                const name = transfer_tools_1.testing.genUtf8Str(30);
+                const number_raw = genUniq.phoneNumber();
+                const c = {
+                    "mem_index": undefined,
+                    name,
+                    number_raw
+                };
+                userSim.phonebook.push(c);
+                assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw), user.uas);
+                assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+                if (i === 0) {
+                    userSim.phonebook.pop();
+                    assertSame(await db.deleteSimContact(userSim.sim.imsi, { number_raw }), user.uas);
+                    assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                 }
-                const userSim = yield (() => __awaiter(this, void 0, void 0, function* () {
-                    const sim = generateSim();
-                    const out = {
-                        sim,
-                        "friendlyName": transfer_tools_1.testing.genUtf8Str(12),
-                        "password": transfer_tools_1.testing.genHexStr(32),
-                        "dongle": {
-                            "imei": genUniq.imsi(),
-                            "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
-                            "manufacturer": transfer_tools_1.testing.genUtf8Str(7),
-                            "model": transfer_tools_1.testing.genUtf8Str(7),
-                            "firmwareVersion": `1.${transfer_tools_1.testing.genDigits(3)}.${transfer_tools_1.testing.genDigits(3)}`
-                        },
-                        "gatewayLocation": yield (() => __awaiter(this, void 0, void 0, function* () {
-                            const ip = genIp();
-                            try {
-                                const { countryIso, subdivisions, city } = yield geoiplookup_1.geoiplookup(ip);
-                                return { ip, countryIso, subdivisions, city };
+                if (i === 1) {
+                    c.name = transfer_tools_1.testing.genUtf8Str(30);
+                    assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw), user.uas);
+                    assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+                }
+            }
+            for (const isStepByStep of [false, true]) {
+                for (const _ of [null, null, null, null]) {
+                    const mem_index = (() => {
+                        let out = 1;
+                        while (true) {
+                            if (!userSim.sim.storage.contacts.find(({ index }) => index === out)) {
+                                break;
                             }
-                            catch (_a) {
-                                return {
-                                    ip,
-                                    "countryIso": undefined,
-                                    "subdivisions": undefined,
-                                    "city": undefined
-                                };
-                            }
-                        }))(),
-                        "isOnline": true,
-                        "ownership": {
-                            "status": "OWNED",
-                            "sharedWith": {
-                                "confirmed": [],
-                                "notConfirmed": []
-                            }
-                        },
-                        "phonebook": sim.storage.contacts.map(c => ({
-                            "mem_index": c.index,
-                            "name": c.name,
-                            "number_raw": c.number
-                        }))
-                    };
-                    return out;
-                }))();
-                yield db.addGatewayLocation(userSim.gatewayLocation.ip);
-                yield (() => __awaiter(this, void 0, void 0, function* () {
-                    let [row] = yield db.query(`SELECT * FROM gateway_location WHERE ip= ${db.esc(userSim.gatewayLocation.ip)}`);
-                    userSim.gatewayLocation.countryIso = row["country_iso"] || undefined;
-                    userSim.gatewayLocation.subdivisions = row["subdivisions"] || undefined;
-                    userSim.gatewayLocation.city = row["city"] || undefined;
-                }))();
-                user.userSims.push(userSim);
-                assertSame(yield db.registerSim(user, userSim.sim, userSim.friendlyName, userSim.password, userSim.dongle, userSim.gatewayLocation.ip), user.uas);
-                assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                for (let i = 0; i < 7; i++) {
-                    const name = transfer_tools_1.testing.genUtf8Str(30);
+                            out++;
+                        }
+                        return out;
+                    })();
+                    const name_as_stored = transfer_tools_1.testing.genHexStr(12);
                     const number_raw = genUniq.phoneNumber();
-                    const c = {
-                        "mem_index": undefined,
+                    userSim.sim.storage.contacts.push({
+                        "index": mem_index,
+                        "name": name_as_stored,
+                        "number": number_raw
+                    });
+                    const name = isStepByStep ? transfer_tools_1.testing.genUtf8Str(20) : name_as_stored;
+                    userSim.phonebook.push({
+                        mem_index,
                         name,
                         number_raw
-                    };
-                    userSim.phonebook.push(c);
-                    assertSame(yield db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw), user.uas);
-                    assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                    if (i === 0) {
-                        userSim.phonebook.pop();
-                        assertSame(yield db.deleteSimContact(userSim.sim.imsi, { number_raw }), user.uas);
-                        assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                    }
-                    if (i === 1) {
-                        c.name = transfer_tools_1.testing.genUtf8Str(30);
-                        assertSame(yield db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw), user.uas);
-                        assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+                    });
+                    userSim.sim.storage.infos.storageLeft--;
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+                    if (isStepByStep) {
+                        assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw, { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }), user.uas);
+                        assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                     }
                 }
-                for (const isStepByStep of [false, true]) {
-                    for (const _ of [null, null, null, null]) {
-                        const mem_index = (() => {
-                            let out = 1;
-                            while (true) {
-                                if (!userSim.sim.storage.contacts.find(({ index }) => index === out)) {
-                                    break;
-                                }
-                                out++;
-                            }
-                            return out;
-                        })();
-                        const name_as_stored = transfer_tools_1.testing.genHexStr(12);
-                        const number_raw = genUniq.phoneNumber();
-                        userSim.sim.storage.contacts.push({
-                            "index": mem_index,
-                            "name": name_as_stored,
-                            "number": number_raw
-                        });
-                        const name = isStepByStep ? transfer_tools_1.testing.genUtf8Str(20) : name_as_stored;
-                        userSim.phonebook.push({
-                            mem_index,
-                            name,
-                            number_raw
-                        });
-                        userSim.sim.storage.infos.storageLeft--;
-                        dcMisc.updateStorageDigest(userSim.sim.storage);
-                        if (isStepByStep) {
-                            assertSame(yield db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw, { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }), user.uas);
-                            assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                        }
-                    }
+                if (isStepByStep) {
+                    const updatedContact = userSim.sim.storage.contacts[userSim.sim.storage.contacts.length - 1];
+                    const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index);
+                    c.name = transfer_tools_1.testing.genUtf8Str(20);
+                    updatedContact.name = transfer_tools_1.testing.genHexStr(10);
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+                    assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
+                        "mem_index": updatedContact.index,
+                        "name_as_stored": updatedContact.name,
+                        "new_storage_digest": userSim.sim.storage.digest
+                    }), user.uas);
+                    assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+                }
+                for (const _ of [null, null]) {
+                    const deletedContact = userSim.sim.storage.contacts.pop();
+                    userSim.phonebook.splice(userSim.phonebook.indexOf(userSim.phonebook.find(({ mem_index }) => mem_index === deletedContact.index)), 1);
+                    userSim.sim.storage.infos.storageLeft++;
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
                     if (isStepByStep) {
-                        const updatedContact = userSim.sim.storage.contacts[userSim.sim.storage.contacts.length - 1];
-                        const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index);
-                        c.name = transfer_tools_1.testing.genUtf8Str(20);
-                        updatedContact.name = transfer_tools_1.testing.genHexStr(10);
-                        dcMisc.updateStorageDigest(userSim.sim.storage);
-                        assertSame(yield db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
+                        assertSame(await db.deleteSimContact(userSim.sim.imsi, { "mem_index": deletedContact.index, "new_storage_digest": userSim.sim.storage.digest }), user.uas);
+                        assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+                    }
+                }
+                await (async () => {
+                    const updatedContact = userSim.sim.storage.contacts[0];
+                    updatedContact.name = transfer_tools_1.testing.genHexStr(8);
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+                    const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index);
+                    //storage name updated => full name updated.
+                    c.name = updatedContact.name;
+                    if (isStepByStep) {
+                        assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
                             "mem_index": updatedContact.index,
                             "name_as_stored": updatedContact.name,
                             "new_storage_digest": userSim.sim.storage.digest
                         }), user.uas);
-                        assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
+                        assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                     }
-                    for (const _ of [null, null]) {
-                        const deletedContact = userSim.sim.storage.contacts.pop();
-                        userSim.phonebook.splice(userSim.phonebook.indexOf(userSim.phonebook.find(({ mem_index }) => mem_index === deletedContact.index)), 1);
-                        userSim.sim.storage.infos.storageLeft++;
-                        dcMisc.updateStorageDigest(userSim.sim.storage);
-                        if (isStepByStep) {
-                            assertSame(yield db.deleteSimContact(userSim.sim.imsi, { "mem_index": deletedContact.index, "new_storage_digest": userSim.sim.storage.digest }), user.uas);
-                            assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                        }
+                })();
+                await (async () => {
+                    const updatedContact = userSim.sim.storage.contacts[1];
+                    updatedContact.number = genUniq.phoneNumber();
+                    dcMisc.updateStorageDigest(userSim.sim.storage);
+                    const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index);
+                    //storage number updated => full name updated.
+                    c.name = updatedContact.name;
+                    c.number_raw = updatedContact.number;
+                    if (isStepByStep) {
+                        assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
+                            "mem_index": updatedContact.index,
+                            "name_as_stored": updatedContact.name,
+                            "new_storage_digest": userSim.sim.storage.digest
+                        }), user.uas);
+                        assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                     }
-                    yield (() => __awaiter(this, void 0, void 0, function* () {
-                        const updatedContact = userSim.sim.storage.contacts[0];
-                        updatedContact.name = transfer_tools_1.testing.genHexStr(8);
-                        dcMisc.updateStorageDigest(userSim.sim.storage);
-                        const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index);
-                        //storage name updated => full name updated.
-                        c.name = updatedContact.name;
-                        if (isStepByStep) {
-                            assertSame(yield db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
-                                "mem_index": updatedContact.index,
-                                "name_as_stored": updatedContact.name,
-                                "new_storage_digest": userSim.sim.storage.digest
-                            }), user.uas);
-                            assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                        }
-                    }))();
-                    yield (() => __awaiter(this, void 0, void 0, function* () {
-                        const updatedContact = userSim.sim.storage.contacts[1];
-                        updatedContact.number = genUniq.phoneNumber();
-                        dcMisc.updateStorageDigest(userSim.sim.storage);
-                        const c = userSim.phonebook.find(({ mem_index }) => mem_index === updatedContact.index);
-                        //storage number updated => full name updated.
-                        c.name = updatedContact.name;
-                        c.number_raw = updatedContact.number;
-                        if (isStepByStep) {
-                            assertSame(yield db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
-                                "mem_index": updatedContact.index,
-                                "name_as_stored": updatedContact.name,
-                                "new_storage_digest": userSim.sim.storage.digest
-                            }), user.uas);
-                            assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                        }
-                    }))();
-                    if (!isStepByStep) {
-                        yield db.updateSimStorage(userSim.sim.imsi, userSim.sim.storage);
-                        assertSame((yield db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
-                    }
+                })();
+                if (!isStepByStep) {
+                    await db.updateSimStorage(userSim.sim.imsi, userSim.sim.storage);
+                    assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                 }
             }
-            assertSame(yield db.getUserSims(user), user.userSims);
         }
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    alice.userSims[0].ownership
+        .sharedWith.notConfirmed = [bob.shared.email, carol.shared.email, dave.shared.email, unregisteredEmail];
+    let sharingRequestMessage = transfer_tools_1.testing.genUtf8Str(50);
+    for (let user of [bob, carol, dave]) {
+        user.userSims.push(createUserSimProxy(alice.userSims[0], {
+            "status": "SHARED NOT CONFIRMED",
+            "ownerEmail": alice.shared.email,
+            sharingRequestMessage
+        }));
+    }
+    assertSame(await db.shareSim({ "user": alice.user, "shared": { "email": alice.shared.email } }, alice.userSims[0].sim.imsi, alice.userSims[0].ownership.sharedWith.notConfirmed, sharingRequestMessage), {
+        "registered": [bob, carol, dave].map(({ user, shared }) => ({ user, shared })),
+        "notRegistered": [unregisteredEmail]
+    });
+    for (let user of [alice, bob, carol, dave]) {
+        //assertSame(await db.getUserSims(user), user.userSims);
+        const expected = user.userSims;
+        const got = await db.getUserSims(user);
+        try {
+            assertSame(got, expected);
+        }
+        catch (error) {
+            console.log(JSON.stringify({
+                got, expected
+            }, null, 2));
+            throw error;
+        }
+    }
+    let uasRegisteredToSim = [...alice.uas];
+    for (let user of [bob, carol, dave]) {
+        user.userSims[user.userSims.length - 1].friendlyName = transfer_tools_1.testing.genUtf8Str(12);
+        user.userSims[user.userSims.length - 1].ownership = {
+            "status": "SHARED CONFIRMED",
+            "ownerEmail": alice.shared.email
+        };
         alice.userSims[0].ownership
-            .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
-        let sharingRequestMessage = transfer_tools_1.testing.genUtf8Str(50);
-        for (let user of [bob, carol, dave]) {
-            user.userSims.push(createUserSimProxy(alice.userSims[0], {
-                "status": "SHARED NOT CONFIRMED",
-                "ownerEmail": alice.email,
-                sharingRequestMessage
-            }));
-        }
-        assertSame(yield db.shareSim({ "user": alice.user, "email": alice.email }, alice.userSims[0].sim.imsi, alice.userSims[0].ownership.sharedWith.notConfirmed, sharingRequestMessage), {
-            "registered": [bob, carol, dave].map(({ user, email }) => ({ user, email })),
-            "notRegistered": [unregisteredEmail]
-        });
-        for (let user of [alice, bob, carol, dave]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        let uasRegisteredToSim = [...alice.uas];
-        for (let user of [bob, carol, dave]) {
-            user.userSims[user.userSims.length - 1].friendlyName = transfer_tools_1.testing.genUtf8Str(12);
-            user.userSims[user.userSims.length - 1].ownership = {
-                "status": "SHARED CONFIRMED",
-                "ownerEmail": alice.email
-            };
-            alice.userSims[0].ownership
-                .sharedWith.notConfirmed = (() => {
-                let set = new Set(alice.userSims[0].ownership
-                    .sharedWith.notConfirmed);
-                set.delete(user.email);
-                return Array.from(set);
-            })();
-            alice.userSims[0].ownership
-                .sharedWith.confirmed.push(user.email);
-            uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
-            assertSame(yield db.setSimFriendlyName(user, alice.userSims[0].sim.imsi, user.userSims[user.userSims.length - 1].friendlyName), user.uas);
-            assertSame(yield db.getUserSims(user), user.userSims);
-            assertSame(yield db.getUserSims(alice), alice.userSims);
-            assertSame(yield db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
-                "isSimRegistered": true,
-                "storageDigest": alice.userSims[0].sim.storage.digest,
-                "passwordStatus": "UNCHANGED",
-                "gatewayLocation": alice.userSims[0].gatewayLocation,
-                uasRegisteredToSim
-            });
-        }
-        alice.userSims[0].isOnline = false;
-        assertSame(yield db.setSimsOffline([alice.userSims[0].sim.imsi]), {
-            [alice.userSims[0].sim.imsi]: uasRegisteredToSim
-        });
-        for (let user of [alice, bob, carol, dave]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        assertSame(yield db.setSimOnline(transfer_tools_1.testing.genDigits(15), alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), { "isSimRegistered": false });
-        alice.userSims[0].isOnline = true;
-        alice.userSims[0].dongle.isVoiceEnabled = false;
-        assertSame(yield db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
-            "isSimRegistered": true,
-            "storageDigest": alice.userSims[0].sim.storage.digest,
-            "passwordStatus": "UNCHANGED",
-            "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
-        });
-        for (let user of [alice, bob, carol, dave]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        alice.userSims[0].password = transfer_tools_1.testing.genHexStr(32);
-        assertSame(yield db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
-            "isSimRegistered": true,
-            "storageDigest": alice.userSims[0].sim.storage.digest,
-            "passwordStatus": "WAS DIFFERENT",
-            "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
-        });
-        for (let user of [alice, bob, carol, dave]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        alice.userSims[0].friendlyName = transfer_tools_1.testing.genUtf8Str(11);
-        assertSame(yield db.setSimFriendlyName(alice, alice.userSims[0].sim.imsi, alice.userSims[0].friendlyName), alice.uas);
-        assertSame(yield db.getSimOwner(alice.userSims[0].sim.imsi), { "user": alice.user, "email": alice.email });
-        bob.userSims.pop();
-        carol.userSims.pop();
-        alice.userSims[0].ownership
-            .sharedWith.confirmed = (() => {
+            .sharedWith.notConfirmed = (() => {
             let set = new Set(alice.userSims[0].ownership
-                .sharedWith.confirmed);
-            set.delete(bob.email);
-            set.delete(carol.email);
+                .sharedWith.notConfirmed);
+            set.delete(user.shared.email);
             return Array.from(set);
         })();
-        assertSame(yield db.stopSharingSim(alice, alice.userSims[0].sim.imsi, [bob.email, carol.email]), [...bob.uas, ...carol.uas]);
-        for (let user of [alice, bob, carol, dave]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        {
-            const replacementPassword = transfer_tools_1.testing.genHexStr(32);
-            assertSame(yield db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, replacementPassword, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
-                "isSimRegistered": true,
-                "storageDigest": alice.userSims[0].sim.storage.digest,
-                "passwordStatus": "PASSWORD REPLACED",
-                "gatewayLocation": alice.userSims[0].gatewayLocation,
-                "uasRegisteredToSim": [...alice.uas, ...dave.uas]
-            });
-            alice.userSims[0].password = replacementPassword;
-            for (let user of [alice, dave]) {
-                assertSame(yield db.getUserSims(user), user.userSims);
-            }
-        }
-        dave.userSims.pop();
         alice.userSims[0].ownership
-            .sharedWith.confirmed = [];
-        assertSame(yield db.unregisterSim(dave, alice.userSims[0].sim.imsi), {
-            "affectedUas": dave.uas,
-            "owner": { "user": alice.user, "email": alice.email }
-        });
-        assertSame(yield db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+            .sharedWith.confirmed.push(user.shared.email);
+        uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
+        assertSame(await db.setSimFriendlyName(user, alice.userSims[0].sim.imsi, user.userSims[user.userSims.length - 1].friendlyName), user.uas);
+        assertSame(await db.getUserSims(user), user.userSims);
+        assertSame(await db.getUserSims(alice), alice.userSims);
+        assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
             "isSimRegistered": true,
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": alice.uas
+            uasRegisteredToSim
         });
+    }
+    alice.userSims[0].isOnline = false;
+    assertSame(await db.setSimsOffline([alice.userSims[0].sim.imsi]), {
+        [alice.userSims[0].sim.imsi]: uasRegisteredToSim
+    });
+    for (let user of [alice, bob, carol, dave]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    assertSame(await db.setSimOnline(transfer_tools_1.testing.genDigits(15), alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), { "isSimRegistered": false });
+    alice.userSims[0].isOnline = true;
+    alice.userSims[0].dongle.isVoiceEnabled = false;
+    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+        "isSimRegistered": true,
+        "storageDigest": alice.userSims[0].sim.storage.digest,
+        "passwordStatus": "UNCHANGED",
+        "gatewayLocation": alice.userSims[0].gatewayLocation,
+        "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+    });
+    for (let user of [alice, bob, carol, dave]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    alice.userSims[0].password = transfer_tools_1.testing.genHexStr(32);
+    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+        "isSimRegistered": true,
+        "storageDigest": alice.userSims[0].sim.storage.digest,
+        "passwordStatus": "WAS DIFFERENT",
+        "gatewayLocation": alice.userSims[0].gatewayLocation,
+        "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+    });
+    for (let user of [alice, bob, carol, dave]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    alice.userSims[0].friendlyName = transfer_tools_1.testing.genUtf8Str(11);
+    assertSame(await db.setSimFriendlyName(alice, alice.userSims[0].sim.imsi, alice.userSims[0].friendlyName), alice.uas);
+    assertSame(await db.getSimOwner(alice.userSims[0].sim.imsi), { "user": alice.user, "shared": { "email": alice.shared.email } });
+    bob.userSims.pop();
+    carol.userSims.pop();
+    alice.userSims[0].ownership
+        .sharedWith.confirmed = (() => {
+        let set = new Set(alice.userSims[0].ownership
+            .sharedWith.confirmed);
+        set.delete(bob.shared.email);
+        set.delete(carol.shared.email);
+        return Array.from(set);
+    })();
+    assertSame(await db.stopSharingSim(alice, alice.userSims[0].sim.imsi, [bob.shared.email, carol.shared.email]), [...bob.uas, ...carol.uas]);
+    for (let user of [alice, bob, carol, dave]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    {
+        const replacementPassword = transfer_tools_1.testing.genHexStr(32);
+        assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, replacementPassword, alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+            "isSimRegistered": true,
+            "storageDigest": alice.userSims[0].sim.storage.digest,
+            "passwordStatus": "PASSWORD REPLACED",
+            "gatewayLocation": alice.userSims[0].gatewayLocation,
+            "uasRegisteredToSim": [...alice.uas, ...dave.uas]
+        });
+        alice.userSims[0].password = replacementPassword;
         for (let user of [alice, dave]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
+            assertSame(await db.getUserSims(user), user.userSims);
         }
-        let eve = yield genUser(unregisteredEmail);
-        eve.userSims.push(createUserSimProxy(alice.userSims[0], {
-            "status": "SHARED NOT CONFIRMED",
-            "ownerEmail": alice.email,
-            "sharingRequestMessage": sharingRequestMessage
-        }));
-        assertSame(yield db.getUserSims(eve), eve.userSims);
-        for (let _ of new Array(~~(Math.random() * 2) + 1)) {
-            let ua = exports.generateUa(eve.email);
-            eve.uas.push(ua);
-            yield db.addOrUpdateUa(ua);
-        }
-        eve.userSims.pop();
-        assertSame(yield db.unregisterSim(alice, alice.userSims.shift().sim.imsi), {
-            "affectedUas": alice.uas,
-            "owner": { "user": alice.user, "email": alice.email }
-        });
-        for (let user of [alice, eve]) {
-            assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        let dongles = [
+    }
+    dave.userSims.pop();
+    alice.userSims[0].ownership
+        .sharedWith.confirmed = [];
+    assertSame(await db.unregisterSim(dave, alice.userSims[0].sim.imsi), {
+        "affectedUas": dave.uas,
+        "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
+    });
+    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+        "isSimRegistered": true,
+        "storageDigest": alice.userSims[0].sim.storage.digest,
+        "passwordStatus": "UNCHANGED",
+        "gatewayLocation": alice.userSims[0].gatewayLocation,
+        "uasRegisteredToSim": alice.uas
+    });
+    for (let user of [alice, dave]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    let eve = await genUser(unregisteredEmail);
+    eve.userSims.push(createUserSimProxy(alice.userSims[0], {
+        "status": "SHARED NOT CONFIRMED",
+        "ownerEmail": alice.shared.email,
+        "sharingRequestMessage": sharingRequestMessage
+    }));
+    assertSame(await db.getUserSims(eve), eve.userSims);
+    for (let _ of new Array(~~(Math.random() * 2) + 1)) {
+        let ua = generateUa(eve.shared.email, eve.towardUserEncryptKeyStr);
+        eve.uas.push(ua);
+        await db.addOrUpdateUa(ua);
+    }
+    eve.userSims.pop();
+    assertSame(await db.unregisterSim(alice, alice.userSims.shift().sim.imsi), {
+        "affectedUas": alice.uas,
+        "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
+    });
+    for (let user of [alice, eve]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    {
+        const dongles = [
             {
                 "imei": transfer_tools_1.testing.genDigits(15),
                 "manufacturer": "Whatever",
@@ -513,181 +536,211 @@ function testMain() {
                 "sim": alice.userSims[0].sim,
             }
         ];
-        assertSame(yield db.filterDongleWithRegistrableSim(alice, dongles), [dongles[0]]);
-        alice.userSims.forEach(userSim => userSim.isOnline = false);
-        yield db.setAllSimOffline(alice.userSims.map(({ sim }) => sim.imsi));
-        transfer_tools_1.testing.assertSame(yield db.getUserSims(alice), alice.userSims);
-        [bob, carol, dave]
-            .map(({ userSims }) => userSims)
-            .reduce((prev, curr) => [...prev, ...curr], [])
-            .forEach(userSim => userSim.isOnline = false);
-        yield db.setAllSimOffline();
-        for (const user of [bob, carol, dave]) {
-            transfer_tools_1.testing.assertSame(yield db.getUserSims(user), user.userSims);
-        }
-        console.log("PASS MAIN");
-    });
+        assertSame(await db.filterDongleWithRegistrableSim(alice, dongles), [dongles[0]]);
+    }
+    alice.userSims.forEach(userSim => userSim.isOnline = false);
+    await db.setAllSimOffline(alice.userSims.map(({ sim }) => sim.imsi));
+    assertSame(await db.getUserSims(alice), alice.userSims);
+    [bob, carol, dave]
+        .map(({ userSims }) => userSims)
+        .reduce((prev, curr) => [...prev, ...curr], [])
+        .forEach(userSim => userSim.isOnline = false);
+    await db.setAllSimOffline();
+    for (const user of [bob, carol, dave]) {
+        assertSame(await db.getUserSims(user), user.userSims);
+    }
+    console.log("PASS MAIN");
 }
-function testUser() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield db.flush();
+async function testUser() {
+    let count = 1;
+    console.log("Start USER tests");
+    {
+        await db.flush();
         const ip = "1.1.1.1";
         let email = "joseph.garrone.gj@gmail.com";
-        let password = "fooBarBazBazBaz";
-        const createAccountResp = yield db.createUserAccount(email, password, ip);
-        console.assert((yield db.validateUserEmail(email, createAccountResp.activationCode))
+        let secret = crypto.randomBytes(500).toString("hex");
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+        const createAccountResp = await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip);
+        const user = createAccountResp.user;
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(user)};`);
+        assert(await db.validateUserEmail(email, createAccountResp.activationCode)
             ===
                 true);
-        const auth = { "user": createAccountResp.user, email };
-        console.assert(createAccountResp !== undefined);
-        console.assert(undefined === (yield db.createUserAccount(email, password, ip)));
-        console.assert(undefined === (yield db.createUserAccount(email, "anotherPass", ip)));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
+        assert(createAccountResp !== undefined);
+        assert(undefined === await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip));
+        assert(undefined === await db.createUserAccount(email, "anotherPass", towardUserEncryptKeyStr, encryptedSymmetricKey, ip));
+        assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "auth": { "user": auth.user, "email": auth.email }
+            "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
         });
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, "not password"), {
+        assertSame(await db.authenticateUser(email, "not password"), {
             "status": "WRONG PASSWORD",
             "retryDelay": 1000
         });
         for (const _ in [null, null]) {
-            yield new Promise(resolve => setTimeout(resolve, 10));
-            const resp = yield db.authenticateUser(email, password);
+            await new Promise(resolve => setTimeout(resolve, 10));
+            const resp = await db.authenticateUser(email, secret);
             if (resp.status !== "RETRY STILL FORBIDDEN") {
-                console.assert(false);
+                assert(false);
                 return;
             }
-            console.assert(typeof resp.retryDelayLeft === "number" && resp.retryDelayLeft < 1000);
+            assert(typeof resp.retryDelayLeft === "number" && resp.retryDelayLeft < 1000);
         }
-        yield new Promise(resolve => setTimeout(resolve, 1000));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, "not password"), {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        assertSame(await db.authenticateUser(email, "not password"), {
             "status": "WRONG PASSWORD",
             "retryDelay": 2000
         });
-        yield new Promise(resolve => setTimeout(resolve, 2000));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, "not password"), {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        assertSame(await db.authenticateUser(email, "not password"), {
             "status": "WRONG PASSWORD",
             "retryDelay": 4000
         });
-        yield new Promise(resolve => setTimeout(resolve, 4000));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "auth": { "user": auth.user, "email": auth.email }
+            "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
         });
-        console.assert(true === (yield db.deleteUser(auth)));
-        console.assert(false === (yield db.deleteUser({ "user": 220333, "email": "foo@bar.com" })));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
+        assert(true === await db.deleteUser({ user, "shared": { email } }));
+        assert(false === await db.deleteUser({ "user": 220333, "shared": { "email": "foo@bar.com" } }));
+        assertSame(await db.authenticateUser(email, secret), {
             "status": "NO SUCH ACCOUNT"
         });
         //Create an account as does the shareSim function
-        let { insertId: phonyUser } = yield db.query([
-            "INSERT INTO user",
-            "   (email, salt, digest, creation_date, ip)",
+        const { insertId: phonyUser } = await db.query([
+            "INSERT IGNORE INTO user",
+            "   (email, salt, digest, toward_user_encrypt_key, sym_key_enc, creation_date, ip)",
             "VALUES",
-            `   ( ${db.esc(email)}, '', '', '', '')`
+            [email].map(email => `   ( ${db.esc(email)}, '', '', '', '', 0, '')`).join(",\n"),
+            ";",
         ].join("\n"));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
+        assertSame(await db.authenticateUser(email, ""), {
+            "status": "NO SUCH ACCOUNT"
+        });
+        assertSame(await db.authenticateUser(email, secret), {
             "status": "NO SUCH ACCOUNT"
         });
         {
-            const createAccountResp = yield db.createUserAccount(email, password, ip);
-            console.assert(phonyUser === createAccountResp.user);
-            console.assert(createAccountResp.activationCode === null);
+            const createAccountResp = await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip);
+            assert(phonyUser === createAccountResp.user);
+            assert(createAccountResp.activationCode === null);
         }
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
+        assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "auth": { "user": phonyUser, email }
+            "authenticatedSessionDescriptor": { "user": phonyUser, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
         });
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, "not password"), {
+        assertSame(await db.authenticateUser(email, "not secret"), {
             "status": "WRONG PASSWORD",
             "retryDelay": 1000
         });
-        console.assert(yield db.deleteUser({ "user": phonyUser, email }));
-        transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
-            "status": "NO SUCH ACCOUNT",
+        assert(await db.deleteUser({ "user": phonyUser, "shared": { email } }));
+        assertSame(await db.authenticateUser(email, secret), {
+            "status": "NO SUCH ACCOUNT"
         });
-        {
-            for (const ovToken of [false, true]) {
-                yield db.flush();
-                console.assert((yield db.setPasswordRenewalToken("thisEmailDoesNotExist@gmail.com"))
-                    ===
-                        undefined);
-                const email = "alice@gmail.com";
-                const password = "theCoolPasswordSecure++";
-                const createAccountResp = yield db.createUserAccount(email, password, ip);
-                yield db.validateUserEmail(email, createAccountResp.activationCode);
-                const auth = { "user": createAccountResp.user, email };
-                let token = yield db.setPasswordRenewalToken(auth.email);
-                if (!token)
-                    throw new Error();
-                console.assert(token.length === 32);
-                console.assert((yield db.renewPassword("thisEmailDoesNotExist@gmail.com", token, "fooBarPass"))
-                    ===
-                        false);
-                console.assert((yield db.renewPassword(auth.email, "notTheToken", "fooBarPass"))
-                    ===
-                        false);
-                if (ovToken) {
-                    token = yield db.setPasswordRenewalToken(auth.email);
-                    if (!token)
-                        throw new Error();
-                }
-                const newPassword = "theSuperNewPasswordSecure++++";
-                console.assert((yield db.renewPassword(auth.email, token, newPassword))
-                    ===
-                        true);
-                const failedAuth = yield db.authenticateUser(auth.email, password);
-                if (failedAuth.status !== "WRONG PASSWORD")
-                    throw new Error();
-                yield new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
-                transfer_tools_1.testing.assertSame(yield db.authenticateUser(auth.email, newPassword), {
-                    "status": "SUCCESS",
-                    "auth": { "user": auth.user, "email": auth.email }
-                });
-                console.assert((yield db.renewPassword(auth.email, token, "fooBarPassword"))
-                    ===
-                        false);
+        console.log(`USER test ${count++} PASS`);
+    }
+    for (const ovToken of [false, true]) {
+        await db.flush();
+        assert(await db.setPasswordRenewalToken("thisEmailDoesNotExist@gmail.com")
+            ===
+                undefined);
+        const email = "alice@gmail.com";
+        const secret = crypto.randomBytes(500).toString("hex");
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+        const ip = "1.1.1.1";
+        const createAccountResp = await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip);
+        const user = createAccountResp.user;
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(user)};`);
+        assert(await db.validateUserEmail(email, createAccountResp.activationCode));
+        let token = await db.setPasswordRenewalToken(email);
+        if (!token)
+            throw new Error();
+        assert(token.length === 32);
+        assertSame(await db.renewPassword("thisEmailDoesNotExist@gmail.com", "|new Secret|", towardUserEncryptKeyStr, encryptedSymmetricKey, token), { "wasTokenStillValid": false });
+        assertSame(await db.renewPassword("thisEmailDoesNotExist@gmail.com", "|new Secret|", towardUserEncryptKeyStr, encryptedSymmetricKey, "|not the token|"), { "wasTokenStillValid": false });
+        if (ovToken) {
+            token = await db.setPasswordRenewalToken(email);
+            if (!token)
+                throw new Error();
+        }
+        const newSecret = crypto.randomBytes(500).toString("hex");
+        const newTowardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+        const newEncryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+        assertSame(await db.renewPassword(email, newSecret, newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token), { "wasTokenStillValid": true, user });
+        const failedAuth = await db.authenticateUser(email, secret);
+        if (failedAuth.status !== "WRONG PASSWORD")
+            throw new Error();
+        await new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
+        assertSame(await db.authenticateUser(email, newSecret), {
+            "status": "SUCCESS",
+            "authenticatedSessionDescriptor": {
+                user,
+                "shared": { email, webUaInstanceId, "encryptedSymmetricKey": newEncryptedSymmetricKey },
+                "towardUserEncryptKeyStr": newTowardUserEncryptKeyStr
             }
-        }
-        yield db.flush();
-        {
-            console.assert((yield db.validateUserEmail("thisEmailDoesNotExist@gmail.com", "0000"))
-                ===
-                    false);
-            const email = "foo-bar@gmail.com";
-            const password = "the_super_secret_password";
-            const accountCreationResp = yield db.createUserAccount(email, password, "1.1.1.1");
-            transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
-                "status": "NOT VALIDATED YET"
-            });
-            console.assert((yield db.validateUserEmail(email, accountCreationResp.activationCode))
-                ===
-                    true);
-            transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
-                "status": "SUCCESS",
-                "auth": { "user": accountCreationResp.user, email }
-            });
-        }
-        yield db.flush();
-        {
-            const email = "foo-bar@gmail.com";
-            const password = "the_super_secret_password";
-            //Create an account as does the shareSim function
-            const { insertId: phonyUser } = yield db.query([
-                "INSERT INTO user",
-                "   (email, salt, digest, creation_date, ip)",
-                "VALUES",
-                `   ( ${db.esc(email)}, '', '', '', '')`
-            ].join("\n"));
-            transfer_tools_1.testing.assertSame(yield db.createUserAccount(email, password, "1.1.1.1"), {
+        });
+        assertSame(await db.renewPassword(email, "| yet a new secret |", newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token), { "wasTokenStillValid": false });
+        console.log(`USER test ${count++} PASS`);
+    }
+    {
+        await db.flush();
+        assert(await db.validateUserEmail("thisEmailDoesNotExist@gmail.com", "0000")
+            ===
+                false);
+        const email = "foo-bar@gmail.com";
+        const secret = crypto.randomBytes(500).toString("hex");
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+        const accountCreationResp = await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, "1.1.1.1");
+        const user = accountCreationResp.user;
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(user)};`);
+        assertSame(await db.authenticateUser(email, secret), {
+            "status": "NOT VALIDATED YET"
+        });
+        assert(await db.validateUserEmail(email, accountCreationResp.activationCode)
+            ===
+                true);
+        assertSame(await db.authenticateUser(email, secret), {
+            "status": "SUCCESS",
+            "authenticatedSessionDescriptor": {
+                user,
+                "shared": { email, webUaInstanceId, encryptedSymmetricKey },
+                towardUserEncryptKeyStr
+            }
+        });
+        console.log(`USER test ${count++} PASS`);
+    }
+    {
+        await db.flush();
+        const email = "foo-bar@gmail.com";
+        const secret = crypto.randomBytes(500).toString("hex");
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+        //Create an account as does the shareSim function
+        const { insertId: phonyUser } = await db.query([
+            "INSERT IGNORE INTO user",
+            "   (email, salt, digest, toward_user_encrypt_key, sym_key_enc, creation_date, ip)",
+            "VALUES",
+            [email].map(email => `   ( ${db.esc(email)}, '', '', '', '', 0, '')`).join(",\n"),
+            ";",
+        ].join("\n"));
+        assertSame(await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, "1.1.1.1"), {
+            "user": phonyUser,
+            "activationCode": null
+        });
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(phonyUser)};`);
+        assertSame(await db.authenticateUser(email, secret), {
+            "status": "SUCCESS",
+            "authenticatedSessionDescriptor": {
                 "user": phonyUser,
-                "activationCode": null
-            });
-            transfer_tools_1.testing.assertSame(yield db.authenticateUser(email, password), {
-                "status": "SUCCESS",
-                "auth": { "user": phonyUser, email }
-            });
-        }
-        yield db.flush();
-    });
+                "shared": { email, webUaInstanceId, encryptedSymmetricKey },
+                towardUserEncryptKeyStr
+            }
+        });
+        console.log(`USER test ${count++} PASS`);
+    }
+    await db.flush();
+    console.log("PASS TEST USERS");
 }

@@ -1,8 +1,10 @@
 import * as crypto from "crypto";
-import { Auth } from "./web/sessionManager";
+import { AuthenticatedSessionDescriptor, UserAuthentication } from "./web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
 import { types as gwTypes } from "../gateway";
 import * as f from "../tools/mysqlCustom";
+import * as ttTesting from "transfer-tools/dist/lib/testing";
+const uuidv3 = require("uuid/v3");
 
 import { types as dcTypes } from "chan-dongle-extended-client";
 import { types as feTypes } from "../frontend";
@@ -11,12 +13,15 @@ import { deploy } from "../deploy";
 
 const debug = logger.debugFactory();
 
+const LOG_QUERY_DURATION: boolean = false;
+
 //TODO: For better lock each time providing user provide also email.
 
 /** exported only for tests */
 export let query: f.Api["query"];
 export let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
+
 
 /** Must be called and before use */
 export function launch() {
@@ -26,7 +31,22 @@ export function launch() {
         "database": "semasim"
     }, "HANDLE STRING ENCODING");
 
-    query = api.query;
+    query = LOG_QUERY_DURATION ?
+        async function (...args) {
+
+            const start = Date.now();
+
+            const out = await api.query.apply(api, args);
+
+            const duration = Date.now() - start;
+
+            console.log(`${JSON.stringify(args[0]).substring(0, 90)}: ${duration}ms`);
+
+            return out;
+        }
+        :
+        api.query;
+
     esc = api.esc;
     buildInsertQuery = api.buildInsertQuery;
 
@@ -41,64 +61,122 @@ export async function flush() {
     ].join("\n"));
 }
 
+namespace rmd160 {
+
+    async function hash(secret: string, salt: string): Promise<{ digest: string; }> {
+
+        const start = Date.now();
+
+        const out = {
+            "digest": crypto.createHash("rmd160")
+                .update(`${secret}${salt}`)
+                .digest("hex")
+        };
+
+        //NOTE: Protection against timing attack.
+        await new Promise(resolve => setTimeout(
+            resolve,
+            Math.floor(
+                Math.random() * Math.min(50, Date.now() - start)
+            )
+        ));
+
+        return out;
+
+    }
+
+    export async function generateSaltAndHash(secret: string): Promise<{ salt: string; digest: string; }> {
+
+        const salt = crypto.randomBytes(8).toString("hex");
+
+        return {
+            salt,
+            ...await hash(secret, salt)
+        };
+
+    }
+
+    export async function isValidSecret(
+        secret: string,
+        salt: string,
+        expectedDigest: string
+    ): Promise<boolean> {
+
+        return (await hash(secret, salt)).digest === expectedDigest;
+
+    }
+
+}
+
 /** 
- * Return user.id_ or undefined 
- * 
- * User not yet registered are created by the shareSim function
- * those user have no salt and no password.
- * 
+ * User not yet registered but that already exist in the database 
+ * are created by the shareSim function
+ * those user have no salt and no password and does not need to verify their email.
  * */
 export async function createUserAccount(
     email: string,
-    password: string,
+    secret: string,
+    towardUserEncryptKeyStr: string,
+    encryptedSymmetricKey: string,
     ip: string
 ): Promise<{ user: number; activationCode: string | null; } | undefined> {
 
-    const salt = crypto.randomBytes(8).toString("hex");
+    const { salt, digest } = await rmd160.generateSaltAndHash(secret);
 
-    const digest = crypto.createHash("rmd160").update(`${password}${salt}`).digest("hex");
-
-    //Four digits
-    let activationCode: string | null = (new Array(4))
-        .fill(0)
-        .map(() => Math.random().toFixed(1)[2])
-        .join("");
+    let activationCode: string | null = ttTesting.genDigits(4);
 
     email = email.toLowerCase();
+
+    const webUaInstanceId = `"<urn:uuid:${uuidv3(email, "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9")}>"`;
 
     const sql = [
         `SELECT @update_record:=NULL;`,
         "INSERT INTO user",
-        "   ( email, salt, digest, activation_code, creation_date, ip )",
+        "   ( email, salt, digest, activation_code, toward_user_encrypt_key, sym_key_enc, web_ua_instance_id, creation_date, ip )",
         "VALUES",
-        `   ( ${esc(email)}, ${esc(salt)}, ${esc(digest)}, ${esc(activationCode)}, ${esc(Date.now())}, ${esc(ip)})`,
+        "   ( " + [
+            email, salt, digest, activationCode,
+            towardUserEncryptKeyStr, encryptedSymmetricKey,
+            webUaInstanceId,
+            Date.now(), ip
+        ].map(value => esc(value))
+            .join(", ") + " )",
         "ON DUPLICATE KEY UPDATE",
         "   salt= IF(@update_record:= salt = '', VALUES(salt), salt),",
-        "   digest= IF(@update_record, VALUES(digest), digest),",
         "   activation_code= IF(@update_record, NULL, activation_code),",
-        "   creation_date= IF(@update_record, VALUES(creation_date), creation_date),",
-        "   ip= IF(@update_record, VALUES(ip), ip)",
+        [
+            "digest",
+            "toward_user_encrypt_key",
+            "sym_key_enc",
+            "web_ua_instance_id",
+            "creation_date",
+            "ip"
+        ].map(key => `   ${key}= IF(@update_record, VALUES(${key}), ${key})`).join(",\n"),
         ";",
-        `SELECT @update_record AS update_record`
+        `SELECT @update_record AS update_record`,
+        ";",
+        addOrUpdateUa.getQuery({
+            "instance": webUaInstanceId,
+            "userEmail": email,
+            "platform": "web",
+            "pushToken": "",
+            "messagesEnabled": true
+        })
     ].join("\n");
 
-    //console.log(sql);
-
-    const res= await query(sql, { email });
-
-    //console.log(res);
+    const res = await query(sql, { email });
 
     const { insertId } = res[1];
 
-    if( insertId === 0 ){
+    if (insertId === 0) {
         return undefined;
-    }else{
+    } else {
 
-        const user= insertId;
+        const user = insertId;
 
-        if( res.slice(-1)[0][0]["update_record"] !== null ){
+        if (res[2][0]["update_record"] !== null) {
 
-            activationCode= null;
+            activationCode = null;
 
         }
 
@@ -135,10 +213,10 @@ export async function validateUserEmail(
 /** Return user.id_ or undefined if auth failed */
 export async function authenticateUser(
     email: string,
-    password: string
+    secret: string
 ): Promise<{
     status: "SUCCESS";
-    auth: Auth;
+    authenticatedSessionDescriptor: AuthenticatedSessionDescriptor;
 } | {
     status: "NO SUCH ACCOUNT";
 } | {
@@ -160,7 +238,10 @@ export async function authenticateUser(
         `   digest,`,
         `   last_attempt_date,`,
         `   forbidden_retry_delay,`,
-        `   activation_code`,
+        `   activation_code,`,
+        `   toward_user_encrypt_key,`,
+        `   sym_key_enc,`,
+        `   web_ua_instance_id`,
         `FROM user WHERE email= ${esc(email)}`
     ].join("\n")
 
@@ -201,7 +282,7 @@ export async function authenticateUser(
 
     const user: number = row["id_"];
 
-    if (crypto.createHash("rmd160").update(`${password}${row["salt"]}`).digest("hex") === row["digest"]) {
+    if (await rmd160.isValidSecret(secret, row["salt"], row["digest"])) {
 
         if (retryDelay !== undefined) {
 
@@ -215,9 +296,18 @@ export async function authenticateUser(
 
         }
 
-        return { 
-            "status": "SUCCESS", 
-            "auth": { user, email } 
+
+        return {
+            "status": "SUCCESS",
+            "authenticatedSessionDescriptor": {
+                user,
+                "shared": {
+                    email,
+                    "encryptedSymmetricKey": row["sym_key_enc"],
+                    "webUaInstanceId": row["web_ua_instance_id"]
+                },
+                "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
+            }
         };
 
     } else {
@@ -263,39 +353,56 @@ export async function setPasswordRenewalToken(email: string): Promise<string | u
 
 }
 
-/** return true if token was still valid for email */
-export async function renewPassword(email: string, token: string, newPassword: string): Promise<boolean> {
+export async function renewPassword(
+    email: string,
+    newSecret: string,
+    newTowardUserEncryptKeyStr: string,
+    newEncryptedSymmetricKey: string,
+    token: string
+): Promise<{ wasTokenStillValid: true; user: number; } | { wasTokenStillValid: false; }> {
 
-    const salt = crypto.randomBytes(8).toString("hex");
-
-    const digest = crypto.createHash("rmd160").update(`${newPassword}${salt}`).digest("hex");
+    const { digest, salt } = await rmd160.generateSaltAndHash(newSecret);
 
     const sql = [
+        `SELECT @user_ref:=NULL;`,
+        `SELECT @user_ref:=id_ as id_`,
+        `FROM user`,
+        `WHERE password_renewal_token=${esc(token)} AND email=${esc(email)}`,
+        `;`,
         `UPDATE user`,
         `SET`,
         `salt=${esc(salt)},`,
         `digest=${esc(digest)},`,
+        `toward_user_encrypt_key=${esc(newTowardUserEncryptKeyStr)},`,
+        `sym_key_enc=${esc(newEncryptedSymmetricKey)},`,
         `last_attempt_date= NULL,`,
         `forbidden_retry_delay= NULL,`,
         `password_renewal_token= NULL`,
-        `WHERE password_renewal_token=${esc(token)} AND email=${esc(email)}`
+        `WHERE id_=@user_ref`,
+        `;`
     ].join("\n");
 
-    const { affectedRows } = await query(sql, { email });
+    const res = await query(sql, { email });
 
-    return affectedRows === 1;
+    return res[2].affectedRows === 1 ?
+        {
+            "wasTokenStillValid": true,
+            "user": res[1][0]["id_"]
+        } : {
+            "wasTokenStillValid": false
+        };
 
 }
 
 
 //TODO: Implement and when it's done enforce providing email for lock.
 export async function deleteUser(
-    auth: Auth
+    auth: UserAuthentication
 ): Promise<boolean> {
 
     const sql = `DELETE FROM user WHERE id_ = ${esc(auth.user)}`;
 
-    const { affectedRows } = await query(sql, { "email": auth.email });
+    const { affectedRows } = await query(sql, { "email": auth.shared.email });
 
     const isDeleted = affectedRows !== 0;
 
@@ -344,7 +451,7 @@ export async function addGatewayLocation(ip: string) {
  *  active dongles not registered
  */
 export async function filterDongleWithRegistrableSim(
-    auth: Auth,
+    auth: UserAuthentication,
     dongles: Iterable<dcTypes.Dongle>
 ): Promise<dcTypes.Dongle[]> {
 
@@ -370,7 +477,7 @@ export async function filterDongleWithRegistrableSim(
         "FROM sim",
         "WHERE",
         dongleWithReadableIccid.map(({ sim }) => `iccid= ${esc(sim.iccid!)}`).join(" OR ")
-    ].join("\n"), { "email": auth.email });
+    ].join("\n"), { "email": auth.shared.email });
 
     let userByIccid: { [iccid: string]: number } = {};
 
@@ -450,7 +557,7 @@ export async function getUserUa(email: string): Promise<gwTypes.Ua[]> {
     email = email.toLowerCase();
 
     const sql = [
-        "SELECT ua.*",
+        "SELECT ua.*, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         `WHERE user.email=${esc(email)}`,
@@ -462,11 +569,10 @@ export async function getUserUa(email: string): Promise<gwTypes.Ua[]> {
 
     for (const row of rows) {
 
-        
-
         uas.push({
             "instance": row["instance"],
             "userEmail": email,
+            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
             "messagesEnabled": f.bool.dec(row["messages_enabled"])
@@ -492,14 +598,14 @@ namespace retrieveUasRegisteredToSim {
     export const sql = [
         "",
         "SELECT",
-        "   ua.*, user.email",
+        "   ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN sim ON sim.user= user.id_",
         `WHERE sim.id_= @sim_ref`,
         ";",
         "SELECT ",
-        "   ua.*, user.email",
+        "   ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN user_sim ON user_sim.user= user.id_",
@@ -516,6 +622,7 @@ namespace retrieveUasRegisteredToSim {
             uasRegisteredToSim.push({
                 "instance": row["instance"],
                 "userEmail": row["email"],
+                "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
                 "platform": row["platform"],
                 "pushToken": row["push_token"],
                 "messagesEnabled": f.bool.dec(row["messages_enabled"])
@@ -643,10 +750,11 @@ export async function deleteSimContact(
 
 /** return user UAs */
 export async function registerSim(
-    auth: Auth,
+    auth: UserAuthentication,
     sim: dcTypes.Sim,
     friendlyName: string,
     password: string,
+    towardSimEncryptKeyStr: string,
     dongle: feTypes.UserSim["dongle"],
     gatewayIp: string
 ): Promise<gwTypes.Ua[]> {
@@ -685,6 +793,7 @@ export async function registerSim(
             "storage_digest": sim.storage.digest,
             "user": auth.user,
             password,
+            "toward_sim_encrypt_key": towardSimEncryptKeyStr,
             "need_password_renewal": 0,
             "friendly_name": friendlyName,
             "is_online": 1
@@ -708,7 +817,7 @@ export async function registerSim(
     }
 
     sql += [
-        "SELECT ua.*, user.email",
+        "SELECT ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         `WHERE user.id_= ${esc(auth.user)}`
@@ -716,7 +825,7 @@ export async function registerSim(
 
     const queryResults = await query(
         sql,
-        { "email": auth.email, "imsi": sim.imsi }
+        { "email": auth.shared.email, "imsi": sim.imsi }
     );
 
     const userUas: gwTypes.Ua[] = [];
@@ -726,6 +835,7 @@ export async function registerSim(
         userUas.push({
             "instance": row["instance"],
             "userEmail": row["email"],
+            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
             "messagesEnabled": f.bool.dec(row["messages_enabled"])
@@ -738,7 +848,7 @@ export async function registerSim(
 }
 
 export async function getUserSims(
-    auth: Auth
+    auth: UserAuthentication
 ): Promise<feTypes.UserSim[]> {
 
     let sql = [
@@ -802,7 +912,7 @@ export async function getUserSims(
         rowsSharedWith,
         rowsSimShared,
         rowsContactSimShared
-    ] = await query(sql, { "email": auth.email });
+    ] = await query(sql, { "email": auth.shared.email });
 
     const sharedWithBySim: {
         [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
@@ -931,7 +1041,7 @@ export async function getUserSims(
                 if (friendlyName === null) {
 
                     //NOTE: Security hotFix, TODO: see if uppercase, if changed update in make sim proxy (tests)
-                    row["password"] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+                    row["password"] = "ffffffffffffffffffffffffffffffff";
 
                     return [
                         ownerFriendlyName,
@@ -959,6 +1069,7 @@ export async function getUserSims(
             sim,
             friendlyName,
             "password": row["password"],
+            "towardSimEncryptKeyStr": row["toward_sim_encrypt_key"],
             dongle,
             gatewayLocation,
             "isOnline": row["is_online"] === 1,
@@ -974,37 +1085,50 @@ export async function getUserSims(
 
 }
 
+
 export async function addOrUpdateUa(
-    ua: gwTypes.Ua
+    ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">
 ) {
 
-    const sql = [
-        "INSERT INTO ua",
-        "   (instance, user, platform, push_token, messages_enabled)",
-        "SELECT",
-        [
-            esc(ua.instance),
-            "id_",
-            esc(ua.platform),
-            esc(ua.pushToken),
-            f.bool.enc(ua.messagesEnabled)
-        ].join(", "),
-        `FROM user WHERE email= ${esc(ua.userEmail)}`,
-        "ON DUPLICATE KEY UPDATE",
-        "   platform= VALUES(platform),",
-        "   push_token= VALUES(push_token),",
-        "   messages_enabled= VALUES(messages_enabled)"
-    ].join("\n");
+    const sql = addOrUpdateUa.getQuery(ua);
 
     await query(sql, { "email": ua.userEmail });
 
 }
 
-//TODO: test!
+export namespace addOrUpdateUa {
+
+    export function getQuery(
+        ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">
+    ): string {
+        return [
+            "INSERT INTO ua",
+            "   (instance, user, platform, push_token, messages_enabled)",
+            "SELECT",
+            [
+                esc(ua.instance),
+                "id_",
+                esc(ua.platform),
+                esc(ua.pushToken),
+                f.bool.enc(ua.messagesEnabled)
+            ].join(", "),
+            `FROM user WHERE email= ${esc(ua.userEmail)}`,
+            "ON DUPLICATE KEY UPDATE",
+            [
+                "platform",
+                "push_token",
+                "messages_enabled"
+            ].map(key => `    ${key}= VALUES(${key})`).join(",\n")
+        ].join("\n");
+    }
+
+}
+
 export async function setSimOnline(
     imsi: string,
     password: string,
     replacementPassword: string,
+    towardSimEncryptKeyStr: string,
     gatewayAddress: string,
     dongle: feTypes.UserSim["dongle"]
 ): Promise<{
@@ -1045,6 +1169,7 @@ export async function setSimOnline(
         "SET",
         "   is_online=1,",
         `   password=IF(@password_status='PASSWORD REPLACED',${esc(replacementPassword)},${esc(password)}),`,
+        `   toward_sim_encrypt_key=${esc(towardSimEncryptKeyStr)},`,
         "   dongle=@dongle_ref,",
         "   gateway_location=@gateway_location_ref,",
         "   need_password_renewal=0",
@@ -1144,9 +1269,9 @@ export async function setSimsOffline(
 }
 
 export async function unregisterSim(
-    auth: Auth,
+    auth: UserAuthentication,
     imsi: string
-): Promise<{ affectedUas: gwTypes.Ua[]; owner: Auth; }> {
+): Promise<{ affectedUas: gwTypes.Ua[]; owner: UserAuthentication; }> {
 
     const sql = [
         `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL, @sim_owner:=NULL;`,
@@ -1162,14 +1287,14 @@ export async function unregisterSim(
         "SELECT email AS sim_owner_email FROM user WHERE id_=@sim_owner",
         ";",
         "SELECT",
-        "   ua.*, user.email",
+        "   ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "   INNER JOIN user ON user.id_= ua.user",
         "   INNER JOIN sim ON sim.user= user.id_",
         "WHERE sim.id_= @sim_ref AND @is_sim_owned",
         ";",
         "SELECT",
-        "   ua.*, user.email",
+        "   ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN user_sim ON user_sim.user= user.id_",
@@ -1184,7 +1309,7 @@ export async function unregisterSim(
         `WHERE sim= @sim_ref AND user= ${esc(auth.user)} AND NOT @is_sim_owned`
     ].join("\n");
 
-    const queryResults = await query(sql, { "email": auth.email, imsi });
+    const queryResults = await query(sql, { "email": auth.shared.email, imsi });
 
     queryResults.shift();
 
@@ -1195,6 +1320,7 @@ export async function unregisterSim(
         affectedUas.push({
             "instance": row["instance"],
             "userEmail": row["email"],
+            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
             "messagesEnabled": f.bool.dec(row["messages_enabled"])
@@ -1206,27 +1332,26 @@ export async function unregisterSim(
         affectedUas,
         "owner": {
             "user": queryResults[0][0]["sim_owner"],
-            "email": queryResults[2][0]["sim_owner_email"]
+            "shared": { "email": queryResults[2][0]["sim_owner_email"] }
         }
     };
 
 }
 
-//TODO: test changed
 /** assert emails not empty, return affected user email */
 export async function shareSim(
-    auth: Auth,
+    auth: UserAuthentication,
     imsi: string,
     emails: string[],
     sharingRequestMessage: string | undefined
 ): Promise<{
-    registered: Auth[];
+    registered: UserAuthentication[];
     notRegistered: string[]; /** list of emails */
 }> {
 
     emails = emails
         .map(email => email.toLowerCase())
-        .filter(email => email !== auth.email)
+        .filter(email => email !== auth.shared.email)
         ;
 
     const sql = [
@@ -1238,9 +1363,9 @@ export async function shareSim(
         "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not own sim')",
         ";",
         "INSERT IGNORE INTO user",
-        "   (email, salt, digest, creation_date, ip)",
+        "   (email, salt, digest, toward_user_encrypt_key, sym_key_enc, creation_date, ip)",
         "VALUES",
-        emails.map(email => `   ( ${esc(email)}, '', '', 0, '')`).join(",\n"),
+        emails.map(email => `   ( ${esc(email)}, '', '', '', '', 0, '')`).join(",\n"),
         ";",
         "DROP TABLE IF EXISTS _user",
         ";",
@@ -1264,27 +1389,27 @@ export async function shareSim(
 
     const queryResults = await query(
         sql,
-        { imsi, "email": [auth.email, ...emails] }
+        { imsi, "email": [auth.shared.email, ...emails] }
     );
 
     const userRows = queryResults.pop();
 
     const affectedUsers = {
-        "registered": [] as Auth[],
+        "registered": [] as UserAuthentication[],
         "notRegistered": [] as string[]
     };
 
     for (const row of userRows) {
 
-        const auth: Auth = {
+        const auth: UserAuthentication = {
             "user": row["id_"],
-            "email": row["email"]
+            "shared": { "email": row["email"] }
         };
 
         if (row["is_registered"] === 1) {
             affectedUsers.registered.push(auth);
         } else {
-            affectedUsers.notRegistered.push(auth.email);
+            affectedUsers.notRegistered.push(auth.shared.email);
         }
 
     }
@@ -1295,7 +1420,7 @@ export async function shareSim(
 
 /** Return no longer registered UAs, assert email list not empty*/
 export async function stopSharingSim(
-    auth: Auth,
+    auth: UserAuthentication,
     imsi: string,
     emails: string[]
 ): Promise<gwTypes.Ua[]> {
@@ -1318,13 +1443,14 @@ export async function stopSharingSim(
         "       user_sim.id_,",
         "       user_sim.user,",
         "       user.email,",
+        "       user.toward_user_encrypt_key,",
         "       user_sim.friendly_name IS NOT NULL as is_confirmed",
         "   FROM user_sim",
         "   INNER JOIN user ON user.id_= user_sim.user",
         `   WHERE user_sim.sim= @sim_ref AND (${emails.map(email => `user.email= ${esc(email)}`).join(" OR ")})`,
         ")",
         ";",
-        "SELECT ua.*, _user_sim.email, @ua_found:= 1",
+        "SELECT ua.*, _user_sim.email, _user_sim.toward_user_encrypt_key, @ua_found:= 1",
         "FROM ua",
         "INNER JOIN _user_sim ON _user_sim.user= ua.user",
         "WHERE _user_sim.is_confirmed",
@@ -1340,7 +1466,7 @@ export async function stopSharingSim(
 
     const queryResults = await query(
         sql,
-        { imsi, "email": auth.email }
+        { imsi, "email": auth.shared.email }
     );
 
     queryResults.shift();
@@ -1354,6 +1480,7 @@ export async function stopSharingSim(
         noLongerRegisteredUas.push({
             "instance": row["instance"],
             "userEmail": row["email"],
+            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
             "messagesEnabled": f.bool.dec(row["messages_enabled"])
@@ -1367,7 +1494,7 @@ export async function stopSharingSim(
 
 /** Return user UAs */
 export async function setSimFriendlyName(
-    auth: Auth,
+    auth: UserAuthentication,
     imsi: string,
     friendlyName: string
 ): Promise<gwTypes.Ua[]> {
@@ -1390,7 +1517,7 @@ export async function setSimFriendlyName(
         `SET friendly_name= ${esc(friendlyName)}, sharing_request_message= NULL`,
         `WHERE sim= @sim_ref AND user= ${esc(auth.user)} AND NOT @is_sim_owned`,
         ";",
-        "SELECT ua.*, user.email",
+        "SELECT ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         `WHERE user= ${esc(auth.user)}`
@@ -1398,7 +1525,7 @@ export async function setSimFriendlyName(
 
     const queryResults = await query(
         sql,
-        { imsi, "email": auth.email }
+        { imsi, "email": auth.shared.email }
     );
 
     const uaRows = queryResults.pop();
@@ -1410,6 +1537,7 @@ export async function setSimFriendlyName(
         userUas.push({
             "instance": row["instance"],
             "userEmail": row["email"],
+            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
             "pushToken": row["push_token"],
             "messagesEnabled": f.bool.dec(row["messages_enabled"])
@@ -1423,7 +1551,7 @@ export async function setSimFriendlyName(
 
 export async function getSimOwner(
     imsi: string
-): Promise<undefined | Auth> {
+): Promise<undefined | UserAuthentication> {
 
     let rows = await query([
         "SELECT user.*",
@@ -1437,7 +1565,7 @@ export async function getSimOwner(
     } else {
         return {
             "user": rows[0]["id_"],
-            "email": rows[0]["email"]
+            "shared": { "email": rows[0]["email"] }
         }
     }
 

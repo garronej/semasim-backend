@@ -1,5 +1,4 @@
 
-
 if (require.main === module) {
     process.once("unhandledRejection", error => { throw error; });
 }
@@ -15,14 +14,8 @@ import { deploy } from "../deploy";
 import { geoiplookup } from "../tools/geoiplookup";
 import * as mysqlCustom from "../tools/mysqlCustom";
 import * as db from "../lib/dbSemasim";
-
-export const generateUa = (email: string = `${ttTesting.genHexStr(10)}@foo.com`): gwTypes.Ua => ({
-    "instance": `"<urn:uuid:${ttTesting.genHexStr(30)}>"`,
-    "platform": Date.now() % 2 ? "android" : "iOS",
-    "pushToken": ttTesting.genHexStr(60),
-    "userEmail": email,
-    "messagesEnabled": true
-});
+import * as crypto from "crypto";
+import * as assert from "assert";
 
 export namespace genUniq {
 
@@ -108,7 +101,7 @@ export function generateSim(
         sim.storage.contacts
     );
 
-    console.assert(dcSanityChecks.simStorage(sim.storage));
+    assert(dcSanityChecks.simStorage(sim.storage));
 
     return sim;
 
@@ -118,7 +111,7 @@ export function generateSim(
 
     if (require.main === module) {
 
-        console.assert(
+        assert(
             deploy.getEnv() === "DEV",
             "You DO NOT want to run DB tests in prod"
         );
@@ -177,7 +170,11 @@ function createUserSimProxy(
         "password": {
             "enumerable": true,
             "get": () => (userSimProxy.ownership.status === "SHARED NOT CONFIRMED") ?
-                "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" : userSim.password
+                "ffffffffffffffffffffffffffffffff" : userSim.password
+        },
+        "towardSimEncryptKeyStr": {
+            "enumerable": true,
+            "get": ()=> userSim.towardSimEncryptKeyStr
         },
         "dongle": {
             "enumerable": true,
@@ -206,39 +203,74 @@ async function testMain() {
 
     await db.flush();
 
-    const genUser = async (email: string = `${ttTesting.genHexStr(20)}@foobar.com`) =>
-        ({
+    const genUser = async (email?: string) => {
+
+        if (!email) {
+            email = `${ttTesting.genHexStr(20)}@foobar.com`;
+        }
+
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+
+        const out = {
             "user": await (async () => {
 
-                const createUserResp = await db.createUserAccount(email, ttTesting.genUtf8Str(10), "1.1.1.1");
+                const createUserResp = await db.createUserAccount(
+                    email,
+                    ttTesting.genUtf8Str(30),
+                    towardUserEncryptKeyStr,
+                    crypto.randomBytes(128).toString("binary"),
+                    "1.1.1.1"
+                );
 
                 await db.validateUserEmail(email, createUserResp!.activationCode!);
 
                 return createUserResp!.user;
 
             })(),
-            email,
+            "shared": { email },
+            towardUserEncryptKeyStr,
             "userSims": [] as feTypes.UserSim[],
             "uas": [] as gwTypes.Ua[]
+        };
+
+        out.uas.push({
+            "instance": (await db.query(`SELECT instance FROM ua WHERE platform='web' AND user=${db.esc(out.user)};`))[0].instance,
+            "userEmail": email,
+            towardUserEncryptKeyStr,
+            "platform": "web",
+            "pushToken": "",
+            "messagesEnabled": true
         });
 
-    let alice = await genUser("alice@foo.com");
-    let bob = await genUser("bob@foo.com");
-    let carol = await genUser("carol@foo.com");
-    let dave = await genUser("dave@foo.com");
+        return out;
 
-    let unregisteredEmail = "eve@foobar.com";
+    };
+
+    const generateUa = (email: string, towardUserEncryptKeyStr: string): gwTypes.Ua => ({
+        "instance": `"<urn:uuid:${ttTesting.genHexStr(30)}>"`,
+        "userEmail": email,
+        towardUserEncryptKeyStr,
+        "platform": Date.now() % 2 ? "android" : "iOS",
+        "pushToken": ttTesting.genHexStr(60),
+        "messagesEnabled": true
+    });
+
+    const alice = await genUser("alice@foo.com");
+    const bob = await genUser("bob@foo.com");
+    const carol = await genUser("carol@foo.com");
+    const dave = await genUser("dave@foo.com");
+
+    const unregisteredEmail = "eve@foobar.com";
 
     for (let user of [alice, bob, carol, dave]) {
 
         for (const _ of new Array(~~(Math.random() * 10) + 1)) {
-            //for (let _ of [ null ]) {
 
             if (user === carol) {
                 break;
             }
 
-            let ua = generateUa(user.email);
+            let ua = generateUa(user.shared.email, user.towardUserEncryptKeyStr);
 
             user.uas.push(ua);
 
@@ -247,7 +279,6 @@ async function testMain() {
         }
 
         for (let _ of new Array(~~(Math.random() * 5) + 2)) {
-            //for (let _ of [null]) {
 
             if (user === dave) {
                 break;
@@ -261,6 +292,7 @@ async function testMain() {
                     sim,
                     "friendlyName": ttTesting.genUtf8Str(12),
                     "password": ttTesting.genHexStr(32),
+                    "towardSimEncryptKeyStr": crypto.randomBytes(150).toString("base64"),
                     "dongle": {
                         "imei": genUniq.imsi(),
                         "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
@@ -331,6 +363,7 @@ async function testMain() {
                     userSim.sim,
                     userSim.friendlyName,
                     userSim.password,
+                    userSim.towardSimEncryptKeyStr,
                     userSim.dongle,
                     userSim.gatewayLocation.ip
                 ),
@@ -633,7 +666,7 @@ async function testMain() {
     }
 
     (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
-        .sharedWith.notConfirmed = [bob.email, carol.email, dave.email, unregisteredEmail];
+        .sharedWith.notConfirmed = [bob.shared.email, carol.shared.email, dave.shared.email, unregisteredEmail];
 
     let sharingRequestMessage = ttTesting.genUtf8Str(50);
 
@@ -641,7 +674,7 @@ async function testMain() {
 
         user.userSims.push(createUserSimProxy(alice.userSims[0], {
             "status": "SHARED NOT CONFIRMED",
-            "ownerEmail": alice.email,
+            "ownerEmail": alice.shared.email,
             sharingRequestMessage
         }));
 
@@ -649,20 +682,38 @@ async function testMain() {
 
     assertSame(
         await db.shareSim(
-            { "user": alice.user, "email": alice.email },
+            { "user": alice.user, "shared": { "email": alice.shared.email } },
             alice.userSims[0].sim.imsi,
             (alice.userSims[0].ownership as feTypes.SimOwnership.Owned).sharedWith.notConfirmed,
             sharingRequestMessage
         ),
         {
-            "registered": [bob, carol, dave].map(({ user, email }) => ({ user, email })),
+            "registered": [bob, carol, dave].map(({ user, shared }) => ({ user, shared })),
             "notRegistered": [unregisteredEmail]
         }
     );
 
     for (let user of [alice, bob, carol, dave]) {
 
-        assertSame(await db.getUserSims(user), user.userSims);
+        //assertSame(await db.getUserSims(user), user.userSims);
+
+        const expected = user.userSims;
+
+        const got = await db.getUserSims(user);
+
+        try {
+
+            assertSame(got, expected);
+
+        } catch (error) {
+
+            console.log(JSON.stringify({
+                got, expected
+            }, null, 2));
+
+            throw error;
+
+        }
 
     }
 
@@ -674,7 +725,7 @@ async function testMain() {
 
         user.userSims[user.userSims.length - 1].ownership = {
             "status": "SHARED CONFIRMED",
-            "ownerEmail": alice.email
+            "ownerEmail": alice.shared.email
         };
 
         (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
@@ -685,14 +736,14 @@ async function testMain() {
                         .sharedWith.notConfirmed
                 );
 
-                set.delete(user.email);
+                set.delete(user.shared.email);
 
                 return Array.from(set);
 
             })();
 
         (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
-            .sharedWith.confirmed.push(user.email);
+            .sharedWith.confirmed.push(user.shared.email);
 
         uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
 
@@ -714,6 +765,7 @@ async function testMain() {
                 alice.userSims[0].sim.imsi,
                 alice.userSims[0].password,
                 ttTesting.genHexStr(32),
+                alice.userSims[0].towardSimEncryptKeyStr,
                 alice.userSims[0].gatewayLocation.ip,
                 alice.userSims[0].dongle
             ),
@@ -746,21 +798,23 @@ async function testMain() {
             ttTesting.genDigits(15),
             alice.userSims[0].password,
             ttTesting.genHexStr(32),
+            alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
         { "isSimRegistered": false }
     );
 
+
     alice.userSims[0].isOnline = true;
     alice.userSims[0].dongle.isVoiceEnabled = false;
-
 
     assertSame(
         await db.setSimOnline(
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
             ttTesting.genHexStr(32),
+            alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
@@ -784,6 +838,7 @@ async function testMain() {
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
             ttTesting.genHexStr(32),
+            alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
@@ -813,7 +868,7 @@ async function testMain() {
 
     assertSame(
         await db.getSimOwner(alice.userSims[0].sim.imsi),
-        { "user": alice.user, "email": alice.email }
+        { "user": alice.user, "shared": { "email": alice.shared.email } }
     );
 
     bob.userSims.pop();
@@ -827,8 +882,8 @@ async function testMain() {
                     .sharedWith.confirmed
             );
 
-            set.delete(bob.email);
-            set.delete(carol.email);
+            set.delete(bob.shared.email);
+            set.delete(carol.shared.email);
 
             return Array.from(set);
 
@@ -838,7 +893,7 @@ async function testMain() {
         await db.stopSharingSim(
             alice,
             alice.userSims[0].sim.imsi,
-            [bob.email, carol.email]
+            [bob.shared.email, carol.shared.email]
         ),
         [...bob.uas, ...carol.uas]
     );
@@ -856,6 +911,7 @@ async function testMain() {
                 alice.userSims[0].sim.imsi,
                 alice.userSims[0].password,
                 replacementPassword,
+                alice.userSims[0].towardSimEncryptKeyStr,
                 alice.userSims[0].gatewayLocation.ip,
                 alice.userSims[0].dongle
             ),
@@ -886,7 +942,7 @@ async function testMain() {
         await db.unregisterSim(dave, alice.userSims[0].sim.imsi),
         {
             "affectedUas": dave.uas,
-            "owner": { "user": alice.user, "email": alice.email }
+            "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
         }
     );
 
@@ -895,6 +951,7 @@ async function testMain() {
             alice.userSims[0].sim.imsi,
             alice.userSims[0].password,
             ttTesting.genHexStr(32),
+            alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
             alice.userSims[0].dongle
         ),
@@ -915,7 +972,7 @@ async function testMain() {
 
     eve.userSims.push(createUserSimProxy(alice.userSims[0], {
         "status": "SHARED NOT CONFIRMED",
-        "ownerEmail": alice.email,
+        "ownerEmail": alice.shared.email,
         "sharingRequestMessage": sharingRequestMessage
     }));
 
@@ -923,7 +980,7 @@ async function testMain() {
 
     for (let _ of new Array(~~(Math.random() * 2) + 1)) {
 
-        let ua = generateUa(eve.email);
+        let ua = generateUa(eve.shared.email, eve.towardUserEncryptKeyStr);
 
         eve.uas.push(ua);
 
@@ -940,7 +997,7 @@ async function testMain() {
         ),
         {
             "affectedUas": alice.uas,
-            "owner": { "user": alice.user, "email": alice.email }
+            "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
         }
     );
 
@@ -948,33 +1005,36 @@ async function testMain() {
         assertSame(await db.getUserSims(user), user.userSims);
     }
 
-    let dongles: dcTypes.Dongle.Usable[] = [
-        {
-            "imei": ttTesting.genDigits(15),
-            "manufacturer": "Whatever",
-            "model": "Foo Bar",
-            "firmwareVersion": "1.000.223",
-            "isVoiceEnabled": true,
-            "sim": generateSim()
-        },
-        {
-            "imei": ttTesting.genDigits(15),
-            "manufacturer": alice.userSims[0].dongle.manufacturer,
-            "model": alice.userSims[0].dongle.model,
-            "firmwareVersion": alice.userSims[0].dongle.firmwareVersion,
-            "isVoiceEnabled": alice.userSims[0].dongle.isVoiceEnabled,
-            "sim": alice.userSims[0].sim,
-        }
-    ];
+    {
 
-    assertSame(
-        await db.filterDongleWithRegistrableSim(
-            alice,
-            dongles
-        ),
-        [dongles[0]]
-    );
+        const dongles: dcTypes.Dongle.Usable[] = [
+            {
+                "imei": ttTesting.genDigits(15),
+                "manufacturer": "Whatever",
+                "model": "Foo Bar",
+                "firmwareVersion": "1.000.223",
+                "isVoiceEnabled": true,
+                "sim": generateSim()
+            },
+            {
+                "imei": ttTesting.genDigits(15),
+                "manufacturer": alice.userSims[0].dongle.manufacturer,
+                "model": alice.userSims[0].dongle.model,
+                "firmwareVersion": alice.userSims[0].dongle.firmwareVersion,
+                "isVoiceEnabled": alice.userSims[0].dongle.isVoiceEnabled,
+                "sim": alice.userSims[0].sim,
+            }
+        ];
 
+        assertSame(
+            await db.filterDongleWithRegistrableSim(
+                alice,
+                dongles
+            ),
+            [dongles[0]]
+        );
+
+    }
 
     alice.userSims.forEach(userSim => userSim.isOnline = false);
 
@@ -982,7 +1042,7 @@ async function testMain() {
         alice.userSims.map(({ sim }) => sim.imsi)
     );
 
-    ttTesting.assertSame(
+    assertSame(
         await db.getUserSims(alice),
         alice.userSims
     );
@@ -997,7 +1057,7 @@ async function testMain() {
 
     for (const user of [bob, carol, dave]) {
 
-        ttTesting.assertSame(
+        assertSame(
             await db.getUserSims(user),
             user.userSims
         );
@@ -1010,319 +1070,398 @@ async function testMain() {
 
 async function testUser() {
 
-    await db.flush();
+    let count = 1;
 
-    const ip = "1.1.1.1";
-
-    let email = "joseph.garrone.gj@gmail.com";
-
-    let password = "fooBarBazBazBaz";
-
-    const createAccountResp = await db.createUserAccount(email, password, ip);
-
-    console.assert(
-        await db.validateUserEmail(email, createAccountResp!.activationCode!)
-        ===
-        true
-    );
-
-    const auth = { "user": createAccountResp!.user, email };
-
-    console.assert(createAccountResp !== undefined);
-
-    console.assert(
-        undefined === await db.createUserAccount(email, password, ip)
-    );
-
-    console.assert(
-        undefined === await db.createUserAccount(email, "anotherPass", ip)
-    );
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, password),
-        {
-            "status": "SUCCESS",
-            "auth": { "user": auth.user, "email": auth.email }
-        }
-    );
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, "not password"),
-        {
-            "status": "WRONG PASSWORD",
-            "retryDelay": 1000
-        }
-    );
-
-    for (const _ in [null, null]) {
-
-        await new Promise(resolve => setTimeout(resolve, 10));
-
-        const resp = await db.authenticateUser(email, password);
-
-        if (resp.status !== "RETRY STILL FORBIDDEN") {
-            console.assert(false);
-            return;
-        }
-
-        console.assert(typeof resp.retryDelayLeft === "number" && resp.retryDelayLeft < 1000);
-
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, "not password"),
-        {
-            "status": "WRONG PASSWORD",
-            "retryDelay": 2000
-        }
-    );
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, "not password"),
-        {
-            "status": "WRONG PASSWORD",
-            "retryDelay": 4000
-        }
-    );
-
-    await new Promise(resolve => setTimeout(resolve, 4000));
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, password),
-        {
-            "status": "SUCCESS",
-            "auth": { "user": auth.user, "email": auth.email }
-        }
-    );
-
-    console.assert(
-        true === await db.deleteUser(auth)
-    );
-
-    console.assert(
-        false === await db.deleteUser({ "user": 220333, "email": "foo@bar.com" })
-    );
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, password),
-        {
-            "status": "NO SUCH ACCOUNT"
-        }
-    );
-
-    //Create an account as does the shareSim function
-    let { insertId: phonyUser } = await db.query([
-        "INSERT INTO user",
-        "   (email, salt, digest, creation_date, ip)",
-        "VALUES",
-        `   ( ${db.esc(email)}, '', '', '', '')`
-    ].join("\n"));
-
-    ttTesting.assertSame(
-        await db.authenticateUser(email, password),
-        {
-            "status": "NO SUCH ACCOUNT"
-        }
-    );
+    console.log("Start USER tests");
 
     {
 
-        const createAccountResp = await db.createUserAccount(email, password, ip);
 
-        console.assert(
-            phonyUser === createAccountResp!.user
+        await db.flush();
+
+        const ip = "1.1.1.1";
+
+        let email = "joseph.garrone.gj@gmail.com";
+
+        let secret = crypto.randomBytes(500).toString("hex");
+
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+
+        const createAccountResp = await db.createUserAccount(
+            email,
+            secret,
+            towardUserEncryptKeyStr,
+            encryptedSymmetricKey,
+            ip
         );
 
-        console.assert(createAccountResp!.activationCode === null);
+        const user = createAccountResp!.user;
+
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(user)};`);
+
+        assert(
+            await db.validateUserEmail(email, createAccountResp!.activationCode!)
+            ===
+            true
+        );
+
+        assert(createAccountResp !== undefined);
+
+        assert(
+            undefined === await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip)
+        );
+
+        assert(
+            undefined === await db.createUserAccount(email, "anotherPass", towardUserEncryptKeyStr, encryptedSymmetricKey, ip)
+        );
+
+        assertSame(
+            await db.authenticateUser(email, secret),
+            {
+                "status": "SUCCESS",
+                "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+            }
+        );
+
+        assertSame(
+            await db.authenticateUser(email, "not password"),
+            {
+                "status": "WRONG PASSWORD",
+                "retryDelay": 1000
+            }
+        );
+
+        for (const _ in [null, null]) {
+
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const resp = await db.authenticateUser(email, secret);
+
+            if (resp.status !== "RETRY STILL FORBIDDEN") {
+                assert(false);
+                return;
+            }
+
+            assert(typeof resp.retryDelayLeft === "number" && resp.retryDelayLeft < 1000);
+
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        assertSame(
+            await db.authenticateUser(email, "not password"),
+            {
+                "status": "WRONG PASSWORD",
+                "retryDelay": 2000
+            }
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        assertSame(
+            await db.authenticateUser(email, "not password"),
+            {
+                "status": "WRONG PASSWORD",
+                "retryDelay": 4000
+            }
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        assertSame(
+            await db.authenticateUser(email, secret),
+            {
+                "status": "SUCCESS",
+                "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+            }
+        );
+
+        assert(
+            true === await db.deleteUser({ user, "shared": { email } })
+        );
+
+        assert(
+            false === await db.deleteUser({ "user": 220333, "shared": { "email": "foo@bar.com" } })
+        );
+
+        assertSame(
+            await db.authenticateUser(email, secret),
+            {
+                "status": "NO SUCH ACCOUNT"
+            }
+        );
+
+        //Create an account as does the shareSim function
+        const { insertId: phonyUser } = await db.query([
+            "INSERT IGNORE INTO user",
+            "   (email, salt, digest, toward_user_encrypt_key, sym_key_enc, creation_date, ip)",
+            "VALUES",
+            [email].map(email => `   ( ${db.esc(email)}, '', '', '', '', 0, '')`).join(",\n"),
+            ";",
+        ].join("\n"));
+
+
+        assertSame(
+            await db.authenticateUser(email, ""),
+            {
+                "status": "NO SUCH ACCOUNT"
+            }
+        );
+
+        assertSame(
+            await db.authenticateUser(email, secret),
+            {
+                "status": "NO SUCH ACCOUNT"
+            }
+        );
+
+        {
+
+
+            const createAccountResp = await db.createUserAccount(
+                email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip
+            );
+
+            assert(
+                phonyUser === createAccountResp!.user
+            );
+
+            assert(createAccountResp!.activationCode === null);
+
+        }
+
+        assertSame(
+            await db.authenticateUser(email, secret),
+            {
+                "status": "SUCCESS",
+                "authenticatedSessionDescriptor": { "user": phonyUser!, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+            }
+        );
+
+        assertSame(
+            await db.authenticateUser(email, "not secret"),
+            {
+                "status": "WRONG PASSWORD",
+                "retryDelay": 1000
+            }
+        );
+
+        assert(
+            await db.deleteUser({ "user": phonyUser!, "shared": { email } })
+        );
+
+        assertSame(
+            await db.authenticateUser(email, secret),
+            {
+                "status": "NO SUCH ACCOUNT"
+            }
+        );
+
+        console.log(`USER test ${count++} PASS`);
 
     }
 
+    for (const ovToken of [false, true]) {
 
-    ttTesting.assertSame(
-        await db.authenticateUser(email, password),
-        {
-            "status": "SUCCESS",
-            "auth": { "user": phonyUser!, email }
-        }
-    );
+        await db.flush();
 
-    ttTesting.assertSame(
-        await db.authenticateUser(email, "not password"),
-        {
-            "status": "WRONG PASSWORD",
-            "retryDelay": 1000
-        }
-    );
+        assert(
+            await db.setPasswordRenewalToken("thisEmailDoesNotExist@gmail.com")
+            ===
+            undefined
+        );
 
-    console.assert(
-        await db.deleteUser({ "user": phonyUser!, email })
-    );
+        const email = "alice@gmail.com";
 
-    ttTesting.assertSame(
-        await db.authenticateUser(email, password),
-        {
-            "status": "NO SUCH ACCOUNT",
-        }
-    );
+        const secret = crypto.randomBytes(500).toString("hex");
 
-    {
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
 
-        for (const ovToken of [false, true]) {
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
 
-            await db.flush();
+        const ip = "1.1.1.1";
 
-            console.assert(
-                await db.setPasswordRenewalToken("thisEmailDoesNotExist@gmail.com")
-                ===
-                undefined
-            );
+        const createAccountResp = await db.createUserAccount(
+            email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip
+        );
 
-            const email = "alice@gmail.com";
-            const password = "theCoolPasswordSecure++";
+        const user = createAccountResp!.user;
 
-            const createAccountResp = await db.createUserAccount(email, password, ip);
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(user)};`);
 
-            await db.validateUserEmail(email, createAccountResp!.activationCode!);
+        assert(
+            await db.validateUserEmail(email, createAccountResp!.activationCode!)
+        );
 
-            const auth = { "user": createAccountResp!.user, email };
 
-            let token = await db.setPasswordRenewalToken(auth.email);
+        let token = await db.setPasswordRenewalToken(email);
+
+        if (!token) throw new Error();
+
+        assert(token.length === 32);
+
+        assertSame(
+            await db.renewPassword("thisEmailDoesNotExist@gmail.com", "|new Secret|", towardUserEncryptKeyStr, encryptedSymmetricKey, token),
+            { "wasTokenStillValid": false }
+        );
+
+
+        assertSame(
+            await db.renewPassword("thisEmailDoesNotExist@gmail.com", "|new Secret|", towardUserEncryptKeyStr, encryptedSymmetricKey, "|not the token|"),
+            { "wasTokenStillValid": false }
+        );
+
+        if (ovToken) {
+
+            token = await db.setPasswordRenewalToken(email);
 
             if (!token) throw new Error();
 
-            console.assert(token.length === 32);
-
-            console.assert(
-                await db.renewPassword("thisEmailDoesNotExist@gmail.com", token, "fooBarPass")
-                ===
-                false
-            );
-
-            console.assert(
-                await db.renewPassword(auth.email, "notTheToken", "fooBarPass")
-                ===
-                false
-            );
-
-            if (ovToken) {
-
-                token = await db.setPasswordRenewalToken(auth.email);
-
-                if (!token) throw new Error();
-
-            }
-
-            const newPassword = "theSuperNewPasswordSecure++++";
-
-            console.assert(
-                await db.renewPassword(auth.email, token, newPassword)
-                ===
-                true
-            );
-
-            const failedAuth = await db.authenticateUser(auth.email, password)
-
-            if (failedAuth.status !== "WRONG PASSWORD") throw new Error();
-
-            await new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
-
-            ttTesting.assertSame(
-                await db.authenticateUser(auth.email, newPassword),
-                {
-                    "status": "SUCCESS",
-                    "auth": { "user": auth.user, "email": auth.email }
-                }
-            );
-
-            console.assert(
-                await db.renewPassword(auth.email, token, "fooBarPassword")
-                ===
-                false
-            );
-
         }
+
+        const newSecret = crypto.randomBytes(500).toString("hex");
+
+        const newTowardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+
+        const newEncryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+
+        assertSame(
+            await db.renewPassword(email, newSecret, newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token),
+            { "wasTokenStillValid": true, user }
+        );
+
+        const failedAuth = await db.authenticateUser(email, secret)
+
+        if (failedAuth.status !== "WRONG PASSWORD") throw new Error();
+
+        await new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
+
+        assertSame(
+            await db.authenticateUser(email, newSecret),
+            {
+                "status": "SUCCESS",
+                "authenticatedSessionDescriptor": {
+                    user,
+                    "shared": { email, webUaInstanceId, "encryptedSymmetricKey": newEncryptedSymmetricKey },
+                    "towardUserEncryptKeyStr": newTowardUserEncryptKeyStr
+                }
+            }
+        );
+
+        assertSame(
+            await db.renewPassword(email, "| yet a new secret |", newTowardUserEncryptKeyStr, newEncryptedSymmetricKey, token),
+            { "wasTokenStillValid": false }
+        );
+
+        console.log(`USER test ${count++} PASS`);
 
     }
 
-    await db.flush();
-
     {
 
-        console.assert(
+        await db.flush();
+
+        assert(
             await db.validateUserEmail("thisEmailDoesNotExist@gmail.com", "0000")
             ===
             false
         );
 
         const email = "foo-bar@gmail.com";
-        const password = "the_super_secret_password";
 
-        const accountCreationResp = await db.createUserAccount(email, password, "1.1.1.1");
+        const secret = crypto.randomBytes(500).toString("hex");
 
-        ttTesting.assertSame(
-            await db.authenticateUser(email, password),
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+
+        const accountCreationResp = await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, "1.1.1.1");
+
+        const user = accountCreationResp!.user;
+
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(user)};`);
+
+        assertSame(
+            await db.authenticateUser(email, secret),
             {
                 "status": "NOT VALIDATED YET"
             }
         );
 
-
-        console.assert(
+        assert(
             await db.validateUserEmail(email, accountCreationResp!.activationCode!)
             ===
             true
         );
 
-
-        ttTesting.assertSame(
-            await db.authenticateUser(email, password),
+        assertSame(
+            await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "auth": { "user": accountCreationResp!.user!, email }
+                "authenticatedSessionDescriptor": {
+                    user,
+                    "shared": { email, webUaInstanceId, encryptedSymmetricKey },
+                    towardUserEncryptKeyStr
+                }
             }
         );
 
-
+        console.log(`USER test ${count++} PASS`);
 
     }
 
-    await db.flush();
-
     {
 
+        await db.flush();
+
         const email = "foo-bar@gmail.com";
-        const password = "the_super_secret_password";
+
+        const secret = crypto.randomBytes(500).toString("hex");
+
+        const towardUserEncryptKeyStr = crypto.randomBytes(300).toString("binary");
+
+        const encryptedSymmetricKey = crypto.randomBytes(128).toString("binary");
+
 
         //Create an account as does the shareSim function
         const { insertId: phonyUser } = await db.query([
-            "INSERT INTO user",
-            "   (email, salt, digest, creation_date, ip)",
+            "INSERT IGNORE INTO user",
+            "   (email, salt, digest, toward_user_encrypt_key, sym_key_enc, creation_date, ip)",
             "VALUES",
-            `   ( ${db.esc(email)}, '', '', '', '')`
+            [email].map(email => `   ( ${db.esc(email)}, '', '', '', '', 0, '')`).join(",\n"),
+            ";",
         ].join("\n"));
 
-
-        ttTesting.assertSame(
-            await db.createUserAccount(email, password, "1.1.1.1"),
+        assertSame(
+            await db.createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, "1.1.1.1"),
             {
                 "user": phonyUser,
                 "activationCode": null
             }
         );
 
-        ttTesting.assertSame(
-            await db.authenticateUser(email, password),
+        const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(phonyUser)};`);
+
+        assertSame(
+            await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "auth": { "user": phonyUser!, email }
+                "authenticatedSessionDescriptor": {
+                    "user": phonyUser!,
+                    "shared": { email, webUaInstanceId, encryptedSymmetricKey },
+                    towardUserEncryptKeyStr
+                }
             }
         );
+
+        console.log(`USER test ${count++} PASS`);
 
     }
 
     await db.flush();
+
+    console.log("PASS TEST USERS");
+
 }

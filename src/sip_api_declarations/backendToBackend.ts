@@ -88,7 +88,7 @@ export namespace collectDonglesOnLan {
 
     export type Params= { 
         gatewayAddress: string;
-        auth: sessionManager.Auth; 
+        auth: sessionManager.UserAuthentication; 
     };
 
     export type Response = dcTypes.Dongle[];

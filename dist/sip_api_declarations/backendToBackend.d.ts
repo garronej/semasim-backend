@@ -59,7 +59,7 @@ export declare namespace collectDonglesOnLan {
     const methodName = "connectDonglesOnLan";
     type Params = {
         gatewayAddress: string;
-        auth: sessionManager.Auth;
+        auth: sessionManager.UserAuthentication;
     };
     type Response = dcTypes.Dongle[];
 }

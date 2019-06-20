@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const apiDeclaration = require("../../sip_api_declarations/backendToBackend");
 const sip = require("ts-sip");
@@ -38,36 +30,34 @@ const localApiHandlers = require("./localApiHandlers");
  * */
 exports.forwardRequest = (() => {
     const methodName = apiDeclaration.forwardRequest.methodName;
-    return function (route, methodName_, params_, extra) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const params = {
-                route, methodName_, params_, "timeout": extra.timeout
-            };
-            let response;
-            {
-                const { handler } = localApiHandlers.handlers[methodName];
-                response = yield handler(params, null);
-            }
-            if (response.status === "NO ROUTE") {
-                const backendSocket = (() => {
-                    switch (route.target) {
-                        case "UA":
-                            return backendConnections.getBindedToEmail(route.email);
-                        case "GATEWAY":
-                            return backendConnections.getBindedToImsi(route.imsi);
-                    }
-                })();
-                if (!!backendSocket) {
-                    //NOTE: May throw, OK
-                    response = yield sip.api.client.sendRequest(backendSocket, methodName, { route, methodName_, params_, "timeout": extra.timeout });
+    return async function (route, methodName_, params_, extra) {
+        const params = {
+            route, methodName_, params_, "timeout": extra.timeout
+        };
+        let response;
+        {
+            const { handler } = localApiHandlers.handlers[methodName];
+            response = await handler(params, null);
+        }
+        if (response.status === "NO ROUTE") {
+            const backendSocket = (() => {
+                switch (route.target) {
+                    case "UA":
+                        return backendConnections.getBindedToEmail(route.email);
+                    case "GATEWAY":
+                        return backendConnections.getBindedToImsi(route.imsi);
                 }
+            })();
+            if (!!backendSocket) {
+                //NOTE: May throw, OK
+                response = await sip.api.client.sendRequest(backendSocket, methodName, { route, methodName_, params_, "timeout": extra.timeout });
             }
-            switch (response.status) {
-                case "NO ROUTE": throw new Error("no route");
-                case "ERROR": throw new Error(`(remote) ${response.message}`);
-                case "SUCCESS": return response.response_;
-            }
-        });
+        }
+        switch (response.status) {
+            case "NO ROUTE": throw new Error("no route");
+            case "ERROR": throw new Error(`(remote) ${response.message}`);
+            case "SUCCESS": return response.response_;
+        }
     };
 })();
 var SanityCheck_;
@@ -200,18 +190,18 @@ exports.notifyDongleOnLanProxy = (() => {
 })();
 exports.notifyLoggedFromOtherTabProxy = (() => {
     const methodName = apiDeclaration.notifyLoggedFromOtherTabProxy.methodName;
-    return (email) => __awaiter(this, void 0, void 0, function* () {
+    return async (email) => {
         const backendSocket = backendConnections.getBindedToEmail(email);
         const params = { email };
         if (!!backendSocket) {
-            yield sip.api.client.sendRequest(backendSocket, methodName, params).catch(() => { });
+            await sip.api.client.sendRequest(backendSocket, methodName, params).catch(() => { });
         }
         else {
             const { handler } = localApiHandlers.handlers[methodName];
             //NOTE: Can't throw
-            yield handler(params, null);
+            await handler(params, null);
         }
-    });
+    };
 })();
 exports.unlockSimProxy = (() => {
     const methodName = apiDeclaration.unlockSimProxy.methodName;

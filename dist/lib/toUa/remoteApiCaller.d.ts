@@ -11,7 +11,7 @@ export declare const notifyDongleOnLan: {
     (dongle: dcTypes.Dongle, uaSocket: sip.Socket): Promise<void>;
 };
 export declare const notifySimPermissionLost: (imsi: string, emails: string[]) => Promise<void>;
-export declare const notifySimSharingRequest: (userSim: import("../../../../frontend/shared/dist/lib/types").UserSim._Base<import("../../../../frontend/shared/dist/lib/types").SimOwnership.Shared.NotConfirmed>, email: string) => Promise<void>;
+export declare const notifySimSharingRequest: (userSim: import("../../../../frontend/shared/dist/lib/types/userSim").UserSim._Base<import("../../../../frontend/shared/dist/lib/types/userSim").SimOwnership.Shared.NotConfirmed>, email: string) => Promise<void>;
 export declare const notifySharingRequestResponse: (params: apiDeclaration.notifySharingRequestResponse.Params, email: string) => Promise<void>;
 export declare const notifySharedSimUnregistered: (params: apiDeclaration.notifySharedSimUnregistered.Params, email: string) => Promise<void>;
 export declare const notifyLoggedFromOtherTab: {

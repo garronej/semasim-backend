@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Client :  localhost:3306
--- Généré le :  Jeu 21 Mars 2019 à 19:40
+-- Généré le :  Sam 08 Juin 2019 à 13:07
 -- Version du serveur :  10.1.26-MariaDB-0+deb9u1
 -- Version de PHP :  7.0.33-0+deb9u3
 
@@ -123,6 +123,9 @@ CREATE TABLE `user` (
   `forbidden_retry_delay` bigint(11) DEFAULT NULL,
   `password_renewal_token` varchar(32) COLLATE utf8_bin DEFAULT NULL,
   `activation_code` varchar(4) COLLATE utf8_bin DEFAULT NULL,
+  `toward_user_encrypt_key` text COLLATE utf8_bin NOT NULL,
+  `sym_key_enc` text COLLATE utf8_bin NOT NULL,
+  `web_ua_instance_id` varchar(150) COLLATE utf8_bin NOT NULL,
   `creation_date` bigint(20) NOT NULL,
   `ip` varchar(15) COLLATE utf8_bin NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
@@ -211,37 +214,37 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=356;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=101;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=135;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- Contraintes pour les tables exportées
 --

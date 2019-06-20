@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const apiDeclaration = require("../../sip_api_declarations/backendToBackend");
 const sip = require("ts-sip");
@@ -16,6 +8,7 @@ const backendConnections = require("./connections");
 const remoteApiCaller_1 = require("./remoteApiCaller");
 const gatewayRemoteApiCaller = require("../toGateway/remoteApiCaller");
 const dbSemasim = require("../dbSemasim");
+const sessionManager = require("../web/sessionManager");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const util = require("util");
 const deploy_1 = require("../../deploy");
@@ -34,7 +27,7 @@ exports.handlers = {};
 {
     const methodName = apiDeclaration.forwardRequest.methodName;
     const handler = {
-        "handler": ({ route, methodName_, params_, timeout }) => __awaiter(this, void 0, void 0, function* () {
+        "handler": async ({ route, methodName_, params_, timeout }) => {
             const socket = (() => {
                 switch (route.target) {
                     case "UA":
@@ -47,7 +40,7 @@ exports.handlers = {};
                 return { "status": "NO ROUTE" };
             }
             try {
-                const response_ = yield sip.api.client.sendRequest(socket, methodName_, params_, { timeout, "sanityCheck": remoteApiCaller_1.SanityCheck_.store[methodName_] });
+                const response_ = await sip.api.client.sendRequest(socket, methodName_, params_, { timeout, "sanityCheck": remoteApiCaller_1.SanityCheck_.store[methodName_] });
                 return {
                     "status": "SUCCESS",
                     response_
@@ -59,7 +52,7 @@ exports.handlers = {};
                     "message": error.message
                 };
             }
-        })
+        }
     };
     exports.handlers[methodName] = handler;
 }
@@ -216,7 +209,11 @@ exports.handlers = {};
                 if (uaSocket.protocol !== "WSS") {
                     continue;
                 }
-                tasks[tasks.length] = dbSemasim.filterDongleWithRegistrableSim(uaConnections.getAuth(uaSocket), [dongle]).then(([dongle]) => {
+                const session = uaConnections.getSession(uaSocket);
+                if (!sessionManager.isAuthenticated(session)) {
+                    continue;
+                }
+                tasks[tasks.length] = dbSemasim.filterDongleWithRegistrableSim(session, [dongle]).then(([dongle]) => {
                     if (!dongle) {
                         return;
                     }
