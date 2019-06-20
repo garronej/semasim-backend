@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Client :  localhost:3306
--- Généré le :  Sam 08 Juin 2019 à 13:07
+-- Généré le :  Jeu 20 Juin 2019 à 19:43
 -- Version du serveur :  10.1.26-MariaDB-0+deb9u1
 -- Version de PHP :  7.0.33-0+deb9u3
 
@@ -88,6 +88,7 @@ CREATE TABLE `sim` (
   `storage_digest` varchar(32) COLLATE utf8_bin NOT NULL,
   `user` int(11) NOT NULL,
   `password` varchar(32) COLLATE utf8_bin NOT NULL,
+  `toward_sim_encrypt_key` text COLLATE utf8_bin NOT NULL,
   `need_password_renewal` tinyint(1) NOT NULL,
   `friendly_name` varchar(126) COLLATE utf8_bin NOT NULL,
   `is_online` tinyint(1) NOT NULL
@@ -214,37 +215,37 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11630;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=101;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=88;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=135;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=133;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=232;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=148;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
 --
 -- Contraintes pour les tables exportées
 --
