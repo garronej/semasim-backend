@@ -10,13 +10,15 @@ const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
 const stripe = require("../stripe");
 const geoiplookup_1 = require("../../tools/geoiplookup");
+const mobile = require("../../mobile");
+const apiDeclaration = require("../../web_api_declaration");
 const gateway_1 = require("../../gateway");
 exports.handlers = {};
 //TODO: regexp for password once and for all!!!
 //TODO: regexp for friendly name!!!
 //TODO: set some reasonable max length for text messages... maybe set max packet length
 {
-    const methodName = frontend_1.webApiDeclaration.registerUser.methodName;
+    const { methodName } = apiDeclaration.registerUser;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -43,7 +45,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.validateEmail.methodName;
+    const { methodName } = apiDeclaration.validateEmail;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -56,7 +58,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.loginUser.methodName;
+    const { methodName } = apiDeclaration.loginUser;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -76,7 +78,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.logoutUser.methodName;
+    const { methodName } = apiDeclaration.logoutUser;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
@@ -89,7 +91,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.sendRenewPasswordEmail.methodName;
+    const { methodName } = apiDeclaration.sendRenewPasswordEmail;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -106,7 +108,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.renewPassword.methodName;
+    const { methodName } = apiDeclaration.renewPassword;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -130,7 +132,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.getCountryIso.methodName;
+    const { methodName } = apiDeclaration.getCountryIso;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -159,7 +161,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.getChangesRates.methodName;
+    const { methodName } = apiDeclaration.getChangesRates;
     const handler = {
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
@@ -172,7 +174,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.getSubscriptionInfos.methodName;
+    const { methodName } = apiDeclaration.getSubscriptionInfos;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
@@ -186,7 +188,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.subscribeOrUpdateSource.methodName;
+    const { methodName } = apiDeclaration.subscribeOrUpdateSource;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
@@ -203,7 +205,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.unsubscribe.methodName;
+    const { methodName } = apiDeclaration.unsubscribe;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
@@ -218,7 +220,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.createStripeCheckoutSessionForShop.methodName;
+    const { methodName } = apiDeclaration.createStripeCheckoutSessionForShop;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
@@ -236,7 +238,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = frontend_1.webApiDeclaration.createStripeCheckoutSessionForSubscription.methodName;
+    const { methodName } = apiDeclaration.createStripeCheckoutSessionForSubscription;
     const handler = {
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
@@ -253,7 +255,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = "version";
+    const { methodName } = apiDeclaration.version;
     const handler = {
         "needAuth": false,
         "contentType": "text/plain; charset=utf-8",
@@ -263,7 +265,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = "linphonerc";
+    const { methodName } = apiDeclaration.linphonerc;
     const substitute4BytesChar = (str) => Array.from(str)
         .map(c => Buffer.from(c, "utf8").length <= 3 ? c : "?")
         .join("");
@@ -323,7 +325,7 @@ exports.handlers = {};
             const config = {};
             let endpointCount = 0;
             let contactCount = 0;
-            for (const { sim, friendlyName, password, ownership, phonebook, isOnline } of await dbSemasim.getUserSims(authenticatedSessionDescriptor)) {
+            for (const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, isOnline } of await dbSemasim.getUserSims(authenticatedSessionDescriptor)) {
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
                 }
@@ -337,12 +339,9 @@ exports.handlers = {};
                 //TODO: It's dirty to have this here, do we even need XML anymore?
                 const safeFriendlyName = substitute4BytesChar(friendlyName.replace(/"/g, `\\"`));
                 /**
-                 * iso ( and number ) does not really need to be in
-                 * the contact parameters. The gateway already know
-                 * the SIM's origin country. We set it here however
-                 * to inform linphone about it, linphone does not
-                 * have the lib to parse IMSI so we need to provide
-                 * this info.
+                 * UserInfos does not need to be transmitted to the GW when
+                 * registering the SIP contact ( but it's ok if they are )
+                 * Those infos are used by the UA.
                  * */
                 config[`proxy_${endpointCount}`] = {
                     "reg_proxy": `<sip:${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
@@ -355,8 +354,11 @@ exports.handlers = {};
                             "towardUserEncryptKeyStr": authenticatedSessionDescriptor.towardUserEncryptKeyStr,
                             "messagesEnabled": true
                         }),
-                        `iso=${sim.country ? sim.country.iso : "undefined"}`,
-                        `number=${sim.storage.number || "undefined"}`
+                        mobile.UserSimInfos.buildContactParam({
+                            "iso": sim.country ? sim.country.iso : undefined,
+                            "number": sim.storage.number || undefined,
+                            towardSimEncryptKeyStr
+                        })
                     ].join(";"),
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",

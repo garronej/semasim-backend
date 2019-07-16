@@ -1,5 +1,5 @@
 
-import { webApiDeclaration as apiDeclaration, currencyLib } from "../../frontend";
+import { currencyLib } from "../../frontend";
 import * as dbSemasim from "../dbSemasim";
 import * as dbWebphone from "../dbWebphone";
 import { webApi } from "../../load-balancer";
@@ -9,11 +9,12 @@ import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
 import * as stripe from "../stripe";
 import { geoiplookup } from "../../tools/geoiplookup";
+import * as mobile from "../../mobile";
+import * as apiDeclaration from "../../web_api_declaration";
 
 import {
     version as semasim_gateway_version,
-    misc as gwMisc,
-    types as gwTypes
+    misc as gwMisc
 } from "../../gateway";
 
 export const handlers: webApi.Handlers = {};
@@ -24,7 +25,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.registerUser.methodName;
+    const { methodName } = apiDeclaration.registerUser;
     type Params = apiDeclaration.registerUser.Params;
     type Response = apiDeclaration.registerUser.Response;
 
@@ -74,7 +75,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.validateEmail.methodName;
+    const { methodName } = apiDeclaration.validateEmail;
     type Params = apiDeclaration.validateEmail.Params;
     type Response = apiDeclaration.validateEmail.Response;
 
@@ -97,7 +98,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.loginUser.methodName;
+    const { methodName } = apiDeclaration.loginUser;
     type Params = apiDeclaration.loginUser.Params;
     type Response = apiDeclaration.loginUser.Response;
 
@@ -134,7 +135,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.logoutUser.methodName;
+    const { methodName } = apiDeclaration.logoutUser;
     type Params = apiDeclaration.logoutUser.Params;
     type Response = apiDeclaration.logoutUser.Response;
 
@@ -157,7 +158,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.sendRenewPasswordEmail.methodName;
+    const { methodName }= apiDeclaration.sendRenewPasswordEmail;
     type Params = apiDeclaration.sendRenewPasswordEmail.Params;
     type Response = apiDeclaration.sendRenewPasswordEmail.Response;
 
@@ -189,7 +190,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.renewPassword.methodName;
+    const { methodName } = apiDeclaration.renewPassword;
     type Params = apiDeclaration.renewPassword.Params;
     type Response = apiDeclaration.renewPassword.Response;
 
@@ -234,7 +235,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.getCountryIso.methodName;
+    const { methodName } = apiDeclaration.getCountryIso;
     type Params = apiDeclaration.getCountryIso.Params;
     type Response = apiDeclaration.getCountryIso.Response;
 
@@ -280,7 +281,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.getChangesRates.methodName;
+    const { methodName }= apiDeclaration.getChangesRates;
     type Params = apiDeclaration.getChangesRates.Params;
     type Response = apiDeclaration.getChangesRates.Response;
 
@@ -303,7 +304,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.getSubscriptionInfos.methodName;
+    const { methodName }= apiDeclaration.getSubscriptionInfos;
     type Params = apiDeclaration.getSubscriptionInfos.Params;
     type Response = apiDeclaration.getSubscriptionInfos.Response;
 
@@ -329,7 +330,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.subscribeOrUpdateSource.methodName;
+    const { methodName }= apiDeclaration.subscribeOrUpdateSource;
     type Params = apiDeclaration.subscribeOrUpdateSource.Params;
     type Response = apiDeclaration.subscribeOrUpdateSource.Response;
 
@@ -361,7 +362,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.unsubscribe.methodName;
+    const { methodName }= apiDeclaration.unsubscribe;
     type Params = apiDeclaration.unsubscribe.Params;
     type Response = apiDeclaration.unsubscribe.Response;
 
@@ -387,7 +388,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.createStripeCheckoutSessionForShop.methodName;
+    const { methodName } = apiDeclaration.createStripeCheckoutSessionForShop;
     type Params = apiDeclaration.createStripeCheckoutSessionForShop.Params;
     type Response = apiDeclaration.createStripeCheckoutSessionForShop.Response;
 
@@ -429,7 +430,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.createStripeCheckoutSessionForSubscription.methodName;
+    const { methodName }= apiDeclaration.createStripeCheckoutSessionForSubscription;
     type Params = apiDeclaration.createStripeCheckoutSessionForSubscription.Params;
     type Response = apiDeclaration.createStripeCheckoutSessionForSubscription.Response;
 
@@ -461,8 +462,8 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = "version";
-    type Params = {};
+    const { methodName }= apiDeclaration.version;
+    type Params = apiDeclaration.version.Params;
 
     const handler: webApi.Handler.Generic<Params> = {
         "needAuth": false,
@@ -477,18 +478,8 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const methodName = "linphonerc";
-
-    type Params = {
-        email: string;
-        secret: string;
-    } | {
-        email: string;
-        secret: string;
-        uuid: string;
-        platform: gwTypes.Ua.Platform;
-        push_token: string;
-    };
+    const { methodName }= apiDeclaration.linphonerc;
+    type Params = apiDeclaration.linphonerc.Params;
 
     const substitute4BytesChar = (str: string) => Array.from(str)
         .map(c => Buffer.from(c, "utf8").length <= 3 ? c : "?")
@@ -582,7 +573,7 @@ export const handlers: webApi.Handlers = {};
             let contactCount = 0;
 
             for (
-                const { sim, friendlyName, password, ownership, phonebook, isOnline }
+                const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, isOnline }
                 of await dbSemasim.getUserSims(authenticatedSessionDescriptor)
             ) {
 
@@ -602,12 +593,9 @@ export const handlers: webApi.Handlers = {};
                 const safeFriendlyName = substitute4BytesChar(friendlyName.replace(/"/g, `\\"`));
 
                 /** 
-                 * iso ( and number ) does not really need to be in 
-                 * the contact parameters. The gateway already know 
-                 * the SIM's origin country. We set it here however 
-                 * to inform linphone about it, linphone does not 
-                 * have the lib to parse IMSI so we need to provide 
-                 * this info.
+                 * UserInfos does not need to be transmitted to the GW when
+                 * registering the SIP contact ( but it's ok if they are )
+                 * Those infos are used by the UA.
                  * */
                 config[`proxy_${endpointCount}`] = {
                     "reg_proxy": `<sip:${deploy.getBaseDomain()};transport=TLS>`,
@@ -620,8 +608,11 @@ export const handlers: webApi.Handlers = {};
                             "towardUserEncryptKeyStr": authenticatedSessionDescriptor.towardUserEncryptKeyStr,
                             "messagesEnabled": true
                         }),
-                        `iso=${sim.country ? sim.country.iso : "undefined"}`,
-                        `number=${sim.storage.number || "undefined"}`
+                        mobile.UserSimInfos.buildContactParam({
+                            "iso": sim.country ? sim.country.iso : undefined,
+                            "number": sim.storage.number || undefined,
+                            towardSimEncryptKeyStr
+                        })
                     ].join(";"),
                     "reg_sendregister": isOnline ? "1" : "0",
                     "publish": "0",

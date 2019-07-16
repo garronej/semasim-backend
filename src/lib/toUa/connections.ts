@@ -229,11 +229,13 @@ function registerSocket(
                 We comment out the transport udp as it should never be
                 useful as long as the gateway does not have TURN enabled.
                 "turn:turn.semasim.com:19302?transport=udp",
+
+                We comment out plain tcp as it does not work with free mobile.
+                `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
                 */
                 return {
                     "urls": [
                         `stun:turn.${deploy.getBaseDomain()}:19302`,
-                        `turn:turn.${deploy.getBaseDomain()}:19302?transport=tcp`,
                         `turns:turn.${deploy.getBaseDomain()}:443?transport=tcp`
                     ],
                     username, credential,

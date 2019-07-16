@@ -21,7 +21,7 @@ const customers: Stripe.customers.ICustomer[] = [];
 
 async function getCustomerStatus(email: string): Promise<"EXEMPTED" | "REGULAR"> {
 
-    if( ALL_CUSTOMERS_EXEMPTED ){
+    if( ALL_CUSTOMERS_EXEMPTED && email !== "joseph_garrone@hotmail.com" ){
         return "EXEMPTED";
     }
 

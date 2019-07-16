@@ -13,7 +13,7 @@ const planByCurrency = {};
 const pricingByCurrency = {};
 const customers = [];
 async function getCustomerStatus(email) {
-    if (ALL_CUSTOMERS_EXEMPTED) {
+    if (ALL_CUSTOMERS_EXEMPTED && email !== "joseph_garrone@hotmail.com") {
         return "EXEMPTED";
     }
     return JSON.parse((await new Promise((resolve, reject) => fs.readFile(path.join(__dirname, "..", "..", "res", "exempted_customers.json"), (error, data) => {

@@ -4,6 +4,7 @@ const express = require("express");
 const apiHandlers_1 = require("./apiHandlers");
 const load_balancer_1 = require("../../load-balancer");
 const frontend = require("../../frontend");
+const webApiDeclaration = require("../../web_api_declaration");
 const sessionManager = require("./sessionManager");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
@@ -30,7 +31,7 @@ function launch(httpsServer, httpServer) {
         .use(cookieParser(cookieSecret));
     load_balancer_1.webApi.init({
         app,
-        "apiPath": frontend.webApiDeclaration.apiPath,
+        "apiPath": webApiDeclaration.apiPath,
         "handlers": apiHandlers_1.handlers,
         "isAuthenticated": async (req, res) => {
             await sessionManager.loadRequestSession(req, res);

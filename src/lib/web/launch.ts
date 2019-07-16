@@ -4,6 +4,7 @@ import * as http from "http";
 import { handlers as apiHandlers } from "./apiHandlers";
 import { webApi as apiServer } from "../../load-balancer";
 import * as frontend from "../../frontend";
+import * as webApiDeclaration from "../../web_api_declaration";
 import * as sessionManager from "./sessionManager";
 import * as morgan from "morgan";
 import * as cookieParser from "cookie-parser";
@@ -48,7 +49,7 @@ export function launch(
 
     apiServer.init({
         app,
-        "apiPath": frontend.webApiDeclaration.apiPath,
+        "apiPath": webApiDeclaration.apiPath,
         "handlers": apiHandlers,
         "isAuthenticated": async (req, res) => {
 

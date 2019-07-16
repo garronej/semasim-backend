@@ -8,7 +8,6 @@ import * as wd from "../../frontend/shared/dist/lib/types/webphoneData/types";
 import * as currencyLib from "../../frontend/shared/dist/tools/currency";
 import { getProducts } from "../../frontend/shared/dist/lib/shopProducts";
 import * as shipping from "../../frontend/shared/dist/lib/shipping";
-import * as webApiDeclaration from "../../frontend/shared/dist/web_api_declaration";
 import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
 import * as availablePages from "../../frontend/shared/dist/lib/availablePages";
@@ -21,7 +20,6 @@ import * as urlGetParameters from "../../frontend/shared/dist/tools/urlGetParame
 const debug = logger.debugFactory();
 
 export {
-    webApiDeclaration,
     types,
     AuthenticatedSessionDescriptorSharedData,
     WebsocketConnectionParams,
