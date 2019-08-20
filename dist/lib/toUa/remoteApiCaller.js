@@ -45,6 +45,28 @@ exports.notifySimOnline = (() => {
     }
     return f;
 })();
+exports.notifyGsmConnectivityChange = (() => {
+    const { methodName } = uaToBackend_1.apiDeclaration.notifyGsmConnectivityChange;
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+        const sanityCheck = response => response === undefined;
+        return sanityCheck;
+    })();
+    function f(params, arg) {
+        return multicast(methodName, params, arg);
+    }
+    return f;
+})();
+exports.notifyCellSignalStrengthChange = (() => {
+    const { methodName } = uaToBackend_1.apiDeclaration.notifyCellSignalStrengthChange;
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+        const sanityCheck = response => response === undefined;
+        return sanityCheck;
+    })();
+    function f(params, arg) {
+        return multicast(methodName, params, arg);
+    }
+    return f;
+})();
 exports.notifyContactCreatedOrUpdated = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyContactCreatedOrUpdated.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {

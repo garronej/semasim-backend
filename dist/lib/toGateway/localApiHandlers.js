@@ -26,9 +26,11 @@ exports.handlers = {};
             (params.simDongle.isVoiceEnabled === undefined ||
                 typeof params.simDongle.isVoiceEnabled === "boolean") &&
             typeof params.simDongle.model === "string" &&
-            typeof params.simDongle.firmwareVersion === "string"),
+            typeof params.simDongle.firmwareVersion === "string" &&
+            typeof params.isGsmConnectivityOk === "boolean" &&
+            typeof params.cellSignalStrength === "string"),
         "handler": async (params, fromSocket) => {
-            const { imsi, storageDigest, password, replacementPassword, towardSimEncryptKeyStr, simDongle } = params;
+            const { imsi, storageDigest, password, replacementPassword, towardSimEncryptKeyStr, simDongle, isGsmConnectivityOk, cellSignalStrength } = params;
             {
                 /*
                 In this block is enforced a security rule:
@@ -81,7 +83,7 @@ exports.handlers = {};
             if (gatewayConnections.getBindedToImsi(imsi) !== fromSocket) {
                 gatewayConnections.bindToImsi(imsi, fromSocket);
             }
-            const dbResp = await dbSemasim.setSimOnline(imsi, password, replacementPassword, towardSimEncryptKeyStr, fromSocket.remoteAddress, simDongle);
+            const dbResp = await dbSemasim.setSimOnline(imsi, password, replacementPassword, towardSimEncryptKeyStr, fromSocket.remoteAddress, simDongle, isGsmConnectivityOk, cellSignalStrength);
             (async () => {
                 if (!dbResp.isSimRegistered) {
                     gatewayConnections.addImei(fromSocket, simDongle.imei);
@@ -106,9 +108,11 @@ exports.handlers = {};
                         }
                         await dbSemasim.updateSimStorage(imsi, dongle.sim.storage);
                     }
+                    //TODO: add sim connectivity
                     pushNotifications.send(dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"), (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
                         { "type": "RELOAD CONFIG" } :
                         { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi });
+                    //TODO: Add sim connectivity
                     uaRemoteApiCaller.notifySimOnline({
                         imsi,
                         hasInternalSimStorageChanged,
@@ -121,7 +125,9 @@ exports.handlers = {};
                             ;
                         })(),
                         "simDongle": simDongle,
-                        "gatewayLocation": dbResp.gatewayLocation
+                        "gatewayLocation": dbResp.gatewayLocation,
+                        isGsmConnectivityOk,
+                        cellSignalStrength
                     }, dbResp.uasRegisteredToSim);
                 }
             })().catch(error => {
@@ -133,6 +139,40 @@ exports.handlers = {};
                 dbResp.passwordStatus === "PASSWORD REPLACED" ?
                     ({ "status": "REPLACE PASSWORD", "allowedUas": dbResp.uasRegisteredToSim }) :
                     ({ "status": "OK" });
+        }
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const { methodName } = backendToGateway_1.apiDeclaration.notifyGsmConnectivityChange;
+    const handler = {
+        "sanityCheck": params => (params instanceof Object &&
+            typeof params.imsi === "string" &&
+            typeof params.isGsmConnectivityOk === "boolean"),
+        "handler": async ({ imsi, isGsmConnectivityOk }, fromSocket) => {
+            const dbResp = await dbSemasim.changeSimIsGsmConnectivityOrSignal(imsi, { isGsmConnectivityOk });
+            if (!dbResp.isSimRegistered) {
+                return undefined;
+            }
+            uaRemoteApiCaller.notifyGsmConnectivityChange({ imsi, isGsmConnectivityOk }, dbResp.uasRegisteredToSim);
+            return undefined;
+        }
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const { methodName } = backendToGateway_1.apiDeclaration.notifyCellSignalStrengthChange;
+    const handler = {
+        "sanityCheck": params => (params instanceof Object &&
+            typeof params.imsi === "string" &&
+            typeof params.cellSignalStrength === "string"),
+        "handler": async ({ imsi, cellSignalStrength }, fromSocket) => {
+            const dbResp = await dbSemasim.changeSimIsGsmConnectivityOrSignal(imsi, { cellSignalStrength });
+            if (!dbResp.isSimRegistered) {
+                return undefined;
+            }
+            uaRemoteApiCaller.notifyCellSignalStrengthChange({ imsi, cellSignalStrength }, dbResp.uasRegisteredToSim);
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;

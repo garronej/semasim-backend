@@ -4,6 +4,8 @@ import { types as dcTypes } from "chan-dongle-extended-client";
 import { types as gwTypes } from "../../gateway";
 export declare const notifySimOffline: (imsi: string, uas: gwTypes.Ua[]) => Promise<void>;
 export declare const notifySimOnline: (params: apiDeclaration.notifySimOnline.Params, uas: gwTypes.Ua[]) => Promise<void>;
+export declare const notifyGsmConnectivityChange: (params: apiDeclaration.notifyGsmConnectivityChange.Params, uas: gwTypes.Ua[]) => Promise<void>;
+export declare const notifyCellSignalStrengthChange: (params: apiDeclaration.notifyCellSignalStrengthChange.Params, uas: gwTypes.Ua[]) => Promise<void>;
 export declare const notifyContactCreatedOrUpdated: (params: apiDeclaration.notifyContactCreatedOrUpdated.Params, emails: string[]) => Promise<void>;
 export declare const notifyContactDeleted: (params: apiDeclaration.notifyContactDeleted.Params, emails: string[]) => Promise<void>;
 export declare const notifyDongleOnLan: {

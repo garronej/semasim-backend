@@ -174,7 +174,7 @@ function createUserSimProxy(
         },
         "towardSimEncryptKeyStr": {
             "enumerable": true,
-            "get": ()=> userSim.towardSimEncryptKeyStr
+            "get": () => userSim.towardSimEncryptKeyStr
         },
         "dongle": {
             "enumerable": true,
@@ -191,6 +191,14 @@ function createUserSimProxy(
         "phonebook": {
             "enumerable": true,
             "get": () => userSim.phonebook
+        },
+        "isGsmConnectivityOk": {
+            "enumerable": true,
+            "get": ()=> userSim.isGsmConnectivityOk
+        },
+        "cellSignalStrength": {
+            "enumerable": true,
+            "get": ()=> userSim.cellSignalStrength
         }
     });
 
@@ -334,7 +342,9 @@ async function testMain() {
                         "mem_index": c.index,
                         "name": c.name,
                         "number_raw": c.number
-                    }))
+                    })),
+                    "isGsmConnectivityOk": true,
+                    "cellSignalStrength": "GOOD"
                 };
 
                 return out;
@@ -365,7 +375,9 @@ async function testMain() {
                     userSim.password,
                     userSim.towardSimEncryptKeyStr,
                     userSim.dongle,
-                    userSim.gatewayLocation.ip
+                    userSim.gatewayLocation.ip,
+                    userSim.isGsmConnectivityOk,
+                    userSim.cellSignalStrength
                 ),
                 user.uas
             );
@@ -695,25 +707,10 @@ async function testMain() {
 
     for (let user of [alice, bob, carol, dave]) {
 
-        //assertSame(await db.getUserSims(user), user.userSims);
-
-        const expected = user.userSims;
-
-        const got = await db.getUserSims(user);
-
-        try {
-
-            assertSame(got, expected);
-
-        } catch (error) {
-
-            console.log(JSON.stringify({
-                got, expected
-            }, null, 2));
-
-            throw error;
-
-        }
+        assertSame(
+            await db.getUserSims(user), 
+            user.userSims
+        );
 
     }
 
@@ -767,7 +764,9 @@ async function testMain() {
                 ttTesting.genHexStr(32),
                 alice.userSims[0].towardSimEncryptKeyStr,
                 alice.userSims[0].gatewayLocation.ip,
-                alice.userSims[0].dongle
+                alice.userSims[0].dongle,
+                alice.userSims[0].isGsmConnectivityOk,
+                alice.userSims[0].cellSignalStrength
             ),
             {
                 "isSimRegistered": true,
@@ -779,6 +778,71 @@ async function testMain() {
         );
 
     }
+
+    {
+
+        const userSim = alice.userSims[0];
+
+        for (const isGsmConnectivityOk of [true, false, true]) {
+
+            userSim.isGsmConnectivityOk = isGsmConnectivityOk;
+
+            assertSame(
+                await db.changeSimIsGsmConnectivityOrSignal(
+                    userSim.sim.imsi, { isGsmConnectivityOk }
+                ),
+                {
+                    "isSimRegistered": true as const,
+                    "uasRegisteredToSim": uasRegisteredToSim
+                }
+            );
+
+            assertSame(
+                await db.changeSimIsGsmConnectivityOrSignal(
+                    genUniq.imsi(), { isGsmConnectivityOk }
+                ),
+                {
+                    "isSimRegistered": false as const,
+                }
+            );
+
+        }
+
+
+    }
+
+    {
+
+        const userSim = alice.userSims[0];
+
+        for (const cellSignalStrength of ["NULL", "VERY WEAK", "WEAK", "GOOD", "EXCELLENT"] as const) {
+
+            userSim.cellSignalStrength = cellSignalStrength;
+
+            assertSame(
+                await db.changeSimIsGsmConnectivityOrSignal(
+                    userSim.sim.imsi, { cellSignalStrength }
+                ),
+                {
+                    "isSimRegistered": true as const,
+                    "uasRegisteredToSim": uasRegisteredToSim
+                }
+            );
+
+            assertSame(
+                await db.changeSimIsGsmConnectivityOrSignal(
+                    genUniq.imsi(), { cellSignalStrength }
+                ),
+                {
+                    "isSimRegistered": false as const,
+                }
+            );
+
+        }
+
+
+    }
+
 
     alice.userSims[0].isOnline = false;
 
@@ -800,7 +864,9 @@ async function testMain() {
             ttTesting.genHexStr(32),
             alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
-            alice.userSims[0].dongle
+            alice.userSims[0].dongle,
+            alice.userSims[0].isGsmConnectivityOk,
+            alice.userSims[0].cellSignalStrength
         ),
         { "isSimRegistered": false }
     );
@@ -816,7 +882,9 @@ async function testMain() {
             ttTesting.genHexStr(32),
             alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
-            alice.userSims[0].dongle
+            alice.userSims[0].dongle,
+            alice.userSims[0].isGsmConnectivityOk,
+            alice.userSims[0].cellSignalStrength
         ),
         {
             "isSimRegistered": true,
@@ -840,7 +908,9 @@ async function testMain() {
             ttTesting.genHexStr(32),
             alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
-            alice.userSims[0].dongle
+            alice.userSims[0].dongle,
+            alice.userSims[0].isGsmConnectivityOk,
+            alice.userSims[0].cellSignalStrength
         ),
         {
             "isSimRegistered": true,
@@ -913,7 +983,9 @@ async function testMain() {
                 replacementPassword,
                 alice.userSims[0].towardSimEncryptKeyStr,
                 alice.userSims[0].gatewayLocation.ip,
-                alice.userSims[0].dongle
+                alice.userSims[0].dongle,
+                alice.userSims[0].isGsmConnectivityOk,
+                alice.userSims[0].cellSignalStrength
             ),
             {
                 "isSimRegistered": true,
@@ -953,7 +1025,9 @@ async function testMain() {
             ttTesting.genHexStr(32),
             alice.userSims[0].towardSimEncryptKeyStr,
             alice.userSims[0].gatewayLocation.ip,
-            alice.userSims[0].dongle
+            alice.userSims[0].dongle,
+            alice.userSims[0].isGsmConnectivityOk,
+            alice.userSims[0].cellSignalStrength
         ),
         {
             "isSimRegistered": true,
@@ -1014,7 +1088,9 @@ async function testMain() {
                 "model": "Foo Bar",
                 "firmwareVersion": "1.000.223",
                 "isVoiceEnabled": true,
-                "sim": generateSim()
+                "sim": generateSim(),
+                "isGsmConnectivityOk": false,
+                "cellSignalStrength": "NULL"
             },
             {
                 "imei": ttTesting.genDigits(15),
@@ -1023,6 +1099,8 @@ async function testMain() {
                 "firmwareVersion": alice.userSims[0].dongle.firmwareVersion,
                 "isVoiceEnabled": alice.userSims[0].dongle.isVoiceEnabled,
                 "sim": alice.userSims[0].sim,
+                "isGsmConnectivityOk": alice.userSims[0].isGsmConnectivityOk,
+                "cellSignalStrength": alice.userSims[0].cellSignalStrength
             }
         ];
 

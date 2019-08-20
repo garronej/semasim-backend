@@ -50,7 +50,9 @@ const crypto = require("crypto");
                 "mem_index": c.index,
                 "name": c.name,
                 "number_raw": c.number
-            }))
+            })),
+            "isGsmConnectivityOk": true,
+            "cellSignalStrength": "GOOD"
         };
         return out;
     })();

@@ -63,21 +63,17 @@ function getAuthenticatedSession(socket) {
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, imei, friendlyName }, socket) => {
             const session = getAuthenticatedSession(socket);
-            const { dongle, sipPassword, towardSimEncryptKeyStr } = await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi)
-                .then(resp => {
-                if (!!resp) {
-                    return resp;
-                }
-                else {
-                    throw new Error("Dongle not found");
-                }
-            });
+            const dongleSipPasswordAndTowardSimEncryptKeyStr = await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi);
+            if (!dongleSipPasswordAndTowardSimEncryptKeyStr) {
+                throw new Error("Dongle not found");
+            }
+            const { dongle, sipPassword, towardSimEncryptKeyStr } = dongleSipPasswordAndTowardSimEncryptKeyStr;
             if (dongle.imei !== imei) {
                 throw new Error("Attack prevented");
             }
             //NOTE: The user may have changer ip since he received the request
             //in this case the query will crash... not a big deal.
-            const userUas = await dbSemasim.registerSim(session, dongle.sim, friendlyName, sipPassword, towardSimEncryptKeyStr, dongle, socket.remoteAddress);
+            const userUas = await dbSemasim.registerSim(session, dongle.sim, friendlyName, sipPassword, towardSimEncryptKeyStr, dongle, socket.remoteAddress, dongle.isGsmConnectivityOk, dongle.cellSignalStrength);
             pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
             //NOTE: Here we break the rule of gathering all db request
             //but as sim registration is not a so common operation it's not

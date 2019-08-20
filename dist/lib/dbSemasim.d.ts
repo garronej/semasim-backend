@@ -73,13 +73,23 @@ export declare function deleteSimContact(imsi: string, contactRef: {
     number_raw: string;
 }): Promise<gwTypes.Ua[]>;
 /** return user UAs */
-export declare function registerSim(auth: UserAuthentication, sim: dcTypes.Sim, friendlyName: string, password: string, towardSimEncryptKeyStr: string, dongle: feTypes.UserSim["dongle"], gatewayIp: string): Promise<gwTypes.Ua[]>;
+export declare function registerSim(auth: UserAuthentication, sim: dcTypes.Sim, friendlyName: string, password: string, towardSimEncryptKeyStr: string, dongle: feTypes.UserSim["dongle"], gatewayIp: string, isGsmConnectivityOk: boolean, cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength): Promise<gwTypes.Ua[]>;
 export declare function getUserSims(auth: UserAuthentication): Promise<feTypes.UserSim[]>;
 export declare function addOrUpdateUa(ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">): Promise<void>;
 export declare namespace addOrUpdateUa {
     function getQuery(ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">): string;
 }
-export declare function setSimOnline(imsi: string, password: string, replacementPassword: string, towardSimEncryptKeyStr: string, gatewayAddress: string, dongle: feTypes.UserSim["dongle"]): Promise<{
+export declare function changeSimIsGsmConnectivityOrSignal(imsi: string, p: {
+    isGsmConnectivityOk: boolean;
+} | {
+    cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength;
+}): Promise<{
+    isSimRegistered: false;
+} | {
+    isSimRegistered: true;
+    uasRegisteredToSim: gwTypes.Ua[];
+}>;
+export declare function setSimOnline(imsi: string, password: string, replacementPassword: string, towardSimEncryptKeyStr: string, gatewayAddress: string, dongle: feTypes.UserSim["dongle"], isGsmConnectivityOk: boolean, cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength): Promise<{
     isSimRegistered: false;
 } | {
     isSimRegistered: true;

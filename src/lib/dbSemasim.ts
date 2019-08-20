@@ -756,7 +756,9 @@ export async function registerSim(
     password: string,
     towardSimEncryptKeyStr: string,
     dongle: feTypes.UserSim["dongle"],
-    gatewayIp: string
+    gatewayIp: string,
+    isGsmConnectivityOk: boolean,
+    cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength
 ): Promise<gwTypes.Ua[]> {
 
     let sql = [
@@ -796,7 +798,9 @@ export async function registerSim(
             "toward_sim_encrypt_key": towardSimEncryptKeyStr,
             "need_password_renewal": 0,
             "friendly_name": friendlyName,
-            "is_online": 1
+            "is_online": 1,
+            "is_gsm_connectivity_ok": f.bool.enc(isGsmConnectivityOk),
+            "cell_signal_strength": cellSignalStrength
         }, "THROW ERROR"),
         "SELECT @sim_ref:= id_",
         "FROM sim",
@@ -1074,7 +1078,9 @@ export async function getUserSims(
             gatewayLocation,
             "isOnline": row["is_online"] === 1,
             ownership,
-            "phonebook": phonebookBySim[sim.imsi] || []
+            "phonebook": phonebookBySim[sim.imsi] || [],
+            "isGsmConnectivityOk": f.bool.dec(row["is_gsm_connectivity_ok"]),
+            "cellSignalStrength": row["cell_signal_strength"]
         };
 
         userSims.push(userSim);
@@ -1124,13 +1130,55 @@ export namespace addOrUpdateUa {
 
 }
 
+export async function changeSimIsGsmConnectivityOrSignal(
+    imsi: string,
+    p:
+        { isGsmConnectivityOk: boolean; } |
+        { cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength; }
+): Promise<{
+    isSimRegistered: false;
+} | {
+    isSimRegistered: true;
+    uasRegisteredToSim: gwTypes.Ua[];
+}> {
+
+    const sql = [
+        `SELECT @sim_ref:=NULL;`,
+        `SELECT @sim_ref:= id_ FROM sim WHERE imsi=${esc(imsi)};`,
+        "UPDATE sim",
+        "SET",
+        "isGsmConnectivityOk" in p ?
+            `   is_gsm_connectivity_ok=${esc(f.bool.enc(p.isGsmConnectivityOk))}` :
+            `   cell_signal_strength=${esc(p.cellSignalStrength)}`,
+        "WHERE id_= @sim_ref",
+        ";",
+        retrieveUasRegisteredToSim.sql
+    ].join("\n");
+
+    const queryResults = await query(sql, { imsi });
+
+    queryResults.shift();
+
+    if (queryResults[0].length === 0) {
+        return { "isSimRegistered": false };
+    }
+
+    return {
+        "isSimRegistered": true,
+        "uasRegisteredToSim": retrieveUasRegisteredToSim.parse(queryResults)
+    };
+
+}
+
 export async function setSimOnline(
     imsi: string,
     password: string,
     replacementPassword: string,
     towardSimEncryptKeyStr: string,
     gatewayAddress: string,
-    dongle: feTypes.UserSim["dongle"]
+    dongle: feTypes.UserSim["dongle"],
+    isGsmConnectivityOk: boolean,
+    cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength
 ): Promise<{
     isSimRegistered: false;
 } | {
@@ -1172,7 +1220,9 @@ export async function setSimOnline(
         `   toward_sim_encrypt_key=${esc(towardSimEncryptKeyStr)},`,
         "   dongle=@dongle_ref,",
         "   gateway_location=@gateway_location_ref,",
-        "   need_password_renewal=0",
+        "   need_password_renewal=0,",
+        `   is_gsm_connectivity_ok=${esc(f.bool.enc(isGsmConnectivityOk))},`,
+        `   cell_signal_strength=${esc(cellSignalStrength)}`,
         "WHERE id_= @sim_ref",
         ";",
         retrieveUasRegisteredToSim.sql

@@ -36,7 +36,9 @@ export const handlers: sip.api.Server.Handlers = {};
                 typeof params.simDongle.isVoiceEnabled === "boolean"
             ) &&
             typeof params.simDongle.model === "string" &&
-            typeof params.simDongle.firmwareVersion === "string"
+            typeof params.simDongle.firmwareVersion === "string" &&
+            typeof params.isGsmConnectivityOk === "boolean" &&
+            typeof params.cellSignalStrength === "string"
         ),
         "handler": async (params, fromSocket) => {
 
@@ -46,7 +48,9 @@ export const handlers: sip.api.Server.Handlers = {};
                 password, 
                 replacementPassword, 
                 towardSimEncryptKeyStr, 
-                simDongle 
+                simDongle,
+                isGsmConnectivityOk,
+                cellSignalStrength
             } = params;
 
             {
@@ -119,7 +123,9 @@ export const handlers: sip.api.Server.Handlers = {};
                 replacementPassword,
                 towardSimEncryptKeyStr,
                 fromSocket.remoteAddress,
-                simDongle
+                simDongle,
+                isGsmConnectivityOk,
+                cellSignalStrength
             );
 
             (async () => {
@@ -162,6 +168,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     }
 
+                    //TODO: add sim connectivity
                     pushNotifications.send(
                         dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"),
                         (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
@@ -169,6 +176,7 @@ export const handlers: sip.api.Server.Handlers = {};
                             { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi }
                     );
 
+                    //TODO: Add sim connectivity
                     uaRemoteApiCaller.notifySimOnline(
                         {
                             imsi,
@@ -181,7 +189,9 @@ export const handlers: sip.api.Server.Handlers = {};
                                 };
                             })(),
                             "simDongle": simDongle,
-                            "gatewayLocation": dbResp.gatewayLocation
+                            "gatewayLocation": dbResp.gatewayLocation,
+                            isGsmConnectivityOk,
+                            cellSignalStrength
                         },
                         dbResp.uasRegisteredToSim
                     );
@@ -204,6 +214,80 @@ export const handlers: sip.api.Server.Handlers = {};
                     ({ "status": "REPLACE PASSWORD", "allowedUas": dbResp.uasRegisteredToSim }) :
                     ({ "status": "OK" })
                 ;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+    
+    const { methodName } = apiDeclaration.notifyGsmConnectivityChange;
+    type Params = apiDeclaration.notifyGsmConnectivityChange.Params;
+    type Response = apiDeclaration.notifyGsmConnectivityChange.Response;
+
+    const handler: sip.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params => (
+            params instanceof Object &&
+            typeof params.imsi === "string" &&
+            typeof params.isGsmConnectivityOk === "boolean"
+        ),
+        "handler": async ({imsi, isGsmConnectivityOk }, fromSocket) => {
+
+            const dbResp= await dbSemasim.changeSimIsGsmConnectivityOrSignal(
+                imsi, 
+                { isGsmConnectivityOk }
+            );
+
+            if( !dbResp.isSimRegistered ){
+                return undefined;
+            }
+
+            uaRemoteApiCaller.notifyGsmConnectivityChange(
+                { imsi, isGsmConnectivityOk }, 
+                dbResp.uasRegisteredToSim 
+            );
+
+            return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+    
+    const { methodName } = apiDeclaration.notifyCellSignalStrengthChange;
+    type Params = apiDeclaration.notifyCellSignalStrengthChange.Params;
+    type Response = apiDeclaration.notifyCellSignalStrengthChange.Response;
+
+    const handler: sip.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params => (
+            params instanceof Object &&
+            typeof params.imsi === "string" &&
+            typeof params.cellSignalStrength === "string"
+        ),
+        "handler": async ({imsi, cellSignalStrength }, fromSocket) => {
+
+            const dbResp= await dbSemasim.changeSimIsGsmConnectivityOrSignal(
+                imsi, 
+                { cellSignalStrength }
+            );
+
+            if( !dbResp.isSimRegistered ){
+                return undefined;
+            }
+
+            uaRemoteApiCaller.notifyCellSignalStrengthChange(
+                { imsi, cellSignalStrength }, 
+                dbResp.uasRegisteredToSim 
+            );
+
+            return undefined;
 
         }
     };

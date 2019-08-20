@@ -504,7 +504,7 @@ async function deleteSimContact(imsi, contactRef) {
 }
 exports.deleteSimContact = deleteSimContact;
 /** return user UAs */
-async function registerSim(auth, sim, friendlyName, password, towardSimEncryptKeyStr, dongle, gatewayIp) {
+async function registerSim(auth, sim, friendlyName, password, towardSimEncryptKeyStr, dongle, gatewayIp, isGsmConnectivityOk, cellSignalStrength) {
     let sql = [
         "SELECT @dongle_ref:=NULL, @gateway_location_ref:=NULL, @sim_ref:=NULL;",
         buildInsertQuery("dongle", {
@@ -542,7 +542,9 @@ async function registerSim(auth, sim, friendlyName, password, towardSimEncryptKe
             "toward_sim_encrypt_key": towardSimEncryptKeyStr,
             "need_password_renewal": 0,
             "friendly_name": friendlyName,
-            "is_online": 1
+            "is_online": 1,
+            "is_gsm_connectivity_ok": f.bool.enc(isGsmConnectivityOk),
+            "cell_signal_strength": cellSignalStrength
         }, "THROW ERROR"),
         "SELECT @sim_ref:= id_",
         "FROM sim",
@@ -754,7 +756,9 @@ async function getUserSims(auth) {
             gatewayLocation,
             "isOnline": row["is_online"] === 1,
             ownership,
-            "phonebook": phonebookBySim[sim.imsi] || []
+            "phonebook": phonebookBySim[sim.imsi] || [],
+            "isGsmConnectivityOk": f.bool.dec(row["is_gsm_connectivity_ok"]),
+            "cellSignalStrength": row["cell_signal_strength"]
         };
         userSims.push(userSim);
     }
@@ -790,7 +794,31 @@ exports.addOrUpdateUa = addOrUpdateUa;
     }
     addOrUpdateUa.getQuery = getQuery;
 })(addOrUpdateUa = exports.addOrUpdateUa || (exports.addOrUpdateUa = {}));
-async function setSimOnline(imsi, password, replacementPassword, towardSimEncryptKeyStr, gatewayAddress, dongle) {
+async function changeSimIsGsmConnectivityOrSignal(imsi, p) {
+    const sql = [
+        `SELECT @sim_ref:=NULL;`,
+        `SELECT @sim_ref:= id_ FROM sim WHERE imsi=${exports.esc(imsi)};`,
+        "UPDATE sim",
+        "SET",
+        "isGsmConnectivityOk" in p ?
+            `   is_gsm_connectivity_ok=${exports.esc(f.bool.enc(p.isGsmConnectivityOk))}` :
+            `   cell_signal_strength=${exports.esc(p.cellSignalStrength)}`,
+        "WHERE id_= @sim_ref",
+        ";",
+        retrieveUasRegisteredToSim.sql
+    ].join("\n");
+    const queryResults = await exports.query(sql, { imsi });
+    queryResults.shift();
+    if (queryResults[0].length === 0) {
+        return { "isSimRegistered": false };
+    }
+    return {
+        "isSimRegistered": true,
+        "uasRegisteredToSim": retrieveUasRegisteredToSim.parse(queryResults)
+    };
+}
+exports.changeSimIsGsmConnectivityOrSignal = changeSimIsGsmConnectivityOrSignal;
+async function setSimOnline(imsi, password, replacementPassword, towardSimEncryptKeyStr, gatewayAddress, dongle, isGsmConnectivityOk, cellSignalStrength) {
     const sql = [
         `SELECT @sim_ref:=NULL, @password_status:=NULL, @dongle_ref:=NULL, @gateway_location_ref:=NULL;`,
         `SELECT`,
@@ -822,7 +850,9 @@ async function setSimOnline(imsi, password, replacementPassword, towardSimEncryp
         `   toward_sim_encrypt_key=${exports.esc(towardSimEncryptKeyStr)},`,
         "   dongle=@dongle_ref,",
         "   gateway_location=@gateway_location_ref,",
-        "   need_password_renewal=0",
+        "   need_password_renewal=0,",
+        `   is_gsm_connectivity_ok=${exports.esc(f.bool.enc(isGsmConnectivityOk))},`,
+        `   cell_signal_strength=${exports.esc(cellSignalStrength)}`,
         "WHERE id_= @sim_ref",
         ";",
         retrieveUasRegisteredToSim.sql

@@ -107,18 +107,16 @@ function getAuthenticatedSession(socket: sip.Socket): sessionManager.Authenticat
 
             const session = getAuthenticatedSession(socket);
 
+            const dongleSipPasswordAndTowardSimEncryptKeyStr= 
+                await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi);
+
+            if( !dongleSipPasswordAndTowardSimEncryptKeyStr ){
+                throw new Error("Dongle not found");
+            }
+
             const {
                 dongle, sipPassword, towardSimEncryptKeyStr
-            } = await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi)
-                .then(resp => {
-
-                    if (!!resp) {
-                        return resp;
-                    } else {
-                        throw new Error("Dongle not found");
-                    }
-
-                });
+            } = dongleSipPasswordAndTowardSimEncryptKeyStr;
 
             if (dongle.imei !== imei) {
 
@@ -135,7 +133,9 @@ function getAuthenticatedSession(socket: sip.Socket): sessionManager.Authenticat
                 sipPassword,
                 towardSimEncryptKeyStr,
                 dongle,
-                socket.remoteAddress
+                socket.remoteAddress,
+                dongle.isGsmConnectivityOk,
+                dongle.cellSignalStrength
             );
 
             pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });

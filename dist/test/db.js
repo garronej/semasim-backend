@@ -130,6 +130,14 @@ function createUserSimProxy(userSim, ownership) {
         "phonebook": {
             "enumerable": true,
             "get": () => userSim.phonebook
+        },
+        "isGsmConnectivityOk": {
+            "enumerable": true,
+            "get": () => userSim.isGsmConnectivityOk
+        },
+        "cellSignalStrength": {
+            "enumerable": true,
+            "get": () => userSim.cellSignalStrength
         }
     });
     return userSimProxy;
@@ -230,7 +238,9 @@ async function testMain() {
                         "mem_index": c.index,
                         "name": c.name,
                         "number_raw": c.number
-                    }))
+                    })),
+                    "isGsmConnectivityOk": true,
+                    "cellSignalStrength": "GOOD"
                 };
                 return out;
             })();
@@ -242,7 +252,7 @@ async function testMain() {
                 userSim.gatewayLocation.city = row["city"] || undefined;
             })();
             user.userSims.push(userSim);
-            assertSame(await db.registerSim(user, userSim.sim, userSim.friendlyName, userSim.password, userSim.towardSimEncryptKeyStr, userSim.dongle, userSim.gatewayLocation.ip), user.uas);
+            assertSame(await db.registerSim(user, userSim.sim, userSim.friendlyName, userSim.password, userSim.towardSimEncryptKeyStr, userSim.dongle, userSim.gatewayLocation.ip, userSim.isGsmConnectivityOk, userSim.cellSignalStrength), user.uas);
             assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
             for (let i = 0; i < 7; i++) {
                 const name = transfer_tools_1.testing.genUtf8Str(30);
@@ -377,18 +387,7 @@ async function testMain() {
         "notRegistered": [unregisteredEmail]
     });
     for (let user of [alice, bob, carol, dave]) {
-        //assertSame(await db.getUserSims(user), user.userSims);
-        const expected = user.userSims;
-        const got = await db.getUserSims(user);
-        try {
-            assertSame(got, expected);
-        }
-        catch (error) {
-            console.log(JSON.stringify({
-                got, expected
-            }, null, 2));
-            throw error;
-        }
+        assertSame(await db.getUserSims(user), user.userSims);
     }
     let uasRegisteredToSim = [...alice.uas];
     for (let user of [bob, carol, dave]) {
@@ -410,13 +409,39 @@ async function testMain() {
         assertSame(await db.setSimFriendlyName(user, alice.userSims[0].sim.imsi, user.userSims[user.userSims.length - 1].friendlyName), user.uas);
         assertSame(await db.getUserSims(user), user.userSims);
         assertSame(await db.getUserSims(alice), alice.userSims);
-        assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+        assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].isGsmConnectivityOk, alice.userSims[0].cellSignalStrength), {
             "isSimRegistered": true,
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
             uasRegisteredToSim
         });
+    }
+    {
+        const userSim = alice.userSims[0];
+        for (const isGsmConnectivityOk of [true, false, true]) {
+            userSim.isGsmConnectivityOk = isGsmConnectivityOk;
+            assertSame(await db.changeSimIsGsmConnectivityOrSignal(userSim.sim.imsi, { isGsmConnectivityOk }), {
+                "isSimRegistered": true,
+                "uasRegisteredToSim": uasRegisteredToSim
+            });
+            assertSame(await db.changeSimIsGsmConnectivityOrSignal(genUniq.imsi(), { isGsmConnectivityOk }), {
+                "isSimRegistered": false,
+            });
+        }
+    }
+    {
+        const userSim = alice.userSims[0];
+        for (const cellSignalStrength of ["NULL", "VERY WEAK", "WEAK", "GOOD", "EXCELLENT"]) {
+            userSim.cellSignalStrength = cellSignalStrength;
+            assertSame(await db.changeSimIsGsmConnectivityOrSignal(userSim.sim.imsi, { cellSignalStrength }), {
+                "isSimRegistered": true,
+                "uasRegisteredToSim": uasRegisteredToSim
+            });
+            assertSame(await db.changeSimIsGsmConnectivityOrSignal(genUniq.imsi(), { cellSignalStrength }), {
+                "isSimRegistered": false,
+            });
+        }
     }
     alice.userSims[0].isOnline = false;
     assertSame(await db.setSimsOffline([alice.userSims[0].sim.imsi]), {
@@ -425,10 +450,10 @@ async function testMain() {
     for (let user of [alice, bob, carol, dave]) {
         assertSame(await db.getUserSims(user), user.userSims);
     }
-    assertSame(await db.setSimOnline(transfer_tools_1.testing.genDigits(15), alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), { "isSimRegistered": false });
+    assertSame(await db.setSimOnline(transfer_tools_1.testing.genDigits(15), alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].isGsmConnectivityOk, alice.userSims[0].cellSignalStrength), { "isSimRegistered": false });
     alice.userSims[0].isOnline = true;
     alice.userSims[0].dongle.isVoiceEnabled = false;
-    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].isGsmConnectivityOk, alice.userSims[0].cellSignalStrength), {
         "isSimRegistered": true,
         "storageDigest": alice.userSims[0].sim.storage.digest,
         "passwordStatus": "UNCHANGED",
@@ -439,7 +464,7 @@ async function testMain() {
         assertSame(await db.getUserSims(user), user.userSims);
     }
     alice.userSims[0].password = transfer_tools_1.testing.genHexStr(32);
-    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].isGsmConnectivityOk, alice.userSims[0].cellSignalStrength), {
         "isSimRegistered": true,
         "storageDigest": alice.userSims[0].sim.storage.digest,
         "passwordStatus": "WAS DIFFERENT",
@@ -468,7 +493,7 @@ async function testMain() {
     }
     {
         const replacementPassword = transfer_tools_1.testing.genHexStr(32);
-        assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, replacementPassword, alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+        assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, replacementPassword, alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].isGsmConnectivityOk, alice.userSims[0].cellSignalStrength), {
             "isSimRegistered": true,
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "PASSWORD REPLACED",
@@ -487,7 +512,7 @@ async function testMain() {
         "affectedUas": dave.uas,
         "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
     });
-    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle), {
+    assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].isGsmConnectivityOk, alice.userSims[0].cellSignalStrength), {
         "isSimRegistered": true,
         "storageDigest": alice.userSims[0].sim.storage.digest,
         "passwordStatus": "UNCHANGED",
@@ -525,7 +550,9 @@ async function testMain() {
                 "model": "Foo Bar",
                 "firmwareVersion": "1.000.223",
                 "isVoiceEnabled": true,
-                "sim": generateSim()
+                "sim": generateSim(),
+                "isGsmConnectivityOk": false,
+                "cellSignalStrength": "NULL"
             },
             {
                 "imei": transfer_tools_1.testing.genDigits(15),
@@ -534,6 +561,8 @@ async function testMain() {
                 "firmwareVersion": alice.userSims[0].dongle.firmwareVersion,
                 "isVoiceEnabled": alice.userSims[0].dongle.isVoiceEnabled,
                 "sim": alice.userSims[0].sim,
+                "isGsmConnectivityOk": alice.userSims[0].isGsmConnectivityOk,
+                "cellSignalStrength": alice.userSims[0].cellSignalStrength
             }
         ];
         assertSame(await db.filterDongleWithRegistrableSim(alice, dongles), [dongles[0]]);

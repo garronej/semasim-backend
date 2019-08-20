@@ -98,6 +98,56 @@ export const notifySimOnline = (() => {
 
 })();
 
+export const notifyGsmConnectivityChange = (() => {
+
+    const { methodName } = apiDeclaration.notifyGsmConnectivityChange;
+    type Params = apiDeclaration.notifyGsmConnectivityChange.Params;
+    type Response = apiDeclaration.notifyGsmConnectivityChange.Response;
+
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+
+        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
+            response => response === undefined;
+
+        return sanityCheck;
+
+    })();
+
+    //function f(params: Params, emails: string[]): Promise<void>;
+    function f(params: Params, uas: gwTypes.Ua[]): Promise<void>;
+    function f(params: Params, arg: string[] | gwTypes.Ua[]): Promise<void> {
+        return multicast<Params, Response>(methodName, params, arg);
+    }
+
+    return f;
+
+})();
+
+export const notifyCellSignalStrengthChange = (() => {
+
+    const { methodName } = apiDeclaration.notifyCellSignalStrengthChange;
+    type Params = apiDeclaration.notifyCellSignalStrengthChange.Params;
+    type Response = apiDeclaration.notifyCellSignalStrengthChange.Response;
+
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+
+        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
+            response => response === undefined;
+
+        return sanityCheck;
+
+    })();
+
+    //function f(params: Params, emails: string[]): Promise<void>;
+    function f(params: Params, uas: gwTypes.Ua[]): Promise<void>;
+    function f(params: Params, arg: string[] | gwTypes.Ua[]): Promise<void> {
+        return multicast<Params, Response>(methodName, params, arg);
+    }
+
+    return f;
+
+})();
+
 export const notifyContactCreatedOrUpdated = (() => {
 
     const methodName = apiDeclaration.notifyContactCreatedOrUpdated.methodName;
