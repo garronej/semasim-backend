@@ -888,7 +888,7 @@ async function setAllSimOffline(imsis) {
     await exports.query(sql);
 }
 exports.setAllSimOffline = setAllSimOffline;
-//TODO: This function is only partially tested.
+//TODO: This function is only partially tested!!!
 /** Return userSims by imsi */
 async function setSimsOffline(imsis) {
     if (imsis.length === 0) {
@@ -914,6 +914,7 @@ async function setSimsOffline(imsis) {
     for (let i = imsis.length - 1; i >= 0; i--) {
         const imsi = imsis[i];
         out[imsi] = retrieveUasRegisteredToSim.parse(queryResults);
+        queryResults.pop();
     }
     return out;
 }

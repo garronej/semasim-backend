@@ -218,8 +218,8 @@
         "signature": "744731c88e0e3e5647c52ba5f11d148dce9f914c5ac750496f4ba637db3b33ad"
       },
       "c:/users/joseph/dropbox/shell/semasim/gateway/dist/lib/types.d.ts": {
-        "version": "6553ce5e3c366c16206be85d362981b40389855c5e63072527536039dd362f3a",
-        "signature": "6553ce5e3c366c16206be85d362981b40389855c5e63072527536039dd362f3a"
+        "version": "34fd3c8626f62ca329d7560eb63f942e47c65ade397f8c7fec5b77713db5e84c",
+        "signature": "34fd3c8626f62ca329d7560eb63f942e47c65ade397f8c7fec5b77713db5e84c"
       },
       "c:/users/joseph/dropbox/shell/semasim/gateway/node_modules/crypto-lib/dist/sync/types.d.ts": {
         "version": "ece2ed9e7494bdd3ed91165738857e5c391089ad5584823582efb5b563ee94de",
@@ -482,7 +482,7 @@
         "signature": "6d6ca69eb06f3b6a9ab9c47a8eb0bb2d1dd86f45619c60e861d41a1861806a2c"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/dbsemasim.ts": {
-        "version": "4a3424055c7e4720aa705f73b0cb8c7a40742f6f67aa99fc5f9e319471140ffd",
+        "version": "22fbfc498e1bf0d2c736822f10b9eb867f2bb0d9e11654e954684bf214070463",
         "signature": "f5cdac165e7b08eeb9c844a24c4caa6c0ae5cce28f75a837be0793c883615bf5"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/dbwebphone.ts": {
@@ -571,7 +571,7 @@
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/togateway/remoteapicaller.ts": {
         "version": "8210c6f9efcbb890034462f01f4d5120465c61ac72ce041eb968d4a2fa6066c6",
-        "signature": "6e375bfe929972747468c2dfb07bf6b00f6ab66233731472e6232441e1eafefd"
+        "signature": "bdd485ff6b1d659aa7c91331809ae07278135168e3d7783ffd7ccdf0c393e92f"
       },
       "c:/users/joseph/dropbox/shell/semasim/backend/src/lib/togateway/localapihandlers.ts": {
         "version": "343b8172ae6470ad1e5033bf5a494e711c2b8510fab02a3390c5cf543d393b7f",

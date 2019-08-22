@@ -1272,7 +1272,7 @@ export async function setAllSimOffline(
 }
 
 
-//TODO: This function is only partially tested.
+//TODO: This function is only partially tested!!!
 /** Return userSims by imsi */
 export async function setSimsOffline(
     imsis: string[]
@@ -1311,6 +1311,8 @@ export async function setSimsOffline(
         const imsi = imsis[i];
 
         out[imsi] = retrieveUasRegisteredToSim.parse(queryResults);
+
+        queryResults.pop();
 
     }
 
