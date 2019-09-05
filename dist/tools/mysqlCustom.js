@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mysql = require("mysql");
 const AsyncLock = require("async-lock");
 function createPoolAndGetApi(connectionConfig, handleStringEncoding = undefined, connectionLimit = 50) {
-    const pool = mysql.createPool(Object.assign({}, connectionConfig, { "multipleStatements": true, connectionLimit }));
+    const pool = mysql.createPool(Object.assign(Object.assign({}, connectionConfig), { "multipleStatements": true, connectionLimit }));
     const end = () => new Promise((resolve, reject) => pool.end(error => !error ? resolve() : reject(error)));
     const esc = value => {
         if (handleStringEncoding && typeof value === "string") {
@@ -11,13 +11,18 @@ function createPoolAndGetApi(connectionConfig, handleStringEncoding = undefined,
         }
         return mysql.escape(value);
     };
-    const buildInsertQuery = (table, obj, onDuplicateKeyAction) => {
-        const keys = Object.keys(obj)
-            .filter(key => obj[key] !== undefined);
+    const buildInsertQuery = (table, objOrObjArray, onDuplicateKeyAction) => {
+        const objArray = objOrObjArray instanceof Array ? objOrObjArray : [objOrObjArray];
+        const keys = Object.keys(objArray[0])
+            .filter(key => objArray[0][key] !== undefined);
         const backtickKeys = keys.map(key => "`" + key + "`");
+        if (objArray.length === 0) {
+            return "";
+        }
         let sqlLinesArray = [
             `INSERT ${(onDuplicateKeyAction === "IGNORE") ? "IGNORE " : ""}INTO \`${table}\` ( ${backtickKeys.join(", ")} )`,
-            `VALUES ( ${keys.map(key => (obj[key] instanceof Object) ? ("@`" + obj[key]["@"] + "`") : esc(obj[key])).join(", ")})`
+            `VALUES`,
+            objArray.map(obj => (`    ( ${keys.map(key => (obj[key] instanceof Object) ? ("@`" + obj[key]["@"] + "`") : esc(obj[key])).join(", ")})`)).join(",\n")
         ];
         if (onDuplicateKeyAction === "UPDATE") {
             sqlLinesArray = [
@@ -31,7 +36,8 @@ function createPoolAndGetApi(connectionConfig, handleStringEncoding = undefined,
     };
     const query = (() => {
         const queryTransaction = (sql) => new Promise((resolve, reject) => {
-            if (isSelectOnly(sql)) {
+            if (isSelectOnly(sql) || 1 === 1) {
+                //if (isSelectOnly(sql)) {
                 pool.query(sql, (error, results) => {
                     if (error) {
                         reject(error);

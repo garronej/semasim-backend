@@ -31,7 +31,7 @@ async function launch() {
     {
         const { data } = await stripe.plans.list({ "limit": 100 });
         for (const { id, currency, amount } of data) {
-            planByCurrency[currency] = { id, amount };
+            planByCurrency[currency] = { id, "amount": amount };
             pricingByCurrency[currency] = amount;
         }
     }

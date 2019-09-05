@@ -13,6 +13,7 @@ const emailSender = require("../emailSender");
 const sessionManager = require("../web/sessionManager");
 const gateway_1 = require("../../gateway");
 const stripe = require("../stripe");
+const noThrow_1 = require("../../tools/noThrow");
 exports.handlers = {};
 /** Throw if session object associated with the connection is no longer authenticated. */
 function getAuthenticatedSession(socket) {
@@ -74,7 +75,7 @@ function getAuthenticatedSession(socket) {
             //NOTE: The user may have changer ip since he received the request
             //in this case the query will crash... not a big deal.
             const userUas = await dbSemasim.registerSim(session, dongle.sim, friendlyName, sipPassword, towardSimEncryptKeyStr, dongle, socket.remoteAddress, dongle.isGsmConnectivityOk, dongle.cellSignalStrength);
-            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
             //NOTE: Here we break the rule of gathering all db request
             //but as sim registration is not a so common operation it's not
             //a big deal.
@@ -105,9 +106,11 @@ function getAuthenticatedSession(socket) {
                     .filter(email => email !== session.shared.email));
             }
             else {
-                remoteApiCaller.notifySharedSimUnregistered({ imsi, "email": session.shared.email }, owner.shared.email);
+                const userSim = (await dbSemasim.getUserSims(owner))
+                    .find(({ sim }) => sim.imsi === imsi);
+                remoteApiCaller.notifyOtherSimUserUnregisteredSim({ imsi, "email": session.shared.email }, [owner.shared.email, ...userSim.ownership.sharedWith.confirmed]);
             }
-            pushNotifications.send(affectedUas, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(affectedUas, { "type": "RELOAD CONFIG" });
             gatewayRemoteApiCaller.reNotifySimOnline(imsi);
             return undefined;
         }
@@ -148,14 +151,15 @@ function getAuthenticatedSession(socket) {
         "handler": async ({ imsi, emails, message }, socket) => {
             const session = getAuthenticatedSession(socket);
             const affectedUsers = await dbSemasim.shareSim(session, imsi, emails, message);
-            dbSemasim.getUserSims(session).then(userSims => userSims
+            const getUserSims = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
+            getUserSims(session).then(userSims => userSims
                 .filter(frontend_1.types.UserSim.Owned.match)
-                .find(({ sim }) => sim.imsi === imsi)).then(userSim => emailSender.sharingRequest(session.shared.email, userSim, message, [
+                .find(({ sim }) => sim.imsi === imsi)).then(userSim => emailSender.sharingRequestSafe(session.shared.email, userSim, message, [
                 ...affectedUsers.notRegistered.map(email => ({ email, "isRegistered": false })),
                 ...affectedUsers.registered.map(({ shared: { email } }) => ({ email, "isRegistered": true }))
             ]));
             for (const auth of affectedUsers.registered) {
-                dbSemasim.getUserSims(auth)
+                getUserSims(auth)
                     .then(userSims => userSims
                     .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
                     .find(({ sim }) => sim.imsi === imsi)).then(userSim => remoteApiCaller.notifySimSharingRequest(userSim, auth.shared.email));
@@ -180,7 +184,7 @@ function getAuthenticatedSession(socket) {
                 gatewayRemoteApiCaller.reNotifySimOnline(imsi);
             }
             remoteApiCaller.notifySimPermissionLost(imsi, emails);
-            pushNotifications.send(noLongerRegisteredUas, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(noLongerRegisteredUas, { "type": "RELOAD CONFIG" });
             return undefined;
         }
     };
@@ -195,7 +199,7 @@ function getAuthenticatedSession(socket) {
         "handler": async ({ imsi, friendlyName }, socket) => {
             const session = getAuthenticatedSession(socket);
             const userUas = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
-            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
             return undefined;
         }
     };
@@ -208,14 +212,44 @@ function getAuthenticatedSession(socket) {
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, friendlyName }, socket) => {
+            /*
+            const session = getAuthenticatedSession(socket);
+
+            const userUas = await dbSemasim.setSimFriendlyName(
+                session,
+                imsi,
+                friendlyName
+            );
+
+
+            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
+
+            return dbSemasim.getUserSims(session)
+                .then(userSims => userSims
+                    .filter(feTypes.UserSim.Shared.Confirmed.match)
+                    .find(({ sim }) => sim.imsi === imsi)!
+                ).then(({ ownership: { ownerEmail }, password }) => {
+
+                    remoteApiCaller.notifySharingRequestResponse(
+                        { imsi, "email": session.shared.email, "isAccepted": true },
+                        ownerEmail
+                    )
+
+                    return { password };
+
+                })
+                ;
+            */
             const session = getAuthenticatedSession(socket);
             const userUas = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
-            pushNotifications.send(userUas, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
+            //NOTE: We break the rules of only one request...
+            //But as this will not be called intensively it's ok.
             return dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                 .filter(frontend_1.types.UserSim.Shared.Confirmed.match)
-                .find(({ sim }) => sim.imsi === imsi)).then(({ ownership: { ownerEmail }, password }) => {
-                remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": true }, ownerEmail);
+                .find(({ sim }) => sim.imsi === imsi)).then(({ ownership: { ownerEmail, otherUserEmails }, password }) => {
+                remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": true }, [ownerEmail, ...otherUserEmails]);
                 return { password };
             });
         }
@@ -230,7 +264,7 @@ function getAuthenticatedSession(socket) {
         "handler": async ({ imsi }, socket) => {
             const session = getAuthenticatedSession(socket);
             const { owner } = await dbSemasim.unregisterSim(session, imsi);
-            remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": false }, owner.shared.email);
+            remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": false }, [owner.shared.email]);
             return undefined;
         }
     };
@@ -263,7 +297,7 @@ function getAuthenticatedSession(socket) {
             })());
             //TODO: this function should return number local format.
             const uasRegisteredToSim = await dbSemasim.createOrUpdateSimContact(imsi, name, number, storageInfos);
-            pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
             remoteApiCaller.notifyContactCreatedOrUpdated({
                 imsi,
                 name,
@@ -344,7 +378,7 @@ function getAuthenticatedSession(socket) {
                 storageInfos = undefined;
             }
             const uasRegisteredToSim = await dbSemasim.createOrUpdateSimContact(imsi, newName, contact.number_raw, storageInfos);
-            pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
             remoteApiCaller.notifyContactCreatedOrUpdated({
                 imsi,
                 "name": newName,
@@ -424,7 +458,7 @@ function getAuthenticatedSession(socket) {
                 .filter(({ platform }) => platform === "web")
                 .map(({ userEmail }) => userEmail)
                 .filter(email => email !== session.shared.email));
-            pushNotifications.send(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
+            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
             return { "new_digest": storage !== undefined ? storage.new_digest : undefined };
         }
     };

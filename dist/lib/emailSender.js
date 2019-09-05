@@ -10,6 +10,7 @@ const frontend_1 = require("../frontend");
 const phone_number_1 = require("phone-number");
 const logger = require("logger");
 const watch = require("node-watch");
+const noThrow_1 = require("../tools/noThrow");
 const debug = logger.debugFactory();
 exports.sharingRequest = (() => {
     const templateName = "sharing-request";
@@ -57,6 +58,7 @@ exports.sharingRequest = (() => {
         }), simOwnerEmail))).then(() => { });
     };
 })();
+exports.sharingRequestSafe = noThrow_1.buildNoThrowProxyFunction(exports.sharingRequest);
 exports.passwordRenewalRequest = (() => {
     const templateName = "password-renewal";
     return function (email, token) {
@@ -68,6 +70,7 @@ exports.passwordRenewalRequest = (() => {
         }));
     };
 })();
+exports.passwordRenewalRequestSafe = noThrow_1.buildNoThrowProxyFunction(exports.passwordRenewalRequest);
 exports.emailValidation = (() => {
     const templateName = "email-validation";
     return function (email, activationCode) {
@@ -80,6 +83,7 @@ exports.emailValidation = (() => {
         }));
     };
 })();
+exports.emailValidationSafe = noThrow_1.buildNoThrowProxyFunction(exports.emailValidation);
 function ejsRenderTemplate(templateName, data) {
     return ejs.render(ejsRenderTemplate.getTemplate(templateName), data);
 }

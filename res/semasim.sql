@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Client :  localhost:3306
--- Généré le :  Jeu 15 Août 2019 à 01:24
+-- Généré le :  Sam 31 Août 2019 à 23:19
 -- Version du serveur :  10.1.26-MariaDB-0+deb9u1
 -- Version de PHP :  7.0.33-0+deb9u3
 
@@ -62,6 +62,32 @@ CREATE TABLE `gateway_location` (
   `country_iso` varchar(5) COLLATE utf8_bin DEFAULT NULL,
   `subdivisions` varchar(50) COLLATE utf8_bin DEFAULT NULL,
   `city` varchar(50) COLLATE utf8_bin DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `ongoing_call`
+--
+
+CREATE TABLE `ongoing_call` (
+  `id_` int(11) NOT NULL,
+  `ongoing_call_id` varchar(70) COLLATE utf8_bin NOT NULL,
+  `sim` int(11) NOT NULL,
+  `number` varchar(30) COLLATE utf8_bin NOT NULL,
+  `is_from_sip` tinyint(1) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `ongoing_call_ua`
+--
+
+CREATE TABLE `ongoing_call_ua` (
+  `id_` int(11) NOT NULL,
+  `ongoing_call` int(11) NOT NULL,
+  `ua` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 -- --------------------------------------------------------
@@ -158,7 +184,8 @@ ALTER TABLE `contact`
   ADD PRIMARY KEY (`id_`),
   ADD UNIQUE KEY `sim_2` (`sim`,`mem_index`),
   ADD KEY `sim` (`sim`),
-  ADD KEY `number_raw` (`number_raw`);
+  ADD KEY `number_raw` (`number_raw`),
+  ADD KEY `mem_index_opti` (`mem_index`);
 
 --
 -- Index pour la table `dongle`
@@ -173,6 +200,23 @@ ALTER TABLE `dongle`
 ALTER TABLE `gateway_location`
   ADD PRIMARY KEY (`id_`),
   ADD UNIQUE KEY `ip` (`ip`);
+
+--
+-- Index pour la table `ongoing_call`
+--
+ALTER TABLE `ongoing_call`
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `sim` (`sim`),
+  ADD UNIQUE KEY `call_id` (`ongoing_call_id`);
+
+--
+-- Index pour la table `ongoing_call_ua`
+--
+ALTER TABLE `ongoing_call_ua`
+  ADD PRIMARY KEY (`id_`),
+  ADD UNIQUE KEY `ongoing_call_2` (`ongoing_call`,`ua`),
+  ADD KEY `ongoing_call` (`ongoing_call`),
+  ADD KEY `ua` (`ua`);
 
 --
 -- Index pour la table `sim`
@@ -191,7 +235,8 @@ ALTER TABLE `sim`
 ALTER TABLE `ua`
   ADD PRIMARY KEY (`id_`),
   ADD UNIQUE KEY `instance` (`instance`,`user`),
-  ADD KEY `user` (`user`);
+  ADD KEY `user` (`user`),
+  ADD KEY `instance_opti` (`instance`);
 
 --
 -- Index pour la table `user`
@@ -217,37 +262,47 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=253;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40345;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=213;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=276;
+--
+-- AUTO_INCREMENT pour la table `ongoing_call`
+--
+ALTER TABLE `ongoing_call`
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+--
+-- AUTO_INCREMENT pour la table `ongoing_call_ua`
+--
+ALTER TABLE `ongoing_call_ua`
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=151;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=354;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=188;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
 --
 -- Contraintes pour les tables exportées
 --
@@ -257,6 +312,19 @@ ALTER TABLE `user_sim`
 --
 ALTER TABLE `contact`
   ADD CONSTRAINT `contact_ibfk_1` FOREIGN KEY (`sim`) REFERENCES `sim` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Contraintes pour la table `ongoing_call`
+--
+ALTER TABLE `ongoing_call`
+  ADD CONSTRAINT `ongoing_call_ibfk_1` FOREIGN KEY (`sim`) REFERENCES `sim` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Contraintes pour la table `ongoing_call_ua`
+--
+ALTER TABLE `ongoing_call_ua`
+  ADD CONSTRAINT `ongoing_call_ua_ibfk_1` FOREIGN KEY (`ongoing_call`) REFERENCES `ongoing_call` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `ongoing_call_ua_ibfk_2` FOREIGN KEY (`ua`) REFERENCES `ua` (`id_`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Contraintes pour la table `sim`

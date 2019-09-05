@@ -7,7 +7,7 @@ let esc;
 let buildInsertQuery;
 /** Must be called and awaited before use */
 function launch() {
-    const api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_webphone" }));
+    const api = f.createPoolAndGetApi(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_webphone" }));
     exports.query = api.query;
     esc = api.esc;
     buildInsertQuery = api.buildInsertQuery;
@@ -234,7 +234,7 @@ async function destroyChat(user, chat_id) {
 exports.destroyChat = destroyChat;
 //TODO: Wrap assert user own chat in a template.
 async function newMessage(user, chat_id, message) {
-    const m = Object.assign({}, message, { "id_": NaN });
+    const m = Object.assign(Object.assign({}, message), { "id_": NaN });
     let is_incoming;
     let incoming_is_notification = null;
     let outgoing_status_code = null;

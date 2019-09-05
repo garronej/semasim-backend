@@ -16,7 +16,7 @@ exports.beforeExit = beforeExit;
     beforeExit.impl = () => Promise.resolve();
 })(beforeExit = exports.beforeExit || (exports.beforeExit = {}));
 function launch(cookieSecret) {
-    const pool = mysql.createPool(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_express_session", "multipleStatements": true, "connectionLimit": 50 }));
+    const pool = mysql.createPool(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_express_session", "multipleStatements": true, "connectionLimit": 50 }));
     beforeExit.impl = async () => {
         debug("BeforeExit...");
         try {

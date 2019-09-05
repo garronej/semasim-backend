@@ -53,7 +53,7 @@ export const handlers: webApi.Handlers = {};
 
             if (accountCreationResp.activationCode !== null) {
 
-                emailSender.emailValidation(
+                emailSender.emailValidationSafe(
                     email,
                     accountCreationResp.activationCode
                 );
@@ -175,7 +175,7 @@ export const handlers: webApi.Handlers = {};
 
             if (token !== undefined) {
 
-                await emailSender.passwordRenewalRequest(email, token);
+                emailSender.passwordRenewalRequestSafe(email, token);
 
             }
 
@@ -217,12 +217,17 @@ export const handlers: webApi.Handlers = {};
 
             await dbWebphone.deleteAllUserInstance(renewPasswordResult.user);
 
-            dbSemasim.getUserUa(email)
-                .then(uas => pushNotifications.send(
+            {
+
+                const uas = await dbSemasim.getUserUa(email);
+
+                pushNotifications.sendSafe(
                     uas,
                     { "type": "RELOAD CONFIG" }
-                ))
-                ;
+                );
+
+            }
+
 
             return true;
 
@@ -281,7 +286,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.getChangesRates;
+    const { methodName } = apiDeclaration.getChangesRates;
     type Params = apiDeclaration.getChangesRates.Params;
     type Response = apiDeclaration.getChangesRates.Response;
 
@@ -304,7 +309,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.getSubscriptionInfos;
+    const { methodName } = apiDeclaration.getSubscriptionInfos;
     type Params = apiDeclaration.getSubscriptionInfos.Params;
     type Response = apiDeclaration.getSubscriptionInfos.Response;
 
@@ -330,7 +335,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.subscribeOrUpdateSource;
+    const { methodName } = apiDeclaration.subscribeOrUpdateSource;
     type Params = apiDeclaration.subscribeOrUpdateSource.Params;
     type Response = apiDeclaration.subscribeOrUpdateSource.Response;
 
@@ -362,7 +367,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.unsubscribe;
+    const { methodName } = apiDeclaration.unsubscribe;
     type Params = apiDeclaration.unsubscribe.Params;
     type Response = apiDeclaration.unsubscribe.Response;
 
@@ -430,7 +435,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.createStripeCheckoutSessionForSubscription;
+    const { methodName } = apiDeclaration.createStripeCheckoutSessionForSubscription;
     type Params = apiDeclaration.createStripeCheckoutSessionForSubscription.Params;
     type Response = apiDeclaration.createStripeCheckoutSessionForSubscription.Response;
 
@@ -462,7 +467,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.version;
+    const { methodName } = apiDeclaration.version;
     type Params = apiDeclaration.version.Params;
 
     const handler: webApi.Handler.Generic<Params> = {
@@ -478,7 +483,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.linphonerc;
+    const { methodName } = apiDeclaration.linphonerc;
     type Params = apiDeclaration.linphonerc.Params;
 
     const substitute4BytesChar = (str: string) => Array.from(str)
@@ -573,7 +578,7 @@ export const handlers: webApi.Handlers = {};
             let contactCount = 0;
 
             for (
-                const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, isOnline }
+                const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, reachableSimState }
                 of await dbSemasim.getUserSims(authenticatedSessionDescriptor)
             ) {
 
@@ -614,7 +619,7 @@ export const handlers: webApi.Handlers = {};
                             towardSimEncryptKeyStr
                         })
                     ].join(";"),
-                    "reg_sendregister": isOnline ? "1" : "0",
+                    "reg_sendregister": !!reachableSimState ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
                 };

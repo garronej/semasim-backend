@@ -2,11 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const pushSender = require("../tools/pushSender");
 const deploy_1 = require("../deploy");
+const noThrow_1 = require("../tools/noThrow");
 function launch() {
     pushSender.launch(deploy_1.deploy.pushNotificationCredentials);
 }
 exports.launch = launch;
-/** Return true if everything goes as expected */
 async function send(uas, payload) {
     /*
      * NOTE IMPLEMENTATION IOS:
@@ -20,9 +20,9 @@ async function send(uas, payload) {
     const mobileUas = uas.filter(({ platform }) => platform !== "web");
     const androidUas = mobileUas.filter(({ platform }) => platform === "android");
     const iosUas = mobileUas.filter(({ platform }) => platform === "iOS");
-    return Promise.all([
+    await Promise.all([
         pushSender.send("android", androidUas.map(({ pushToken }) => pushToken), payload),
         pushSender.send("iOS", iosUas.map(({ pushToken }) => pushToken), payload)
     ]).then(() => { });
 }
-exports.send = send;
+exports.sendSafe = noThrow_1.buildNoThrowProxyFunction(send);

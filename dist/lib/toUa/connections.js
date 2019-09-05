@@ -22,8 +22,8 @@ const enableLogger = (socket) => socket.enableLogger({
     "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
     "error": true,
     "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-    "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-    "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? false : false,
+    "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? false : false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
 }, logger.log);
@@ -37,7 +37,7 @@ function listen(server, spoofedLocalAddressAndPort) {
     }
     else {
         server.on("connection", async (webSocket, req) => {
-            const socket = new sip.Socket(webSocket, false, Object.assign({}, spoofedLocalAddressAndPort, { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort }));
+            const socket = new sip.Socket(webSocket, false, Object.assign(Object.assign({}, spoofedLocalAddressAndPort), { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort }));
             enableLogger(socket);
             const session = await sessionManager.getSessionFromHttpIncomingMessage(req);
             if (!session) {

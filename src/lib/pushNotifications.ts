@@ -1,6 +1,7 @@
 import { types as gwTypes } from "../gateway";
 import * as pushSender from "../tools/pushSender";
 import { deploy } from "../deploy";
+import { buildNoThrowProxyFunction } from "../tools/noThrow";
 
 export function launch() {
 
@@ -38,8 +39,7 @@ export namespace Payload {
 
 }
 
-/** Return true if everything goes as expected */
-export async function send(
+async function send(
     uas: gwTypes.Ua[],
     payload: Payload
 ): Promise<void> {
@@ -54,16 +54,19 @@ export async function send(
      * 
      */
 
-    const mobileUas= uas.filter(({ platform })=> platform !== "web");
+    const mobileUas = uas.filter(({ platform }) => platform !== "web");
 
-    const androidUas= mobileUas.filter(({ platform }) => platform === "android" );
-    const iosUas= mobileUas.filter(({ platform })=> platform === "iOS" );
+    const androidUas = mobileUas.filter(({ platform }) => platform === "android");
+    const iosUas = mobileUas.filter(({ platform }) => platform === "iOS");
 
-    return Promise.all([
-        pushSender.send("android", androidUas.map(({ pushToken })=> pushToken ), payload),
-        pushSender.send("iOS", iosUas.map(({ pushToken })=> pushToken ), payload)
-    ]).then(()=> {});
+    await Promise.all([
+        pushSender.send("android", androidUas.map(({ pushToken }) => pushToken), payload),
+        pushSender.send("iOS", iosUas.map(({ pushToken }) => pushToken), payload)
+    ]).then(() => { });
+
 
 }
+
+export const sendSafe = buildNoThrowProxyFunction(send);
 
 

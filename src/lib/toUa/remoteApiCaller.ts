@@ -148,6 +148,27 @@ export const notifyCellSignalStrengthChange = (() => {
 
 })();
 
+export const notifyOngoingCall = (() => {
+
+    const { methodName } = apiDeclaration.notifyOngoingCall;
+    type Params = apiDeclaration.notifyOngoingCall.Params;
+    type Response = apiDeclaration.notifyOngoingCall.Response;
+
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+
+        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
+            response => response === undefined;
+
+        return sanityCheck;
+
+    })();
+
+    return (params: Params, email: string): Promise<void> =>
+        multicast<Params, Response>(methodName, params, [ email ]);
+
+})();
+
+
 export const notifyContactCreatedOrUpdated = (() => {
 
     const methodName = apiDeclaration.notifyContactCreatedOrUpdated.methodName;
@@ -285,16 +306,16 @@ export const notifySharingRequestResponse = (() => {
 
     })();
 
-    return (params: Params, email: string): Promise<void> =>
-        multicast<Params, Response>(methodName, params, [ email ]);
+    return (params: Params, emails: string[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, emails);
 
 })();
 
-export const notifySharedSimUnregistered = (() => {
+export const notifyOtherSimUserUnregisteredSim = (() => {
 
-    const methodName = apiDeclaration.notifySharedSimUnregistered.methodName;
-    type Params = apiDeclaration.notifySharedSimUnregistered.Params;
-    type Response = apiDeclaration.notifySharedSimUnregistered.Response;
+    const { methodName } = apiDeclaration.notifyOtherSimUserUnregisteredSim;
+    type Params = apiDeclaration.notifyOtherSimUserUnregisteredSim.Params;
+    type Response = apiDeclaration.notifyOtherSimUserUnregisteredSim.Response;
 
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
 
@@ -305,8 +326,8 @@ export const notifySharedSimUnregistered = (() => {
 
     })();
 
-    return (params: Params, email: string): Promise<void> =>
-        multicast<Params, Response>(methodName, params, [ email ]);
+    return (params: Params, emails: string[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, emails);
 
 })();
 

@@ -9,8 +9,10 @@ import { types as feTypes, availablePages, urlGetParameters } from "../frontend"
 import { phoneNumber } from "phone-number";
 import * as logger from "logger";
 import * as watch from "node-watch";
+import { buildNoThrowProxyFunction } from "../tools/noThrow";
 
 const debug = logger.debugFactory();
+
 
 export const sharingRequest = (() => {
 
@@ -101,6 +103,8 @@ export const sharingRequest = (() => {
 
 })();
 
+export const sharingRequestSafe= buildNoThrowProxyFunction(sharingRequest);
+
 export const passwordRenewalRequest = (() => {
 
     const templateName = "password-renewal";
@@ -133,6 +137,8 @@ export const passwordRenewalRequest = (() => {
     };
 
 })();
+
+export const passwordRenewalRequestSafe =  buildNoThrowProxyFunction(passwordRenewalRequest);
 
 export const emailValidation = (() => {
 
@@ -169,6 +175,8 @@ export const emailValidation = (() => {
     };
 
 })();
+
+export const emailValidationSafe = buildNoThrowProxyFunction(emailValidation);
 
 function ejsRenderTemplate<T>(templateName: string, data: T): string {
 

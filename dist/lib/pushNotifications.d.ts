@@ -18,5 +18,6 @@ export declare namespace Payload {
         imsi: string;
     };
 }
-/** Return true if everything goes as expected */
-export declare function send(uas: gwTypes.Ua[], payload: Payload): Promise<void>;
+declare function send(uas: gwTypes.Ua[], payload: Payload): Promise<void>;
+export declare const sendSafe: typeof send;
+export {};

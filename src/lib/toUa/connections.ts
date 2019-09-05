@@ -23,8 +23,8 @@ const enableLogger = (socket: sip.Socket) => socket.enableLogger({
     "connection": deploy.getEnv() === "DEV" ? true : false,
     "error": true,
     "close": deploy.getEnv() === "DEV" ? true : false,
-    "incomingTraffic": deploy.getEnv() === "DEV" ? true : false,
-    "outgoingTraffic": deploy.getEnv() === "DEV" ? true : false,
+    "incomingTraffic": deploy.getEnv() === "DEV" ? false : false,
+    "outgoingTraffic": deploy.getEnv() === "DEV" ? false : false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
 }, logger.log);

@@ -21,6 +21,7 @@ const LOG_QUERY_DURATION: boolean = false;
 export let query: f.Api["query"];
 export let esc: f.Api["esc"];
 let buildInsertQuery: f.Api["buildInsertQuery"];
+export let end: f.Api["end"];
 
 
 /** Must be called and before use */
@@ -40,7 +41,9 @@ export function launch() {
 
             const duration = Date.now() - start;
 
-            console.log(`${JSON.stringify(args[0]).substring(0, 90)}: ${duration}ms`);
+            //console.log(`${JSON.stringify(args[0]).substring(0, 90)}: ${duration}ms`);
+
+            console.log(`duration: ${duration}ms\n\n\n`);
 
             return out;
         }
@@ -49,6 +52,8 @@ export function launch() {
 
     esc = api.esc;
     buildInsertQuery = api.buildInsertQuery;
+
+    end= api.end;
 
 }
 
@@ -120,6 +125,10 @@ export async function createUserAccount(
     encryptedSymmetricKey: string,
     ip: string
 ): Promise<{ user: number; activationCode: string | null; } | undefined> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("createUserAccount");
+    }
 
     const { salt, digest } = await rmd160.generateSaltAndHash(secret);
 
@@ -196,6 +205,10 @@ export async function validateUserEmail(
     activationCode: string
 ): Promise<boolean> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("validateUserEmail");
+    }
+
     email = email.toLowerCase();
 
     const sql = [
@@ -228,6 +241,10 @@ export async function authenticateUser(
 } | {
     status: "NOT VALIDATED YET"
 }> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("authenticateUser");
+    }
 
     email = email.toLowerCase();
 
@@ -337,6 +354,10 @@ export async function authenticateUser(
 /**Work for account that have been automatically created due to sharing request. */
 export async function setPasswordRenewalToken(email: string): Promise<string | undefined> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("setPasswordRenewalToken");
+    }
+
     email = email.toLowerCase();
 
     const token = crypto.randomBytes(16).toString("hex");
@@ -360,6 +381,10 @@ export async function renewPassword(
     newEncryptedSymmetricKey: string,
     token: string
 ): Promise<{ wasTokenStillValid: true; user: number; } | { wasTokenStillValid: false; }> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("renewPassword");
+    }
 
     const { digest, salt } = await rmd160.generateSaltAndHash(newSecret);
 
@@ -400,6 +425,10 @@ export async function deleteUser(
     auth: UserAuthentication
 ): Promise<boolean> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("deleteUser");
+    }
+
     const sql = `DELETE FROM user WHERE id_ = ${esc(auth.user)}`;
 
     const { affectedRows } = await query(sql, { "email": auth.shared.email });
@@ -413,8 +442,12 @@ export async function deleteUser(
 /** Only request that is make with two SQL queries */
 export async function addGatewayLocation(ip: string) {
 
+    if( LOG_QUERY_DURATION ){
+        debug("addGatewayLocation");
+    }
+
     const { insertId } = await query(
-        buildInsertQuery("gateway_location", { ip }, "IGNORE"),
+        buildInsertQuery("gateway_location", { ip, "country_iso": null, "subdivisions": null, "city": null }, "IGNORE"),
         { ip }
     );
 
@@ -454,6 +487,10 @@ export async function filterDongleWithRegistrableSim(
     auth: UserAuthentication,
     dongles: Iterable<dcTypes.Dongle>
 ): Promise<dcTypes.Dongle[]> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("filterDongleWithRegistrableSim");
+    }
 
     let registrableDongles: dcTypes.Dongle[] = [];
     const dongleWithReadableIccid: dcTypes.Dongle[] = []
@@ -510,6 +547,10 @@ export async function updateSimStorage(
     imsi: string, storage: dcTypes.Sim.Storage
 ): Promise<void> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("updateSimStorage");
+    }
+
     let sql = [
         "SELECT @sim_ref:=NULL;",
         `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
@@ -541,11 +582,13 @@ export async function updateSimStorage(
 
     }
 
-    let where_clause = storage.contacts.map(({ index }) => `mem_index <> ${esc(index)}`).join(" AND ");
+    sql += `DELETE FROM contact WHERE sim=@sim_ref AND mem_index IS NOT NULL`;
 
-    where_clause = !!where_clause ? `AND ${where_clause}` : "";
+    if( storage.contacts.length !== 0 ){
 
-    sql += `DELETE FROM contact WHERE sim=@sim_ref AND mem_index IS NOT NULL ${where_clause}`;
+        sql += ` AND mem_index NOT IN (${storage.contacts.map(({ index }) => `${index}`).join(", ")})`;
+
+    }
 
     await query(sql, { imsi });
 
@@ -553,6 +596,10 @@ export async function updateSimStorage(
 
 //TODO: Test!
 export async function getUserUa(email: string): Promise<gwTypes.Ua[]> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("getUserUa");
+    }
 
     email = email.toLowerCase();
 
@@ -650,6 +697,10 @@ export async function createOrUpdateSimContact(
     }
 ): Promise<gwTypes.Ua[]> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("createOrUpdateSimContact");
+    }
+
     let sql = [
         "SELECT @sim_ref:=NULL, @contact_ref:=NULL;",
         `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
@@ -716,6 +767,10 @@ export async function deleteSimContact(
     contactRef: { mem_index: number; new_storage_digest: string; } | { number_raw: string; }
 ): Promise<gwTypes.Ua[]> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("deleteSimContact");
+    }
+
     let sql = [
         "SELECT @sim_ref:=NULL;",
         `SELECT @sim_ref:=id_ FROM sim WHERE imsi=${esc(imsi)};`,
@@ -760,6 +815,10 @@ export async function registerSim(
     isGsmConnectivityOk: boolean,
     cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength
 ): Promise<gwTypes.Ua[]> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("registerSim");
+    }
 
     let sql = [
         "SELECT @dongle_ref:=NULL, @gateway_location_ref:=NULL, @sim_ref:=NULL;",
@@ -808,17 +867,17 @@ export async function registerSim(
         ";"
     ].join("\n");
 
-    for (let contact of sim.storage.contacts) {
-
-        sql += buildInsertQuery("contact", {
+    sql += buildInsertQuery(
+        "contact",
+        sim.storage.contacts.map(contact => ({
             "sim": { "@": "sim_ref" },
             "mem_index": contact.index,
             "number_raw": contact.number,
             "name_as_stored": contact.name,
             "name": contact.name
-        }, "THROW ERROR");
-
-    }
+        })),
+        "THROW ERROR"
+    );
 
     sql += [
         "SELECT ua.*, user.email, user.toward_user_encrypt_key",
@@ -851,11 +910,79 @@ export async function registerSim(
 
 }
 
+/** Return all the UAs registered to SIM */
+export async function createUpdateOrDeleteOngoingCall(
+    ongoingCallId: string,
+    imsi: string,
+    number: string,
+    from: "DONGLE" | "SIP",
+    isTerminated: boolean,
+    uasInCall: gwTypes.UaRef[]
+): Promise<gwTypes.Ua[]> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("createUpdateOrDeleteOngoingCall");
+    }
+
+
+    let sql = [
+        `SELECT @sim_ref:=NULL, @ongoing_call_ref:=NULL`,
+        `;`,
+        `SELECT @sim_ref:= id_ FROM sim WHERE imsi=${esc(imsi)}`,
+        `;`,
+        `SELECT _ASSERT(@sim_ref IS NOT NULL, 'SIM is not registered')`,
+        `;`,
+        `DELETE FROM ongoing_call WHERE sim=@sim_ref`,
+        `;`
+    ].join("\n");
+
+    if( !isTerminated )  {
+
+        sql += [
+            buildInsertQuery("ongoing_call", {
+                "ongoing_call_id": ongoingCallId,
+                "sim": { "@": "sim_ref" },
+                number,
+                "is_from_sip": from === "SIP" ? 1 : 0
+            }, "THROW ERROR"),
+            `SELECT @ongoing_call_ref:=id_ FROM ongoing_call WHERE ongoing_call_id=${esc(ongoingCallId)}`,
+            `;`,
+            ...uasInCall.map(ua => [
+                `SELECT @ua_ref:=NULL`,
+                `;`,
+                `SELECT @ua_ref:=ua.id_`,
+                `FROM ua`,
+                `INNER JOIN user ON user.id_=ua.user`,
+                `WHERE ua.instance=${esc(ua.instance)} AND user.email=${esc(ua.userEmail)}`,
+                `;`,
+                `SELECT _ASSERT(@ua_ref IS NOT NULL, 'UA does not exist')`,
+                `;`,
+                buildInsertQuery("ongoing_call_ua", {
+                    "ongoing_call": { "@": "ongoing_call_ref" },
+                    "ua": { "@": "ua_ref" }
+                }, "THROW ERROR")
+            ].join("\n"))
+        ].join("\n");
+    }
+
+    sql += "\n" + retrieveUasRegisteredToSim.sql;
+
+    const queryResults = await query(sql, { imsi });
+
+    return retrieveUasRegisteredToSim.parse(queryResults);
+
+}
+
+
 export async function getUserSims(
     auth: UserAuthentication
 ): Promise<feTypes.UserSim[]> {
 
-    let sql = [
+    if( LOG_QUERY_DURATION ){
+        debug("getUserSims");
+    }
+
+    const sql = [
         "SELECT",
         "   sim.*,",
         "   dongle.*,",
@@ -867,14 +994,14 @@ export async function getUserSims(
         "INNER JOIN dongle ON dongle.id_= sim.dongle",
         "INNER JOIN gateway_location ON gateway_location.id_= sim.gateway_location",
         `WHERE sim.user= ${esc(auth.user)}`,
-        ";",
+        ";", //0 SIM owned by the user
         "SELECT",
         "   sim.imsi,",
         "   contact.*",
         "FROM contact",
         "INNER JOIN sim ON sim.id_= contact.sim",
         `WHERE sim.user= ${esc(auth.user)}`,
-        ";",
+        ";", //1 Contacts of the SIM owned by the user
         "SELECT",
         "   sim.imsi,",
         "   user.email,",
@@ -883,7 +1010,7 @@ export async function getUserSims(
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
         "INNER JOIN user ON user.id_= user_sim.user",
         `WHERE sim.user= ${esc(auth.user)}`,
-        ";",
+        ";", //2 Emails of users with who the user making the request share the sim that he owns.
         "SELECT",
         "   sim.*,",
         "   dongle.*,",
@@ -900,7 +1027,7 @@ export async function getUserSims(
         "INNER JOIN user ON user.id_= sim.user",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
         `WHERE user_sim.user= ${esc(auth.user)}`,
-        ";",
+        ";", //3 Sims that have been shared with the user. ( sim he does not own )
         "SELECT",
         "   sim.imsi,",
         "   contact.*",
@@ -908,41 +1035,142 @@ export async function getUserSims(
         "INNER JOIN sim ON sim.id_= contact.sim",
         "INNER JOIN user_sim ON user_sim.sim= sim.id_",
         `WHERE user_sim.user= ${esc(auth.user)}`,
+        ";", //4 Contact of the sims that have been shared with the user
+        `SELECT sim.imsi, user.email`,
+        `FROM sim`,
+        `INNER JOIN user_sim ON user_sim.sim=sim.id_`,
+        `INNER JOIN user ON user.id_=user_sim.user`,
+        `WHERE`,
+        `    user_sim.user<>${esc(auth.user)} AND`,
+        `    user_sim.friendly_name IS NOT NULL AND`,
+        `    sim.id_ IN (SELECT sim`,
+        `                FROM user_sim`,
+        `                WHERE user=${esc(auth.user)} AND friendly_name IS NOT NULL)`,
+        `;`, //5 Email of other user also sharing the SIM that have been shared with the user ( excluding the SIM owner )
+        `SELECT`,
+        `	 sim.imsi,`,
+        `    ongoing_call.ongoing_call_id,`,
+        `    ongoing_call.number,`,
+        `    ongoing_call.is_from_sip,`,
+        `    user.email,`,
+        `    user.id_ AS user`,
+        `FROM ongoing_call`,
+        `INNER JOIN sim ON sim.id_ = ongoing_call.sim`,
+        `INNER JOIN ongoing_call_ua ON ongoing_call_ua.ongoing_call = ongoing_call.id_`,
+        `INNER JOIN ua ON ua.id_ = ongoing_call_ua.ua`,
+        `INNER JOIN user ON user.id_ = ua.user`,
+        `WHERE sim.id_ IN (SELECT sim.id_`,
+        `                  FROM sim`,
+        `                  INNER JOIN user_sim ON user_sim.sim=sim.id_`,
+        `                  WHERE`,
+        `                      sim.is_online=1 AND`,
+        `                      sim.is_gsm_connectivity_ok=1 AND`,
+        `                      ( user_sim.user=${esc(auth.user)} OR sim.user=${esc(auth.user)} ))`,
+        ``//6 Ongoing calls for all the sim the user have access to ( owned and the sim that have been shared with him )
     ].join("\n");
 
-    const [
-        rowsSimOwned,
-        rowsContactSimOwned,
-        rowsSharedWith,
-        rowsSimShared,
-        rowsContactSimShared
-    ] = await query(sql, { "email": auth.shared.email });
+    const queryResults = await query(sql, { "email": auth.shared.email });
 
-    const sharedWithBySim: {
-        [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
-    } = {};
+    const emailsOfUserSharingSimOwned = (() => {
 
-    for (const row of rowsSharedWith) {
+        const rows = queryResults[2];
 
-        let imsi = row["imsi"];
+        const out: {
+            [imsi: string]: feTypes.SimOwnership.Owned["sharedWith"]
+        } = {};
 
-        if (!sharedWithBySim[imsi]) {
-            sharedWithBySim[imsi] = {
-                "confirmed": [],
-                "notConfirmed": []
-            };
+        for (const row of rows) {
+
+            const imsi = row["imsi"];
+
+            if (!out[imsi]) {
+                out[imsi] = {
+                    "confirmed": [],
+                    "notConfirmed": []
+                };
+            }
+
+            out[imsi][
+                row["is_confirmed"] === 1 ? "confirmed" : "notConfirmed"
+            ].push(row["email"]);
+
         }
 
-        sharedWithBySim[imsi][
-            row["is_confirmed"] ? "confirmed" : "notConfirmed"
-        ].push(row["email"]);
+        return out;
 
-    }
+    })();
+
+    const emailsOfUsersAlsoSharingSimNotOwned = (() => {
+
+        const rows = queryResults[5];
+
+        const out: {
+            [imsi: string]: feTypes.SimOwnership.Shared["otherUserEmails"]
+        } = {};
+
+        for (const row of rows) {
+
+            const imsi = row["imsi"];
+
+            if (!out[imsi]) {
+                out[imsi] = [];
+            }
+
+            out[imsi].push(row["email"]);
+
+        }
+
+        return out;
+
+    })();
+
+    const ongoingCalls = (() => {
+
+        const rows = queryResults[6];
+
+        const out: {
+            [imsi: string]: feTypes.OngoingCall;
+        } = {};
+
+        for (const row of rows) {
+
+            const imsi = row["imsi"];
+
+            if (!out[imsi]) {
+
+                out[imsi] = {
+                    "ongoingCallId": row["ongoing_call_id"],
+                    "from": row["is_from_sip"] === 1 ? "SIP" : "DONGLE",
+                    "isUserInCall": false,
+                    "number": row["number"],
+                    "otherUserInCallEmails": []
+                };
+
+            }
+
+            const ongoingCall = out[imsi];
+
+            if (row["user"] === auth.user) {
+
+                ongoingCall.isUserInCall = true;
+
+                continue;
+
+            }
+
+            ongoingCall.otherUserInCallEmails.push(row["email"]);
+
+        }
+
+        return out;
+
+
+    })();
 
     const storageContactsBySim: { [imsi: string]: dcTypes.Sim.Contact[]; } = {};
     const phonebookBySim: { [imsi: string]: feTypes.UserSim.Contact[]; } = {};
 
-    for (const row of [...rowsContactSimOwned, ...rowsContactSimShared]) {
+    for (const row of [...queryResults[1], ...queryResults[4]]) {
 
         let imsi = row["imsi"];
 
@@ -976,9 +1204,10 @@ export async function getUserSims(
     }
 
 
+
     const userSims: feTypes.UserSim[] = [];
 
-    for (const row of [...rowsSimOwned, ...rowsSimShared]) {
+    for (const row of [...queryResults[0], ...queryResults[3]]) {
 
         const sim: dcTypes.Sim = {
             "iccid": row["iccid"],
@@ -1031,7 +1260,7 @@ export async function getUserSims(
                     ownerFriendlyName,
                     {
                         "status": "OWNED",
-                        "sharedWith": sharedWithBySim[sim.imsi] || {
+                        "sharedWith": emailsOfUserSharingSimOwned[sim.imsi] || {
                             "confirmed": [],
                             "notConfirmed": []
                         }
@@ -1041,6 +1270,8 @@ export async function getUserSims(
             } else {
 
                 let friendlyName: string | null = row["user_friendly_name"];
+
+                const otherUserEmails = emailsOfUsersAlsoSharingSimNotOwned[sim.imsi] || [];
 
                 if (friendlyName === null) {
 
@@ -1052,7 +1283,8 @@ export async function getUserSims(
                         {
                             "status": "SHARED NOT CONFIRMED",
                             ownerEmail,
-                            "sharingRequestMessage": row["sharing_request_message"] || undefined
+                            "sharingRequestMessage": row["sharing_request_message"] || undefined,
+                            otherUserEmails
                         }
                     ];
 
@@ -1060,7 +1292,11 @@ export async function getUserSims(
 
                     return [
                         friendlyName,
-                        { "status": "SHARED CONFIRMED", ownerEmail }
+                        {
+                            "status": "SHARED CONFIRMED",
+                            ownerEmail,
+                            otherUserEmails
+                        }
                     ];
 
                 }
@@ -1076,12 +1312,35 @@ export async function getUserSims(
             "towardSimEncryptKeyStr": row["toward_sim_encrypt_key"],
             dongle,
             gatewayLocation,
-            "isOnline": row["is_online"] === 1,
             ownership,
             "phonebook": phonebookBySim[sim.imsi] || [],
-            "isGsmConnectivityOk": f.bool.dec(row["is_gsm_connectivity_ok"]),
-            "cellSignalStrength": row["cell_signal_strength"]
+            "reachableSimState": (() => {
+
+                if (row["is_online"] === 0) {
+                    return undefined;
+                }
+
+                const isGsmConnectivityOk = f.bool.dec(row["is_gsm_connectivity_ok"]);
+
+                const cellSignalStrength = row["cell_signal_strength"];
+
+                if (!isGsmConnectivityOk) {
+                    return {
+                        isGsmConnectivityOk,
+                        cellSignalStrength
+                    };
+                }
+
+                return {
+                    isGsmConnectivityOk,
+                    cellSignalStrength,
+                    "ongoingCall": ongoingCalls[sim.imsi]
+                };
+
+
+            })()
         };
+
 
         userSims.push(userSim);
 
@@ -1095,6 +1354,10 @@ export async function getUserSims(
 export async function addOrUpdateUa(
     ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">
 ) {
+
+    if( LOG_QUERY_DURATION ){
+        debug("addOrUpdateUa");
+    }
 
     const sql = addOrUpdateUa.getQuery(ua);
 
@@ -1130,7 +1393,7 @@ export namespace addOrUpdateUa {
 
 }
 
-export async function changeSimIsGsmConnectivityOrSignal(
+export async function changeSimGsmConnectivityOrSignal(
     imsi: string,
     p:
         { isGsmConnectivityOk: boolean; } |
@@ -1141,6 +1404,10 @@ export async function changeSimIsGsmConnectivityOrSignal(
     isSimRegistered: true;
     uasRegisteredToSim: gwTypes.Ua[];
 }> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("changeSimGsmConnectivityOrSignal");
+    }
 
     const sql = [
         `SELECT @sim_ref:=NULL;`,
@@ -1189,6 +1456,10 @@ export async function setSimOnline(
     uasRegisteredToSim: gwTypes.Ua[];
 }> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("setSimOnline");
+    }
+
     const sql = [
         `SELECT @sim_ref:=NULL, @password_status:=NULL, @dongle_ref:=NULL, @gateway_location_ref:=NULL;`,
         `SELECT`,
@@ -1225,6 +1496,8 @@ export async function setSimOnline(
         `   cell_signal_strength=${esc(cellSignalStrength)}`,
         "WHERE id_= @sim_ref",
         ";",
+        "DELETE FROM ongoing_call WHERE sim=@sim_ref",
+        ";",
         retrieveUasRegisteredToSim.sql
     ].join("\n");
 
@@ -1258,11 +1531,20 @@ export async function setAllSimOffline(
     imsis?: string[]
 ): Promise<void> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("setAllSimOffline");
+    }
+
+    if( imsis !== undefined && imsis.length === 0 ){
+        return;
+    }
+
     const sql = [
         `LOCK TABLES sim WRITE;`,
         `UPDATE sim`,
         `SET is_online=0`,
-        `WHERE ${!imsis ? `1` : imsis.map(imsi => `imsi=${esc(imsi)}`).join(" OR ")}`,
+        //`WHERE ${!imsis ? `1` : imsis.map(imsi => `imsi=${esc(imsi)}`).join(" OR ")}`,
+        `WHERE ${!imsis ? `1` : `imsi IN (${imsis.map(imsi => esc(imsi)).join(", ")})`}`,
         `;`,
         `UNLOCK TABLES;`
     ].join("\n");
@@ -1273,31 +1555,33 @@ export async function setAllSimOffline(
 
 
 //TODO: This function is only partially tested!!!
-/** Return userSims by imsi */
+/** Return all ua registered to sim by by imsi */
 export async function setSimsOffline(
     imsis: string[]
 ): Promise<{ [imsi: string]: gwTypes.Ua[]; }> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("setSimsOffline");
+    }
 
     if (imsis.length === 0) {
         return {};
     }
 
-    let sql = [
-        `UPDATE sim SET is_online= 0 WHERE`,
-        imsis.map(imsi => `imsi= ${esc(imsi)}`).join(" OR "),
-        ";",
-        ""
+    let sql= [
+    `UPDATE sim SET is_online= 0 WHERE imsi IN (${imsis.map(imsi => esc(imsi)).join(", ")})`,
+    `;`
     ].join("\n");
-
-    sql += `SELECT @sim_ref:=NULL;`;
 
     for (const imsi of imsis) {
 
         sql += [
-            ``,
-            `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)};`,
-            retrieveUasRegisteredToSim.sql + ";",
-            ``
+            `SELECT @sim_ref:=NULL`,
+            `;`,
+            `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${esc(imsi)}`,
+            `;`,
+            retrieveUasRegisteredToSim.sql,
+            `;`
         ].join("\n");
 
     }
@@ -1313,6 +1597,7 @@ export async function setSimsOffline(
         out[imsi] = retrieveUasRegisteredToSim.parse(queryResults);
 
         queryResults.pop();
+        queryResults.pop();
 
     }
 
@@ -1324,6 +1609,10 @@ export async function unregisterSim(
     auth: UserAuthentication,
     imsi: string
 ): Promise<{ affectedUas: gwTypes.Ua[]; owner: UserAuthentication; }> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("unregisterSim");
+    }
 
     const sql = [
         `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL, @sim_owner:=NULL;`,
@@ -1401,10 +1690,18 @@ export async function shareSim(
     notRegistered: string[]; /** list of emails */
 }> {
 
+    if( LOG_QUERY_DURATION ){
+        debug("shareSim");
+    }
+
     emails = emails
         .map(email => email.toLowerCase())
         .filter(email => email !== auth.shared.email)
         ;
+
+    if (emails.length === 0) {
+        throw new Error("assert email not empty and not sharing sim owned");
+    }
 
     const sql = [
         "SELECT @sim_ref:=NULL;",
@@ -1436,7 +1733,9 @@ export async function shareSim(
         `   id_, @sim_ref, NULL, ${esc(sharingRequestMessage || null)}`,
         "FROM _user",
         ";",
-        "SELECT * from _user"
+        "SELECT * from _user",
+        ";",
+        "DROP TABLE _user"
     ].join("\n");
 
     const queryResults = await query(
@@ -1444,7 +1743,7 @@ export async function shareSim(
         { imsi, "email": [auth.shared.email, ...emails] }
     );
 
-    const userRows = queryResults.pop();
+    const userRows = queryResults[queryResults.length - 2];
 
     const affectedUsers = {
         "registered": [] as UserAuthentication[],
@@ -1476,6 +1775,10 @@ export async function stopSharingSim(
     imsi: string,
     emails: string[]
 ): Promise<gwTypes.Ua[]> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("stopSharingSim");
+    }
 
     emails = emails.map(email => email.toLowerCase());
 
@@ -1513,7 +1816,9 @@ export async function stopSharingSim(
         ";",
         "DELETE user_sim.*",
         "FROM user_sim",
-        "INNER JOIN _user_sim ON _user_sim.id_= user_sim.id_"
+        "INNER JOIN _user_sim ON _user_sim.id_= user_sim.id_",
+        ";",
+        "DROP TABLE _user_sim"
     ].join("\n");
 
     const queryResults = await query(
@@ -1550,6 +1855,10 @@ export async function setSimFriendlyName(
     imsi: string,
     friendlyName: string
 ): Promise<gwTypes.Ua[]> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("setSimFriendlyName");
+    }
 
     const sql = [
         `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
@@ -1604,6 +1913,10 @@ export async function setSimFriendlyName(
 export async function getSimOwner(
     imsi: string
 ): Promise<undefined | UserAuthentication> {
+
+    if( LOG_QUERY_DURATION ){
+        debug("getSimOwner");
+    }
 
     let rows = await query([
         "SELECT user.*",

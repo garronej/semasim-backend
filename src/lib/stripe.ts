@@ -57,8 +57,8 @@ export async function launch() {
 
         for (const { id, currency, amount } of data) {
 
-            planByCurrency[currency] = { id, amount };
-            pricingByCurrency[currency] = amount;
+            planByCurrency[currency] = { id, "amount": amount! };
+            pricingByCurrency[currency] = amount!;
 
         }
 

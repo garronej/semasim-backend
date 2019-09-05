@@ -38,7 +38,6 @@ const crypto = require("crypto");
                     };
                 }
             })(),
-            "isOnline": true,
             "ownership": {
                 "status": "OWNED",
                 "sharedWith": {
@@ -51,8 +50,11 @@ const crypto = require("crypto");
                 "name": c.name,
                 "number_raw": c.number
             })),
-            "isGsmConnectivityOk": true,
-            "cellSignalStrength": "GOOD"
+            "reachableSimState": {
+                "isGsmConnectivityOk": true,
+                "cellSignalStrength": "GOOD",
+                "ongoingCall": undefined
+            }
         };
         return out;
     })();

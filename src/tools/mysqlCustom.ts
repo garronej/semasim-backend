@@ -5,12 +5,14 @@ export type TSql = string | number | null;
 
 export type Lock= { [key: string]: (string | number) | (string | number )[]; };
 
+export type InsertObj= Record<string, TSql | { "@": string; }>;
+
 export type Api= {
     query( sql: string, lockFor?: Lock ): Promise<any>;
     esc(value: TSql): string;
-    buildInsertQuery(
+    buildInsertQuery<T extends InsertObj>(
         table: string,
-        obj: Record<string, TSql | { "@": string; }>,
+        objOrObjArray: T | T[],
         onDuplicateKeyAction: "IGNORE" | "UPDATE" | "THROW ERROR"
     ): string;
     end(): Promise<void>;
@@ -48,16 +50,25 @@ export function createPoolAndGetApi(
         };
 
     const buildInsertQuery: Api["buildInsertQuery"] =
-        (table, obj, onDuplicateKeyAction) => {
+        (table, objOrObjArray, onDuplicateKeyAction) => {
 
-            const keys = Object.keys(obj)
-                .filter(key => obj[key] !== undefined);
+            const objArray: InsertObj[]= objOrObjArray instanceof Array ? objOrObjArray : [ objOrObjArray ];
+
+            const keys = Object.keys(objArray[0])
+                .filter(key => objArray[0][key] !== undefined);
 
             const backtickKeys = keys.map(key => "`" + key + "`");
 
+            if( objArray.length === 0 ){
+                return "";
+            }
+
             let sqlLinesArray = [
                 `INSERT ${(onDuplicateKeyAction === "IGNORE") ? "IGNORE " : ""}INTO \`${table}\` ( ${backtickKeys.join(", ")} )`,
-                `VALUES ( ${keys.map(key => (obj[key] instanceof Object) ? ("@`" + obj[key]!["@"] + "`") : esc(obj[key] as TSql)).join(", ")})`
+                `VALUES`,
+                objArray.map(obj =>
+                    (`    ( ${keys.map(key => (obj[key] instanceof Object) ? ("@`" + obj[key]!["@"] + "`") : esc(obj[key] as TSql)).join(", ")})`)
+                ).join(",\n")
             ];
 
             if (onDuplicateKeyAction === "UPDATE") {
@@ -78,7 +89,8 @@ export function createPoolAndGetApi(
 
         const queryTransaction = (sql: string) => new Promise((resolve, reject) => {
 
-            if (isSelectOnly(sql)) {
+            if (isSelectOnly(sql) || 1 === 1) {
+                //if (isSelectOnly(sql)) {
 
                 pool.query(sql, (error, results) => {
 
@@ -199,7 +211,7 @@ export function createPoolAndGetApi(
         "    END IF;",
         "    RETURN bool;",
         "END;"
-    ].join("\n")).catch(()=>{});
+    ].join("\n")).catch(() => { });
 
     return { query, esc, buildInsertQuery, end };
 
@@ -257,23 +269,23 @@ function buildKeys(lockFor: Lock): string[] {
 
     const keys: string[] = [];
 
-    const push=(key: string, value: string | number)=> keys.push(`${key}=${value}`);
+    const push = (key: string, value: string | number) => keys.push(`${key}=${value}`);
 
     for (const key in lockFor) {
 
         const value = lockFor[key];
 
-        if( value instanceof Array ){
+        if (value instanceof Array) {
 
-            const values= value;
+            const values = value;
 
-            for( const value of values){
+            for (const value of values) {
 
                 push(key, value);
 
             }
 
-        }else{
+        } else {
 
             push(key, value);
 

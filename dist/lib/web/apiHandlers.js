@@ -34,7 +34,7 @@ exports.handlers = {};
                 return "EMAIL NOT AVAILABLE";
             }
             if (accountCreationResp.activationCode !== null) {
-                emailSender.emailValidation(email, accountCreationResp.activationCode);
+                emailSender.emailValidationSafe(email, accountCreationResp.activationCode);
                 return "CREATED";
             }
             else {
@@ -100,7 +100,7 @@ exports.handlers = {};
         "handler": async ({ email }) => {
             const token = await dbSemasim.setPasswordRenewalToken(email);
             if (token !== undefined) {
-                await emailSender.passwordRenewalRequest(email, token);
+                emailSender.passwordRenewalRequestSafe(email, token);
             }
             return token !== undefined;
         }
@@ -124,8 +124,10 @@ exports.handlers = {};
                 return false;
             }
             await dbWebphone.deleteAllUserInstance(renewPasswordResult.user);
-            dbSemasim.getUserUa(email)
-                .then(uas => pushNotifications.send(uas, { "type": "RELOAD CONFIG" }));
+            {
+                const uas = await dbSemasim.getUserUa(email);
+                pushNotifications.sendSafe(uas, { "type": "RELOAD CONFIG" });
+            }
             return true;
         }
     };
@@ -325,7 +327,7 @@ exports.handlers = {};
             const config = {};
             let endpointCount = 0;
             let contactCount = 0;
-            for (const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, isOnline } of await dbSemasim.getUserSims(authenticatedSessionDescriptor)) {
+            for (const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, reachableSimState } of await dbSemasim.getUserSims(authenticatedSessionDescriptor)) {
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
                 }
@@ -360,7 +362,7 @@ exports.handlers = {};
                             towardSimEncryptKeyStr
                         })
                     ].join(";"),
-                    "reg_sendregister": isOnline ? "1" : "0",
+                    "reg_sendregister": !!reachableSimState ? "1" : "0",
                     "publish": "0",
                     "nat_policy_ref": `nat_policy_${endpointCount}`
                 };

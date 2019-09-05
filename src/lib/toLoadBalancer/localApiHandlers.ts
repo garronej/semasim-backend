@@ -2,6 +2,7 @@
 import * as sip from "ts-sip";
 import { SyncEvent } from "ts-events-extended";
 import { apiDeclaration } from "../../sip_api_declarations/backendToLoadBalancer";
+import * as Stripe from "stripe";
 
 /*
 NOTE: None of those methods can are allowed to throw as 
@@ -19,8 +20,7 @@ altered.
 export const handlers: sip.api.Server.Handlers = {};
 
 //TODO: use stripe definition
-export const evtStripe = new SyncEvent<import("stripe").events.IEvent>();
-
+export const evtStripe = new SyncEvent<Stripe.events.IEvent>();
 
 {
 

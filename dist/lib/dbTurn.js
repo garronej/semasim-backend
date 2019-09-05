@@ -7,7 +7,7 @@ let esc;
 let buildInsertQuery;
 /** Must be called and awaited before use */
 function launch() {
-    let api = f.createPoolAndGetApi(Object.assign({}, deploy_1.deploy.dbAuth.value, { "database": "semasim_turn" }));
+    let api = f.createPoolAndGetApi(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_turn" }));
     exports.query = api.query;
     esc = api.esc;
     buildInsertQuery = api.buildInsertQuery;

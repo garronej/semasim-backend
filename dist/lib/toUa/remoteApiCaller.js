@@ -67,6 +67,14 @@ exports.notifyCellSignalStrengthChange = (() => {
     }
     return f;
 })();
+exports.notifyOngoingCall = (() => {
+    const { methodName } = uaToBackend_1.apiDeclaration.notifyOngoingCall;
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+        const sanityCheck = response => response === undefined;
+        return sanityCheck;
+    })();
+    return (params, email) => multicast(methodName, params, [email]);
+})();
 exports.notifyContactCreatedOrUpdated = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyContactCreatedOrUpdated.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
@@ -122,15 +130,15 @@ exports.notifySharingRequestResponse = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, email) => multicast(methodName, params, [email]);
+    return (params, emails) => multicast(methodName, params, emails);
 })();
-exports.notifySharedSimUnregistered = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifySharedSimUnregistered.methodName;
+exports.notifyOtherSimUserUnregisteredSim = (() => {
+    const { methodName } = uaToBackend_1.apiDeclaration.notifyOtherSimUserUnregisteredSim;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, email) => multicast(methodName, params, [email]);
+    return (params, emails) => multicast(methodName, params, emails);
 })();
 exports.notifyLoggedFromOtherTab = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyLoggedFromOtherTab.methodName;

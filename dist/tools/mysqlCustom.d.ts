@@ -3,12 +3,13 @@ export declare type TSql = string | number | null;
 export declare type Lock = {
     [key: string]: (string | number) | (string | number)[];
 };
+export declare type InsertObj = Record<string, TSql | {
+    "@": string;
+}>;
 export declare type Api = {
     query(sql: string, lockFor?: Lock): Promise<any>;
     esc(value: TSql): string;
-    buildInsertQuery(table: string, obj: Record<string, TSql | {
-        "@": string;
-    }>, onDuplicateKeyAction: "IGNORE" | "UPDATE" | "THROW ERROR"): string;
+    buildInsertQuery<T extends InsertObj>(table: string, objOrObjArray: T | T[], onDuplicateKeyAction: "IGNORE" | "UPDATE" | "THROW ERROR"): string;
     end(): Promise<void>;
 };
 export declare function createPoolAndGetApi(connectionConfig: mysql.ConnectionConfig, handleStringEncoding?: undefined | "HANDLE STRING ENCODING", connectionLimit?: number): Api;

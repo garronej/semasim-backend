@@ -64,7 +64,7 @@ function listen(server, spoofedLocalAddressAndPort) {
                 .then(uasByImsi => {
                 for (const imsi in uasByImsi) {
                     uaRemoteApiCaller.notifySimOffline(imsi, uasByImsi[imsi]);
-                    pushNotifications.send(uasByImsi[imsi], { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi });
+                    pushNotifications.sendSafe(uasByImsi[imsi], { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi });
                 }
             });
             backendRemoteApiCaller.notifyRoute({
@@ -104,7 +104,7 @@ function unbindFromImsi(imsi, socket) {
         dbSemasim.setSimsOffline([imsi])
             .then(({ [imsi]: uas }) => {
             uaRemoteApiCaller.notifySimOffline(imsi, uas);
-            pushNotifications.send(uas, { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi });
+            pushNotifications.sendSafe(uas, { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi });
         });
         backendRemoteApiCaller.notifyRoute({
             "type": "DELETE",

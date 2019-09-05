@@ -114,7 +114,7 @@ export function listen(
 
                         uaRemoteApiCaller.notifySimOffline(imsi, uasByImsi[imsi]);
 
-                        pushNotifications.send(
+                        pushNotifications.sendSafe(
                             uasByImsi[imsi],
                             { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi }
                         );
@@ -184,7 +184,7 @@ export function unbindFromImsi(
 
                 uaRemoteApiCaller.notifySimOffline(imsi, uas);
 
-                pushNotifications.send(
+                pushNotifications.sendSafe(
                     uas,
                     { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi }
                 );

@@ -51,7 +51,6 @@ import * as crypto from "crypto";
                 }
 
             })(),
-            "isOnline": true,
             "ownership": {
                 "status": "OWNED",
                 "sharedWith": {
@@ -64,8 +63,11 @@ import * as crypto from "crypto";
                 "name": c.name,
                 "number_raw": c.number
             })),
-            "isGsmConnectivityOk": true,
-            "cellSignalStrength": "GOOD"
+            "reachableSimState": {
+                "isGsmConnectivityOk": true,
+                "cellSignalStrength": "GOOD",
+                "ongoingCall": undefined
+            }
         };
 
         return out;

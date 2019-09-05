@@ -80,7 +80,7 @@ function getPage(pageName) {
         };
         const unrenderedPage = fs.readFileSync(ejs_file_path).toString("utf8");
         const [unaltered, webView] = [false, true]
-            .map(isWebView => (Object.assign({}, ejsData, { isWebView })))
+            .map(isWebView => (Object.assign(Object.assign({}, ejsData), { isWebView })))
             .map(ejsData => ejs.render(unrenderedPage, ejsData, { "root": templates_dir_path }))
             .map(renderedPage => Buffer.from(renderedPage, "utf8"));
         getPage.cache.set(pageName, { unaltered, webView });

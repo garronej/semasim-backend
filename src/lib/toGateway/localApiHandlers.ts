@@ -169,14 +169,13 @@ export const handlers: sip.api.Server.Handlers = {};
                     }
 
                     //TODO: add sim connectivity
-                    pushNotifications.send(
+                    pushNotifications.sendSafe(
                         dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"),
                         (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
                             { "type": "RELOAD CONFIG" } :
                             { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi }
                     );
 
-                    //TODO: Add sim connectivity
                     uaRemoteApiCaller.notifySimOnline(
                         {
                             imsi,
@@ -211,7 +210,11 @@ export const handlers: sip.api.Server.Handlers = {};
             return !dbResp.isSimRegistered ?
                 ({ "status": "NOT REGISTERED" }) :
                 dbResp.passwordStatus === "PASSWORD REPLACED" ?
-                    ({ "status": "REPLACE PASSWORD", "allowedUas": dbResp.uasRegisteredToSim }) :
+                    ({ 
+                        "status": "REPLACE PASSWORD", 
+                        "allowedUas": dbResp.uasRegisteredToSim
+                            .map(({ instance, userEmail }) => ({ instance, userEmail })) 
+                    }) :
                     ({ "status": "OK" })
                 ;
 
@@ -234,9 +237,9 @@ export const handlers: sip.api.Server.Handlers = {};
             typeof params.imsi === "string" &&
             typeof params.isGsmConnectivityOk === "boolean"
         ),
-        "handler": async ({imsi, isGsmConnectivityOk }, fromSocket) => {
+        "handler": async ({imsi, isGsmConnectivityOk }) => {
 
-            const dbResp= await dbSemasim.changeSimIsGsmConnectivityOrSignal(
+            const dbResp= await dbSemasim.changeSimGsmConnectivityOrSignal(
                 imsi, 
                 { isGsmConnectivityOk }
             );
@@ -271,9 +274,9 @@ export const handlers: sip.api.Server.Handlers = {};
             typeof params.imsi === "string" &&
             typeof params.cellSignalStrength === "string"
         ),
-        "handler": async ({imsi, cellSignalStrength }, fromSocket) => {
+        "handler": async ({imsi, cellSignalStrength }) => {
 
-            const dbResp= await dbSemasim.changeSimIsGsmConnectivityOrSignal(
+            const dbResp= await dbSemasim.changeSimGsmConnectivityOrSignal(
                 imsi, 
                 { cellSignalStrength }
             );
@@ -362,6 +365,71 @@ export const handlers: sip.api.Server.Handlers = {};
 
 }
 
+{
+
+    const { methodName } = apiDeclaration.notifyOngoingCall;
+    type Params = apiDeclaration.notifyOngoingCall.Params;
+    type Response = apiDeclaration.notifyOngoingCall.Response;
+
+    const handler: sip.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params => (
+            params instanceof Object &&
+            typeof params.ongoingCallId === "string" &&
+            (params.from === "DONGLE" || params.from === "SIP") &&
+            dcSanityChecks.imsi(params.imsi) &&
+            typeof params.number === "string" &&
+            params.uasInCall instanceof Array &&
+            params.uasInCall.filter(uaRef => !gwMisc.sanityChecks.uaRef(uaRef)).length === 0 &&
+            typeof params.isTerminated === "boolean"
+        ),
+        "handler": async ({ ongoingCallId, from, imsi, number, uasInCall, isTerminated }) => {
+
+            const uasRegisteredToSim = await dbSemasim.createUpdateOrDeleteOngoingCall(
+                ongoingCallId,
+                imsi,
+                number,
+                from,
+                isTerminated,
+                uasInCall
+            );
+
+            for (const ua of uasRegisteredToSim) {
+
+                if (ua.platform !== "web") {
+                    //TODO: Send push notification
+                    continue;
+                }
+
+                uaRemoteApiCaller.notifyOngoingCall(
+                    isTerminated ? ({
+                        imsi,
+                        "isTerminated": true,
+                        ongoingCallId
+                    }) : ({
+                        imsi,
+                        "isTerminated": false,
+                        "ongoingCall": {
+                            ongoingCallId,
+                            from,
+                            number,
+                            "isUserInCall": !!uasInCall.find(({ userEmail }) => userEmail === ua.userEmail),
+                            "otherUserInCallEmails": uasInCall.map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
+                        }
+                    }),
+                    ua.userEmail
+                );
+
+            }
+
+            return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
 
 //TODO: this should be handled on client connection, REALLY DO IT.
 {
@@ -416,7 +484,7 @@ export const handlers: sip.api.Server.Handlers = {};
                         return "REACHABLE";
                     }
 
-                    const prPushNotificationSent = pushNotifications.send(
+                    const prPushNotificationSent = pushNotifications.sendSafe(
                         [contact.uaSim.ua],
                         pushPayload
                     );
@@ -444,7 +512,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     } else {
 
-                        await pushNotifications.send(
+                        await pushNotifications.sendSafe(
                             [contact.uaSim.ua],
                             pushPayload
                         );
@@ -492,7 +560,7 @@ export const handlers: sip.api.Server.Handlers = {};
              * 
              */
 
-            await pushNotifications.send(
+            await pushNotifications.sendSafe(
                 [contact.uaSim.ua],
                 { "type": "RE REGISTER ON NEW CONNECTION" }
             );

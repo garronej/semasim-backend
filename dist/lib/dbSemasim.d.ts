@@ -6,6 +6,7 @@ import { types as feTypes } from "../frontend";
 /** exported only for tests */
 export declare let query: f.Api["query"];
 export declare let esc: f.Api["esc"];
+export declare let end: f.Api["end"];
 /** Must be called and before use */
 export declare function launch(): void;
 /** For test purpose only */
@@ -74,12 +75,14 @@ export declare function deleteSimContact(imsi: string, contactRef: {
 }): Promise<gwTypes.Ua[]>;
 /** return user UAs */
 export declare function registerSim(auth: UserAuthentication, sim: dcTypes.Sim, friendlyName: string, password: string, towardSimEncryptKeyStr: string, dongle: feTypes.UserSim["dongle"], gatewayIp: string, isGsmConnectivityOk: boolean, cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength): Promise<gwTypes.Ua[]>;
+/** Return all the UAs registered to SIM */
+export declare function createUpdateOrDeleteOngoingCall(ongoingCallId: string, imsi: string, number: string, from: "DONGLE" | "SIP", isTerminated: boolean, uasInCall: gwTypes.UaRef[]): Promise<gwTypes.Ua[]>;
 export declare function getUserSims(auth: UserAuthentication): Promise<feTypes.UserSim[]>;
 export declare function addOrUpdateUa(ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">): Promise<void>;
 export declare namespace addOrUpdateUa {
     function getQuery(ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">): string;
 }
-export declare function changeSimIsGsmConnectivityOrSignal(imsi: string, p: {
+export declare function changeSimGsmConnectivityOrSignal(imsi: string, p: {
     isGsmConnectivityOk: boolean;
 } | {
     cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength;
@@ -99,7 +102,7 @@ export declare function setSimOnline(imsi: string, password: string, replacement
     uasRegisteredToSim: gwTypes.Ua[];
 }>;
 export declare function setAllSimOffline(imsis?: string[]): Promise<void>;
-/** Return userSims by imsi */
+/** Return all ua registered to sim by by imsi */
 export declare function setSimsOffline(imsis: string[]): Promise<{
     [imsi: string]: gwTypes.Ua[];
 }>;
