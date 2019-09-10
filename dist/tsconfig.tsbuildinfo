@@ -226,8 +226,8 @@
         "signature": "744731c88e0e3e5647c52ba5f11d148dce9f914c5ac750496f4ba637db3b33ad"
       },
       "../../gateway/dist/lib/types.d.ts": {
-        "version": "08b328156b6a07571e6eb8d429e9923d863ea86e1eabf6a81df42fd09acf4461",
-        "signature": "08b328156b6a07571e6eb8d429e9923d863ea86e1eabf6a81df42fd09acf4461"
+        "version": "14d8b0c2024e3ba573e0513ac8b441f4e497faf591288f85ff1a0e16d00498e6",
+        "signature": "14d8b0c2024e3ba573e0513ac8b441f4e497faf591288f85ff1a0e16d00498e6"
       },
       "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts": {
         "version": "ece2ed9e7494bdd3ed91165738857e5c391089ad5584823582efb5b563ee94de",
@@ -8072,7 +8072,6 @@
       ]
     },
     "semanticDiagnosticsPerFile": [
-      "../src/lib/togateway/localapihandlers.ts",
       "../node_modules/typescript/lib/lib.es5.d.ts",
       "../node_modules/typescript/lib/lib.es2015.d.ts",
       "../node_modules/typescript/lib/lib.es2016.d.ts",
@@ -8219,6 +8218,7 @@
       "../src/lib/toua/remoteapicaller.ts",
       "../src/sip_api_declarations/gatewaytobackend.ts",
       "../src/lib/togateway/remoteapicaller.ts",
+      "../src/lib/togateway/localapihandlers.ts",
       "../src/lib/togateway/router.ts",
       "../src/lib/togateway/connections.ts",
       "../src/lib/toua/router.ts",
