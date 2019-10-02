@@ -1,5 +1,4 @@
 /// <reference types="node" />
-/// <reference types="express-session" />
 import * as sip from "ts-sip";
 import * as ws from "ws";
 import * as sessionManager from "../web/sessionManager";

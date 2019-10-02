@@ -34,6 +34,12 @@ function launch(httpsServer, httpServer) {
         "apiPath": webApiDeclaration.apiPath,
         "handlers": apiHandlers_1.handlers,
         "isAuthenticated": async (req, res) => {
+            /*
+            console.log("============> Remove all cookies");
+            req.headers.cookie= "a_cookie_lol=aokay; b_cookie_lol=bokay";
+            req.cookies = {};
+            req.signedCookies = {};
+            */
             await sessionManager.loadRequestSession(req, res);
             return sessionManager.isAuthenticated(req.session);
         },

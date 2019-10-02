@@ -192,7 +192,7 @@ async function authenticateUser(email, secret) {
         }
         return {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": {
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                 user,
                 "shared": {
                     email,

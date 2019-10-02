@@ -2,9 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const types = require("../../frontend/shared/dist/lib/types/userSim");
 exports.types = types;
-const backend_1 = require("../../frontend/shared/dist/lib/cookies/logic/backend");
-exports.AuthenticatedSessionDescriptorSharedData = backend_1.AuthenticatedSessionDescriptorSharedData;
-exports.WebsocketConnectionParams = backend_1.WebsocketConnectionParams;
 const subscriptionTypes = require("../../frontend/shared/dist/lib/types/subscription");
 exports.subscriptionTypes = subscriptionTypes;
 const shopTypes = require("../../frontend/shared/dist/lib/types/shop");
@@ -22,6 +19,8 @@ const api_decl_uaToBackend = require("../../frontend/shared/dist/sip_api_declara
 exports.api_decl_uaToBackend = api_decl_uaToBackend;
 const availablePages = require("../../frontend/shared/dist/lib/availablePages");
 exports.availablePages = availablePages;
+const connectSidHttpHeaderName_1 = require("../../frontend/shared/dist/lib/types/connectSidHttpHeaderName");
+exports.connectSidHttpHeaderName = connectSidHttpHeaderName_1.connectSidHttpHeaderName;
 const deploy_1 = require("./deploy");
 const ejs = require("ejs");
 const logger = require("logger");

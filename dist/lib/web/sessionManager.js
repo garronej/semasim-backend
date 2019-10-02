@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const mysql = require("mysql");
-const express_session = require("express-session");
+const express_session_custom = require("express-session-custom");
 const express_mysql_session = require("express-mysql-session");
 const deploy_1 = require("../../deploy");
 const frontend_1 = require("../../frontend");
-const MySQLStore = express_mysql_session(express_session);
+const MySQLStore = express_mysql_session(express_session_custom);
 const logger = require("logger");
+//import * as cookieLib from "cookie";
 const debug = logger.debugFactory();
 function beforeExit() {
     return beforeExit.impl();
@@ -15,6 +16,8 @@ exports.beforeExit = beforeExit;
 (function (beforeExit) {
     beforeExit.impl = () => Promise.resolve();
 })(beforeExit = exports.beforeExit || (exports.beforeExit = {}));
+const _name = "connect.sid";
+const _path = "/";
 function launch(cookieSecret) {
     const pool = mysql.createPool(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_express_session", "multipleStatements": true, "connectionLimit": 50 }));
     beforeExit.impl = async () => {
@@ -28,13 +31,41 @@ function launch(cookieSecret) {
         }
         debug("BeforeExit success");
     };
-    const sessionMiddleware = express_session({
+    //NOTE: Do not use "path" or it will break.
+    const sessionMiddleware = express_session_custom({
         "secret": cookieSecret,
         "store": new MySQLStore({}, pool),
         "resave": false,
-        "saveUninitialized": false
+        "saveUninitialized": false,
+        name: _name,
+        "cookie": {
+            "path": _path
+        }
     });
-    exports.loadRequestSession = (req, res) => new Promise(resolve => sessionMiddleware(req, res, () => resolve()));
+    exports.loadRequestSession = (req, res) => new Promise(resolve => {
+        const connect_sid = (() => {
+            const out = req.headers[frontend_1.connectSidHttpHeaderName];
+            if (typeof out !== "string") {
+                return undefined;
+            }
+            return out;
+        })();
+        sessionMiddleware(req, res, () => resolve(), connect_sid);
+    });
+    exports.getReadonlyAuthenticatedSession = async (connect_sid) => {
+        const { session, touch } = await sessionMiddleware.getReadonlySession(connect_sid);
+        if (!isAuthenticated(session)) {
+            throw new Error("user not authenticated");
+        }
+        touch().then(isSuccess => {
+            if (isSuccess) {
+                console.log("touch success");
+                return;
+            }
+            debug("Session could not be touched");
+        });
+        return session;
+    };
 }
 exports.launch = launch;
 /**
@@ -50,27 +81,6 @@ function isAuthenticated(session) {
 }
 exports.isAuthenticated = isAuthenticated;
 /**
- * Used to get the Auth from a Websocket connection request.
- */
-function getSessionFromHttpIncomingMessage(req) {
-    const session = req.session;
-    ;
-    return session != undefined ?
-        Promise.resolve(isAuthenticated(session) ?
-            session :
-            undefined) :
-        new Promise(resolve => exports.loadRequestSession(req, {})
-            .then(() => {
-            const { session } = req;
-            ;
-            delete req.session;
-            resolve(session !== undefined && isAuthenticated(session) ?
-                session :
-                undefined);
-        }));
-}
-exports.getSessionFromHttpIncomingMessage = getSessionFromHttpIncomingMessage;
-/**
  *
  * Assert loadRequestSession have been called against req ( req.session is defined )
  * Assert cookie-parser middleware loaded.
@@ -84,8 +94,10 @@ exports.getSessionFromHttpIncomingMessage = getSessionFromHttpIncomingMessage;
  *
  */
 function authenticateSession(req, authenticatedSessionDescriptor) {
-    frontend_1.AuthenticatedSessionDescriptorSharedData.set(authenticatedSessionDescriptor.shared, (key, value) => req.res.cookie(key, value, { "httpOnly": false }));
     Object.assign(req.session, authenticatedSessionDescriptor);
+    const connect_sid = req.connect_sid;
+    req.session.shared.connect_sid = connect_sid;
+    return { connect_sid };
 }
 exports.authenticateSession = authenticateSession;
 function eraseSessionAuthentication(session) {

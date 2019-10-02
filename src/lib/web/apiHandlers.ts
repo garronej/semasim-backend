@@ -108,23 +108,103 @@ export const handlers: webApi.Handlers = {};
         "sanityCheck": params => (
             params instanceof Object &&
             gwMisc.isValidEmail(params.email) &&
-            typeof params.secret === "string"
+            typeof params.secret === "string" && 
+            (
+                params.uaInstanceId === undefined || 
+                typeof params.uaInstanceId === "string"
+            )
         ),
-        "handler": async ({ email, secret }, req) => {
+        "handler": async (params, req) => {
 
-            req.res
 
-            const resp = await dbSemasim.authenticateUser(email, secret);
+            const resp = await dbSemasim.authenticateUser(params.email, params.secret);
 
             if (resp.status === "SUCCESS") {
 
-                sessionManager.authenticateSession(req, resp.authenticatedSessionDescriptor);
+                const { shared, user, towardUserEncryptKeyStr } =
+                    resp.webUaAuthenticatedSessionDescriptorWithoutConnectSid;
 
-                return { "status": "SUCCESS" as const };
+                const { encryptedSymmetricKey } = shared;
+
+                const { connect_sid } = sessionManager.authenticateSession(
+                    req,
+                    {
+                        user,
+                        towardUserEncryptKeyStr,
+                        "shared": {
+                            "email": shared.email,
+                            encryptedSymmetricKey,
+                            "uaInstanceId": params.uaInstanceId !== undefined ?
+                                params.uaInstanceId : shared.webUaInstanceId
+                        }
+                    }
+                );
+
+                return {
+                    "status": "SUCCESS" as const,
+                    connect_sid,
+                    "webUaInstanceId": params.uaInstanceId === undefined ? shared.webUaInstanceId : undefined,
+                    encryptedSymmetricKey
+                };
 
             }
 
             return resp;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const { methodName } = apiDeclaration.isUserLoggedIn;
+    type Params = apiDeclaration.isUserLoggedIn.Params;
+    type Response = apiDeclaration.isUserLoggedIn.Response;
+
+    const handler: webApi.Handler.JSON<Params, Response> = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": (_params, { session }) => Promise.resolve(
+             sessionManager.isAuthenticated(session!)
+        )
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const { methodName } = apiDeclaration.declareUa;
+    type Params = apiDeclaration.declareUa.Params;
+    type Response = apiDeclaration.declareUa.Response;
+
+    const handler: webApi.Handler.JSON<Params, Response> = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (
+            params instanceof Object &&
+            ( params.platform === "iOS" || params.platform === "android" ) &&
+            typeof params.pushNotificationToken === "string"
+        ),
+        "handler": async ({ platform, pushNotificationToken }, { session }) => {
+
+            if (!sessionManager.isAuthenticated(session!))
+                throw new Error("never");
+
+            await dbSemasim.addOrUpdateUa({
+                "instance": session.shared.uaInstanceId,
+                "userEmail": session.shared.email,
+                platform,
+                "pushToken": pushNotificationToken,
+                "messagesEnabled": true
+            });
+
+            return undefined;
 
         }
     };
@@ -158,7 +238,7 @@ export const handlers: webApi.Handlers = {};
 
 {
 
-    const { methodName }= apiDeclaration.sendRenewPasswordEmail;
+    const { methodName } = apiDeclaration.sendRenewPasswordEmail;
     type Params = apiDeclaration.sendRenewPasswordEmail.Params;
     type Response = apiDeclaration.sendRenewPasswordEmail.Response;
 
@@ -549,13 +629,14 @@ export const handlers: webApi.Handlers = {};
                 case "SUCCESS": break;
             }
 
-            const { authenticatedSessionDescriptor } = authResp;
+            const { webUaAuthenticatedSessionDescriptorWithoutConnectSid: userAuth } = authResp;
+
 
             if ("uuid" in params) {
 
                 await dbSemasim.addOrUpdateUa({
                     "instance": `"<urn:uuid:${params.uuid}>"`,
-                    "userEmail": authenticatedSessionDescriptor.shared.email,
+                    "userEmail": userAuth.shared.email,
                     "platform": params.platform,
                     "pushToken": params.push_token,
                     "messagesEnabled": true
@@ -563,7 +644,7 @@ export const handlers: webApi.Handlers = {};
 
             }
 
-            if (!await stripe.isUserSubscribed(authenticatedSessionDescriptor)) {
+            if (!await stripe.isUserSubscribed(userAuth)) {
 
                 const error = new Error("User does not have mobile subscription");
 
@@ -579,7 +660,7 @@ export const handlers: webApi.Handlers = {};
 
             for (
                 const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, reachableSimState }
-                of await dbSemasim.getUserSims(authenticatedSessionDescriptor)
+                of await dbSemasim.getUserSims(userAuth)
             ) {
 
                 if (ownership.status === "SHARED NOT CONFIRMED") {
@@ -609,8 +690,8 @@ export const handlers: webApi.Handlers = {};
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@${deploy.getBaseDomain()};transport=TLS>`,
                     "contact_parameters": [
                         gwMisc.RegistrationParams.build({
-                            "userEmail": authenticatedSessionDescriptor.shared.email,
-                            "towardUserEncryptKeyStr": authenticatedSessionDescriptor.towardUserEncryptKeyStr,
+                            "userEmail": userAuth.shared.email,
+                            "towardUserEncryptKeyStr": userAuth.towardUserEncryptKeyStr,
                             "messagesEnabled": true
                         }),
                         mobile.UserSimInfos.buildContactParam({

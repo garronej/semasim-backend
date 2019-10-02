@@ -14,7 +14,7 @@ const dbSemasim = require("../dbSemasim");
 const frontend_1 = require("../../frontend");
 const dbTurn = require("../dbTurn");
 const deploy_1 = require("../../deploy");
-const cookie = require("cookie");
+//import { debug } from "util";
 const enableLogger = (socket) => socket.enableLogger({
     "socketId": idString,
     "remoteEndId": "UA",
@@ -22,8 +22,8 @@ const enableLogger = (socket) => socket.enableLogger({
     "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
     "error": true,
     "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-    "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? false : false,
-    "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? false : false,
+    "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
 }, logger.log);
@@ -39,14 +39,32 @@ function listen(server, spoofedLocalAddressAndPort) {
         server.on("connection", async (webSocket, req) => {
             const socket = new sip.Socket(webSocket, false, Object.assign(Object.assign({}, spoofedLocalAddressAndPort), { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort }));
             enableLogger(socket);
-            const session = await sessionManager.getSessionFromHttpIncomingMessage(req);
-            if (!session) {
-                socket.destroy("Anonymous websocket connection");
-                return;
-            }
-            const connectionParams = frontend_1.WebsocketConnectionParams.get(cookie.parse(req.headers.cookie));
+            const connectionParams = (() => {
+                let out;
+                try {
+                    out = frontend_1.urlGetParameters.parseUrl(req.url);
+                }
+                catch (_a) {
+                    return undefined;
+                }
+                if (!((out.requestTurnCred === "DO NOT REQUEST TURN CRED" ||
+                    out.requestTurnCred === "REQUEST TURN CRED") && (out.connectionType === "MAIN" ||
+                    out.connectionType === "AUXILIARY") &&
+                    typeof out.connect_sid === "string")) {
+                    return undefined;
+                }
+                return out;
+            })();
             if (connectionParams === undefined) {
                 socket.destroy("Client did not provide correct websocket connection parameters");
+                return;
+            }
+            let session;
+            try {
+                session = await sessionManager.getReadonlyAuthenticatedSession(connectionParams.connect_sid);
+            }
+            catch (error) {
+                socket.destroy(error.message);
                 return;
             }
             registerSocket(socket, {
@@ -100,17 +118,12 @@ function registerSocket(socket, o) {
                 .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
                 .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, session.shared.email)));
         }
-        if (connectionParams.requestTurnCred) {
+        if (connectionParams.requestTurnCred === "REQUEST TURN CRED") {
             (async () => {
                 if (!deploy_1.deploy.isTurnEnabled()) {
                     return undefined;
                 }
-                const { username, credential, revoke } = await dbTurn.renewAndGetCred((() => {
-                    switch (connectionParams.connectionType) {
-                        case "MAIN": return session.shared.webUaInstanceId;
-                        case "AUXILIARY": return connectionParams.uaInstanceId;
-                    }
-                })());
+                const { username, credential, revoke } = await dbTurn.renewAndGetCred(session.shared.uaInstanceId);
                 socket.evtClose.attachOnce(() => revoke());
                 /*
                 We comment out the transport udp as it should never be

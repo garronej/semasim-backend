@@ -1,5 +1,5 @@
 import * as crypto from "crypto";
-import { AuthenticatedSessionDescriptor, UserAuthentication } from "./web/sessionManager";
+import { AuthenticatedSessionDescriptorWithoutConnectSid, UserAuthentication } from "./web/sessionManager";
 import { geoiplookup } from "../tools/geoiplookup";
 import { types as gwTypes } from "../gateway";
 import * as f from "../tools/mysqlCustom";
@@ -229,7 +229,9 @@ export async function authenticateUser(
     secret: string
 ): Promise<{
     status: "SUCCESS";
-    authenticatedSessionDescriptor: AuthenticatedSessionDescriptor;
+    webUaAuthenticatedSessionDescriptorWithoutConnectSid: 
+    Omit<AuthenticatedSessionDescriptorWithoutConnectSid, "shared"> & 
+    { shared: Omit<AuthenticatedSessionDescriptorWithoutConnectSid["shared"], "uaInstanceId">  & { webUaInstanceId: string; } };
 } | {
     status: "NO SUCH ACCOUNT";
 } | {
@@ -316,7 +318,7 @@ export async function authenticateUser(
 
         return {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": {
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                 user,
                 "shared": {
                     email,

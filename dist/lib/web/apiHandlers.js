@@ -64,15 +64,65 @@ exports.handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
             gateway_1.misc.isValidEmail(params.email) &&
-            typeof params.secret === "string"),
-        "handler": async ({ email, secret }, req) => {
-            req.res;
-            const resp = await dbSemasim.authenticateUser(email, secret);
+            typeof params.secret === "string" &&
+            (params.uaInstanceId === undefined ||
+                typeof params.uaInstanceId === "string")),
+        "handler": async (params, req) => {
+            const resp = await dbSemasim.authenticateUser(params.email, params.secret);
             if (resp.status === "SUCCESS") {
-                sessionManager.authenticateSession(req, resp.authenticatedSessionDescriptor);
-                return { "status": "SUCCESS" };
+                const { shared, user, towardUserEncryptKeyStr } = resp.webUaAuthenticatedSessionDescriptorWithoutConnectSid;
+                const { encryptedSymmetricKey } = shared;
+                const { connect_sid } = sessionManager.authenticateSession(req, {
+                    user,
+                    towardUserEncryptKeyStr,
+                    "shared": {
+                        "email": shared.email,
+                        encryptedSymmetricKey,
+                        "uaInstanceId": params.uaInstanceId !== undefined ?
+                            params.uaInstanceId : shared.webUaInstanceId
+                    }
+                });
+                return {
+                    "status": "SUCCESS",
+                    connect_sid,
+                    "webUaInstanceId": params.uaInstanceId === undefined ? shared.webUaInstanceId : undefined,
+                    encryptedSymmetricKey
+                };
             }
             return resp;
+        }
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const { methodName } = apiDeclaration.isUserLoggedIn;
+    const handler = {
+        "needAuth": false,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => params === undefined,
+        "handler": (_params, { session }) => Promise.resolve(sessionManager.isAuthenticated(session))
+    };
+    exports.handlers[methodName] = handler;
+}
+{
+    const { methodName } = apiDeclaration.declareUa;
+    const handler = {
+        "needAuth": true,
+        "contentType": "application/json-custom; charset=utf-8",
+        "sanityCheck": params => (params instanceof Object &&
+            (params.platform === "iOS" || params.platform === "android") &&
+            typeof params.pushNotificationToken === "string"),
+        "handler": async ({ platform, pushNotificationToken }, { session }) => {
+            if (!sessionManager.isAuthenticated(session))
+                throw new Error("never");
+            await dbSemasim.addOrUpdateUa({
+                "instance": session.shared.uaInstanceId,
+                "userEmail": session.shared.email,
+                platform,
+                "pushToken": pushNotificationToken,
+                "messagesEnabled": true
+            });
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;
@@ -309,17 +359,17 @@ exports.handlers = {};
                 }
                 case "SUCCESS": break;
             }
-            const { authenticatedSessionDescriptor } = authResp;
+            const { webUaAuthenticatedSessionDescriptorWithoutConnectSid: userAuth } = authResp;
             if ("uuid" in params) {
                 await dbSemasim.addOrUpdateUa({
                     "instance": `"<urn:uuid:${params.uuid}>"`,
-                    "userEmail": authenticatedSessionDescriptor.shared.email,
+                    "userEmail": userAuth.shared.email,
                     "platform": params.platform,
                     "pushToken": params.push_token,
                     "messagesEnabled": true
                 });
             }
-            if (!await stripe.isUserSubscribed(authenticatedSessionDescriptor)) {
+            if (!await stripe.isUserSubscribed(userAuth)) {
                 const error = new Error("User does not have mobile subscription");
                 load_balancer_1.webApi.errorHttpCode.set(error, load_balancer_1.webApi.httpCodes.PAYMENT_REQUIRED);
                 throw error;
@@ -327,7 +377,7 @@ exports.handlers = {};
             const config = {};
             let endpointCount = 0;
             let contactCount = 0;
-            for (const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, reachableSimState } of await dbSemasim.getUserSims(authenticatedSessionDescriptor)) {
+            for (const { sim, friendlyName, password, towardSimEncryptKeyStr, ownership, phonebook, reachableSimState } of await dbSemasim.getUserSims(userAuth)) {
                 if (ownership.status === "SHARED NOT CONFIRMED") {
                     continue;
                 }
@@ -352,8 +402,8 @@ exports.handlers = {};
                     "reg_identity": `"${safeFriendlyName}" <sip:${sim.imsi}@${deploy_1.deploy.getBaseDomain()};transport=TLS>`,
                     "contact_parameters": [
                         gateway_1.misc.RegistrationParams.build({
-                            "userEmail": authenticatedSessionDescriptor.shared.email,
-                            "towardUserEncryptKeyStr": authenticatedSessionDescriptor.towardUserEncryptKeyStr,
+                            "userEmail": userAuth.shared.email,
+                            "towardUserEncryptKeyStr": userAuth.towardUserEncryptKeyStr,
                             "messagesEnabled": true
                         }),
                         mobile.UserSimInfos.buildContactParam({

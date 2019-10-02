@@ -1,7 +1,9 @@
 
 type MapValue<T> = T extends Map<any, infer R> ? R : never;
 import * as types from "../../frontend/shared/dist/lib/types/userSim";
-import { AuthenticatedSessionDescriptorSharedData, WebsocketConnectionParams } from "../../frontend/shared/dist/lib/cookies/logic/backend";
+type AuthenticatedSessionDescriptorSharedData= import("../../frontend/shared/dist/lib/localStorage/AuthenticatedSessionDescriptorSharedData")
+    .AuthenticatedSessionDescriptorSharedData;
+import { WebsocketConnectionParams } from "../../frontend/shared/dist/lib/types/WebsocketConnectionParams";
 import * as subscriptionTypes from "../../frontend/shared/dist/lib/types/subscription";
 import * as shopTypes from "../../frontend/shared/dist/lib/types/shop";
 import * as wd from "../../frontend/shared/dist/lib/types/webphoneData/types";
@@ -11,6 +13,7 @@ import * as shipping from "../../frontend/shared/dist/lib/shipping";
 import * as api_decl_backendToUa from "../../frontend/shared/dist/sip_api_declarations/backendToUa";
 import * as api_decl_uaToBackend from "../../frontend/shared/dist/sip_api_declarations/uaToBackend";
 import * as availablePages from "../../frontend/shared/dist/lib/availablePages";
+import { connectSidHttpHeaderName } from "../../frontend/shared/dist/lib/types/connectSidHttpHeaderName";
 import { deploy } from "./deploy";
 import * as ejs from "ejs";
 import * as logger from "logger";
@@ -31,6 +34,7 @@ export {
     api_decl_backendToUa,
     api_decl_uaToBackend,
     availablePages,
+    connectSidHttpHeaderName,
     urlGetParameters
 };
 

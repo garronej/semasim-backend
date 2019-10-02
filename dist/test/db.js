@@ -775,7 +775,7 @@ async function testUser() {
         assert(undefined === await db.createUserAccount(email, "anotherPass", towardUserEncryptKeyStr, encryptedSymmetricKey, ip));
         assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
         });
         assertSame(await db.authenticateUser(email, "not password"), {
             "status": "WRONG PASSWORD",
@@ -803,7 +803,7 @@ async function testUser() {
         await new Promise(resolve => setTimeout(resolve, 4000));
         assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
         });
         assert(true === await db.deleteUser({ user, "shared": { email } }));
         assert(false === await db.deleteUser({ "user": 220333, "shared": { "email": "foo@bar.com" } }));
@@ -831,7 +831,7 @@ async function testUser() {
         }
         assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": { "user": phonyUser, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": { "user": phonyUser, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
         });
         assertSame(await db.authenticateUser(email, "not secret"), {
             "status": "WRONG PASSWORD",
@@ -878,7 +878,7 @@ async function testUser() {
         await new Promise(resolve => setTimeout(resolve, failedAuth.retryDelay));
         assertSame(await db.authenticateUser(email, newSecret), {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": {
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                 user,
                 "shared": { email, webUaInstanceId, "encryptedSymmetricKey": newEncryptedSymmetricKey },
                 "towardUserEncryptKeyStr": newTowardUserEncryptKeyStr
@@ -907,7 +907,7 @@ async function testUser() {
                 true);
         assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": {
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                 user,
                 "shared": { email, webUaInstanceId, encryptedSymmetricKey },
                 towardUserEncryptKeyStr
@@ -936,7 +936,7 @@ async function testUser() {
         const [{ web_ua_instance_id: webUaInstanceId }] = await db.query(`SELECT web_ua_instance_id FROM user WHERE id_=${db.esc(phonyUser)};`);
         assertSame(await db.authenticateUser(email, secret), {
             "status": "SUCCESS",
-            "authenticatedSessionDescriptor": {
+            "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                 "user": phonyUser,
                 "shared": { email, webUaInstanceId, encryptedSymmetricKey },
                 towardUserEncryptKeyStr

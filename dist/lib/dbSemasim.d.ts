@@ -1,4 +1,4 @@
-import { AuthenticatedSessionDescriptor, UserAuthentication } from "./web/sessionManager";
+import { AuthenticatedSessionDescriptorWithoutConnectSid, UserAuthentication } from "./web/sessionManager";
 import { types as gwTypes } from "../gateway";
 import * as f from "../tools/mysqlCustom";
 import { types as dcTypes } from "chan-dongle-extended-client";
@@ -29,7 +29,11 @@ export declare function validateUserEmail(email: string, activationCode: string)
 /** Return user.id_ or undefined if auth failed */
 export declare function authenticateUser(email: string, secret: string): Promise<{
     status: "SUCCESS";
-    authenticatedSessionDescriptor: AuthenticatedSessionDescriptor;
+    webUaAuthenticatedSessionDescriptorWithoutConnectSid: Omit<AuthenticatedSessionDescriptorWithoutConnectSid, "shared"> & {
+        shared: Omit<AuthenticatedSessionDescriptorWithoutConnectSid["shared"], "uaInstanceId"> & {
+            webUaInstanceId: string;
+        };
+    };
 } | {
     status: "NO SUCH ACCOUNT";
 } | {

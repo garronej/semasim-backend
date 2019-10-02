@@ -11,10 +11,10 @@ import * as remoteApiCaller from "./remoteApiCaller";
 import * as logger from "logger";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as dbSemasim from "../dbSemasim";
-import { types as feTypes, WebsocketConnectionParams } from "../../frontend";
+import { types as feTypes, WebsocketConnectionParams, urlGetParameters } from "../../frontend";
 import * as dbTurn from "../dbTurn";
 import { deploy } from "../../deploy";
-import * as cookie from "cookie";
+//import { debug } from "util";
 
 const enableLogger = (socket: sip.Socket) => socket.enableLogger({
     "socketId": idString,
@@ -23,8 +23,8 @@ const enableLogger = (socket: sip.Socket) => socket.enableLogger({
     "connection": deploy.getEnv() === "DEV" ? true : false,
     "error": true,
     "close": deploy.getEnv() === "DEV" ? true : false,
-    "incomingTraffic": deploy.getEnv() === "DEV" ? false : false,
-    "outgoingTraffic": deploy.getEnv() === "DEV" ? false : false,
+    "incomingTraffic": deploy.getEnv() === "DEV" ? true : false,
+    "outgoingTraffic": deploy.getEnv() === "DEV" ? true : false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
 }, logger.log);
@@ -70,23 +70,55 @@ export function listen(
 
                 enableLogger(socket);
 
-                const session = await sessionManager.getSessionFromHttpIncomingMessage(req);
+                const connectionParams= (() => {
 
-                if (!session) {
+                    let out: WebsocketConnectionParams;
 
-                    socket.destroy("Anonymous websocket connection");
+                    try {
+
+                        out = urlGetParameters.parseUrl<WebsocketConnectionParams>(req.url);
+
+
+                    } catch{
+
+                        return undefined;
+
+                    }
+
+                    if (!(
+                        (
+                            out.requestTurnCred === "DO NOT REQUEST TURN CRED" ||
+                            out.requestTurnCred === "REQUEST TURN CRED"
+                        ) && (
+                            out.connectionType === "MAIN" ||
+                            out.connectionType === "AUXILIARY"
+                        ) &&
+                        typeof out.connect_sid === "string"
+                    )) {
+                        return undefined;
+                    }
+
+                    return out;
+
+                })();
+
+                if (connectionParams === undefined) {
+
+                    socket.destroy("Client did not provide correct websocket connection parameters");
 
                     return;
 
                 }
 
-                const connectionParams = WebsocketConnectionParams.get(
-                    cookie.parse(req.headers.cookie as string)
-                );
+                let session: sessionManager.AuthenticatedSession;
 
-                if (connectionParams === undefined) {
+                try{
 
-                    socket.destroy("Client did not provide correct websocket connection parameters");
+                    session= await sessionManager.getReadonlyAuthenticatedSession(connectionParams.connect_sid);
+
+                }catch(error){
+
+                    socket.destroy(error.message);
 
                     return;
 
@@ -208,7 +240,7 @@ function registerSocket(
 
         }
 
-        if (connectionParams.requestTurnCred) {
+        if (connectionParams.requestTurnCred === "REQUEST TURN CRED") {
 
             (async () => {
 
@@ -216,12 +248,9 @@ function registerSocket(
                     return undefined;
                 }
 
-                const { username, credential, revoke } = await dbTurn.renewAndGetCred((() => {
-                    switch (connectionParams.connectionType) {
-                        case "MAIN": return session.shared.webUaInstanceId;
-                        case "AUXILIARY": return connectionParams.uaInstanceId;
-                    }
-                })());
+                const { username, credential, revoke } = await dbTurn.renewAndGetCred(
+                    session.shared.uaInstanceId
+                );
 
                 socket.evtClose.attachOnce(() => revoke());
 

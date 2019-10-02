@@ -1615,7 +1615,8 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": 
+                    { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
             }
         );
 
@@ -1668,7 +1669,7 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "authenticatedSessionDescriptor": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
             }
         );
 
@@ -1730,7 +1731,8 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "authenticatedSessionDescriptor": { "user": phonyUser!, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": 
+                    { "user": phonyUser!, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
             }
         );
 
@@ -1836,7 +1838,7 @@ async function testUser() {
             await db.authenticateUser(email, newSecret),
             {
                 "status": "SUCCESS",
-                "authenticatedSessionDescriptor": {
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                     user,
                     "shared": { email, webUaInstanceId, "encryptedSymmetricKey": newEncryptedSymmetricKey },
                     "towardUserEncryptKeyStr": newTowardUserEncryptKeyStr
@@ -1894,7 +1896,7 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "authenticatedSessionDescriptor": {
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                     user,
                     "shared": { email, webUaInstanceId, encryptedSymmetricKey },
                     towardUserEncryptKeyStr
@@ -1942,7 +1944,7 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "authenticatedSessionDescriptor": {
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": {
                     "user": phonyUser!,
                     "shared": { email, webUaInstanceId, encryptedSymmetricKey },
                     towardUserEncryptKeyStr
