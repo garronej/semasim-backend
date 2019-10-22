@@ -44,6 +44,15 @@ async function send(
     payload: Payload
 ): Promise<void> {
 
+    if( 1 === 1 ){
+
+        console.log("Push notification disabled", { uas, payload });
+
+        return;
+
+    }
+
+
     /*
      * NOTE IMPLEMENTATION IOS: 
      * 

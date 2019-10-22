@@ -15,9 +15,9 @@ import { deploy } from "../../deploy";
 
 //NOTE: We store those in misc to avoid having to register hundreds of close listener.
 const __set_of_imsi__ = " set of imsi ";
-const __set_of_email__ = " set of email ";
-const __set_of_gateway_address__ = " set of gateway address ";
-const __set_of_ua_address__ = " set of ua address ";
+const __set_of_ua_instance_id__ = " set of uaInstanceId ";
+const __set_of_gateway_address__ = " set of gatewayAddress ";
+const __set_of_ua_address__ = " set of uaAddress ";
 
 export function listen(server: net.Server) {
 
@@ -35,7 +35,7 @@ export function listen(server: net.Server) {
                 "type": "ADD",
                 "imsis": gatewayConnections.getImsis(),
                 "gatewayAddresses": gatewayConnections.getAddresses(),
-                "emails": uaConnections.getEmails(),
+                "uaInstanceIds": uaConnections.getUaInstanceIds(),
                 "uaAddresses": uaConnections.getAddresses()
             });
 
@@ -118,7 +118,7 @@ function registerSocket(socket: sip.Socket) {
     byIpEndpoint.set(ipEndpoint, socket);
 
     socket.misc[__set_of_imsi__] = new Set<string>();
-    socket.misc[__set_of_email__] = new Set<string>();
+    socket.misc[__set_of_ua_instance_id__] = new Set<string>();
     socket.misc[__set_of_gateway_address__] = new Set<string>();
     socket.misc[__set_of_ua_address__] = new Set<string>();
 
@@ -130,9 +130,9 @@ function registerSocket(socket: sip.Socket) {
 
         }
 
-        for (const email of (socket.misc[__set_of_email__] as Set<string>)) {
+        for (const uaInstanceId of (socket.misc[__set_of_ua_instance_id__] as Set<string>)) {
 
-            unbindFromEmail(email, socket);
+            unbindFromUaInstanceId(uaInstanceId, socket);
 
         }
 
@@ -213,57 +213,58 @@ export function getBindedToImsi(
 
 }
 
-const byEmail = new Map<string, sip.Socket>();
+const byUaInstanceId = new Map<string, sip.Socket>();
 
 /**
- * If there is an other socket currently binded to the
- * email the previous socket is first unbind.
+ * If there is an other socket currently bound to the
+ * uaInstanceId the previous socket is first unbound.
  * This is not an error, it happen when a user open an other tab.
  */
-export function bindToEmail(
-    email: string,
+export function bindToUaInstanceId(
+    uaInstanceId: string,
     socket: sip.Socket
 ): void {
 
-    if (byEmail.has(email)) {
+    if (byUaInstanceId.has(uaInstanceId)) {
 
-        unbindFromEmail(email, byEmail.get(email)!);
+        unbindFromUaInstanceId(uaInstanceId, byUaInstanceId.get(uaInstanceId)!);
 
     }
 
-    byEmail.set(email, socket);
+    byUaInstanceId.set(uaInstanceId, socket);
 
-    (socket.misc[__set_of_email__] as Set<string>).add(email);
+
+    (socket.misc[__set_of_ua_instance_id__] as Set<string>).add(uaInstanceId);
 
 }
 
 /**
  * If at the time this function is called the
- * socket is no longer binded to this email
+ * socket is no longer bound to the uaInstanceId
  * nothing is done, this is not an error.
  */
-export function unbindFromEmail(
-    email: string,
+export function unbindFromUaInstanceId(
+    uaInstanceId: string,
     socket: sip.Socket
 ): void {
 
-    const set_of_email = socket.misc[__set_of_email__] as Set<string>;
+    const set_of_ua_instance_id = socket.misc[__set_of_ua_instance_id__] as Set<string>;
 
-    if (!set_of_email.has(email)) {
+    if (!set_of_ua_instance_id.has(uaInstanceId)) {
         return;
     }
 
-    set_of_email.delete(email);
+    set_of_ua_instance_id.delete(uaInstanceId);
 
-    byEmail.delete(email);
+    byUaInstanceId.delete(uaInstanceId);
 
 }
 
-export function getBindedToEmail(
-    email: string
+export function getBoundToUaInstanceId(
+    uaInstanceId: string
 ): sip.Socket | undefined {
 
-    return byEmail.get(email);
+    return byUaInstanceId.get(uaInstanceId);
 
 }
 

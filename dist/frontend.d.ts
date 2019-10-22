@@ -16,11 +16,11 @@ import * as urlGetParameters from "../../frontend/shared/dist/tools/urlGetParame
 export { types, AuthenticatedSessionDescriptorSharedData, WebsocketConnectionParams, subscriptionTypes, shopTypes, wd, currencyLib, shipping, api_decl_backendToUa, api_decl_uaToBackend, availablePages, connectSidHttpHeaderName, urlGetParameters };
 export declare const static_dir_path: string;
 export declare function doesRequireAuth(pageName: availablePages.PageName): boolean;
-export declare const isPageName: (pageName: string) => pageName is "login" | "register" | "manager" | "webphone" | "subscription" | "shop" | "webviewphone";
+export declare const isPageName: (pageName: string) => pageName is "login" | "register" | "manager" | "webphone" | "subscription" | "shop";
 export declare function getShopProducts(): shopTypes.Product[];
 export declare function getPage(pageName: availablePages.PageName): MapValue<typeof getPage.cache>;
 export declare namespace getPage {
-    const cache: Map<"login" | "register" | "manager" | "webphone" | "subscription" | "shop" | "webviewphone", {
+    const cache: Map<"login" | "register" | "manager" | "webphone" | "subscription" | "shop", {
         unaltered: Buffer;
         webView: Buffer;
     }>;

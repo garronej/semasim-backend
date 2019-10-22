@@ -7,10 +7,11 @@ import { types as gwTypes } from "../../gateway";
 //@ts-ignore, to avoid warnings
 import { types as dcTypes } from "chan-dongle-extended-client";
 
+
 /** 
  * 
- * In the case we target a UA user email or 
- * a gateway by imsi this method save us the 
+ * In the case we target a UA ( via uaInstanceId ) or 
+ * a gateway (via imsi) this method save us the 
  * trouble of writing a proxy method.
  * 
  * An API request to an UA or a gateway can
@@ -66,7 +67,7 @@ export const forwardRequest = (() => {
 
                 switch (route.target) {
                     case "UA":
-                        return backendConnections.getBindedToEmail(route.email);
+                        return backendConnections.getBoundToUaInstanceId(route.uaInstanceId);
                     case "GATEWAY":
                         return backendConnections.getBindedToImsi(route.imsi);
                 }
@@ -134,7 +135,7 @@ export const notifyRoute = (() => {
 
     return (params: Params): Promise<void> => {
 
-        //It there is no info we avoid sending request
+        //If there is no info we avoid sending request
         if (!Object.keys(params)
             .filter(key => key !== "type")
             .find(key => params[key] !== undefined && params[key].length !== 0)
@@ -148,10 +149,7 @@ export const notifyRoute = (() => {
                     backendSocket => sip.api.client.sendRequest<Params, Response>(
                         backendSocket,
                         methodName,
-                        params,
-                        {
-                            "sanityCheck": response => response === undefined
-                        }
+                        params
                     ).catch(() => { })
                 )
         ).then(() => { });
@@ -376,11 +374,11 @@ export const notifyLoggedFromOtherTabProxy = (() => {
     type Params = apiDeclaration.notifyLoggedFromOtherTabProxy.Params;
     type Response = apiDeclaration.notifyLoggedFromOtherTabProxy.Response;
 
-    return async (email: string): Promise<void> => {
+    return async (uaInstanceId: string): Promise<void> => {
 
-        const backendSocket = backendConnections.getBindedToEmail(email);
+        const backendSocket = backendConnections.getBoundToUaInstanceId(uaInstanceId);
 
-        const params: Params = { email };
+        const params: Params = { uaInstanceId };
 
         if (!!backendSocket) {
 

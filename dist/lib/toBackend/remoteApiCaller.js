@@ -6,8 +6,8 @@ const backendConnections = require("../toBackend/connections");
 const localApiHandlers = require("./localApiHandlers");
 /**
  *
- * In the case we target a UA user email or
- * a gateway by imsi this method save us the
+ * In the case we target a UA ( via uaInstanceId ) or
+ * a gateway (via imsi) this method save us the
  * trouble of writing a proxy method.
  *
  * An API request to an UA or a gateway can
@@ -43,7 +43,7 @@ exports.forwardRequest = (() => {
             const backendSocket = (() => {
                 switch (route.target) {
                     case "UA":
-                        return backendConnections.getBindedToEmail(route.email);
+                        return backendConnections.getBoundToUaInstanceId(route.uaInstanceId);
                     case "GATEWAY":
                         return backendConnections.getBindedToImsi(route.imsi);
                 }
@@ -81,16 +81,14 @@ var SanityCheck_;
 exports.notifyRoute = (() => {
     const methodName = apiDeclaration.notifyRoute.methodName;
     return (params) => {
-        //It there is no info we avoid sending request
+        //If there is no info we avoid sending request
         if (!Object.keys(params)
             .filter(key => key !== "type")
             .find(key => params[key] !== undefined && params[key].length !== 0)) {
             return Promise.resolve();
         }
         return Promise.all(backendConnections.getAll()
-            .map(backendSocket => sip.api.client.sendRequest(backendSocket, methodName, params, {
-            "sanityCheck": response => response === undefined
-        }).catch(() => { }))).then(() => { });
+            .map(backendSocket => sip.api.client.sendRequest(backendSocket, methodName, params).catch(() => { }))).then(() => { });
     };
 })();
 /**
@@ -190,9 +188,9 @@ exports.notifyDongleOnLanProxy = (() => {
 })();
 exports.notifyLoggedFromOtherTabProxy = (() => {
     const methodName = apiDeclaration.notifyLoggedFromOtherTabProxy.methodName;
-    return async (email) => {
-        const backendSocket = backendConnections.getBindedToEmail(email);
-        const params = { email };
+    return async (uaInstanceId) => {
+        const backendSocket = backendConnections.getBoundToUaInstanceId(uaInstanceId);
+        const params = { uaInstanceId };
         if (!!backendSocket) {
             await sip.api.client.sendRequest(backendSocket, methodName, params).catch(() => { });
         }

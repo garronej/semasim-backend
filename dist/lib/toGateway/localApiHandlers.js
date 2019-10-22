@@ -231,10 +231,6 @@ exports.handlers = {};
         "handler": async ({ ongoingCallId, from, imsi, number, uasInCall, isTerminated }) => {
             const uasRegisteredToSim = await dbSemasim.createUpdateOrDeleteOngoingCall(ongoingCallId, imsi, number, from, isTerminated, uasInCall);
             for (const ua of uasRegisteredToSim) {
-                if (ua.platform !== "web") {
-                    //TODO: Send push notification
-                    continue;
-                }
                 uaRemoteApiCaller.notifyOngoingCall(isTerminated ? ({
                     imsi,
                     "isTerminated": true,
@@ -249,7 +245,7 @@ exports.handlers = {};
                         "isUserInCall": !!uasInCall.find(({ userEmail }) => userEmail === ua.userEmail),
                         "otherUserInCallEmails": uasInCall.map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
                     }
-                }), ua.userEmail);
+                }), [ua]);
             }
             return undefined;
         }

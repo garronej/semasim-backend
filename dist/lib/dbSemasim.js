@@ -389,7 +389,7 @@ async function updateSimStorage(imsi, storage) {
 }
 exports.updateSimStorage = updateSimStorage;
 //TODO: Test!
-async function getUserUa(email) {
+async function getUserUas(email) {
     if (LOG_QUERY_DURATION) {
         debug("getUserUa");
     }
@@ -414,7 +414,7 @@ async function getUserUa(email) {
     }
     return uas;
 }
-exports.getUserUa = getUserUa;
+exports.getUserUas = getUserUas;
 /**
  * Asserts:
  * 1) The sql query will will not be updated after.

@@ -14,7 +14,7 @@ import * as util from "util";
 import { deploy } from "../../deploy";
 
 /*
-NOTE: None of those methods can are allowed to throw as 
+NOTE: None of those methods are allowed to throw as 
 it would result in the closing of the inter instance socket.
 
 Even if the remote end is a trusted party keep in mind
@@ -40,7 +40,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                 switch (route.target) {
                     case "UA":
-                        return uaConnections.getByEmail(route.email);
+                        return uaConnections.getByUaInstanceId(route.uaInstanceId);
                     case "GATEWAY":
                         return gatewayConnections.getBindedToImsi(route.imsi);
                 }
@@ -92,7 +92,7 @@ export const handlers: sip.api.Server.Handlers = {};
     const handler: sip.api.Server.Handler<Params, Response> = {
         "handler": (params, backendSocket) => {
 
-            const { type, imsis, gatewayAddresses, emails, uaAddresses } = params;
+            const { type, imsis, gatewayAddresses, uaInstanceIds, uaAddresses } = params;
 
             switch (type) {
                 case "ADD":
@@ -109,9 +109,9 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     }
 
-                    for (const email of emails || []) {
+                    for (const uaInstanceId of uaInstanceIds || []) {
 
-                        backendConnections.bindToEmail(email, backendSocket);
+                        backendConnections.bindToUaInstanceId(uaInstanceId, backendSocket);
 
                     }
 
@@ -137,9 +137,9 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     }
 
-                    for (const email of emails || []) {
+                    for (const uaInstanceId of uaInstanceIds || []) {
 
-                        backendConnections.unbindFromEmail(email, backendSocket);
+                        backendConnections.unbindFromUaInstanceId(uaInstanceId, backendSocket);
 
                     }
 
@@ -394,9 +394,9 @@ export const handlers: sip.api.Server.Handlers = {};
     type Response = apiDeclaration.notifyLoggedFromOtherTabProxy.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
-        "handler": ({ email }) => {
+        "handler": ({ uaInstanceId }) => {
 
-            const uaSocket = uaConnections.getByEmail(email);
+            const uaSocket = uaConnections.getByUaInstanceId(uaInstanceId);
 
             if (!uaSocket) {
                 return Promise.resolve(undefined);

@@ -4,41 +4,17 @@ import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import { types as gwTypes } from "../../gateway";
 
-
 function multicast<Params, Response extends undefined>(
     methodName: string,
     params: Params,
-    emailsOrUas: gwTypes.Ua[] | string[]
+    uas: gwTypes.Ua[]
 ): Promise<void> {
 
-    let emails: string[];
-
-    if (emailsOrUas.length !== 0 && typeof emailsOrUas[0] === "string") {
-
-       emails = emailsOrUas as any;
-
-    } else {
-
-        const uas: gwTypes.Ua[] = emailsOrUas as any;
-
-        //NOTE: For an API method like notifySimOnline
-        //uas will be a list with: 
-        //-The main web ua.
-        //-A certain number of Android UA.
-        //-For each Android UA a WebView UA ( with almost the same uaInstanceId )
-        //In consequence the email can (and will) appear duplicated this is why we use Set.
-        //Only the main web UA is interested by those notify event as Android UA
-        //receive notification via PUSH and WebView UA are ephemeral UA that 
-        //does not require those events to function properly.
-        emails = [ ...new Set(uas.map(({ userEmail }) => userEmail)) ]; 
-
-    }
-
     return Promise.all(
-        emails.map(
-            email =>
+        uas.map(
+            ua =>
                 backendRemoteApiCaller.forwardRequest<Params, Response>(
-                    { "target": "UA", email },
+                    { "target": "UA", "uaInstanceId": ua.instance },
                     methodName,
                     params,
                     { "timeout": 5 * 1000, }
@@ -63,13 +39,8 @@ export const notifySimOffline = (() => {
 
     })();
 
-    //function f(imsi: string, emails: string[]): Promise<void>;
-    function f(imsi: string, uas: gwTypes.Ua[]): Promise<void>;
-    function f(imsi: string, arg: string[] | gwTypes.Ua[]): Promise<void> {
-        return multicast<Params, Response>(methodName, { imsi }, arg);
-    }
-
-    return f;
+    return (imsi: string, uas: gwTypes.Ua[]): Promise<void> =>  
+         multicast<Params, Response>(methodName, { imsi }, uas);
 
 })();
 
@@ -88,13 +59,8 @@ export const notifySimOnline = (() => {
 
     })();
 
-    //function f(params: Params, emails: string[]): Promise<void>;
-    function f(params: Params, uas: gwTypes.Ua[]): Promise<void>;
-    function f(params: Params, arg: string[] | gwTypes.Ua[]): Promise<void> {
-        return multicast<Params, Response>(methodName, params, arg);
-    }
-
-    return f;
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> => 
+        multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -113,13 +79,8 @@ export const notifyGsmConnectivityChange = (() => {
 
     })();
 
-    //function f(params: Params, emails: string[]): Promise<void>;
-    function f(params: Params, uas: gwTypes.Ua[]): Promise<void>;
-    function f(params: Params, arg: string[] | gwTypes.Ua[]): Promise<void> {
-        return multicast<Params, Response>(methodName, params, arg);
-    }
-
-    return f;
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> => 
+         multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -138,13 +99,8 @@ export const notifyCellSignalStrengthChange = (() => {
 
     })();
 
-    //function f(params: Params, emails: string[]): Promise<void>;
-    function f(params: Params, uas: gwTypes.Ua[]): Promise<void>;
-    function f(params: Params, arg: string[] | gwTypes.Ua[]): Promise<void> {
-        return multicast<Params, Response>(methodName, params, arg);
-    }
-
-    return f;
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> => 
+         multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -163,8 +119,8 @@ export const notifyOngoingCall = (() => {
 
     })();
 
-    return (params: Params, email: string): Promise<void> =>
-        multicast<Params, Response>(methodName, params, [ email ]);
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -184,8 +140,8 @@ export const notifyContactCreatedOrUpdated = (() => {
 
     })();
 
-    return (params: Params, emails: string[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, emails);
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -204,8 +160,8 @@ export const notifyContactDeleted = (() => {
 
     })();
 
-    return (params: Params, emails: string[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, emails);
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -266,14 +222,14 @@ export const notifySimPermissionLost = (() => {
 
     })();
 
-    return (imsi: string, emails: string[]): Promise<void> =>
-        multicast<Params, Response>(methodName, { imsi }, emails);
+    return (imsi: string, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, { imsi }, uas);
 
 })();
 
 export const notifySimSharingRequest = (() => {
 
-    const methodName = apiDeclaration.notifySimSharingRequest.methodName;
+    const { methodName } = apiDeclaration.notifySimSharingRequest;
     type Params = apiDeclaration.notifySimSharingRequest.Params;
     type Response = apiDeclaration.notifySimSharingRequest.Response;
 
@@ -286,14 +242,42 @@ export const notifySimSharingRequest = (() => {
 
     })();
 
-    return (userSim: Params, email: string): Promise<void> =>
-        multicast<Params, Response>(methodName, userSim, [ email ]);
+    function f(userSim: Params, uas: gwTypes.Ua[]): Promise<void>;
+    function f(userSim: Params, socket: sip.Socket): Promise<void>;
+    function f(userSim: Params, uasOrSocket: gwTypes.Ua[] | sip.Socket): Promise<void> {
+
+        if( uasOrSocket instanceof Array ){
+
+            const uas= uasOrSocket;
+
+            return multicast<Params, Response>(methodName, userSim, uas);
+
+        }else{
+
+            const socket = uasOrSocket;
+
+            return sip.api.client.sendRequest<Params, Response>(
+                socket,
+                methodName,
+                userSim,
+                {
+                    "timeout": 5 * 1000,
+                    "sanityCheck": response => response === undefined
+                }
+            ).catch(() => { });
+
+        }
+
+
+    }
+
+    return f;
 
 })();
 
 export const notifySharingRequestResponse = (() => {
 
-    const methodName = apiDeclaration.notifySharingRequestResponse.methodName;
+    const { methodName } = apiDeclaration.notifySharingRequestResponse;
     type Params = apiDeclaration.notifySharingRequestResponse.Params;
     type Response = apiDeclaration.notifySharingRequestResponse.Response;
 
@@ -306,8 +290,8 @@ export const notifySharingRequestResponse = (() => {
 
     })();
 
-    return (params: Params, emails: string[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, emails);
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -326,8 +310,8 @@ export const notifyOtherSimUserUnregisteredSim = (() => {
 
     })();
 
-    return (params: Params, emails: string[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, emails);
+    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, params, uas);
 
 })();
 
@@ -338,17 +322,17 @@ export const notifyLoggedFromOtherTab = (() => {
     type Response = apiDeclaration.notifyLoggedFromOtherTab.Response;
 
     /** Callable from anywhere */
-    function f(email: string): Promise<void>;
+    function f(uaInstanceId: string): Promise<void>;
     /** Callable only on process holding the connection */
     function f(uaSocket: sip.Socket): Promise<void>;
     function f(arg: sip.Socket | string): Promise<void> {
 
         if (typeof arg === "string") {
 
-            const email = arg;
+            const uaInstanceId = arg;
 
             return backendRemoteApiCaller.notifyLoggedFromOtherTabProxy(
-                email
+                uaInstanceId
             );
 
         } else {
@@ -394,5 +378,5 @@ export const notifyIceServer = (() => {
 
     };
 
-}) ();
+})();
 

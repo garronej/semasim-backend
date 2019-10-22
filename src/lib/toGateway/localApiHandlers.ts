@@ -395,11 +395,6 @@ export const handlers: sip.api.Server.Handlers = {};
 
             for (const ua of uasRegisteredToSim) {
 
-                if (ua.platform !== "web") {
-                    //TODO: Send push notification
-                    continue;
-                }
-
                 uaRemoteApiCaller.notifyOngoingCall(
                     isTerminated ? ({
                         imsi,
@@ -416,7 +411,7 @@ export const handlers: sip.api.Server.Handlers = {};
                             "otherUserInCallEmails": uasInCall.map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
                         }
                     }),
-                    ua.userEmail
+                    [ ua ]
                 );
 
             }

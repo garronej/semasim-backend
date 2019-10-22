@@ -45,7 +45,6 @@ async function launch(daemonNumber) {
         https.createServer(tlsCerts),
         http.createServer(),
         tls.createServer(tlsCerts),
-        tls.createServer(tlsCerts),
         net.createServer()
     ];
     const prSpoofedLocalAddressAndPort = (async () => {
@@ -59,7 +58,7 @@ async function launch(daemonNumber) {
         return {
             "https": _wrap(address1, 443),
             "http": _wrap(address1, 80),
-            "sipUa": _wrap(address2, sipSrv.port),
+            //"sipUa": _wrap(address2, sipSrv.port),
             "sipGw": _wrap(address2, 80)
         };
     })();
@@ -86,9 +85,8 @@ async function launch(daemonNumber) {
                 switch (index) {
                     case 0: return "https";
                     case 1: return "http";
-                    case 2: return "sipUa";
-                    case 3: return "sipGw";
-                    case 4: undefined;
+                    case 2: return "sipGw";
+                    case 3: undefined;
                 }
             })();
             const getInterfaceIpFromPublicIp = (publicIp) => privateAndPublicIps.find(v => v.publicIp === publicIp).privateIp;
@@ -119,9 +117,8 @@ async function launch(daemonNumber) {
         return {
             "httpsPort": ports[0],
             "httpPort": ports[1],
-            "sipUaPort": ports[2],
-            "sipGwPort": ports[3],
-            "interInstancesPort": ports[4]
+            "sipGwPort": ports[2],
+            "interInstancesPort": ports[3]
         };
     })());
     dbSemasim.launch();
@@ -130,12 +127,11 @@ async function launch(daemonNumber) {
     pushNotifications.launch();
     web.launch(servers[0], servers[1]);
     uaConnections.listen(new ws.Server({ "server": servers[0] }), spoofedLocalAddressAndPort.https);
-    uaConnections.listen(servers[2], spoofedLocalAddressAndPort.sipUa);
-    backendConnections.listen(servers[4]);
+    backendConnections.listen(servers[3]);
     await loadBalancerConnection.connect();
     //NOTE: Should stay after because we want to
     //first run the command set all sims offline.
-    gatewayConnections.listen(servers[3], spoofedLocalAddressAndPort.sipGw);
+    gatewayConnections.listen(servers[2], spoofedLocalAddressAndPort.sipGw);
     debug(`Instance ${daemonNumber} successfully launched`);
 }
 exports.launch = launch;

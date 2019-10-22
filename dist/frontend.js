@@ -43,7 +43,6 @@ function doesRequireAuth(pageName) {
         case _.webphone: return true;
         case _.subscription: return true;
         case _.shop: return false;
-        case _.webviewphone: return true;
     }
 }
 exports.doesRequireAuth = doesRequireAuth;

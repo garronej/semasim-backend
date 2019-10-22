@@ -1,9 +1,7 @@
-/// <reference types="node" />
 import * as sip from "ts-sip";
 import * as ws from "ws";
 import * as sessionManager from "../web/sessionManager";
-import * as tls from "tls";
-export declare function listen(server: ws.Server | tls.Server, spoofedLocalAddressAndPort: {
+export declare function listen(server: ws.Server, spoofedLocalAddressAndPort: {
     localAddress: string;
     localPort: number;
 }): void;
@@ -16,7 +14,7 @@ export declare function listen(server: ws.Server | tls.Server, spoofedLocalAddre
  * */
 export declare function getSession(socket: sip.Socket): sessionManager.AuthenticatedSession | Express.Session;
 export declare function getByConnectionId(connectionId: string): sip.Socket | undefined;
-export declare function getByEmail(email: string): sip.Socket | undefined;
-export declare function getEmails(): string[];
+export declare function getByUaInstanceId(uaInstanceId: string): sip.Socket | undefined;
+export declare function getUaInstanceIds(): string[];
 export declare function getByAddress(uaAddress: string): Set<sip.Socket>;
 export declare function getAddresses(): string[];

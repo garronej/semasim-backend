@@ -65,10 +65,9 @@ export async function launch(daemonNumber: number) {
 
     })();
 
-    const servers: [https.Server, http.Server, tls.Server, tls.Server, net.Server] = [
+    const servers: [https.Server, http.Server, tls.Server, net.Server] = [
         https.createServer(tlsCerts),
         http.createServer(),
-        tls.createServer(tlsCerts),
         tls.createServer(tlsCerts),
         net.createServer()
     ];
@@ -89,7 +88,7 @@ export async function launch(daemonNumber: number) {
         return {
             "https": _wrap(address1, 443),
             "http": _wrap(address1, 80),
-            "sipUa": _wrap(address2, sipSrv.port),
+            //"sipUa": _wrap(address2, sipSrv.port),
             "sipGw": _wrap(address2, 80)
         };
 
@@ -138,9 +137,8 @@ export async function launch(daemonNumber: number) {
                             switch (index) {
                                 case 0: return "https";
                                 case 1: return "http";
-                                case 2: return "sipUa";
-                                case 3: return "sipGw";
-                                case 4: undefined;
+                                case 2: return "sipGw";
+                                case 3: undefined;
                             }
 
                         })();
@@ -194,10 +192,9 @@ export async function launch(daemonNumber: number) {
             return {
                 "httpsPort": ports[0],
                 "httpPort": ports[1],
-                "sipUaPort": ports[2],
-                "sipGwPort": ports[3],
-                "interInstancesPort": ports[4]
-            };
+                "sipGwPort": ports[2],
+                "interInstancesPort": ports[3]
+            } as const;
 
         })()
     };
@@ -218,13 +215,8 @@ export async function launch(daemonNumber: number) {
         spoofedLocalAddressAndPort.https
     );
 
-    uaConnections.listen(
-        servers[2],
-        spoofedLocalAddressAndPort.sipUa
-    );
-
     backendConnections.listen(
-        servers[4]
+        servers[3]
     );
 
     await loadBalancerConnection.connect();
@@ -232,7 +224,7 @@ export async function launch(daemonNumber: number) {
     //NOTE: Should stay after because we want to
     //first run the command set all sims offline.
     gatewayConnections.listen(
-        servers[3],
+        servers[2],
         spoofedLocalAddressAndPort.sipGw
     );
 

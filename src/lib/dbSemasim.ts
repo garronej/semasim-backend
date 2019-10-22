@@ -597,7 +597,7 @@ export async function updateSimStorage(
 }
 
 //TODO: Test!
-export async function getUserUa(email: string): Promise<gwTypes.Ua[]> {
+export async function getUserUas(email: string): Promise<gwTypes.Ua[]> {
 
     if( LOG_QUERY_DURATION ){
         debug("getUserUa");

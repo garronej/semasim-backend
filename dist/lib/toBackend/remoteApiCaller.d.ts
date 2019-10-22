@@ -3,8 +3,8 @@ import { types as gwTypes } from "../../gateway";
 import { types as dcTypes } from "chan-dongle-extended-client";
 /**
  *
- * In the case we target a UA user email or
- * a gateway by imsi this method save us the
+ * In the case we target a UA ( via uaInstanceId ) or
+ * a gateway (via imsi) this method save us the
  * trouble of writing a proxy method.
  *
  * An API request to an UA or a gateway can
@@ -61,5 +61,5 @@ export declare const destroyUaSocket: (contact: gwTypes.Contact) => Promise<void
 export declare const collectDonglesOnLan: (gatewayAddress: string, auth: import("../web/sessionManager").UserAuthentication) => Promise<dcTypes.Dongle[]>;
 /** Don't throw */
 export declare const notifyDongleOnLanProxy: (dongle: dcTypes.Dongle, gatewayAddress: string) => Promise<undefined>;
-export declare const notifyLoggedFromOtherTabProxy: (email: string) => Promise<void>;
+export declare const notifyLoggedFromOtherTabProxy: (uaInstanceId: string) => Promise<void>;
 export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;

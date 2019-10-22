@@ -13,7 +13,7 @@ const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const util = require("util");
 const deploy_1 = require("../../deploy");
 /*
-NOTE: None of those methods can are allowed to throw as
+NOTE: None of those methods are allowed to throw as
 it would result in the closing of the inter instance socket.
 
 Even if the remote end is a trusted party keep in mind
@@ -31,7 +31,7 @@ exports.handlers = {};
             const socket = (() => {
                 switch (route.target) {
                     case "UA":
-                        return uaConnections.getByEmail(route.email);
+                        return uaConnections.getByUaInstanceId(route.uaInstanceId);
                     case "GATEWAY":
                         return gatewayConnections.getBindedToImsi(route.imsi);
                 }
@@ -60,7 +60,7 @@ exports.handlers = {};
     const methodName = apiDeclaration.notifyRoute.methodName;
     const handler = {
         "handler": (params, backendSocket) => {
-            const { type, imsis, gatewayAddresses, emails, uaAddresses } = params;
+            const { type, imsis, gatewayAddresses, uaInstanceIds, uaAddresses } = params;
             switch (type) {
                 case "ADD":
                     for (const imsi of imsis || []) {
@@ -69,8 +69,8 @@ exports.handlers = {};
                     for (const gatewayAddress of gatewayAddresses || []) {
                         backendConnections.bindToGatewayAddress(gatewayAddress, backendSocket);
                     }
-                    for (const email of emails || []) {
-                        backendConnections.bindToEmail(email, backendSocket);
+                    for (const uaInstanceId of uaInstanceIds || []) {
+                        backendConnections.bindToUaInstanceId(uaInstanceId, backendSocket);
                     }
                     for (const uaAddress of uaAddresses || []) {
                         backendConnections.bindToUaAddress(uaAddress, backendSocket);
@@ -83,8 +83,8 @@ exports.handlers = {};
                     for (const gatewayAddress of gatewayAddresses || []) {
                         backendConnections.unbindFromGatewayAddress(gatewayAddress, backendSocket);
                     }
-                    for (const email of emails || []) {
-                        backendConnections.unbindFromEmail(email, backendSocket);
+                    for (const uaInstanceId of uaInstanceIds || []) {
+                        backendConnections.unbindFromUaInstanceId(uaInstanceId, backendSocket);
                     }
                     for (const uaAddress of uaAddresses || []) {
                         backendConnections.unbindFromUaAddress(uaAddress, backendSocket);
@@ -228,8 +228,8 @@ exports.handlers = {};
 {
     const methodName = apiDeclaration.notifyLoggedFromOtherTabProxy.methodName;
     const handler = {
-        "handler": ({ email }) => {
-            const uaSocket = uaConnections.getByEmail(email);
+        "handler": ({ uaInstanceId }) => {
+            const uaSocket = uaConnections.getByUaInstanceId(uaInstanceId);
             if (!uaSocket) {
                 return Promise.resolve(undefined);
             }

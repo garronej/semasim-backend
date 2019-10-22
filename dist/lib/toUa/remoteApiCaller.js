@@ -3,25 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const sip = require("ts-sip");
 const uaToBackend_1 = require("../../sip_api_declarations/uaToBackend");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
-function multicast(methodName, params, emailsOrUas) {
-    let emails;
-    if (emailsOrUas.length !== 0 && typeof emailsOrUas[0] === "string") {
-        emails = emailsOrUas;
-    }
-    else {
-        const uas = emailsOrUas;
-        //NOTE: For an API method like notifySimOnline
-        //uas will be a list with: 
-        //-The main web ua.
-        //-A certain number of Android UA.
-        //-For each Android UA a WebView UA ( with almost the same uaInstanceId )
-        //In consequence the email can (and will) appear duplicated this is why we use Set.
-        //Only the main web UA is interested by those notify event as Android UA
-        //receive notification via PUSH and WebView UA are ephemeral UA that 
-        //does not require those events to function properly.
-        emails = [...new Set(uas.map(({ userEmail }) => userEmail))];
-    }
-    return Promise.all(emails.map(email => backendRemoteApiCaller.forwardRequest({ "target": "UA", email }, methodName, params, { "timeout": 5 * 1000, }).catch(() => { }))).then(() => { });
+function multicast(methodName, params, uas) {
+    return Promise.all(uas.map(ua => backendRemoteApiCaller.forwardRequest({ "target": "UA", "uaInstanceId": ua.instance }, methodName, params, { "timeout": 5 * 1000, }).catch(() => { }))).then(() => { });
 }
 exports.notifySimOffline = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifySimOffline.methodName;
@@ -29,10 +12,7 @@ exports.notifySimOffline = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    function f(imsi, arg) {
-        return multicast(methodName, { imsi }, arg);
-    }
-    return f;
+    return (imsi, uas) => multicast(methodName, { imsi }, uas);
 })();
 exports.notifySimOnline = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifySimOnline.methodName;
@@ -40,10 +20,7 @@ exports.notifySimOnline = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    function f(params, arg) {
-        return multicast(methodName, params, arg);
-    }
-    return f;
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyGsmConnectivityChange = (() => {
     const { methodName } = uaToBackend_1.apiDeclaration.notifyGsmConnectivityChange;
@@ -51,10 +28,7 @@ exports.notifyGsmConnectivityChange = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    function f(params, arg) {
-        return multicast(methodName, params, arg);
-    }
-    return f;
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyCellSignalStrengthChange = (() => {
     const { methodName } = uaToBackend_1.apiDeclaration.notifyCellSignalStrengthChange;
@@ -62,10 +36,7 @@ exports.notifyCellSignalStrengthChange = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    function f(params, arg) {
-        return multicast(methodName, params, arg);
-    }
-    return f;
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyOngoingCall = (() => {
     const { methodName } = uaToBackend_1.apiDeclaration.notifyOngoingCall;
@@ -73,7 +44,7 @@ exports.notifyOngoingCall = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, email) => multicast(methodName, params, [email]);
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyContactCreatedOrUpdated = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyContactCreatedOrUpdated.methodName;
@@ -81,7 +52,7 @@ exports.notifyContactCreatedOrUpdated = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, emails) => multicast(methodName, params, emails);
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyContactDeleted = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyContactDeleted.methodName;
@@ -89,7 +60,7 @@ exports.notifyContactDeleted = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, emails) => multicast(methodName, params, emails);
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyDongleOnLan = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyDongleOnLan.methodName;
@@ -114,23 +85,36 @@ exports.notifySimPermissionLost = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (imsi, emails) => multicast(methodName, { imsi }, emails);
+    return (imsi, uas) => multicast(methodName, { imsi }, uas);
 })();
 exports.notifySimSharingRequest = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifySimSharingRequest.methodName;
+    const { methodName } = uaToBackend_1.apiDeclaration.notifySimSharingRequest;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (userSim, email) => multicast(methodName, userSim, [email]);
+    function f(userSim, uasOrSocket) {
+        if (uasOrSocket instanceof Array) {
+            const uas = uasOrSocket;
+            return multicast(methodName, userSim, uas);
+        }
+        else {
+            const socket = uasOrSocket;
+            return sip.api.client.sendRequest(socket, methodName, userSim, {
+                "timeout": 5 * 1000,
+                "sanityCheck": response => response === undefined
+            }).catch(() => { });
+        }
+    }
+    return f;
 })();
 exports.notifySharingRequestResponse = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifySharingRequestResponse.methodName;
+    const { methodName } = uaToBackend_1.apiDeclaration.notifySharingRequestResponse;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, emails) => multicast(methodName, params, emails);
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyOtherSimUserUnregisteredSim = (() => {
     const { methodName } = uaToBackend_1.apiDeclaration.notifyOtherSimUserUnregisteredSim;
@@ -138,14 +122,14 @@ exports.notifyOtherSimUserUnregisteredSim = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
     })();
-    return (params, emails) => multicast(methodName, params, emails);
+    return (params, uas) => multicast(methodName, params, uas);
 })();
 exports.notifyLoggedFromOtherTab = (() => {
     const methodName = uaToBackend_1.apiDeclaration.notifyLoggedFromOtherTab.methodName;
     function f(arg) {
         if (typeof arg === "string") {
-            const email = arg;
-            return backendRemoteApiCaller.notifyLoggedFromOtherTabProxy(email);
+            const uaInstanceId = arg;
+            return backendRemoteApiCaller.notifyLoggedFromOtherTabProxy(uaInstanceId);
         }
         else {
             const uaSocket = arg;

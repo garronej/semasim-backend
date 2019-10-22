@@ -63,7 +63,7 @@ export declare function addGatewayLocation(ip: string): Promise<void>;
  */
 export declare function filterDongleWithRegistrableSim(auth: UserAuthentication, dongles: Iterable<dcTypes.Dongle>): Promise<dcTypes.Dongle[]>;
 export declare function updateSimStorage(imsi: string, storage: dcTypes.Sim.Storage): Promise<void>;
-export declare function getUserUa(email: string): Promise<gwTypes.Ua[]>;
+export declare function getUserUas(email: string): Promise<gwTypes.Ua[]>;
 /** Return UAs registered to sim */
 export declare function createOrUpdateSimContact(imsi: string, name: string, number_raw: string, storageInfos?: {
     mem_index: number;

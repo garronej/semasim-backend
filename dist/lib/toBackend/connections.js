@@ -12,9 +12,9 @@ const remoteApiCaller = require("./remoteApiCaller");
 const deploy_1 = require("../../deploy");
 //NOTE: We store those in misc to avoid having to register hundreds of close listener.
 const __set_of_imsi__ = " set of imsi ";
-const __set_of_email__ = " set of email ";
-const __set_of_gateway_address__ = " set of gateway address ";
-const __set_of_ua_address__ = " set of ua address ";
+const __set_of_ua_instance_id__ = " set of uaInstanceId ";
+const __set_of_gateway_address__ = " set of gatewayAddress ";
+const __set_of_ua_address__ = " set of uaAddress ";
 function listen(server) {
     idString = `backend${launch_1.getLocalRunningInstance().daemonNumber}toBackend`;
     server.on("connection", netSocket => {
@@ -24,7 +24,7 @@ function listen(server) {
             "type": "ADD",
             "imsis": gatewayConnections.getImsis(),
             "gatewayAddresses": gatewayConnections.getAddresses(),
-            "emails": uaConnections.getEmails(),
+            "uaInstanceIds": uaConnections.getUaInstanceIds(),
             "uaAddresses": uaConnections.getAddresses()
         });
     });
@@ -75,15 +75,15 @@ function registerSocket(socket) {
     const ipEndpoint = `${socket.remoteAddress}:${socket.remotePort}`;
     byIpEndpoint.set(ipEndpoint, socket);
     socket.misc[__set_of_imsi__] = new Set();
-    socket.misc[__set_of_email__] = new Set();
+    socket.misc[__set_of_ua_instance_id__] = new Set();
     socket.misc[__set_of_gateway_address__] = new Set();
     socket.misc[__set_of_ua_address__] = new Set();
     socket.evtClose.attachOnce(() => {
         for (const imsi of socket.misc[__set_of_imsi__]) {
             unbindFromImsi(imsi, socket);
         }
-        for (const email of socket.misc[__set_of_email__]) {
-            unbindFromEmail(email, socket);
+        for (const uaInstanceId of socket.misc[__set_of_ua_instance_id__]) {
+            unbindFromUaInstanceId(uaInstanceId, socket);
         }
         for (const gatewayAddress of socket.misc[__set_of_gateway_address__]) {
             unbindFromGatewayAddress(gatewayAddress, socket);
@@ -126,38 +126,38 @@ function getBindedToImsi(imsi) {
     return byImsi.get(imsi);
 }
 exports.getBindedToImsi = getBindedToImsi;
-const byEmail = new Map();
+const byUaInstanceId = new Map();
 /**
- * If there is an other socket currently binded to the
- * email the previous socket is first unbind.
+ * If there is an other socket currently bound to the
+ * uaInstanceId the previous socket is first unbound.
  * This is not an error, it happen when a user open an other tab.
  */
-function bindToEmail(email, socket) {
-    if (byEmail.has(email)) {
-        unbindFromEmail(email, byEmail.get(email));
+function bindToUaInstanceId(uaInstanceId, socket) {
+    if (byUaInstanceId.has(uaInstanceId)) {
+        unbindFromUaInstanceId(uaInstanceId, byUaInstanceId.get(uaInstanceId));
     }
-    byEmail.set(email, socket);
-    socket.misc[__set_of_email__].add(email);
+    byUaInstanceId.set(uaInstanceId, socket);
+    socket.misc[__set_of_ua_instance_id__].add(uaInstanceId);
 }
-exports.bindToEmail = bindToEmail;
+exports.bindToUaInstanceId = bindToUaInstanceId;
 /**
  * If at the time this function is called the
- * socket is no longer binded to this email
+ * socket is no longer bound to the uaInstanceId
  * nothing is done, this is not an error.
  */
-function unbindFromEmail(email, socket) {
-    const set_of_email = socket.misc[__set_of_email__];
-    if (!set_of_email.has(email)) {
+function unbindFromUaInstanceId(uaInstanceId, socket) {
+    const set_of_ua_instance_id = socket.misc[__set_of_ua_instance_id__];
+    if (!set_of_ua_instance_id.has(uaInstanceId)) {
         return;
     }
-    set_of_email.delete(email);
-    byEmail.delete(email);
+    set_of_ua_instance_id.delete(uaInstanceId);
+    byUaInstanceId.delete(uaInstanceId);
 }
-exports.unbindFromEmail = unbindFromEmail;
-function getBindedToEmail(email) {
-    return byEmail.get(email);
+exports.unbindFromUaInstanceId = unbindFromUaInstanceId;
+function getBoundToUaInstanceId(uaInstanceId) {
+    return byUaInstanceId.get(uaInstanceId);
 }
-exports.getBindedToEmail = getBindedToEmail;
+exports.getBoundToUaInstanceId = getBoundToUaInstanceId;
 const byUaAddress = new Map();
 /*
 Here we do not need to unbind first because

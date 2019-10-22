@@ -21,7 +21,7 @@ export namespace forwardRequest {
 
         export type ToUa= {
             target: "UA";
-            email: string;
+            uaInstanceId: string;
         };
 
         export type ToGateway= {
@@ -31,7 +31,6 @@ export namespace forwardRequest {
 
     }
 
-    /** When there is no route return an empty array */
     export type Response<Response_> = {
             status: "SUCCESS";
             response_: Response_;
@@ -52,7 +51,7 @@ export namespace notifyRoute {
         type: "ADD" | "DELETE";
         imsis?: string[];
         gatewayAddresses?: string[];
-        emails?: string[];
+        uaInstanceIds?: string[];
         uaAddresses?: string[];
     };
 
@@ -112,7 +111,7 @@ export namespace notifyLoggedFromOtherTabProxy {
 
     export const methodName = "notifyLoggedFromOtherTabProxy";
 
-    export type Params = { email: string; };
+    export type Params = { uaInstanceId: string; };
 
     export type Response = undefined;
 

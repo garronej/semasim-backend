@@ -8,6 +8,10 @@ function launch() {
 }
 exports.launch = launch;
 async function send(uas, payload) {
+    if (1 === 1) {
+        console.log("Push notification disabled", { uas, payload });
+        return;
+    }
     /*
      * NOTE IMPLEMENTATION IOS:
      *

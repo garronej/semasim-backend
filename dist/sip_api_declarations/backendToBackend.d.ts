@@ -13,14 +13,13 @@ export declare namespace forwardRequest {
     namespace Route {
         type ToUa = {
             target: "UA";
-            email: string;
+            uaInstanceId: string;
         };
         type ToGateway = {
             target: "GATEWAY";
             imsi: string;
         };
     }
-    /** When there is no route return an empty array */
     type Response<Response_> = {
         status: "SUCCESS";
         response_: Response_;
@@ -37,7 +36,7 @@ export declare namespace notifyRoute {
         type: "ADD" | "DELETE";
         imsis?: string[];
         gatewayAddresses?: string[];
-        emails?: string[];
+        uaInstanceIds?: string[];
         uaAddresses?: string[];
     };
     type Response = undefined;
@@ -74,7 +73,7 @@ export declare namespace notifyDongleOnLanProxy {
 export declare namespace notifyLoggedFromOtherTabProxy {
     const methodName = "notifyLoggedFromOtherTabProxy";
     type Params = {
-        email: string;
+        uaInstanceId: string;
     };
     type Response = undefined;
 }
