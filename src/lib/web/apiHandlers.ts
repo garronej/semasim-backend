@@ -13,7 +13,7 @@ import * as apiDeclaration from "../../web_api_declaration";
 
 import {
     version as semasim_gateway_version,
-    misc as gwMisc
+    isValidEmail
 } from "../../gateway";
 
 export const handlers: webApi.Handlers = {};
@@ -33,7 +33,7 @@ export const handlers: webApi.Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            gwMisc.isValidEmail(params.email) &&
+            isValidEmail(params.email) &&
             typeof params.secret === "string" &&
             typeof params.towardUserEncryptKeyStr === "string" &&
             typeof params.encryptedSymmetricKey === "string"
@@ -83,7 +83,7 @@ export const handlers: webApi.Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            gwMisc.isValidEmail(params.email) &&
+            isValidEmail(params.email) &&
             typeof params.activationCode === "string" &&
             params.activationCode.length === 4
         ),
@@ -106,7 +106,7 @@ export const handlers: webApi.Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            gwMisc.isValidEmail(params.email) &&
+            isValidEmail(params.email) &&
             typeof params.secret === "string" && 
             (
                 params.uaInstanceId === undefined || 
@@ -199,8 +199,7 @@ export const handlers: webApi.Handlers = {};
                 "instance": session.shared.uaInstanceId,
                 "userEmail": session.shared.email,
                 platform,
-                "pushToken": pushNotificationToken,
-                "messagesEnabled": true
+                "pushToken": pushNotificationToken
             });
 
             return undefined;
@@ -246,7 +245,7 @@ export const handlers: webApi.Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            gwMisc.isValidEmail(params.email)
+            isValidEmail(params.email)
         ),
         "handler": async ({ email }) => {
 
@@ -278,7 +277,7 @@ export const handlers: webApi.Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            gwMisc.isValidEmail(params.email) &&
+            isValidEmail(params.email) &&
             typeof params.newSecret === "string" &&
             typeof params.newTowardUserEncryptKeyStr === "string" &&
             typeof params.newEncryptedSymmetricKey === "string" &&

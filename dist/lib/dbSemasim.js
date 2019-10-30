@@ -105,8 +105,7 @@ async function createUserAccount(email, secret, towardUserEncryptKeyStr, encrypt
             "instance": webUaInstanceId,
             "userEmail": email,
             "platform": "web",
-            "pushToken": "",
-            "messagesEnabled": true
+            "pushToken": ""
         })
     ].join("\n");
     const res = await exports.query(sql, { email });
@@ -408,8 +407,7 @@ async function getUserUas(email) {
             "userEmail": email,
             "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
-            "pushToken": row["push_token"],
-            "messagesEnabled": f.bool.dec(row["messages_enabled"])
+            "pushToken": row["push_token"]
         });
     }
     return uas;
@@ -451,8 +449,7 @@ var retrieveUasRegisteredToSim;
                 "userEmail": row["email"],
                 "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
                 "platform": row["platform"],
-                "pushToken": row["push_token"],
-                "messagesEnabled": f.bool.dec(row["messages_enabled"])
+                "pushToken": row["push_token"]
             });
         }
         return uasRegisteredToSim;
@@ -614,8 +611,7 @@ async function registerSim(auth, sim, friendlyName, password, towardSimEncryptKe
             "userEmail": row["email"],
             "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
-            "pushToken": row["push_token"],
-            "messagesEnabled": f.bool.dec(row["messages_enabled"])
+            "pushToken": row["push_token"]
         });
     }
     return userUas;
@@ -959,21 +955,19 @@ exports.addOrUpdateUa = addOrUpdateUa;
     function getQuery(ua) {
         return [
             "INSERT INTO ua",
-            "   (instance, user, platform, push_token, messages_enabled)",
+            "   (instance, user, platform, push_token)",
             "SELECT",
             [
                 exports.esc(ua.instance),
                 "id_",
                 exports.esc(ua.platform),
-                exports.esc(ua.pushToken),
-                f.bool.enc(ua.messagesEnabled)
+                exports.esc(ua.pushToken)
             ].join(", "),
             `FROM user WHERE email= ${exports.esc(ua.userEmail)}`,
             "ON DUPLICATE KEY UPDATE",
             [
                 "platform",
-                "push_token",
-                "messages_enabled"
+                "push_token"
             ].map(key => `    ${key}= VALUES(${key})`).join(",\n")
         ].join("\n");
     }
@@ -1170,8 +1164,7 @@ async function unregisterSim(auth, imsi) {
             "userEmail": row["email"],
             "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
-            "pushToken": row["push_token"],
-            "messagesEnabled": f.bool.dec(row["messages_enabled"])
+            "pushToken": row["push_token"]
         });
     }
     return {
@@ -1303,8 +1296,7 @@ async function stopSharingSim(auth, imsi, emails) {
             "userEmail": row["email"],
             "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
-            "pushToken": row["push_token"],
-            "messagesEnabled": f.bool.dec(row["messages_enabled"])
+            "pushToken": row["push_token"]
         });
     }
     return noLongerRegisteredUas;
@@ -1347,8 +1339,7 @@ async function setSimFriendlyName(auth, imsi, friendlyName) {
             "userEmail": row["email"],
             "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
             "platform": row["platform"],
-            "pushToken": row["push_token"],
-            "messagesEnabled": f.bool.dec(row["messages_enabled"])
+            "pushToken": row["push_token"]
         });
     }
     return userUas;

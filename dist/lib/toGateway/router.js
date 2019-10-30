@@ -35,7 +35,7 @@ function handle(socket) {
             }
             const nextHopSocket = !!backendIpEndpoint ?
                 backendConnections.getByIpEndpoint(...backendIpEndpoint) :
-                uaConnections.getByConnectionId(gateway_1.misc.cid.read(sipPacket));
+                uaConnections.getByConnectionId(gateway_1.sipRouting.cid.read(sipPacket));
             if (!nextHopSocket) {
                 return;
             }

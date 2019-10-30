@@ -9,8 +9,8 @@ function handle(socket) {
     //TODO: see if readImsi and cid read can throw.
     const onSipPacket = (sipPacket) => {
         const nextHopSocket = isPacketOriginatedFromUa(sipPacket) ?
-            gatewayConnections.getBindedToImsi(gateway_1.misc.readImsi(sipPacket)) :
-            uaConnections.getByConnectionId(gateway_1.misc.cid.read(sipPacket));
+            gatewayConnections.getBindedToImsi(gateway_1.sipRouting.readImsi(sipPacket)) :
+            uaConnections.getByConnectionId(gateway_1.sipRouting.cid.read(sipPacket));
         if (!nextHopSocket) {
             return;
         }

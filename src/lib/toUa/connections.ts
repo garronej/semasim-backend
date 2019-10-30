@@ -2,7 +2,7 @@
 import * as sip from "ts-sip";
 import * as ws from "ws";
 import * as sessionManager from "../web/sessionManager";
-import { misc as gwMisc } from "../../gateway";
+import { sipRouting } from "../../gateway";
 import * as router from "./router";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import * as backendConnections from "../toBackend/connections";
@@ -130,7 +130,7 @@ function registerSocket(
     connectionParams: WebsocketConnectionParams
 ) {
 
-    const connectionId = gwMisc.cid.generate(socket);
+    const connectionId = sipRouting.cid.generate(socket);
 
     byConnectionId.set(connectionId, socket);
 

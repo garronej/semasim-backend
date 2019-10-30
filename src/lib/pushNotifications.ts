@@ -2,6 +2,9 @@ import { types as gwTypes } from "../gateway";
 import * as pushSender from "../tools/pushSender";
 import { deploy } from "../deploy";
 import { buildNoThrowProxyFunction } from "../tools/noThrow";
+import * as logger from "logger";
+
+const debug= logger.debugFactory();
 
 export function launch() {
 
@@ -44,15 +47,6 @@ async function send(
     payload: Payload
 ): Promise<void> {
 
-    if( 1 === 1 ){
-
-        console.log("Push notification disabled", { uas, payload });
-
-        return;
-
-    }
-
-
     /*
      * NOTE IMPLEMENTATION IOS: 
      * 
@@ -66,6 +60,9 @@ async function send(
     const mobileUas = uas.filter(({ platform }) => platform !== "web");
 
     const androidUas = mobileUas.filter(({ platform }) => platform === "android");
+
+    debug("send push notification", JSON.stringify({ androidUas, payload }, null, 2));
+
     const iosUas = mobileUas.filter(({ platform }) => platform === "iOS");
 
     await Promise.all([

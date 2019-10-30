@@ -387,8 +387,7 @@ async function testMain() {
             "userEmail": email,
             towardUserEncryptKeyStr,
             "platform": "web",
-            "pushToken": "",
-            "messagesEnabled": true
+            "pushToken": ""
         });
 
         return out;
@@ -400,8 +399,7 @@ async function testMain() {
         "userEmail": email,
         towardUserEncryptKeyStr,
         "platform": Date.now() % 2 ? "android" : "iOS",
-        "pushToken": ttTesting.genHexStr(60),
-        "messagesEnabled": true
+        "pushToken": ttTesting.genHexStr(60)
     });
 
     const alice = await genUser("alice@foo.com");

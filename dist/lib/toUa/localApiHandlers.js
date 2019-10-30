@@ -142,7 +142,7 @@ function getAuthenticatedSession(socket) {
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
             !!params.emails.length &&
-            !params.emails.find(email => !gateway_1.misc.isValidEmail(email)) &&
+            !params.emails.find(email => !gateway_1.isValidEmail(email)) &&
             typeof params.message === "string"),
         "handler": async ({ imsi, emails, message }, socket) => {
             const session = getAuthenticatedSession(socket);
@@ -176,7 +176,7 @@ function getAuthenticatedSession(socket) {
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
             !!params.emails.length &&
-            !params.emails.find(email => !gateway_1.misc.isValidEmail(email))),
+            !params.emails.find(email => !gateway_1.isValidEmail(email))),
         "handler": async ({ imsi, emails }, socket) => {
             const session = getAuthenticatedSession(socket);
             const noLongerRegisteredUas = await dbSemasim.stopSharingSim(session, imsi, emails);

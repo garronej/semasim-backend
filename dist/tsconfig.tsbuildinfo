@@ -222,28 +222,16 @@
         "signature": "4b38c5678b2321034c936b0179297f8d408453c3634b51f4c5045df999e58799"
       },
       "../../frontend/shared/dist/lib/localstorage/authenticatedsessiondescriptorshareddata.d.ts": {
-        "version": "350015d9eb98ddf2903af588549f526925bea2691d658395a2d6342b912bee0c",
-        "signature": "350015d9eb98ddf2903af588549f526925bea2691d658395a2d6342b912bee0c"
+        "version": "0596e4291829535ed2202bb3b5e176553676a7f85f5707c9fd897a419e4030a9",
+        "signature": "0596e4291829535ed2202bb3b5e176553676a7f85f5707c9fd897a419e4030a9"
       },
       "../src/frontend.ts": {
         "version": "15039bd50d5abb5d8118aaeb7d4b62bf20931347d5fb3b04a475e6556d64a9e0",
         "signature": "79fe38c016494fc7527e53cc38cb92dce99042835a49c94ec4e93a00f95d55d4"
       },
       "../../gateway/dist/lib/types.d.ts": {
-        "version": "14d8b0c2024e3ba573e0513ac8b441f4e497faf591288f85ff1a0e16d00498e6",
-        "signature": "14d8b0c2024e3ba573e0513ac8b441f4e497faf591288f85ff1a0e16d00498e6"
-      },
-      "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts": {
-        "version": "ece2ed9e7494bdd3ed91165738857e5c391089ad5584823582efb5b563ee94de",
-        "signature": "ece2ed9e7494bdd3ed91165738857e5c391089ad5584823582efb5b563ee94de"
-      },
-      "../../gateway/dist/lib/misc/bundleddata.d.ts": {
-        "version": "3c5504463062fb7134159571f82501d5845ebd58d6494b513d94a4a77289817f",
-        "signature": "3c5504463062fb7134159571f82501d5845ebd58d6494b513d94a4a77289817f"
-      },
-      "../../gateway/dist/lib/misc/registrationparams.d.ts": {
-        "version": "67d483b80ab793ed7112b774712774712dba18e140e81d1772505302b86bf3a1",
-        "signature": "67d483b80ab793ed7112b774712774712dba18e140e81d1772505302b86bf3a1"
+        "version": "761e6dce30001bbc03f5572407456efb9f4b8ce52a84512ff93568d856035472",
+        "signature": "761e6dce30001bbc03f5572407456efb9f4b8ce52a84512ff93568d856035472"
       },
       "../../gateway/dist/lib/misc/sanitychecks.d.ts": {
         "version": "e8718f241c2e0b4e96d89d7ddf88dd709d62df021ee2a7e67286a8f77cb3c31f",
@@ -297,29 +285,21 @@
         "version": "b18dc6985c36a5a32946df233fe31ba0b2da4d30150b3df54db864c29d825367",
         "signature": "b18dc6985c36a5a32946df233fe31ba0b2da4d30150b3df54db864c29d825367"
       },
-      "../../gateway/dist/lib/misc/misc.d.ts": {
-        "version": "474550ac68d62a2a43059a1c7178a5e5f83c4af89bd35cf8db9286110a0df33a",
-        "signature": "474550ac68d62a2a43059a1c7178a5e5f83c4af89bd35cf8db9286110a0df33a"
-      },
-      "../../gateway/dist/lib/misc/index.d.ts": {
-        "version": "0dad8d09155a58aaf1b75c0a8da73b0248704b7bd781852c18a404013fa0cc07",
-        "signature": "0dad8d09155a58aaf1b75c0a8da73b0248704b7bd781852c18a404013fa0cc07"
-      },
       "../../gateway/node_modules/chan-dongle-extended-client/dist/lib/index.d.ts": {
         "version": "6d6ca69eb06f3b6a9ab9c47a8eb0bb2d1dd86f45619c60e861d41a1861806a2c",
         "signature": "6d6ca69eb06f3b6a9ab9c47a8eb0bb2d1dd86f45619c60e861d41a1861806a2c"
       },
       "../../gateway/dist/sip_api_declarations/backendtogateway.d.ts": {
-        "version": "6ed9e38976f6c40350d142020f120626576f3af97b326784a6a8f1eab2311e33",
-        "signature": "6ed9e38976f6c40350d142020f120626576f3af97b326784a6a8f1eab2311e33"
+        "version": "360bcdba0a4cd5927f189db550d77cb711060787d6452972dee7059d3158ca04",
+        "signature": "360bcdba0a4cd5927f189db550d77cb711060787d6452972dee7059d3158ca04"
       },
       "../../gateway/dist/sip_api_declarations/gatewaytobackend.d.ts": {
         "version": "b08da67aaee84e57bd55ad48953b4e73dc8db12057ac1f97d3ee1061f74830cd",
         "signature": "b08da67aaee84e57bd55ad48953b4e73dc8db12057ac1f97d3ee1061f74830cd"
       },
       "../src/gateway.ts": {
-        "version": "b760e81519c7e769ea8a2820e3e47ff09599acb69ebbd15446a1467b601c582f",
-        "signature": "3f92806d53cc11f2c27c8f49d491fae9f05cb3e8bec01051c03c12f2a8a8627f"
+        "version": "7a2b758a0b0419a648a4bc1687b4369207d16098f55b49a23811db98da02aa5a",
+        "signature": "972ab4b7bcdb43959ee982d618d4e1fab612dd052d9a46bb9f6c7fb1dd39abab"
       },
       "../../load-balancer/dist/lib/types.d.ts": {
         "version": "dce64f4f17e8f9874898eef3bd8ecab41713d77223dc75752de5de2cede17aa9",
@@ -470,7 +450,7 @@
         "signature": "6d6ca69eb06f3b6a9ab9c47a8eb0bb2d1dd86f45619c60e861d41a1861806a2c"
       },
       "../src/lib/dbsemasim.ts": {
-        "version": "437ecaf0815c513433581e9decf2938a906e58a23e1c53e33f9737fd9b25dde2",
+        "version": "818f12fdebfe595aeaa38ddd13cb736819dec207f8d630b270df423eeae7c6a4",
         "signature": "8ddda5af95f74bbc89834b844adbb5218487169be3d7dfa6cbb3696dd0748ccb"
       },
       "../src/lib/dbwebphone.ts": {
@@ -522,7 +502,7 @@
         "signature": "6cd0aa31f276dbd3f4c850098cffd9622735260bb666ae8c1087c478b15a970e"
       },
       "../src/lib/pushnotifications.ts": {
-        "version": "5e174e8ce10e6d8bc087995f6c1b562afc370e552fe3a413ea272f68f465e01c",
+        "version": "3c3fe3a6adda17af9333e1e6709d6eae93bb4e7b53ff74c4444eb3118c854c46",
         "signature": "7e5afb092149f09499439eafbae06fa00c8dc0d26b87ad3953e28d4fa1f0304c"
       },
       "../node_modules/ts-sip/dist/lib/index.d.ts": {
@@ -566,11 +546,11 @@
         "signature": "03d0848ad7f928427b07900995eaca83fe4fe7032ae46be553b7b9890909b4fb"
       },
       "../src/lib/togateway/localapihandlers.ts": {
-        "version": "7f47c3d7ddf8a7b4b47d33e903d3a06873b76958a685f0e39731c2adc69c80da",
+        "version": "7dca5a32470ba1d6bdc7de8752fd27851c3ead88a085458f990ddd5d854b25cd",
         "signature": "8b0ec6557a38ce2aee60b8ffa85bc48e70959e336ad9e4ce1183a64ea35691d1"
       },
       "../src/lib/togateway/router.ts": {
-        "version": "db58a2ff6dec769a998a2a382f40aef52905762cca22cce68edac036f6c15732",
+        "version": "1fa36704dc37c4e0b1f022779ab8d74942326b0ce1a5ccd2a36c6984fd6bf049",
         "signature": "9e0f76272378be7e65fb540bdef847a1bbe23693978e91805de805b79d6d5283"
       },
       "../src/lib/togateway/connections.ts": {
@@ -578,7 +558,7 @@
         "signature": "20e578242db67ff41c3742b3a19ea8304e51a6653226c633ec4c4a737d47a740"
       },
       "../src/lib/toua/router.ts": {
-        "version": "e02c7860ce4a8ff8a2e7e802f200d3be3006b1e4a2c1989f01e11d8c290dbd33",
+        "version": "653323adde40b79b459257d1c4687c4103ec1b9ccc3f56a7685110c161a170ee",
         "signature": "82c5e37ea156257b091f69152b193fbb90792661f1d8a4e1294b6904d16f2190"
       },
       "../src/sip_api_declarations/backendtoua.ts": {
@@ -1542,11 +1522,11 @@
         "signature": "990b8358df2d2e1658a6619bf630e140a7e5cc7421edfe2a87d763089b0f94a8"
       },
       "../src/lib/toua/localapihandlers.ts": {
-        "version": "ab19453820687cbd626f8c140d314c75cc0b343d0e681de204e5ba3dd37a2771",
+        "version": "20cdf0e758bcbf6315d637b54505617af194afb51dbf4b6862ead4eb2aa3a295",
         "signature": "8b0ec6557a38ce2aee60b8ffa85bc48e70959e336ad9e4ce1183a64ea35691d1"
       },
       "../src/lib/toua/connections.ts": {
-        "version": "e4fa189fc43e0dcee6d5a5cca7c329bae70605be65e9923b8405f1e22f8d80ce",
+        "version": "1e48327b04b54f8985fd65ca5fbbbf50a573772108d82a8534266db58403a973",
         "signature": "7940290be211c639991fb5d98223caa86df099f70367f4206fdc059cc7a9caae"
       },
       "../src/lib/tobackend/localapihandlers.ts": {
@@ -1554,7 +1534,7 @@
         "signature": "8b0ec6557a38ce2aee60b8ffa85bc48e70959e336ad9e4ce1183a64ea35691d1"
       },
       "../src/lib/tobackend/router.ts": {
-        "version": "38c968be8ad7fcf6d4eab9b0eb8c09fb0e22d5e51a0a3adadc4fb7d3f1fb5c61",
+        "version": "fa156a34cb0c8ac9de2d8253493c44183b27541638adb0dc98c17d2490c14fe7",
         "signature": "9e0f76272378be7e65fb540bdef847a1bbe23693978e91805de805b79d6d5283"
       },
       "../src/lib/tobackend/connections.ts": {
@@ -1574,7 +1554,7 @@
         "signature": "c9ee96d68bf26060bc61b51b57c54dd9ade3b13dd20968ce9a2b7555905973f9"
       },
       "../src/lib/web/apihandlers.ts": {
-        "version": "2c11a27389323f3930bec2d2c601c5e81f1849d033b5bb3bd827cc0982812a2c",
+        "version": "7243c8441631d866bb5b227f4d2097d63fc241f755dded3944305332f4c6e9a5",
         "signature": "7757e0f36fbabe86a1bcb58b9bd01910dca4985d4b68d866b3131b5bb29e88f0"
       },
       "../node_modules/@types/morgan/index.d.ts": {
@@ -1626,7 +1606,7 @@
         "signature": "a5dc9b5ab207accb1b518bed92bf2f93d9a4881ca6899ee7e074dfd75031b5dd"
       },
       "../src/test/db.ts": {
-        "version": "38101addc24b190a5d625a9b3843aae7517021f6b362e477f75f711bc328cacc",
+        "version": "0a23b5fb2859c0693fb61df575e701a85f0a4df3c020f3e3682e5a8ae3c38f2e",
         "signature": "96672da57b6a099187eb60e73c66724511b5a1a721a649932c4de1dc66144bd1"
       },
       "../src/test/mail.ts": {
@@ -1968,21 +1948,6 @@
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
-      "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts": [
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/bundleddata.d.ts": [
-        "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts",
-        "../../gateway/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/registrationparams.d.ts": [
-        "../../gateway/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
       "../../gateway/dist/lib/misc/sanitychecks.d.ts": [
         "../../gateway/dist/lib/types.d.ts",
         "../node_modules/@types/node/base.d.ts",
@@ -2058,20 +2023,6 @@
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
-      "../../gateway/dist/lib/misc/misc.d.ts": [
-        "../../gateway/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/index.d.ts": [
-        "../../gateway/dist/lib/misc/bundleddata.d.ts",
-        "../../gateway/dist/lib/misc/registrationparams.d.ts",
-        "../../gateway/dist/lib/misc/sanitychecks.d.ts",
-        "../../gateway/dist/lib/misc/siprouting.d.ts",
-        "../../gateway/dist/lib/misc/misc.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
       "../../gateway/node_modules/chan-dongle-extended-client/dist/lib/index.d.ts": [
         "../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/donglecontroller.d.ts",
         "../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/types.d.ts",
@@ -2091,7 +2042,8 @@
       ],
       "../src/gateway.ts": [
         "../../gateway/dist/lib/types.d.ts",
-        "../../gateway/dist/lib/misc/index.d.ts",
+        "../../gateway/dist/lib/misc/sanitychecks.d.ts",
+        "../../gateway/dist/lib/misc/siprouting.d.ts",
         "../../gateway/dist/sip_api_declarations/backendtogateway.d.ts",
         "../../gateway/dist/sip_api_declarations/gatewaytobackend.d.ts",
         "../node_modules/@types/node/base.d.ts",
@@ -2375,6 +2327,7 @@
         "../src/tools/pushsender.ts",
         "../src/deploy.ts",
         "../src/tools/nothrow.ts",
+        "../node_modules/logger/dist/lib/index.d.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -7716,7 +7669,8 @@
       ],
       "../src/gateway.ts": [
         "../../gateway/dist/lib/types.d.ts",
-        "../../gateway/dist/lib/misc/index.d.ts",
+        "../../gateway/dist/lib/misc/sanitychecks.d.ts",
+        "../../gateway/dist/lib/misc/siprouting.d.ts",
         "../../gateway/dist/sip_api_declarations/backendtogateway.d.ts",
         "../../gateway/dist/sip_api_declarations/gatewaytobackend.d.ts"
       ],
@@ -7734,20 +7688,6 @@
       "../../gateway/node_modules/chan-dongle-extended-client/dist/lib/index.d.ts": [
         "../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/donglecontroller.d.ts",
         "../../frontend/shared/node_modules/chan-dongle-extended-client/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/index.d.ts": [
-        "../../gateway/dist/lib/misc/bundleddata.d.ts",
-        "../../gateway/dist/lib/misc/registrationparams.d.ts",
-        "../../gateway/dist/lib/misc/sanitychecks.d.ts",
-        "../../gateway/dist/lib/misc/siprouting.d.ts",
-        "../../gateway/dist/lib/misc/misc.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/misc.d.ts": [
-        "../../gateway/dist/lib/types.d.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -7823,21 +7763,6 @@
       ],
       "../../gateway/dist/lib/misc/sanitychecks.d.ts": [
         "../../gateway/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/registrationparams.d.ts": [
-        "../../gateway/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/dist/lib/misc/bundleddata.d.ts": [
-        "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts",
-        "../../gateway/dist/lib/types.d.ts",
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
-      "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts": [
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -8033,9 +7958,6 @@
       "../../frontend/shared/dist/lib/localstorage/authenticatedsessiondescriptorshareddata.d.ts",
       "../src/frontend.ts",
       "../../gateway/dist/lib/types.d.ts",
-      "../../gateway/node_modules/crypto-lib/dist/sync/types.d.ts",
-      "../../gateway/dist/lib/misc/bundleddata.d.ts",
-      "../../gateway/dist/lib/misc/registrationparams.d.ts",
       "../../gateway/dist/lib/misc/sanitychecks.d.ts",
       "../../gateway/node_modules/ts-sip/dist/lib/types.d.ts",
       "../../gateway/node_modules/ts-sip/dist/lib/core.d.ts",
@@ -8049,8 +7971,6 @@
       "../../gateway/node_modules/ts-sip/dist/lib/api/index.d.ts",
       "../../gateway/node_modules/ts-sip/dist/lib/index.d.ts",
       "../../gateway/dist/lib/misc/siprouting.d.ts",
-      "../../gateway/dist/lib/misc/misc.d.ts",
-      "../../gateway/dist/lib/misc/index.d.ts",
       "../../gateway/node_modules/chan-dongle-extended-client/dist/lib/index.d.ts",
       "../../gateway/dist/sip_api_declarations/backendtogateway.d.ts",
       "../../gateway/dist/sip_api_declarations/gatewaytobackend.d.ts",

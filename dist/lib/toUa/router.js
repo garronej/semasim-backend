@@ -8,7 +8,7 @@ const util = require("util");
 function handle(socket, connectionId) {
     const onSipPacket = (sipPacket) => {
         try {
-            const imsi = gateway_1.misc.readImsi(sipPacket);
+            const imsi = gateway_1.sipRouting.readImsi(sipPacket);
             /*
             First we look if the current process hold the socket to the gateway.
             If not we lookup what process does.
@@ -20,7 +20,7 @@ function handle(socket, connectionId) {
             }
             const sipPacketNextHop = nextHopSocket.buildNextHopPacket(sipPacket);
             if (sip.matchRequest(sipPacketNextHop)) {
-                gateway_1.misc.cid.set(sipPacketNextHop, connectionId);
+                gateway_1.sipRouting.cid.set(sipPacketNextHop, connectionId);
             }
             nextHopSocket.write(sipPacketNextHop);
         }

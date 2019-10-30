@@ -3,7 +3,7 @@ import * as sip from "ts-sip";
 import * as backendConnections from "../toBackend/connections";
 import * as uaConnections from "../toUa/connections";
 import * as util from "util";
-import { misc as gwMisc } from "../../gateway";
+import { sipRouting } from "../../gateway";
 
 export function handle(socket: sip.Socket) {
 
@@ -51,7 +51,7 @@ export function handle(socket: sip.Socket) {
 
             const nextHopSocket = !!backendIpEndpoint ?
                 backendConnections.getByIpEndpoint(...backendIpEndpoint) :
-                uaConnections.getByConnectionId(gwMisc.cid.read(sipPacket));
+                uaConnections.getByConnectionId(sipRouting.cid.read(sipPacket));
 
 
             if (!nextHopSocket) {

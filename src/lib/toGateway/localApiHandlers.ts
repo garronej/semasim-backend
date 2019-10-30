@@ -1,4 +1,4 @@
-import { misc as gwMisc } from "../../gateway";
+import { sanityChecks } from "../../gateway";
 import * as sip from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as dbSemasim from "../dbSemasim";
@@ -379,7 +379,7 @@ export const handlers: sip.api.Server.Handlers = {};
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.number === "string" &&
             params.uasInCall instanceof Array &&
-            params.uasInCall.filter(uaRef => !gwMisc.sanityChecks.uaRef(uaRef)).length === 0 &&
+            params.uasInCall.filter(uaRef => !sanityChecks.uaRef(uaRef)).length === 0 &&
             typeof params.isTerminated === "boolean"
         ),
         "handler": async ({ ongoingCallId, from, imsi, number, uasInCall, isTerminated }) => {
@@ -426,106 +426,35 @@ export const handlers: sip.api.Server.Handlers = {};
 }
 
 
-//TODO: this should be handled on client connection, REALLY DO IT.
 {
 
-    const methodName = apiDeclaration.notifyNewOrUpdatedUa.methodName;
-    type Params = apiDeclaration.notifyNewOrUpdatedUa.Params;
-    type Response = apiDeclaration.notifyNewOrUpdatedUa.Response;
+    const { methodName } = apiDeclaration.seeIfSipContactIsReachableElseSendWakeUpPushNotification;
+    type Params = apiDeclaration.seeIfSipContactIsReachableElseSendWakeUpPushNotification.Params;
+    type Response = apiDeclaration.seeIfSipContactIsReachableElseSendWakeUpPushNotification.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params =>
-            gwMisc.sanityChecks.uaWithoutUserKeys(params)
-        ,
-        "handler": ua => dbSemasim.addOrUpdateUa(ua)
-            .then(() => undefined)
-    };
+        "sanityCheck": sanityChecks.contact,
+        "handler": contact => new Promise<Response>(resolve =>
+            backendRemoteApiCaller.qualifyContact(contact)
+                .then(isReachable => {
 
-    handlers[methodName] = handler;
+                    resolve({ isReachable });
 
-}
-
-{
-
-    const methodName = apiDeclaration.wakeUpContact.methodName;
-    type Params = apiDeclaration.wakeUpContact.Params;
-    type Response = apiDeclaration.wakeUpContact.Response;
-
-    const handler: sip.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params => (
-            params instanceof Object &&
-            gwMisc.sanityChecks.contact(params.contact)
-        ),
-        "handler": async ({ contact }) => {
-
-            const pushPayload: pushNotifications.Payload = {
-                "type": "WAKE UP",
-                "imsi": contact.uaSim.imsi
-            };
-
-            const prIsReached = backendRemoteApiCaller.qualifyContact(contact);
-
-            switch (contact.uaSim.ua.platform) {
-                case "iOS": {
-
-
-                    const isReachableWithoutPush = await Promise.race([
-                        new Promise<false>(resolve => setTimeout(() => resolve(false), 750)),
-                        prIsReached
-                    ]);
-
-
-                    if (isReachableWithoutPush) {
-                        return "REACHABLE";
+                    if (isReachable) {
+                        return;
                     }
 
-                    const prPushNotificationSent = pushNotifications.sendSafe(
+                    pushNotifications.sendSafe(
                         [contact.uaSim.ua],
-                        pushPayload
+                        {
+                            "type": "WAKE UP",
+                            "imsi": contact.uaSim.imsi
+                        }
                     );
 
-                    const isReached = await prIsReached;
 
-                    if (isReached) {
-
-                        return "REACHABLE";
-
-                    } else {
-
-                        await prPushNotificationSent;
-
-                        return "PUSH_NOTIFICATION_SENT";
-
-                    }
-
-                }
-                case "android": {
-
-                    if (await prIsReached) {
-
-                        return "REACHABLE";
-
-                    } else {
-
-                        await pushNotifications.sendSafe(
-                            [contact.uaSim.ua],
-                            pushPayload
-                        );
-
-                        return "PUSH_NOTIFICATION_SENT";
-
-                    }
-
-                }
-                case "web": {
-
-                    return (await prIsReached) ? "REACHABLE" : "UNREACHABLE";
-
-                }
-            }
-
-
-        }
+                })
+        )
     };
 
     handlers[methodName] = handler;
@@ -534,33 +463,28 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.forceContactToReRegister.methodName;
-    type Params = apiDeclaration.forceContactToReRegister.Params;
-    //TODO: should be undefined not boolean
-    type Response = apiDeclaration.forceContactToReRegister.Response;
+    const { methodName } = apiDeclaration.sendWakeUpPushNotifications;
+    type Params = apiDeclaration.sendWakeUpPushNotifications.Params;
+    type Response = apiDeclaration.sendWakeUpPushNotifications.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
-            gwMisc.sanityChecks.contact(params.contact)
+            params.uas instanceof Array &&
+            params.uas.every(sanityChecks.ua) &&
+            dcSanityChecks.imsi(params.imsi)
         ),
-        "handler": async ({ contact }) => {
+        "handler": ({ uas, imsi }) => {
 
-            /*
-             * NOTE IMPLEMENTATION IOS: 
-             * 
-             * Until commit 53957ba1e4344593caf42feba24df48520c2f954 we
-             * destroyed the asterisk socket.
-             * Should be handled client side.
-             * 
-             */
-
-            await pushNotifications.sendSafe(
-                [contact.uaSim.ua],
-                { "type": "RE REGISTER ON NEW CONNECTION" }
+            pushNotifications.sendSafe(
+                uas,
+                {
+                    "type": "WAKE UP",
+                    imsi
+                }
             );
 
-            return true;
+            return Promise.resolve(undefined);
 
         }
     };

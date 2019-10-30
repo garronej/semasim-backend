@@ -21,7 +21,7 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.isValidEmail(params.email) &&
+            gateway_1.isValidEmail(params.email) &&
             typeof params.secret === "string" &&
             typeof params.towardUserEncryptKeyStr === "string" &&
             typeof params.encryptedSymmetricKey === "string"),
@@ -48,7 +48,7 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.isValidEmail(params.email) &&
+            gateway_1.isValidEmail(params.email) &&
             typeof params.activationCode === "string" &&
             params.activationCode.length === 4),
         "handler": ({ email, activationCode }) => dbSemasim.validateUserEmail(email, activationCode)
@@ -61,7 +61,7 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.isValidEmail(params.email) &&
+            gateway_1.isValidEmail(params.email) &&
             typeof params.secret === "string" &&
             (params.uaInstanceId === undefined ||
                 typeof params.uaInstanceId === "string")),
@@ -117,8 +117,7 @@ exports.handlers = {};
                 "instance": session.shared.uaInstanceId,
                 "userEmail": session.shared.email,
                 platform,
-                "pushToken": pushNotificationToken,
-                "messagesEnabled": true
+                "pushToken": pushNotificationToken
             });
             return undefined;
         }
@@ -144,7 +143,7 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.isValidEmail(params.email)),
+            gateway_1.isValidEmail(params.email)),
         "handler": async ({ email }) => {
             const token = await dbSemasim.setPasswordRenewalToken(email);
             if (token !== undefined) {
@@ -161,7 +160,7 @@ exports.handlers = {};
         "needAuth": false,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.isValidEmail(params.email) &&
+            gateway_1.isValidEmail(params.email) &&
             typeof params.newSecret === "string" &&
             typeof params.newTowardUserEncryptKeyStr === "string" &&
             typeof params.newEncryptedSymmetricKey === "string" &&

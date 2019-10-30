@@ -226,7 +226,7 @@ exports.handlers = {};
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.number === "string" &&
             params.uasInCall instanceof Array &&
-            params.uasInCall.filter(uaRef => !gateway_1.misc.sanityChecks.uaRef(uaRef)).length === 0 &&
+            params.uasInCall.filter(uaRef => !gateway_1.sanityChecks.uaRef(uaRef)).length === 0 &&
             typeof params.isTerminated === "boolean"),
         "handler": async ({ ongoingCallId, from, imsi, number, uasInCall, isTerminated }) => {
             const uasRegisteredToSim = await dbSemasim.createUpdateOrDeleteOngoingCall(ongoingCallId, imsi, number, from, isTerminated, uasInCall);
@@ -252,79 +252,37 @@ exports.handlers = {};
     };
     exports.handlers[methodName] = handler;
 }
-//TODO: this should be handled on client connection, REALLY DO IT.
 {
-    const methodName = backendToGateway_1.apiDeclaration.notifyNewOrUpdatedUa.methodName;
+    const { methodName } = backendToGateway_1.apiDeclaration.seeIfSipContactIsReachableElseSendWakeUpPushNotification;
     const handler = {
-        "sanityCheck": params => gateway_1.misc.sanityChecks.uaWithoutUserKeys(params),
-        "handler": ua => dbSemasim.addOrUpdateUa(ua)
-            .then(() => undefined)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToGateway_1.apiDeclaration.wakeUpContact.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.sanityChecks.contact(params.contact)),
-        "handler": async ({ contact }) => {
-            const pushPayload = {
+        "sanityCheck": gateway_1.sanityChecks.contact,
+        "handler": contact => new Promise(resolve => backendRemoteApiCaller.qualifyContact(contact)
+            .then(isReachable => {
+            resolve({ isReachable });
+            if (isReachable) {
+                return;
+            }
+            pushNotifications.sendSafe([contact.uaSim.ua], {
                 "type": "WAKE UP",
                 "imsi": contact.uaSim.imsi
-            };
-            const prIsReached = backendRemoteApiCaller.qualifyContact(contact);
-            switch (contact.uaSim.ua.platform) {
-                case "iOS": {
-                    const isReachableWithoutPush = await Promise.race([
-                        new Promise(resolve => setTimeout(() => resolve(false), 750)),
-                        prIsReached
-                    ]);
-                    if (isReachableWithoutPush) {
-                        return "REACHABLE";
-                    }
-                    const prPushNotificationSent = pushNotifications.sendSafe([contact.uaSim.ua], pushPayload);
-                    const isReached = await prIsReached;
-                    if (isReached) {
-                        return "REACHABLE";
-                    }
-                    else {
-                        await prPushNotificationSent;
-                        return "PUSH_NOTIFICATION_SENT";
-                    }
-                }
-                case "android": {
-                    if (await prIsReached) {
-                        return "REACHABLE";
-                    }
-                    else {
-                        await pushNotifications.sendSafe([contact.uaSim.ua], pushPayload);
-                        return "PUSH_NOTIFICATION_SENT";
-                    }
-                }
-                case "web": {
-                    return (await prIsReached) ? "REACHABLE" : "UNREACHABLE";
-                }
-            }
-        }
+            });
+        }))
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToGateway_1.apiDeclaration.forceContactToReRegister.methodName;
+    const { methodName } = backendToGateway_1.apiDeclaration.sendWakeUpPushNotifications;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
-            gateway_1.misc.sanityChecks.contact(params.contact)),
-        "handler": async ({ contact }) => {
-            /*
-             * NOTE IMPLEMENTATION IOS:
-             *
-             * Until commit 53957ba1e4344593caf42feba24df48520c2f954 we
-             * destroyed the asterisk socket.
-             * Should be handled client side.
-             *
-             */
-            await pushNotifications.sendSafe([contact.uaSim.ua], { "type": "RE REGISTER ON NEW CONNECTION" });
-            return true;
+            params.uas instanceof Array &&
+            params.uas.every(gateway_1.sanityChecks.ua) &&
+            dcSanityChecks.imsi(params.imsi)),
+        "handler": ({ uas, imsi }) => {
+            pushNotifications.sendSafe(uas, {
+                "type": "WAKE UP",
+                imsi
+            });
+            return Promise.resolve(undefined);
         }
     };
     exports.handlers[methodName] = handler;

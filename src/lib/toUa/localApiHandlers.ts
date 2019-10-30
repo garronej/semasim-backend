@@ -10,7 +10,7 @@ import * as remoteApiCaller from "./remoteApiCaller";
 import * as dbWebphone from "../dbWebphone";
 import * as emailSender from "../emailSender";
 import * as sessionManager from "../web/sessionManager";
-import { types as gwTypes, misc as gwMisc } from "../../gateway";
+import { types as gwTypes, isValidEmail } from "../../gateway";
 import * as stripe from "../stripe";
 import { buildNoThrowProxyFunction } from "../../tools/noThrow";
 
@@ -271,7 +271,7 @@ function getAuthenticatedSession(socket: sip.Socket): sessionManager.Authenticat
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
             !!params.emails.length &&
-            !params.emails.find(email => !gwMisc.isValidEmail(email)) &&
+            !params.emails.find(email => !isValidEmail(email)) &&
             typeof params.message === "string"
         ),
         "handler": async ({ imsi, emails, message }, socket) => {
@@ -334,7 +334,7 @@ function getAuthenticatedSession(socket: sip.Socket): sessionManager.Authenticat
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
             !!params.emails.length &&
-            !params.emails.find(email => !gwMisc.isValidEmail(email))
+            !params.emails.find(email => !isValidEmail(email))
         ),
         "handler": async ({ imsi, emails }, socket) => {
 

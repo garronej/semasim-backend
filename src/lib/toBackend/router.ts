@@ -1,6 +1,6 @@
 
 import * as sip from "ts-sip";
-import { misc as gwMisc } from "../../gateway";
+import { sipRouting } from "../../gateway";
 import * as gatewayConnections from "../toGateway/connections";
 import * as uaConnections from "../toUa/connections";
 
@@ -11,8 +11,8 @@ export function handle(socket: sip.Socket) {
     const onSipPacket = (sipPacket: sip.Packet) => {
 
         const nextHopSocket = isPacketOriginatedFromUa(sipPacket) ?
-            gatewayConnections.getBindedToImsi(gwMisc.readImsi(sipPacket)) :
-            uaConnections.getByConnectionId(gwMisc.cid.read(sipPacket))
+            gatewayConnections.getBindedToImsi(sipRouting.readImsi(sipPacket)) :
+            uaConnections.getByConnectionId(sipRouting.cid.read(sipPacket))
             ;
 
         if (!nextHopSocket) {

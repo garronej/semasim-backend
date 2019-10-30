@@ -3,15 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const pushSender = require("../tools/pushSender");
 const deploy_1 = require("../deploy");
 const noThrow_1 = require("../tools/noThrow");
+const logger = require("logger");
+const debug = logger.debugFactory();
 function launch() {
     pushSender.launch(deploy_1.deploy.pushNotificationCredentials);
 }
 exports.launch = launch;
 async function send(uas, payload) {
-    if (1 === 1) {
-        console.log("Push notification disabled", { uas, payload });
-        return;
-    }
     /*
      * NOTE IMPLEMENTATION IOS:
      *
@@ -23,6 +21,7 @@ async function send(uas, payload) {
      */
     const mobileUas = uas.filter(({ platform }) => platform !== "web");
     const androidUas = mobileUas.filter(({ platform }) => platform === "android");
+    debug("send push notification", JSON.stringify({ androidUas, payload }, null, 2));
     const iosUas = mobileUas.filter(({ platform }) => platform === "iOS");
     await Promise.all([
         pushSender.send("android", androidUas.map(({ pushToken }) => pushToken), payload),

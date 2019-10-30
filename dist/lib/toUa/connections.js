@@ -71,7 +71,7 @@ const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server
     "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
 }));
 function registerSocket(socket, session, connectionParams) {
-    const connectionId = gateway_1.misc.cid.generate(socket);
+    const connectionId = gateway_1.sipRouting.cid.generate(socket);
     byConnectionId.set(connectionId, socket);
     {
         let set = byAddress.get(socket.remoteAddress);
