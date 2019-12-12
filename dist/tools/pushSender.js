@@ -5,12 +5,12 @@ const fbAdmin = require("firebase-admin");
 let sendByPlatform = undefined;
 let _close = undefined;
 function launch(credentials) {
-    const { android, iOS } = credentials;
+    const { android, ios } = credentials;
     const apnProvider = new apn.Provider({
         "token": {
-            "key": iOS.pathToKey,
-            "keyId": iOS.keyId,
-            "teamId": iOS.teamId
+            "key": ios.pathToKey,
+            "keyId": ios.keyId,
+            "teamId": ios.teamId
         },
         "production": false
     });
@@ -37,13 +37,13 @@ function launch(credentials) {
                 throw error;
             }
         },
-        "iOS": async (tokens) => {
+        "ios": async (tokens) => {
             if (tokens.length === 0) {
                 return;
             }
             //TODO: Implement data payload.
             const notification = new apn.Notification({
-                "topic": `${iOS.appId}.voip`,
+                "topic": `${ios.appId}.voip`,
                 "expiry": Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
                 "payload": {}
             });

@@ -25,3 +25,4 @@ export declare const notifyLoggedFromOtherTab: {
     (uaSocket: sip.Socket): Promise<void>;
 };
 export declare const notifyIceServer: (uaSocket: sip.Socket, iceServer: apiDeclaration.notifyIceServer.Params) => Promise<void>;
+export declare const wd_notifyActionFromOtherUa: (methodNameAndParams: apiDeclaration.wd_notifyActionFromOtherUa.Params, uas: gwTypes.Ua[]) => Promise<void>;

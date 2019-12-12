@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const frontend_1 = require("../../frontend");
 const dbSemasim = require("../dbSemasim");
-const dbWebphone = require("../dbWebphone");
+const dbWebphoneData_1 = require("../dbWebphoneData");
 const sessionManager = require("./sessionManager");
 const emailSender = require("../emailSender");
 const pushNotifications = require("../pushNotifications");
@@ -108,7 +108,7 @@ exports.handlers = {};
         "needAuth": true,
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (params instanceof Object &&
-            (params.platform === "iOS" || params.platform === "android") &&
+            (params.platform === "ios" || params.platform === "android") &&
             typeof params.pushNotificationToken === "string"),
         "handler": async ({ platform, pushNotificationToken }, { session }) => {
             if (!sessionManager.isAuthenticated(session))
@@ -170,7 +170,7 @@ exports.handlers = {};
             if (!renewPasswordResult.wasTokenStillValid) {
                 return false;
             }
-            await dbWebphone.deleteAllUserInstance(renewPasswordResult.user);
+            await dbWebphoneData_1.dbWebphoneData.deleteAllUserData(renewPasswordResult.user);
             {
                 const uas = await dbSemasim.getUserUas(email);
                 pushNotifications.sendSafe(uas, { "type": "RELOAD CONFIG" });

@@ -95,8 +95,10 @@ export function createPoolAndGetApi(
                 pool.query(sql, (error, results) => {
 
                     if (error) {
+
                         reject(error);
                         return;
+
                     }
 
                     if (!!handleStringEncoding) {
@@ -211,7 +213,7 @@ export function createPoolAndGetApi(
         "    END IF;",
         "    RETURN bool;",
         "END;"
-    ].join("\n")).catch(() => { });
+    ].join("\n")).catch(() => {});
 
     return { query, esc, buildInsertQuery, end };
 

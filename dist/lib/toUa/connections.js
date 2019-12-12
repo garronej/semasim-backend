@@ -15,6 +15,7 @@ const dbTurn = require("../dbTurn");
 const deploy_1 = require("../../deploy");
 const noThrow_1 = require("../../tools/noThrow");
 //import { debug } from "util";
+const socketSession_1 = require("./socketSession");
 const getUserSims = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
 const enableLogger = (socket) => socket.enableLogger({
     "socketId": idString,
@@ -23,8 +24,8 @@ const enableLogger = (socket) => socket.enableLogger({
     "connection": deploy_1.deploy.getEnv() === "DEV" ? true : false,
     "error": true,
     "close": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-    "incomingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
-    "outgoingTraffic": deploy_1.deploy.getEnv() === "DEV" ? true : false,
+    "incomingTraffic": false,
+    "outgoingTraffic": false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
 }, logger.log);
@@ -82,7 +83,7 @@ function registerSocket(socket, session, connectionParams) {
         set.add(socket);
     }
     apiServer.startListening(socket);
-    setSession(socket, session);
+    socketSession_1.setSession(socket, session);
     sip.api.client.enableKeepAlive(socket);
     //sip.api.client.enableKeepAlive(socket, 5000);
     sip.api.client.enableErrorLogging(socket, sip.api.client.getDefaultErrorLogger({
@@ -155,21 +156,6 @@ function registerSocket(socket, session, connectionParams) {
             [socket.remoteAddress] : undefined,
     });
 }
-const __session__ = "   session   ";
-function setSession(socket, session) {
-    socket.misc[__session__] = session;
-}
-/**
- * Assert socket has auth ( i.e: it's a web socket )
- * If the session have expired there is no longer the "user" field on the session
- * object.
- * TODO: Manually test if session has expired.
- * Maybe implement it with a getter in sessionManager.
- * */
-function getSession(socket) {
-    return socket.misc[__session__];
-}
-exports.getSession = getSession;
 const byConnectionId = new Map();
 function getByConnectionId(connectionId) {
     return byConnectionId.get(connectionId);

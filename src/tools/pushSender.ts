@@ -5,7 +5,7 @@ export type PushNotificationCredentials = {
     android: {
         pathToServiceAccount: string;
     },
-    iOS: {
+    ios: {
         pathToKey: string;
         keyId: string;
         teamId: string;
@@ -13,7 +13,7 @@ export type PushNotificationCredentials = {
     }
 };
 
-export type Platform = "android" | "iOS";
+export type Platform = "android" | "ios";
 
 let sendByPlatform: { 
     [platform: string]: (tokens: string[], data?: Record<string, string>) => Promise<void> 
@@ -23,13 +23,13 @@ let _close: (()=> Promise<void>) | undefined = undefined;
 
 export function launch( credentials: PushNotificationCredentials) {
 
-    const { android, iOS } = credentials;
+    const { android, ios } = credentials;
 
     const apnProvider = new apn.Provider({
         "token": {
-            "key": iOS.pathToKey,
-            "keyId": iOS.keyId,
-            "teamId": iOS.teamId
+            "key": ios.pathToKey,
+            "keyId": ios.keyId,
+            "teamId": ios.teamId
         },
         "production": false
     });
@@ -71,7 +71,7 @@ export function launch( credentials: PushNotificationCredentials) {
             }
 
         },
-        "iOS": async tokens => {
+        "ios": async tokens => {
 
             if( tokens.length === 0 ){
                 return;
@@ -80,7 +80,7 @@ export function launch( credentials: PushNotificationCredentials) {
             //TODO: Implement data payload.
 
             const notification = new apn.Notification({
-                "topic": `${iOS.appId}.voip`,
+                "topic": `${ios.appId}.voip`,
                 "expiry": Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
                 "payload": {}
             });

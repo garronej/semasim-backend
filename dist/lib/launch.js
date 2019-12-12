@@ -10,7 +10,7 @@ const ws = require("ws");
 exports.getLocalRunningInstance = () => runningInstance;
 const deploy_1 = require("../deploy");
 const dbSemasim = require("./dbSemasim");
-const dbWebphone = require("./dbWebphone");
+const dbWebphoneData = require("./dbWebphoneData");
 const dbTurn = require("./dbTurn");
 const pushNotifications = require("./pushNotifications");
 const logger = require("logger");
@@ -123,7 +123,7 @@ async function launch(daemonNumber) {
     })());
     dbSemasim.launch();
     dbTurn.launch();
-    dbWebphone.launch();
+    dbWebphoneData.launch();
     pushNotifications.launch();
     web.launch(servers[0], servers[1]);
     uaConnections.listen(new ws.Server({ "server": servers[0] }), spoofedLocalAddressAndPort.https);

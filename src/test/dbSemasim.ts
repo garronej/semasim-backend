@@ -17,6 +17,47 @@ import * as db from "../lib/dbSemasim";
 import * as crypto from "crypto";
 import * as assert from "assert";
 
+(async () => {
+
+    if (require.main === module) {
+
+        assert(
+            deploy.getEnv() === "DEV",
+            "You DO NOT want to run DB tests in prod"
+        );
+
+        console.log("START TESTING... ");
+
+        await deploy.dbAuth.resolve();
+
+        await db.launch();
+
+        {
+
+            const api = await mysqlCustom.createPoolAndGetApi({
+                ...deploy.dbAuth.value!,
+                "database": "semasim_express_session",
+            });
+            await api.query("DELETE FROM sessions");
+
+            await api.end();
+
+        }
+
+        await testUser();
+
+        await testMain();
+
+        await db.flush();
+
+        console.log("ALL DB TESTS PASSED");
+
+        db.end();
+
+    }
+
+})();
+
 export namespace genUniq {
 
     let counter = 1;
@@ -109,47 +150,6 @@ export function generateSim(
     return sim;
 
 }
-
-(async () => {
-
-    if (require.main === module) {
-
-        assert(
-            deploy.getEnv() === "DEV",
-            "You DO NOT want to run DB tests in prod"
-        );
-
-        console.log("START TESTING... ");
-
-        await deploy.dbAuth.resolve();
-
-        await db.launch();
-
-        {
-
-            const api = await mysqlCustom.createPoolAndGetApi({
-                ...deploy.dbAuth.value!,
-                "database": "semasim_express_session",
-            });
-            await api.query("DELETE FROM sessions");
-
-            await api.end();
-
-        }
-
-        await testUser();
-
-        await testMain();
-
-        await db.flush();
-
-        console.log("ALL DB TESTS PASSED");
-
-        db.end();
-
-    }
-
-})();
 
 export function genIp(): string {
 
@@ -398,7 +398,7 @@ async function testMain() {
         "instance": `"<urn:uuid:${ttTesting.genHexStr(30)}>"`,
         "userEmail": email,
         towardUserEncryptKeyStr,
-        "platform": Date.now() % 2 ? "android" : "iOS",
+        "platform": Date.now() % 2 ? "android" : "ios",
         "pushToken": ttTesting.genHexStr(60)
     });
 
@@ -439,7 +439,7 @@ async function testMain() {
 
                 const sim = generateSim();
 
-                const out: feTypes.UserSim = {
+                const out: feTypes.UserSim.Owned = {
                     sim,
                     "friendlyName": ttTesting.genUtf8Str(12),
                     "password": ttTesting.genHexStr(32),

@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Client :  localhost:3306
--- Généré le :  Mer 23 Octobre 2019 à 18:09
+-- Généré le :  Jeu 12 Décembre 2019 à 02:50
 -- Version du serveur :  10.1.26-MariaDB-0+deb9u1
--- Version de PHP :  7.0.33-0+deb9u5
+-- Version de PHP :  7.0.33-0+deb9u6
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET time_zone = "+00:00";
@@ -261,47 +261,47 @@ ALTER TABLE `user_sim`
 -- AUTO_INCREMENT pour la table `contact`
 --
 ALTER TABLE `contact`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16651;
 --
 -- AUTO_INCREMENT pour la table `dongle`
 --
 ALTER TABLE `dongle`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=159;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=86;
 --
 -- AUTO_INCREMENT pour la table `gateway_location`
 --
 ALTER TABLE `gateway_location`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=156;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=135;
 --
 -- AUTO_INCREMENT pour la table `ongoing_call`
 --
 ALTER TABLE `ongoing_call`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 --
 -- AUTO_INCREMENT pour la table `ongoing_call_ua`
 --
 ALTER TABLE `ongoing_call_ua`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
 --
 -- AUTO_INCREMENT pour la table `sim`
 --
 ALTER TABLE `sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=59;
 --
 -- AUTO_INCREMENT pour la table `ua`
 --
 ALTER TABLE `ua`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=151;
 --
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=87;
 --
 -- AUTO_INCREMENT pour la table `user_sim`
 --
 ALTER TABLE `user_sim`
-  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 --
 -- Contraintes pour les tables exportées
 --

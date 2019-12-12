@@ -1,7 +1,7 @@
 
 import { currencyLib } from "../../frontend";
 import * as dbSemasim from "../dbSemasim";
-import * as dbWebphone from "../dbWebphone";
+import { dbWebphoneData } from "../dbWebphoneData";
 import { webApi } from "../../load-balancer";
 import * as sessionManager from "./sessionManager";
 import * as emailSender from "../emailSender";
@@ -187,7 +187,7 @@ export const handlers: webApi.Handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => (
             params instanceof Object &&
-            ( params.platform === "iOS" || params.platform === "android" ) &&
+            ( params.platform === "ios" || params.platform === "android" ) &&
             typeof params.pushNotificationToken === "string"
         ),
         "handler": async ({ platform, pushNotificationToken }, { session }) => {
@@ -293,7 +293,7 @@ export const handlers: webApi.Handlers = {};
                 return false;
             }
 
-            await dbWebphone.deleteAllUserInstance(renewPasswordResult.user);
+            await dbWebphoneData.deleteAllUserData(renewPasswordResult.user);
 
             {
 

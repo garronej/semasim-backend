@@ -13,6 +13,24 @@ const mysqlCustom = require("../tools/mysqlCustom");
 const db = require("../lib/dbSemasim");
 const crypto = require("crypto");
 const assert = require("assert");
+(async () => {
+    if (require.main === module) {
+        assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
+        console.log("START TESTING... ");
+        await deploy_1.deploy.dbAuth.resolve();
+        await db.launch();
+        {
+            const api = await mysqlCustom.createPoolAndGetApi(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_express_session" }));
+            await api.query("DELETE FROM sessions");
+            await api.end();
+        }
+        await testUser();
+        await testMain();
+        await db.flush();
+        console.log("ALL DB TESTS PASSED");
+        db.end();
+    }
+})();
 var genUniq;
 (function (genUniq) {
     let counter = 1;
@@ -79,24 +97,6 @@ noSpecialChar = false) {
     return sim;
 }
 exports.generateSim = generateSim;
-(async () => {
-    if (require.main === module) {
-        assert(deploy_1.deploy.getEnv() === "DEV", "You DO NOT want to run DB tests in prod");
-        console.log("START TESTING... ");
-        await deploy_1.deploy.dbAuth.resolve();
-        await db.launch();
-        {
-            const api = await mysqlCustom.createPoolAndGetApi(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_express_session" }));
-            await api.query("DELETE FROM sessions");
-            await api.end();
-        }
-        await testUser();
-        await testMain();
-        await db.flush();
-        console.log("ALL DB TESTS PASSED");
-        db.end();
-    }
-})();
 function genIp() {
     let genGroup = () => ~~(Math.random() * 255);
     return (new Array(4)).fill("").map(() => `${genGroup()}`).join(".");
@@ -258,7 +258,7 @@ async function testMain() {
         "instance": `"<urn:uuid:${transfer_tools_1.testing.genHexStr(30)}>"`,
         "userEmail": email,
         towardUserEncryptKeyStr,
-        "platform": Date.now() % 2 ? "android" : "iOS",
+        "platform": Date.now() % 2 ? "android" : "ios",
         "pushToken": transfer_tools_1.testing.genHexStr(60)
     });
     const alice = await genUser("alice@foo.com");

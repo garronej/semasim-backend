@@ -2,6 +2,7 @@
 import * as apiDeclaration from "../../sip_api_declarations/backendToBackend";
 import * as sip from "ts-sip";
 import * as uaConnections from "../toUa/connections";
+import { getSession as getUaSocketSession } from "../toUa/socketSession";
 import * as gatewayConnections from "../toGateway/connections";
 import * as backendConnections from "./connections";
 import { SanityCheck_ } from "./remoteApiCaller";
@@ -355,7 +356,7 @@ export const handlers: sip.api.Server.Handlers = {};
                     continue;
                 }
 
-                const session = uaConnections.getSession(uaSocket);
+                const session = getUaSocketSession(uaSocket);
 
                 if( !sessionManager.isAuthenticated(session) ){
                     continue;

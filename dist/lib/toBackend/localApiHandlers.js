@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const apiDeclaration = require("../../sip_api_declarations/backendToBackend");
 const sip = require("ts-sip");
 const uaConnections = require("../toUa/connections");
+const socketSession_1 = require("../toUa/socketSession");
 const gatewayConnections = require("../toGateway/connections");
 const backendConnections = require("./connections");
 const remoteApiCaller_1 = require("./remoteApiCaller");
@@ -209,7 +210,7 @@ exports.handlers = {};
                 if (uaSocket.protocol !== "WSS") {
                     continue;
                 }
-                const session = uaConnections.getSession(uaSocket);
+                const session = socketSession_1.getSession(uaSocket);
                 if (!sessionManager.isAuthenticated(session)) {
                     continue;
                 }

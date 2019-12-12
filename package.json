@@ -57,6 +57,7 @@
     "@types/uuid": "^3.4.3",
     "@types/ws": "^4.0.0",
     "transfer-tools": "github:garronej/transfer-tools",
-    "typescript": "^3.5.1"
+    "typescript": "^3.7.2",
+    "crypto-lib": "github:garronej/crypto-lib"
   }
 }

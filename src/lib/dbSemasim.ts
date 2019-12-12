@@ -596,38 +596,32 @@ export async function updateSimStorage(
 }
 
 //TODO: Test!
-export async function getUserUas(email: string): Promise<gwTypes.Ua[]> {
+export async function getUserUas(user: number): Promise<gwTypes.Ua[]>;
+export async function getUserUas(email: string): Promise<gwTypes.Ua[]>;
+export async function getUserUas(userOrEmail: number | string): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("getUserUa");
     }
 
-    email = email.toLowerCase();
-
     const sql = [
-        "SELECT ua.*, user.toward_user_encrypt_key",
+        "SELECT ua.*, user.toward_user_encrypt_key, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user.email=${esc(email)}`,
+        `WHERE user.` + (typeof userOrEmail === "number" ?
+            `id_=${esc(userOrEmail)}` :
+            `email=${esc(userOrEmail.toLowerCase())}`)
     ].join("\n");
 
-    const uas: gwTypes.Ua[] = [];
+    const rows: any[] = await query(sql);
 
-    const rows = await query(sql);
-
-    for (const row of rows) {
-
-        uas.push({
-            "instance": row["instance"],
-            "userEmail": email,
-            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
-            "platform": row["platform"],
-            "pushToken": row["push_token"]
-        });
-
-    }
-
-    return uas;
+    return rows.map<gwTypes.Ua>(row => ({
+        "instance": row["instance"],
+        "userEmail": row["email"],
+        "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
+        "platform": row["platform"],
+        "pushToken": row["push_token"]
+    }));
 
 }
 
@@ -696,7 +690,7 @@ export async function createOrUpdateSimContact(
     }
 ): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("createOrUpdateSimContact");
     }
 
@@ -766,7 +760,7 @@ export async function deleteSimContact(
     contactRef: { mem_index: number; new_storage_digest: string; } | { number_raw: string; }
 ): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("deleteSimContact");
     }
 
@@ -815,7 +809,7 @@ export async function registerSim(
     cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength
 ): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("registerSim");
     }
 
@@ -918,7 +912,7 @@ export async function createUpdateOrDeleteOngoingCall(
     uasInCall: gwTypes.UaRef[]
 ): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("createUpdateOrDeleteOngoingCall");
     }
 
@@ -934,7 +928,7 @@ export async function createUpdateOrDeleteOngoingCall(
         `;`
     ].join("\n");
 
-    if( !isTerminated )  {
+    if (!isTerminated) {
 
         sql += [
             buildInsertQuery("ongoing_call", {
@@ -976,7 +970,7 @@ export async function getUserSims(
     auth: UserAuthentication
 ): Promise<feTypes.UserSim[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("getUserSims");
     }
 
@@ -1046,7 +1040,7 @@ export async function getUserSims(
         `                WHERE user=${esc(auth.user)} AND friendly_name IS NOT NULL)`,
         `;`, //5 Email of other user also sharing the SIM that have been shared with the user ( excluding the SIM owner )
         `SELECT`,
-        `	 sim.imsi,`,
+        `    sim.imsi,`,
         `    ongoing_call.ongoing_call_id,`,
         `    ongoing_call.number,`,
         `    ongoing_call.is_from_sip,`,
@@ -1057,13 +1051,13 @@ export async function getUserSims(
         `INNER JOIN ongoing_call_ua ON ongoing_call_ua.ongoing_call = ongoing_call.id_`,
         `INNER JOIN ua ON ua.id_ = ongoing_call_ua.ua`,
         `INNER JOIN user ON user.id_ = ua.user`,
-        `WHERE sim.id_ IN (SELECT sim.id_`,
+        `WHERE sim.id_ IN (SELECT DISTINCT sim.id_`,
         `                  FROM sim`,
-        `                  INNER JOIN user_sim ON user_sim.sim=sim.id_`,
+        `                  LEFT JOIN user_sim ON user_sim.sim=sim.id_`,
         `                  WHERE`,
         `                      sim.is_online=1 AND`,
         `                      sim.is_gsm_connectivity_ok=1 AND`,
-        `                      ( user_sim.user=${esc(auth.user)} OR sim.user=${esc(auth.user)} ))`,
+        `                      ( sim.user=${esc(auth.user)} OR user_sim.user IS NOT NULL AND user_sim.user=${esc(auth.user)} ))`,
         ``//6 Ongoing calls for all the sim the user have access to ( owned and the sim that have been shared with him )
     ].join("\n");
 
@@ -1353,7 +1347,7 @@ export async function addOrUpdateUa(
     ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">
 ) {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("addOrUpdateUa");
     }
 
@@ -1401,7 +1395,7 @@ export async function changeSimGsmConnectivityOrSignal(
     uasRegisteredToSim: gwTypes.Ua[];
 }> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("changeSimGsmConnectivityOrSignal");
     }
 
@@ -1452,7 +1446,7 @@ export async function setSimOnline(
     uasRegisteredToSim: gwTypes.Ua[];
 }> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("setSimOnline");
     }
 
@@ -1527,11 +1521,11 @@ export async function setAllSimOffline(
     imsis?: string[]
 ): Promise<void> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("setAllSimOffline");
     }
 
-    if( imsis !== undefined && imsis.length === 0 ){
+    if (imsis !== undefined && imsis.length === 0) {
         return;
     }
 
@@ -1556,7 +1550,7 @@ export async function setSimsOffline(
     imsis: string[]
 ): Promise<{ [imsi: string]: gwTypes.Ua[]; }> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("setSimsOffline");
     }
 
@@ -1564,9 +1558,9 @@ export async function setSimsOffline(
         return {};
     }
 
-    let sql= [
-    `UPDATE sim SET is_online= 0 WHERE imsi IN (${imsis.map(imsi => esc(imsi)).join(", ")})`,
-    `;`
+    let sql = [
+        `UPDATE sim SET is_online= 0 WHERE imsi IN (${imsis.map(imsi => esc(imsi)).join(", ")})`,
+        `;`
     ].join("\n");
 
     for (const imsi of imsis) {
@@ -1606,7 +1600,7 @@ export async function unregisterSim(
     imsi: string
 ): Promise<{ affectedUas: gwTypes.Ua[]; owner: UserAuthentication; }> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("unregisterSim");
     }
 
@@ -1685,7 +1679,7 @@ export async function shareSim(
     notRegistered: string[]; /** list of emails */
 }> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("shareSim");
     }
 
@@ -1771,7 +1765,7 @@ export async function stopSharingSim(
     emails: string[]
 ): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("stopSharingSim");
     }
 
@@ -1850,7 +1844,7 @@ export async function setSimFriendlyName(
     friendlyName: string
 ): Promise<gwTypes.Ua[]> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("setSimFriendlyName");
     }
 
@@ -1907,7 +1901,7 @@ export async function getSimOwner(
     imsi: string
 ): Promise<undefined | UserAuthentication> {
 
-    if( LOG_QUERY_DURATION ){
+    if (LOG_QUERY_DURATION) {
         debug("getSimOwner");
     }
 

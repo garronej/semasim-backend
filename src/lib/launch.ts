@@ -11,7 +11,7 @@ export const getLocalRunningInstance = () => runningInstance!;
 import { networkTools, deploy } from "../deploy";
 import { types as lbTypes } from "../load-balancer";
 import * as dbSemasim from "./dbSemasim";
-import * as dbWebphone from "./dbWebphone";
+import * as dbWebphoneData from "./dbWebphoneData";
 import * as dbTurn from "./dbTurn";
 import * as pushNotifications from "./pushNotifications";
 import * as logger from "logger";
@@ -204,7 +204,7 @@ export async function launch(daemonNumber: number) {
 
     dbTurn.launch();
 
-    dbWebphone.launch();
+    dbWebphoneData.launch();
 
     pushNotifications.launch();
 

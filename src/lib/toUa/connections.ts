@@ -15,6 +15,7 @@ import * as dbTurn from "../dbTurn";
 import { deploy } from "../../deploy";
 import { buildNoThrowProxyFunction } from "../../tools/noThrow";
 //import { debug } from "util";
+import { setSession } from "./socketSession";
 
 const getUserSims= buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
 
@@ -25,8 +26,8 @@ const enableLogger = (socket: sip.Socket) => socket.enableLogger({
     "connection": deploy.getEnv() === "DEV" ? true : false,
     "error": true,
     "close": deploy.getEnv() === "DEV" ? true : false,
-    "incomingTraffic": deploy.getEnv() === "DEV" ? true : false,
-    "outgoingTraffic": deploy.getEnv() === "DEV" ? true : false,
+    "incomingTraffic": false,
+    "outgoingTraffic": false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
 }, logger.log);
@@ -281,22 +282,6 @@ function registerSocket(
 
 }
 
-const __session__ = "   session   ";
-
-function setSession(socket: sip.Socket, session: sessionManager.AuthenticatedSession): void {
-    socket.misc[__session__] = session;
-}
-
-/** 
- * Assert socket has auth ( i.e: it's a web socket ) 
- * If the session have expired there is no longer the "user" field on the session
- * object.
- * TODO: Manually test if session has expired.
- * Maybe implement it with a getter in sessionManager.
- * */
-export function getSession(socket: sip.Socket): sessionManager.AuthenticatedSession | Express.Session {
-    return socket.misc[__session__]! as sessionManager.AuthenticatedSession;
-}
 
 const byConnectionId = new Map<string, sip.Socket>();
 

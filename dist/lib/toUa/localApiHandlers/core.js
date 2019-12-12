@@ -1,35 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const backendToUa_1 = require("../../sip_api_declarations/backendToUa");
-const connections = require("./connections");
-const dbSemasim = require("../dbSemasim");
-const frontend_1 = require("../../frontend");
+const backendToUa_1 = require("../../../sip_api_declarations/backendToUa");
+const dbSemasim = require("../../dbSemasim");
+const frontend_1 = require("../../../frontend");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
-const pushNotifications = require("../pushNotifications");
-const gatewayRemoteApiCaller = require("../toGateway/remoteApiCaller");
-const remoteApiCaller = require("./remoteApiCaller");
-const dbWebphone = require("../dbWebphone");
-const emailSender = require("../emailSender");
-const sessionManager = require("../web/sessionManager");
-const gateway_1 = require("../../gateway");
-const stripe = require("../stripe");
-const noThrow_1 = require("../../tools/noThrow");
+const pushNotifications = require("../../pushNotifications");
+const gatewayRemoteApiCaller = require("../../toGateway/remoteApiCaller");
+const remoteApiCaller = require("../remoteApiCaller");
+const emailSender = require("../../emailSender");
+const gateway_1 = require("../../../gateway");
+const stripe = require("../../stripe");
+const noThrow_1 = require("../../../tools/noThrow");
+const socketSession_1 = require("../socketSession");
 exports.handlers = {};
-/** Throw if session object associated with the connection is no longer authenticated. */
-function getAuthenticatedSession(socket) {
-    const session = connections.getSession(socket);
-    if (!sessionManager.isAuthenticated(session)) {
-        throw new Error("Connection authentication no longer valid");
-    }
-    return session;
-}
 {
     const methodName = backendToUa_1.apiDeclaration.getUsableUserSims.methodName;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             typeof params.includeContacts === "boolean"),
         "handler": async ({ includeContacts }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             //TODO: Create a SQL request that pull only usable sims
             const userSims = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims.filter(frontend_1.types.UserSim.Usable.match));
@@ -63,7 +53,7 @@ function getAuthenticatedSession(socket) {
             dcSanityChecks.imei(params.imei) &&
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, imei, friendlyName }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const dongleSipPasswordAndTowardSimEncryptKeyStr = await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi);
             if (!dongleSipPasswordAndTowardSimEncryptKeyStr) {
                 throw new Error("Dongle not found");
@@ -94,7 +84,7 @@ function getAuthenticatedSession(socket) {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)),
         "handler": async ({ imsi }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const { affectedUas, owner } = await dbSemasim.unregisterSim(session, imsi);
             //TODO: We should have a different method for the ua that lost perm and the ua that have got the sim unregistered by the user.
             remoteApiCaller.notifySimPermissionLost(imsi, affectedUas.filter(({ instance }) => session.shared.uaInstanceId !== instance));
@@ -119,7 +109,7 @@ function getAuthenticatedSession(socket) {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)),
         "handler": async ({ imsi }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             //TODO: Reboot dongle should be by imei
             const isAllowedTo = await dbSemasim.getUserSims(session)
                 .then(userSims => !!userSims.find(({ sim }) => sim.imsi === imsi));
@@ -145,7 +135,7 @@ function getAuthenticatedSession(socket) {
             !params.emails.find(email => !gateway_1.isValidEmail(email)) &&
             typeof params.message === "string"),
         "handler": async ({ imsi, emails, message }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const affectedUsers = await dbSemasim.shareSim(session, imsi, emails, message);
             const getUserSims = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
             const getUserUas = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
@@ -161,7 +151,7 @@ function getAuthenticatedSession(socket) {
                         .then(userSims => userSims
                         .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
                         .find(({ sim }) => sim.imsi === imsi)),
-                    getUserUas(auth.shared.email)
+                    getUserUas(auth.user)
                 ]).then(([userSim, uas]) => remoteApiCaller.notifySimSharingRequest(userSim, uas));
             }
             return undefined;
@@ -178,14 +168,14 @@ function getAuthenticatedSession(socket) {
             !!params.emails.length &&
             !params.emails.find(email => !gateway_1.isValidEmail(email))),
         "handler": async ({ imsi, emails }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const noLongerRegisteredUas = await dbSemasim.stopSharingSim(session, imsi, emails);
             if (noLongerRegisteredUas.length !== 0) {
                 gatewayRemoteApiCaller.reNotifySimOnline(imsi);
             }
             remoteApiCaller.notifySimPermissionLost(imsi, [
                 ...noLongerRegisteredUas,
-                ...await dbSemasim.getUserUas(session.shared.email)
+                ...await dbSemasim.getUserUas(session.user)
             ]);
             //TODO: Other ua should be notified that no longer sharing.
             pushNotifications.sendSafe(noLongerRegisteredUas, { "type": "RELOAD CONFIG" });
@@ -201,7 +191,7 @@ function getAuthenticatedSession(socket) {
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, friendlyName }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const userUas = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
             pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
             return undefined;
@@ -216,7 +206,7 @@ function getAuthenticatedSession(socket) {
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, friendlyName }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const userUas = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
             //TODO: Send notification to other user ua that there is a new sim
             pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
@@ -239,9 +229,9 @@ function getAuthenticatedSession(socket) {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)),
         "handler": async ({ imsi }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const { owner } = await dbSemasim.unregisterSim(session, imsi);
-            remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": false }, await dbSemasim.getUserUas(owner.shared.email));
+            remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": false }, await dbSemasim.getUserUas(owner.user));
             return undefined;
         }
     };
@@ -255,7 +245,7 @@ function getAuthenticatedSession(socket) {
             typeof params.name === "string" &&
             typeof params.number === "string"),
         "handler": async ({ imsi, name, number }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                 .filter(frontend_1.types.UserSim.Usable.match)
@@ -306,7 +296,7 @@ function getAuthenticatedSession(socket) {
             typeof params.newName === "string" &&
             params.newName !== ""),
         "handler": async ({ imsi, contactRef, newName }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                 .filter(frontend_1.types.UserSim.Usable.match)
@@ -381,7 +371,7 @@ function getAuthenticatedSession(socket) {
             (typeof params.contactRef["mem_index"] === "number" ||
                 typeof params.contactRef["number"] === "string")),
         "handler": async ({ imsi, contactRef }, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
                 .filter(frontend_1.types.UserSim.Usable.match)
@@ -437,129 +427,9 @@ function getAuthenticatedSession(socket) {
     const handler = {
         "sanityCheck": params => params === undefined,
         "handler": async (_params, socket) => {
-            const session = getAuthenticatedSession(socket);
+            const session = socketSession_1.getAuthenticatedSession(socket);
             return !(await stripe.isUserSubscribed(session));
         }
-    };
-    exports.handlers[methodName] = handler;
-}
-//Web UA data
-{
-    const methodName = backendToUa_1.apiDeclaration.getOrCreateInstance.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            dcSanityChecks.imsi(params.imsi)),
-        "handler": ({ imsi }, socket) => dbWebphone.getOrCreateInstance(getAuthenticatedSession(socket).user, imsi)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.newChat.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.instance_id === "number" &&
-            params.contactNumber instanceof Object &&
-            typeof params.contactNumber.encrypted_string === "string" &&
-            params.contactName instanceof Object &&
-            typeof params.contactName.encrypted_string === "string" &&
-            params.contactIndexInSim instanceof Object &&
-            typeof params.contactIndexInSim.encrypted_number_or_null === "string"),
-        "handler": (params, socket) => dbWebphone.newChat(getAuthenticatedSession(socket).user, params.instance_id, params.contactNumber, params.contactName, params.contactIndexInSim)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.fetchOlderMessages.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.chat_id === "number" &&
-            typeof params.olderThanMessageId === "number"),
-        "handler": ({ chat_id, olderThanMessageId }, socket) => dbWebphone.fetchOlderMessages(getAuthenticatedSession(socket).user, chat_id, olderThanMessageId)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.updateChat.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.chat_id === "number" &&
-            (params.contactIndexInSim === undefined ||
-                params.contactIndexInSim instanceof Object &&
-                    typeof params.contactIndexInSim.encrypted_number_or_null === "string") && (params.contactName === undefined ||
-            params.contactName instanceof Object &&
-                typeof params.contactName.encrypted_string === "string") && (params.idOfLastMessageSeen === undefined ||
-            params.idOfLastMessageSeen === null ||
-            typeof params.idOfLastMessageSeen === "number")),
-        "handler": (params, socket) => dbWebphone.updateChat(getAuthenticatedSession(socket).user, params.chat_id, params.contactIndexInSim, params.contactName, params.idOfLastMessageSeen).then(() => undefined)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.destroyChat.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.chat_id === "number"),
-        "handler": ({ chat_id }, socket) => dbWebphone.destroyChat(getAuthenticatedSession(socket).user, chat_id).then(() => undefined)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.newMessage.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.chat_id === "number" &&
-            (() => {
-                const m = params.message;
-                return (m instanceof Object &&
-                    typeof m.time === "number" &&
-                    m.text instanceof Object &&
-                    typeof m.text.encrypted_string === "string" &&
-                    ((m.direction === "INCOMING" &&
-                        typeof m.isNotification === "boolean")
-                        ||
-                            (m.direction === "OUTGOING" && ((m.status === "PENDING" &&
-                                true) || (m.status === "SEND REPORT RECEIVED" &&
-                                typeof m.isSentSuccessfully === "boolean") || (m.status === "STATUS REPORT RECEIVED" &&
-                                (typeof m.deliveredTime === "number" ||
-                                    m.deliveredTime === null) && (m.sentBy instanceof Object &&
-                                (m.sentBy.who === "USER" ||
-                                    (m.sentBy.who === "OTHER" &&
-                                        m.sentBy.email instanceof Object &&
-                                        typeof m.sentBy.email.encrypted_string === "string"))))))));
-            })()),
-        "handler": ({ chat_id, message }, socket) => dbWebphone.newMessage(getAuthenticatedSession(socket).user, chat_id, message)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.notifySendReportReceived.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.message_id === "number" &&
-            typeof params.isSentSuccessfully === "boolean"),
-        "handler": ({ message_id, isSentSuccessfully }, socket) => dbWebphone.updateMessageOnSendReport(getAuthenticatedSession(socket).user, message_id, isSentSuccessfully).then(() => undefined)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.notifyStatusReportReceived.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.message_id === "number" &&
-            (typeof params.deliveredTime === "number" ||
-                params.deliveredTime === null)),
-        "handler": ({ message_id, deliveredTime }, socket) => dbWebphone.updateMessageOnStatusReport(getAuthenticatedSession(socket).user, message_id, deliveredTime).then(() => undefined)
-    };
-    exports.handlers[methodName] = handler;
-}
-{
-    const methodName = backendToUa_1.apiDeclaration.notifyStatusReportReceived.methodName;
-    const handler = {
-        "sanityCheck": params => (params instanceof Object &&
-            typeof params.message_id === "number" &&
-            (typeof params.deliveredTime === "number" ||
-                params.deliveredTime === null)),
-        "handler": ({ message_id, deliveredTime }, socket) => dbWebphone.updateMessageOnStatusReport(getAuthenticatedSession(socket).user, message_id, deliveredTime).then(() => undefined)
     };
     exports.handlers[methodName] = handler;
 }

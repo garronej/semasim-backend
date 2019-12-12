@@ -387,30 +387,26 @@ async function updateSimStorage(imsi, storage) {
     await exports.query(sql, { imsi });
 }
 exports.updateSimStorage = updateSimStorage;
-//TODO: Test!
-async function getUserUas(email) {
+async function getUserUas(userOrEmail) {
     if (LOG_QUERY_DURATION) {
         debug("getUserUa");
     }
-    email = email.toLowerCase();
     const sql = [
-        "SELECT ua.*, user.toward_user_encrypt_key",
+        "SELECT ua.*, user.toward_user_encrypt_key, user.email",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user.email=${exports.esc(email)}`,
+        `WHERE user.` + (typeof userOrEmail === "number" ?
+            `id_=${exports.esc(userOrEmail)}` :
+            `email=${exports.esc(userOrEmail.toLowerCase())}`)
     ].join("\n");
-    const uas = [];
     const rows = await exports.query(sql);
-    for (const row of rows) {
-        uas.push({
-            "instance": row["instance"],
-            "userEmail": email,
-            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
-            "platform": row["platform"],
-            "pushToken": row["push_token"]
-        });
-    }
-    return uas;
+    return rows.map(row => ({
+        "instance": row["instance"],
+        "userEmail": row["email"],
+        "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
+        "platform": row["platform"],
+        "pushToken": row["push_token"]
+    }));
 }
 exports.getUserUas = getUserUas;
 /**
@@ -452,6 +448,7 @@ var retrieveUasRegisteredToSim;
                 "pushToken": row["push_token"]
             });
         }
+        console.log(uasRegisteredToSim);
         return uasRegisteredToSim;
     }
     retrieveUasRegisteredToSim.parse = parse;
@@ -734,7 +731,7 @@ async function getUserSims(auth) {
         `                WHERE user=${exports.esc(auth.user)} AND friendly_name IS NOT NULL)`,
         `;`,
         `SELECT`,
-        `	 sim.imsi,`,
+        `    sim.imsi,`,
         `    ongoing_call.ongoing_call_id,`,
         `    ongoing_call.number,`,
         `    ongoing_call.is_from_sip,`,
@@ -745,13 +742,13 @@ async function getUserSims(auth) {
         `INNER JOIN ongoing_call_ua ON ongoing_call_ua.ongoing_call = ongoing_call.id_`,
         `INNER JOIN ua ON ua.id_ = ongoing_call_ua.ua`,
         `INNER JOIN user ON user.id_ = ua.user`,
-        `WHERE sim.id_ IN (SELECT sim.id_`,
+        `WHERE sim.id_ IN (SELECT DISTINCT sim.id_`,
         `                  FROM sim`,
-        `                  INNER JOIN user_sim ON user_sim.sim=sim.id_`,
+        `                  LEFT JOIN user_sim ON user_sim.sim=sim.id_`,
         `                  WHERE`,
         `                      sim.is_online=1 AND`,
         `                      sim.is_gsm_connectivity_ok=1 AND`,
-        `                      ( user_sim.user=${exports.esc(auth.user)} OR sim.user=${exports.esc(auth.user)} ))`,
+        `                      ( sim.user=${exports.esc(auth.user)} OR user_sim.user IS NOT NULL AND user_sim.user=${exports.esc(auth.user)} ))`,
         `` //6 Ongoing calls for all the sim the user have access to ( owned and the sim that have been shared with him )
     ].join("\n");
     const queryResults = await exports.query(sql, { "email": auth.shared.email });

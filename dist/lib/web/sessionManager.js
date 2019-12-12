@@ -59,7 +59,6 @@ function launch(cookieSecret) {
         }
         touch().then(isSuccess => {
             if (isSuccess) {
-                console.log("touch success");
                 return;
             }
             debug("Session could not be touched");

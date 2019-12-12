@@ -380,3 +380,24 @@ export const notifyIceServer = (() => {
 
 })();
 
+
+export const wd_notifyActionFromOtherUa = (() => {
+
+    const methodName = apiDeclaration.wd_notifyActionFromOtherUa.methodName;
+    type Params = apiDeclaration.wd_notifyActionFromOtherUa.Params;
+    type Response = apiDeclaration.wd_notifyActionFromOtherUa.Response;
+
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+
+        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
+            response => response === undefined;
+
+        return sanityCheck;
+
+    })();
+
+    return (methodNameAndParams: Params, uas: gwTypes.Ua[]): Promise<void> =>
+        multicast<Params, Response>(methodName, methodNameAndParams, uas);
+
+})();
+

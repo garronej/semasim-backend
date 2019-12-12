@@ -97,7 +97,6 @@ export function launch(cookieSecret: string) {
         touch().then(isSuccess => {
 
             if (isSuccess) {
-                console.log("touch success");
                 return;
             }
 

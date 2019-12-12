@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 process.once("unhandledRejection", error => { throw error; });
 const emailSender = require("../lib/emailSender");
-const db_1 = require("./db");
+const dbSemasim_1 = require("./dbSemasim");
 const transfer_tools_1 = require("transfer-tools");
 const geoiplookup_1 = require("../tools/geoiplookup");
 const crypto = require("crypto");
@@ -10,21 +10,21 @@ const crypto = require("crypto");
     const simOwnerEmail = "alice-foobar@gmail.com";
     const targetUserEmail = "joseph.garrone.gj@gmail.com";
     const userSim = await (async () => {
-        const sim = db_1.generateSim(0, "NO SPECIAL CHAR");
+        const sim = dbSemasim_1.generateSim(0, "NO SPECIAL CHAR");
         const out = {
             sim,
             "friendlyName": " chinese: 漢字汉字 😅😅",
             "password": transfer_tools_1.testing.genHexStr(32),
             "towardSimEncryptKeyStr": crypto.randomBytes(150).toString("base64"),
             "dongle": {
-                "imei": db_1.genUniq.imsi(),
+                "imei": dbSemasim_1.genUniq.imsi(),
                 "isVoiceEnabled": (Date.now() % 2 === 0) ? true : undefined,
                 "manufacturer": transfer_tools_1.testing.genHexStr(7),
                 "model": transfer_tools_1.testing.genHexStr(7),
                 "firmwareVersion": `1.${transfer_tools_1.testing.genDigits(3)}.${transfer_tools_1.testing.genDigits(3)}`
             },
             "gatewayLocation": await (async () => {
-                const ip = db_1.genIp();
+                const ip = dbSemasim_1.genIp();
                 try {
                     const { countryIso, subdivisions, city } = await geoiplookup_1.geoiplookup(ip);
                     return { ip, countryIso, subdivisions, city };

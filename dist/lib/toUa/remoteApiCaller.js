@@ -151,3 +151,11 @@ exports.notifyIceServer = (() => {
         }).catch(() => { });
     };
 })();
+exports.wd_notifyActionFromOtherUa = (() => {
+    const methodName = uaToBackend_1.apiDeclaration.wd_notifyActionFromOtherUa.methodName;
+    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+        const sanityCheck = response => response === undefined;
+        return sanityCheck;
+    })();
+    return (methodNameAndParams, uas) => multicast(methodName, methodNameAndParams, uas);
+})();
