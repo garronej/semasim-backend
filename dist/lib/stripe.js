@@ -2,7 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const Stripe = require("stripe");
 const deploy_1 = require("../deploy");
-const frontend_1 = require("../frontend");
+const types = require("../frontend/types");
+const tools_1 = require("../frontend/tools");
+const shop_1 = require("../frontend/shop");
 const assert = require("assert");
 const loadBalancerLocalApiHandler = require("./toLoadBalancer/localApiHandlers");
 const fs = require("fs");
@@ -236,7 +238,7 @@ async function subscribeUser(auth, sourceId) {
             "customer": customer.id,
             "items": [{
                     "plan": (() => {
-                        const currency = frontend_1.currencyLib.getCardCurrency(customer
+                        const currency = tools_1.currencyLib.getCardCurrency(customer
                             .sources
                             .data
                             .find(({ id }) => id === customer.default_source)["card"], pricingByCurrency);
@@ -257,7 +259,7 @@ async function subscribeUser(auth, sourceId) {
 exports.subscribeUser = subscribeUser;
 //TODO: validate that currency is one of the supported
 async function createCheckoutSessionForSubscription(auth, currency, success_url, cancel_url) {
-    await frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
+    await tools_1.currencyLib.convertFromEuro.refreshChangeRates();
     assert(await getCustomerFromAuth(auth, "SUBSCRIPTION", customers) === undefined);
     //TODO: Implement for real 
     const shouldHaveTrialPeriodOffered = await getCustomerFromAuth(auth, "ONE-TIME", customers) !== undefined;
@@ -289,19 +291,19 @@ async function createCheckoutSessionForSubscription(auth, currency, success_url,
 exports.createCheckoutSessionForSubscription = createCheckoutSessionForSubscription;
 //TODO: Cart should be a set of product name quantity
 async function createCheckoutSessionForShop(auth, cartDescription, shippingFormData, currency, success_url, cancel_url) {
-    await frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
+    await tools_1.currencyLib.convertFromEuro.refreshChangeRates();
     let customer = await getCustomerFromAuth(auth, "ONE-TIME", customers);
     if (customer === undefined) {
         customer = await createCustomerForAuth(auth, "ONE-TIME");
     }
     const cart = cartDescription.map(({ productName, quantity }) => ({
-        "product": frontend_1.getShopProducts().find(({ name }) => name === productName),
+        "product": shop_1.getShopProducts().find(({ name }) => name === productName),
         quantity
     }));
-    const shipping = frontend_1.shipping.solve(shippingFormData.addressComponents
+    const shipping = shop_1.shippingLib.solve(shippingFormData.addressComponents
         .find(({ types: [type] }) => type === "country")
-        .short_name.toLowerCase(), frontend_1.shopTypes.Cart.getOverallFootprint(cart), frontend_1.shopTypes.Cart.getOverallWeight(cart));
-    const stripeShipping = frontend_1.shopTypes.ShippingFormData.toStripeShippingInformation(shippingFormData, shipping.carrier);
+        .short_name.toLowerCase(), types.shop.Cart.getOverallFootprint(cart), types.shop.Cart.getOverallWeight(cart));
+    const stripeShipping = types.shop.ShippingFormData.toStripeShippingInformation(shippingFormData, shipping.carrier);
     const sessionParams = {
         success_url,
         cancel_url,
@@ -320,7 +322,7 @@ async function createCheckoutSessionForShop(auth, cartDescription, shippingFormD
         },
         "line_items": [
             ...cart.map(({ product, quantity }) => ({
-                "amount": frontend_1.shopTypes.Price.getAmountInCurrency(product.price, currency, frontend_1.currencyLib.convertFromEuro),
+                "amount": types.shop.Price.getAmountInCurrency(product.price, currency, tools_1.currencyLib.convertFromEuro),
                 currency,
                 "name": product.name,
                 "description": product.shortDescription,
@@ -328,7 +330,7 @@ async function createCheckoutSessionForShop(auth, cartDescription, shippingFormD
                 quantity
             })),
             {
-                "amount": frontend_1.currencyLib.convertFromEuro(shipping.eurAmount, currency),
+                "amount": tools_1.currencyLib.convertFromEuro(shipping.eurAmount, currency),
                 currency,
                 "name": `Shipping to ${stripeShipping.address.country}`,
                 "description": `~ ${shipping.delay.join("-")} working days`,

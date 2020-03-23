@@ -22,7 +22,7 @@ import * as loadBalancerConnection from "./toLoadBalancer/connection";
 import * as web from "./web/launch";
 import { dbAuth } from "../../../deploy/dist/lib/deploy";
 import * as stripe from "./stripe";
-import {  currencyLib  } from "../frontend";
+import {  currencyLib  } from "../frontend/tools";
 import { fetch as fetchChangeRates } from "../tools/changeRates";
 
 

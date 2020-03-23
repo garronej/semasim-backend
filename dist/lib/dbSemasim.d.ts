@@ -2,7 +2,7 @@ import { AuthenticatedSessionDescriptorWithoutConnectSid, UserAuthentication } f
 import { types as gwTypes } from "../gateway";
 import * as f from "../tools/mysqlCustom";
 import { types as dcTypes } from "chan-dongle-extended-client";
-import { types as feTypes } from "../frontend";
+import * as feTypes from "../frontend/types";
 /** exported only for tests */
 export declare let query: f.Api["query"];
 export declare let esc: f.Api["esc"];
@@ -15,6 +15,7 @@ export declare function flush(): Promise<void>;
  * User not yet registered but that already exist in the database
  * are created by the shareSim function
  * those user have no salt and no password and does not need to verify their email.
+ * The web UA is automatically declared.
  * */
 export declare function createUserAccount(email: string, secret: string, towardUserEncryptKeyStr: string, encryptedSymmetricKey: string, ip: string): Promise<{
     user: number;
@@ -65,13 +66,13 @@ export declare function filterDongleWithRegistrableSim(auth: UserAuthentication,
 export declare function updateSimStorage(imsi: string, storage: dcTypes.Sim.Storage): Promise<void>;
 export declare function getUserUas(user: number): Promise<gwTypes.Ua[]>;
 export declare function getUserUas(email: string): Promise<gwTypes.Ua[]>;
-/** Return UAs registered to sim */
+/** Return all uas of users that have access to the SIM */
 export declare function createOrUpdateSimContact(imsi: string, name: string, number_raw: string, storageInfos?: {
     mem_index: number;
     name_as_stored: string;
-    new_storage_digest: string;
+    new_digest: string;
 }): Promise<gwTypes.Ua[]>;
-/** Return UAs registered to sim */
+/** Return all UAs of users that have access to the sim */
 export declare function deleteSimContact(imsi: string, contactRef: {
     mem_index: number;
     new_storage_digest: string;
@@ -80,7 +81,7 @@ export declare function deleteSimContact(imsi: string, contactRef: {
 }): Promise<gwTypes.Ua[]>;
 /** return user UAs */
 export declare function registerSim(auth: UserAuthentication, sim: dcTypes.Sim, friendlyName: string, password: string, towardSimEncryptKeyStr: string, dongle: feTypes.UserSim["dongle"], gatewayIp: string, isGsmConnectivityOk: boolean, cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength): Promise<gwTypes.Ua[]>;
-/** Return all the UAs registered to SIM */
+/** Return all uas of users that have access to the SIM */
 export declare function createUpdateOrDeleteOngoingCall(ongoingCallId: string, imsi: string, number: string, from: "DONGLE" | "SIP", isTerminated: boolean, uasInCall: gwTypes.UaRef[]): Promise<gwTypes.Ua[]>;
 export declare function getUserSims(auth: UserAuthentication): Promise<feTypes.UserSim[]>;
 export declare function addOrUpdateUa(ua: Omit<gwTypes.Ua, "towardUserEncryptKeyStr">): Promise<void>;
@@ -95,7 +96,7 @@ export declare function changeSimGsmConnectivityOrSignal(imsi: string, p: {
     isSimRegistered: false;
 } | {
     isSimRegistered: true;
-    uasRegisteredToSim: gwTypes.Ua[];
+    uasOfUsersThatHaveAccessToSim: gwTypes.Ua[];
 }>;
 export declare function setSimOnline(imsi: string, password: string, replacementPassword: string, towardSimEncryptKeyStr: string, gatewayAddress: string, dongle: feTypes.UserSim["dongle"], isGsmConnectivityOk: boolean, cellSignalStrength: dcTypes.Dongle.Usable.CellSignalStrength): Promise<{
     isSimRegistered: false;
@@ -104,24 +105,46 @@ export declare function setSimOnline(imsi: string, password: string, replacement
     storageDigest: string;
     passwordStatus: "UNCHANGED" | "WAS DIFFERENT" | "PASSWORD REPLACED";
     gatewayLocation: feTypes.UserSim.GatewayLocation;
-    uasRegisteredToSim: gwTypes.Ua[];
+    uasOfUsersThatHaveAccessToTheSim: gwTypes.Ua[];
 }>;
 export declare function setAllSimOffline(imsis?: string[]): Promise<void>;
-/** Return all ua registered to sim by by imsi */
+/** Return all uas of users that have access to sim by imsi */
 export declare function setSimsOffline(imsis: string[]): Promise<{
     [imsi: string]: gwTypes.Ua[];
 }>;
+/** return the uas of users that had access to the sim just before
+ * this function is called */
 export declare function unregisterSim(auth: UserAuthentication, imsi: string): Promise<{
     affectedUas: gwTypes.Ua[];
     owner: UserAuthentication;
 }>;
-/** assert emails not empty, return affected user email */
+/**
+ * assert emails not empty,
+ * assert sim owner not in the set
+ * assert emails all lower case
+ *
+ * users with whom the sim has already been shared can
+ * be included but the sharing request message wont
+ * be updated and they wont be included in the returned
+ * users.
+ * */
 export declare function shareSim(auth: UserAuthentication, imsi: string, emails: string[], sharingRequestMessage: string | undefined): Promise<{
     registered: UserAuthentication[];
     notRegistered: string[]; /** list of emails */
 }>;
-/** Return no longer registered UAs, assert email list not empty*/
+/**
+ *
+ * assert emails not empty,
+ * assert sim owner not in the set
+ * assert emails all lower case
+ *
+ * Returns the uas of the users that previous to calling
+ * this function had access to the sim and after
+ * no longer have access.
+ *
+ * */
 export declare function stopSharingSim(auth: UserAuthentication, imsi: string, emails: string[]): Promise<gwTypes.Ua[]>;
-/** Return user UAs */
-export declare function setSimFriendlyName(auth: UserAuthentication, imsi: string, friendlyName: string): Promise<gwTypes.Ua[]>;
+export declare function setSimFriendlyName(auth: UserAuthentication, imsi: string, friendlyName: string): Promise<{
+    uasOfUsersThatHaveAccessToTheSim: gwTypes.Ua[];
+}>;
 export declare function getSimOwner(imsi: string): Promise<undefined | UserAuthentication>;

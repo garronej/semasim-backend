@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const backendToUa_1 = require("../../../sip_api_declarations/backendToUa");
+const sip_api_1 = require("../../../frontend/sip_api");
 const sip = require("ts-sip");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
 const socketSession_1 = require("../socketSession");
@@ -26,7 +26,10 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
             return undefined;
         }
         const pr = dbSemasim.getUserUas(sessionInfos.user)
-            .then(uas => uaRemoteApiCaller.wd_notifyActionFromOtherUa(methodNameAndParams, uas.filter(({ instance }) => instance !== sessionInfos.uaInstanceId)))
+            .then(uas => uaRemoteApiCaller.wd_notifyActionFromOtherUa({
+            methodNameAndParams,
+            "uas": uas.filter(({ instance }) => instance !== sessionInfos.uaInstanceId)
+        }))
             .catch(error => debug(error));
         if (debug_resolveOnlyOnceOtherUaHaveBeenNotified) {
             await pr;
@@ -35,7 +38,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
     };
     const handlers = {};
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_getUserSimChats;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_getUserSimChats;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -45,7 +48,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_newChat;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_newChat;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -61,7 +64,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_fetchOlderMessages;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_fetchOlderMessages;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -73,7 +76,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_updateChatLastMessageSeen;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_updateChatLastMessageSeen;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -84,7 +87,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_updateChatContactInfos;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_updateChatContactInfos;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -99,7 +102,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_destroyChat;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_destroyChat;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -109,7 +112,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_newMessage;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_newMessage;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -128,7 +131,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_notifySendReportReceived;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_notifySendReportReceived;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&
@@ -140,7 +143,7 @@ function getHandlers(dbWebphoneData, dbSemasim, uaRemoteApiCaller, debug_resolve
         handlers[methodName] = handler;
     }
     {
-        const { methodName } = backendToUa_1.apiDeclaration.wd_notifyStatusReportReceived;
+        const { methodName } = sip_api_1.api_decl_backendToUa.wd_notifyStatusReportReceived;
         const handler = {
             "sanityCheck": params => (params instanceof Object &&
                 dcSanityChecks.imsi(params.imsi) &&

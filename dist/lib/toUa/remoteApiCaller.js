@@ -1,161 +1,64 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const sip = require("ts-sip");
-const uaToBackend_1 = require("../../sip_api_declarations/uaToBackend");
+const sip_api_1 = require("../../frontend/sip_api");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
-function multicast(methodName, params, uas) {
-    return Promise.all(uas.map(ua => backendRemoteApiCaller.forwardRequest({ "target": "UA", "uaInstanceId": ua.instance }, methodName, params, { "timeout": 5 * 1000, }).catch(() => { }))).then(() => { });
-}
-exports.notifySimOffline = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifySimOffline.methodName;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (imsi, uas) => multicast(methodName, { imsi }, uas);
-})();
-exports.notifySimOnline = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifySimOnline.methodName;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
-})();
-exports.notifyGsmConnectivityChange = (() => {
-    const { methodName } = uaToBackend_1.apiDeclaration.notifyGsmConnectivityChange;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
-})();
-exports.notifyCellSignalStrengthChange = (() => {
-    const { methodName } = uaToBackend_1.apiDeclaration.notifyCellSignalStrengthChange;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
-})();
-exports.notifyOngoingCall = (() => {
-    const { methodName } = uaToBackend_1.apiDeclaration.notifyOngoingCall;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
-})();
-exports.notifyContactCreatedOrUpdated = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifyContactCreatedOrUpdated.methodName;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
-})();
-exports.notifyContactDeleted = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifyContactDeleted.methodName;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
+const tools_1 = require("../../frontend/tools");
+const multicast = ({ methodName, params, uas }) => Promise.all(uas.map(ua => backendRemoteApiCaller.forwardRequest({ "target": "UA", "uaInstanceId": ua.instance }, methodName, params, { "timeout": 5 * 1000, }).catch(() => { }))).then(() => { });
+exports.notifyUserSimChange = (() => {
+    const { methodName } = sip_api_1.api_decl_uaToBackend.notifyUserSimChange;
+    backendRemoteApiCaller.SanityCheck_.store[methodName] =
+        tools_1.id(response => response === undefined);
+    return ({ params, uas }) => multicast({ methodName, params, uas });
 })();
 exports.notifyDongleOnLan = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifyDongleOnLan.methodName;
-    function f(dongle, arg) {
-        if (typeof arg === "string") {
-            const gatewayAddress = arg;
+    const { methodName } = sip_api_1.api_decl_uaToBackend.notifyDongleOnLan;
+    return tools_1.id(async (args) => {
+        const { dongle } = args;
+        if ("gatewayAddress" in args) {
+            const { gatewayAddress } = args;
             return backendRemoteApiCaller.notifyDongleOnLanProxy(dongle, gatewayAddress);
         }
         else {
-            const uaSocket = arg;
+            const { uaSocket } = args;
             return sip.api.client.sendRequest(uaSocket, methodName, dongle, {
                 "timeout": 5 * 1000,
                 "sanityCheck": response => response === undefined
             }).catch(() => { });
         }
-    }
-    return f;
-})();
-exports.notifySimPermissionLost = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifySimPermissionLost.methodName;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (imsi, uas) => multicast(methodName, { imsi }, uas);
-})();
-exports.notifySimSharingRequest = (() => {
-    const { methodName } = uaToBackend_1.apiDeclaration.notifySimSharingRequest;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    function f(userSim, uasOrSocket) {
-        if (uasOrSocket instanceof Array) {
-            const uas = uasOrSocket;
-            return multicast(methodName, userSim, uas);
-        }
-        else {
-            const socket = uasOrSocket;
-            return sip.api.client.sendRequest(socket, methodName, userSim, {
-                "timeout": 5 * 1000,
-                "sanityCheck": response => response === undefined
-            }).catch(() => { });
-        }
-    }
-    return f;
-})();
-exports.notifySharingRequestResponse = (() => {
-    const { methodName } = uaToBackend_1.apiDeclaration.notifySharingRequestResponse;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
-})();
-exports.notifyOtherSimUserUnregisteredSim = (() => {
-    const { methodName } = uaToBackend_1.apiDeclaration.notifyOtherSimUserUnregisteredSim;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (params, uas) => multicast(methodName, params, uas);
+    });
 })();
 exports.notifyLoggedFromOtherTab = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifyLoggedFromOtherTab.methodName;
-    function f(arg) {
-        if (typeof arg === "string") {
-            const uaInstanceId = arg;
+    const { methodName } = sip_api_1.api_decl_uaToBackend.notifyLoggedFromOtherTab;
+    return tools_1.id((args) => {
+        if ("uaInstanceId" in args) {
+            const { uaInstanceId } = args;
             return backendRemoteApiCaller.notifyLoggedFromOtherTabProxy(uaInstanceId);
         }
         else {
-            const uaSocket = arg;
+            const { uaSocket } = args;
             return sip.api.client.sendRequest(uaSocket, methodName, undefined, {
                 "timeout": 3 * 1000,
                 "sanityCheck": response => response === undefined
             }).catch(() => { })
                 .then(() => uaSocket.destroy("opened on other tab"));
         }
-    }
-    return f;
+    });
 })();
 exports.notifyIceServer = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.notifyIceServer.methodName;
-    return async (uaSocket, iceServer) => {
-        return sip.api.client.sendRequest(uaSocket, methodName, iceServer, {
-            "timeout": 3 * 1000,
-            "sanityCheck": response => response === undefined
-        }).catch(() => { });
-    };
+    const { methodName } = sip_api_1.api_decl_uaToBackend.notifyIceServer;
+    return ({ uaSocket, iceServer }) => sip.api.client.sendRequest(uaSocket, methodName, iceServer, {
+        "timeout": 3 * 1000,
+        "sanityCheck": response => response === undefined
+    }).catch(() => { });
 })();
 exports.wd_notifyActionFromOtherUa = (() => {
-    const methodName = uaToBackend_1.apiDeclaration.wd_notifyActionFromOtherUa.methodName;
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-        const sanityCheck = response => response === undefined;
-        return sanityCheck;
-    })();
-    return (methodNameAndParams, uas) => multicast(methodName, methodNameAndParams, uas);
+    const { methodName } = sip_api_1.api_decl_uaToBackend.wd_notifyActionFromOtherUa;
+    backendRemoteApiCaller.SanityCheck_.store[methodName] =
+        tools_1.id(response => response === undefined);
+    return ({ methodNameAndParams, uas }) => multicast({
+        methodName,
+        "params": methodNameAndParams,
+        uas
+    });
 })();

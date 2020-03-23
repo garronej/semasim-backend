@@ -13,6 +13,8 @@ import * as sessionManager from "../web/sessionManager";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
 import * as util from "util";
 import { deploy } from "../../deploy";
+import { Evt } from "evt";
+
 
 /*
 NOTE: None of those methods are allowed to throw as 
@@ -231,44 +233,39 @@ export const handlers: sip.api.Server.Handlers = {};
 
             uaSocket.write(sipRequest);
 
-            prIsAnswered = Promise.race([
-                uaSocket.evtClose.attachOnce(sipRequest, () => { }).then(() => false),
-                uaSocket.evtResponse.attachOnceExtract(
-                    sipResponse => {
-                        try {
+            const ctxIdAnswered = Evt.newCtx<boolean>();
 
-                            return sip.isResponse(sipRequest, sipResponse);
+            uaSocket.evtClose.attachOnce(ctxIdAnswered, () => ctxIdAnswered.done(false));
+            uaSocket.evtResponse.attachOnceExtract(
+                sipResponse => {
+                    try {
 
-                        } catch{
+                        return sip.isResponse(sipRequest, sipResponse);
 
-                            uaSocket.destroy([
-                                "UA sent a SIP message that made isResponse throw:",
-                                util.inspect(sipResponse, { "depth": 7 })
-                            ].join(""));
+                    } catch{
 
-                            return false;
+                        uaSocket.destroy([
+                            "UA sent a SIP message that made isResponse throw:",
+                            util.inspect(sipResponse, { "depth": 7 })
+                        ].join(""));
 
-                        }
-                    },
-                    2500,
-                    () => { }
-                ).then(() => true, () => false)
-            ]).then(isAnswered => {
-
-                if (uaSocket.evtClose.postCount === 0) {
-
-                    uaSocket.evtClose.detach(sipRequest);
-
-                    if (!isAnswered) {
-
-                        uaSocket.destroy("Remote didn't sent response to a qualify request");
+                        return false;
 
                     }
-                }
+                },
+                ctxIdAnswered,
+                () => ctxIdAnswered.done(true)
+            );
 
-                return isAnswered;
 
-            });
+            prIsAnswered = ctxIdAnswered
+                .getPrDone(2500)
+                .catch(() => {
+                    uaSocket.destroy("Remote didn't sent response to a qualify request");
+                    return false;
+                })
+                ;
+
 
             pendingQualifyRequests.set(connectionId, prIsAnswered);
 
@@ -358,7 +355,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                 const session = getUaSocketSession(uaSocket);
 
-                if( !sessionManager.isAuthenticated(session) ){
+                if (!sessionManager.isAuthenticated(session)) {
                     continue;
                 }
 
@@ -371,9 +368,7 @@ export const handlers: sip.api.Server.Handlers = {};
                         return;
                     }
 
-                    return uaRemoteApiCaller.notifyDongleOnLan(
-                        dongle, uaSocket
-                    );
+                    return uaRemoteApiCaller.notifyDongleOnLan({ dongle, uaSocket });
 
                 }).catch(() => { });
 
@@ -390,7 +385,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.notifyLoggedFromOtherTabProxy.methodName;
+    const { methodName } = apiDeclaration.notifyLoggedFromOtherTabProxy;
     type Params = apiDeclaration.notifyLoggedFromOtherTabProxy.Params;
     type Response = apiDeclaration.notifyLoggedFromOtherTabProxy.Response;
 
@@ -399,12 +394,10 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const uaSocket = uaConnections.getByUaInstanceId(uaInstanceId);
 
-            if (!uaSocket) {
-                return Promise.resolve(undefined);
-            } else {
-                return uaRemoteApiCaller.notifyLoggedFromOtherTab(uaSocket)
-                    .then(() => undefined);
-            }
+            return (!uaSocket ?
+                Promise.resolve() :
+                uaRemoteApiCaller.notifyLoggedFromOtherTab({ uaSocket })
+            ).then(() => undefined);
 
         }
     };
@@ -424,16 +417,16 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const gatewaySocket = Array.from(
                 gatewayConnections.getByAddress(gatewayAddress)
-            ).find( gatewaySocket => 
+            ).find(gatewaySocket =>
                 !!gatewayConnections.getImeis(gatewaySocket)
                     .find(imei_ => imei_ === imei)
             );
 
-            if( !gatewaySocket ){
+            if (!gatewaySocket) {
 
                 return Promise.resolve(undefined);
 
-            }else{
+            } else {
 
                 return gatewayRemoteApiCaller.unlockSim(
                     imei, pin,

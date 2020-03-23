@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
 const apiHandlers_1 = require("./apiHandlers");
 const load_balancer_1 = require("../../load-balancer");
-const frontend = require("../../frontend");
+const pages = require("../../frontend/pages");
 const webApiDeclaration = require("../../web_api_declaration");
 const sessionManager = require("./sessionManager");
 const morgan = require("morgan");
@@ -60,7 +60,7 @@ function launch(httpsServer, httpServer) {
     });
     app
         .use(compression())
-        .use(express.static(frontend.static_dir_path))
+        .use(express.static(pages.static_dir_path))
         .head(["/img/logo@2x@2x.png", "/img/logosm@2x@2x.png"], (_req, res) => res.status(404).end())
         .use((req, res, next) => sessionManager.loadRequestSession(req, res)
         .then(() => next()))
@@ -70,10 +70,10 @@ function launch(httpsServer, httpServer) {
             case "PROD": return (_req, _res, next) => next();
         }
     })())
-        .get("/", (_req, res) => res.redirect(`/${frontend.availablePages.PageName.webphone}`))
+        .get("/", (_req, res) => res.redirect(`/${pages.availablePages.PageName.webphone}`))
         .get("*", (req, res) => {
         const pageName = req.path.match(/^\/(.*)$/)[1].toLowerCase();
-        if (!frontend.isPageName(pageName)) {
+        if (!pages.isPageName(pageName)) {
             debug(`Consider banning IP ${req.connection.remoteAddress} asking for ${req.method} ${req.originalUrl}`);
             res.status(404).end();
             return;
@@ -86,14 +86,14 @@ function launch(httpsServer, httpServer) {
             const { webview } = req.query;
             return webview === "true";
         })();
-        if (frontend.doesRequireAuth(pageName) &&
+        if (pages.doesRequireAuth(pageName) &&
             !sessionManager.isAuthenticated(session) &&
             !isRequestFromWebview) {
-            res.redirect(`/${frontend.availablePages.PageName.login}`);
+            res.redirect(`/${pages.availablePages.PageName.login}`);
             return;
         }
         res.set("Content-Type", "text/html; charset=utf-8");
-        res.send(frontend.getPage(pageName)[isRequestFromWebview ?
+        res.send(pages.getPage(pageName)[isRequestFromWebview ?
             "webView" :
             "unaltered"]);
     });

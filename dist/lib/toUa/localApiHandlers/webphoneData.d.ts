@@ -9,6 +9,4 @@ export declare type FakeSocket = {
 export declare function getSocketForIntegrationTests(sessionInfos: SessionInfos): FakeSocket & sip.Socket;
 export declare function getHandlers(dbWebphoneData: ReturnType<typeof import("../../dbWebphoneData/impl").getApi>, dbSemasim: {
     getUserUas: (typeof import("../../dbSemasim"))["getUserUas"];
-}, uaRemoteApiCaller: {
-    wd_notifyActionFromOtherUa: (typeof import("../remoteApiCaller"))["wd_notifyActionFromOtherUa"];
-}, debug_resolveOnlyOnceOtherUaHaveBeenNotified?: boolean): sip.api.Server.Handlers;
+}, uaRemoteApiCaller: Pick<typeof import("../remoteApiCaller"), "wd_notifyActionFromOtherUa">, debug_resolveOnlyOnceOtherUaHaveBeenNotified?: boolean): sip.api.Server.Handlers;

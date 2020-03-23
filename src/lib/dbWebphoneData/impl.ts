@@ -1,7 +1,7 @@
-import { wd } from "../../frontend";
+import * as types from "../../frontend/types";
+import { assert } from "../../frontend/tools";
 import * as mysqlCustom from "../../tools/mysqlCustom";
 import { deploy } from "../../deploy";
-import * as assert from "assert";
 
 export function connectToDbAndGetMysqlApi(
     connectionType: "POOL" | "SINGLE CONNECTION"
@@ -41,7 +41,7 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
             user: number,
             imsi: string,
             maxMessageCountByChat: number
-        ): Promise<wd.Chat<"ENCRYPTED">[]> => {
+        ): Promise<types.wd.Chat<"ENCRYPTED">[]> => {
 
             const sql = [
                 `SELECT chat.*, message.ref AS ref_of_last_message_seen`,
@@ -59,11 +59,11 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
 
             const resp = await query(sql, { user });
 
-            const chatById = new Map<number, wd.Chat<"ENCRYPTED">>();
+            const chatById = new Map<number, types.wd.Chat<"ENCRYPTED">>();
 
             for (const row of resp[0] as Record<string, mysqlCustom.TSql>[]) {
 
-                const chat: wd.Chat<"ENCRYPTED"> = {
+                const chat: types.wd.Chat<"ENCRYPTED"> = {
                     "ref": row["ref"] as string,
                     "contactNumber": { "encrypted_string": row["contact_number_enc"] as string },
                     "contactName": { "encrypted_string": row["contact_name_enc"] as string },
@@ -104,9 +104,9 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
             user: number,
             imsi: string,
             ref: string,
-            contactNumber: wd.Encryptable["string"]["ENCRYPTED"],
-            contactName: wd.Encryptable["string"]["ENCRYPTED"],
-            contactIndexInSim: wd.Encryptable["number | null"]["ENCRYPTED"]
+            contactNumber: types.wd.Encryptable["string"]["ENCRYPTED"],
+            contactName: types.wd.Encryptable["string"]["ENCRYPTED"],
+            contactIndexInSim: types.wd.Encryptable["number | null"]["ENCRYPTED"]
         ): Promise<{ isUnchanged: boolean; }> => {
 
             /*
@@ -190,7 +190,7 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
             chatRef: string,
             olderThanTime: number,
             maxMessageCount: number
-        ): Promise<wd.Message<"ENCRYPTED">[]> => {
+        ): Promise<types.wd.Message<"ENCRYPTED">[]> => {
 
             const sql = [
                 `SELECT message.*`,
@@ -218,8 +218,8 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
             user: number,
             imsi: string,
             chatRef: string,
-            contactIndexInSim: wd.Encryptable["number | null"]["ENCRYPTED"] | undefined,
-            contactName: wd.Encryptable["string"]["ENCRYPTED"] | undefined,
+            contactIndexInSim: types.wd.Encryptable["number | null"]["ENCRYPTED"] | undefined,
+            contactName: types.wd.Encryptable["string"]["ENCRYPTED"] | undefined,
         ): Promise<{ isUnchanged: boolean; }> => {
 
             const set_clause = [
@@ -302,8 +302,8 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
             imsi: string,
             chatRef: string,
             message:
-                wd.Message.Incoming<"ENCRYPTED"> |
-                wd.Message.Outgoing.Pending<"ENCRYPTED">
+                types.wd.Message.Incoming<"ENCRYPTED"> |
+                types.wd.Message.Outgoing.Pending<"ENCRYPTED">
         ): Promise<{ isUnchanged: boolean; }> => {
 
 
@@ -386,7 +386,7 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
             chatRef: string,
             messageRef: string,
             deliveredTime: number | null,
-            sentBy: wd.Message.Outgoing.StatusReportReceived<"ENCRYPTED">["sentBy"]
+            sentBy: types.wd.Message.Outgoing.StatusReportReceived<"ENCRYPTED">["sentBy"]
         ): Promise<{ isUnchanged: boolean; }> => {
 
             const sql = [
@@ -415,15 +415,15 @@ export function getApi(getMysqlApi: () => mysqlCustom.Api) {
 }
 
 
-function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Message<"ENCRYPTED">; chat_id: number; } {
+function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: types.wd.Message<"ENCRYPTED">; chat_id: number; } {
 
     //NOTE: Typescript fail to infer that message is always init.
-    let message: wd.Message<"ENCRYPTED"> = null as any;
+    let message: types.wd.Message<"ENCRYPTED"> = null as any;
 
     const ref = row["ref"] as string;
     const time = row["time"] as number;
     const text = { "encrypted_string": row["text_enc"] as string };
-    const direction: wd.Message._Base<"ENCRYPTED">["direction"] =
+    const direction: types.wd.Message._Base<"ENCRYPTED">["direction"] =
         row["is_incoming"] === 1 ? "INCOMING" : "OUTGOING";
 
     switch (direction) {
@@ -433,7 +433,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
 
             if (isNotification) {
 
-                const m: wd.Message.Incoming.Notification<"ENCRYPTED"> = {
+                const m: types.wd.Message.Incoming.Notification<"ENCRYPTED"> = {
                     ref, time, text, direction, isNotification
                 };
 
@@ -441,7 +441,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
 
             } else {
 
-                const m: wd.Message.Incoming.Text<"ENCRYPTED"> = {
+                const m: types.wd.Message.Incoming.Text<"ENCRYPTED"> = {
                     ref, time, text, direction, isNotification
                 };
 
@@ -452,7 +452,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
         } break;
         case "OUTGOING": {
 
-            const status: wd.Message.Outgoing._Base<"ENCRYPTED">["status"] = ((status: 0 | 1 | 2) => {
+            const status: types.wd.Message.Outgoing._Base<"ENCRYPTED">["status"] = ((status: 0 | 1 | 2) => {
                 switch (status) {
                     case 0: return "PENDING";
                     case 1: return "SEND REPORT RECEIVED";
@@ -463,7 +463,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
             switch (status) {
                 case "PENDING": {
 
-                    const m: wd.Message.Outgoing.Pending<"ENCRYPTED"> = {
+                    const m: types.wd.Message.Outgoing.Pending<"ENCRYPTED"> = {
                         ref, time, text, direction, status
                     };
 
@@ -472,7 +472,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
                 } break;
                 case "SEND REPORT RECEIVED": {
 
-                    const m: wd.Message.Outgoing.SendReportReceived<"ENCRYPTED"> = {
+                    const m: types.wd.Message.Outgoing.SendReportReceived<"ENCRYPTED"> = {
                         ref, time, text, direction, status,
                         "isSentSuccessfully":
                             row["outgoing_is_sent_successfully"] === 1
@@ -492,7 +492,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
 
                     if (email_enc === null) {
 
-                        const m: wd.Message.Outgoing.StatusReportReceived.SentByUser<"ENCRYPTED"> = {
+                        const m: types.wd.Message.Outgoing.StatusReportReceived.SentByUser<"ENCRYPTED"> = {
                             ref, time, text, direction, status,
                             deliveredTime,
                             "sentBy": { "who": "USER" }
@@ -502,7 +502,7 @@ function parseMessage(row: Record<string, mysqlCustom.TSql>): { message: wd.Mess
 
                     } else {
 
-                        const m: wd.Message.Outgoing.StatusReportReceived.SentByOther<"ENCRYPTED"> = {
+                        const m: types.wd.Message.Outgoing.StatusReportReceived.SentByOther<"ENCRYPTED"> = {
                             ref, time, text, direction, status,
                             deliveredTime,
                             "sentBy": { "who": "OTHER", "email": { "encrypted_string": email_enc } }

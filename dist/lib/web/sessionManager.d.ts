@@ -1,5 +1,5 @@
 import * as express from "express";
-import { AuthenticatedSessionDescriptorSharedData } from "../../frontend";
+import * as types from "../../frontend/types";
 export declare function beforeExit(): Promise<void>;
 export declare namespace beforeExit {
     let impl: () => Promise<void>;
@@ -35,7 +35,7 @@ export declare function isAuthenticated(session: Express.Session): session is Au
 /** Properties listed in shared should be accessible from client side */
 export declare type AuthenticatedSessionDescriptor = {
     user: number;
-    shared: AuthenticatedSessionDescriptorSharedData;
+    shared: types.AuthenticatedSessionDescriptorSharedData;
     towardUserEncryptKeyStr: string;
 };
 export declare type AuthenticatedSession = Express.Session & AuthenticatedSessionDescriptor;
@@ -46,7 +46,7 @@ export declare type UserAuthentication = {
     };
 };
 export declare type AuthenticatedSessionDescriptorWithoutConnectSid = Omit<AuthenticatedSessionDescriptor, "shared"> & {
-    shared: Omit<AuthenticatedSessionDescriptorSharedData, "connect_sid">;
+    shared: Omit<types.AuthenticatedSessionDescriptorSharedData, "connect_sid">;
 };
 /**
  *

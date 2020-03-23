@@ -52,10 +52,8 @@ var genUniq;
     genUniq.iccid = iccid;
 })(genUniq = exports.genUniq || (exports.genUniq = {}));
 function generateSim(
-//contactCount = ~~(Math.random() * 200),
-contactCount = 150, 
-//contactCount = 3,
-noSpecialChar = false) {
+//contactCount = 150,
+contactCount = 3, noSpecialChar = false) {
     const genStr = (n) => !!noSpecialChar ? transfer_tools_1.testing.genHexStr(n) : transfer_tools_1.testing.genUtf8Str(n);
     const sim = {
         "imsi": genUniq.imsi(),
@@ -139,10 +137,7 @@ function createUserSimSharedNotConfirmed(userSim, simOwnerEmail, userEmail, shar
         })(),
         "password": {
             "enumerable": true,
-            "get": function () {
-                return (this.ownership.status === "SHARED NOT CONFIRMED") ?
-                    "ffffffffffffffffffffffffffffffff" : userSim.password;
-            }
+            "get": () => userSim.password
         },
         "reachableSimState": {
             "enumerable": true,
@@ -268,8 +263,8 @@ async function testMain() {
     const unregisteredEmail = "eve@foobar.com";
     for (let user of [alice, bob, carol, dave]) {
         //for (const _ of new Array(~~(Math.random() * 10) + 1)) {
-        for (const _ of new Array(11)) {
-            //for (const _ of new Array(1)) {
+        //for (const _ of new Array(11)) {
+        for (const _ of new Array(1)) {
             if (user === carol) {
                 break;
             }
@@ -278,8 +273,8 @@ async function testMain() {
             await db.addOrUpdateUa(ua);
         }
         //for (let _ of new Array(~~(Math.random() * 5) + 2)) {
-        for (let _ of new Array(7)) {
-            //for (let _ of new Array(2)) {
+        //for (let _ of new Array(7)) {
+        for (let _ of new Array(2)) {
             if (user === dave) {
                 break;
             }
@@ -392,7 +387,7 @@ async function testMain() {
                     userSim.sim.storage.infos.storageLeft--;
                     dcMisc.updateStorageDigest(userSim.sim.storage);
                     if (isStepByStep) {
-                        assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw, { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }), user.uas);
+                        assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, name, number_raw, { mem_index, name_as_stored, "new_digest": userSim.sim.storage.digest }), user.uas);
                         assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                     }
                 }
@@ -405,7 +400,7 @@ async function testMain() {
                     assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
                         "mem_index": updatedContact.index,
                         "name_as_stored": updatedContact.name,
-                        "new_storage_digest": userSim.sim.storage.digest
+                        "new_digest": userSim.sim.storage.digest
                     }), user.uas);
                     assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                 }
@@ -430,7 +425,7 @@ async function testMain() {
                         assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
                             "mem_index": updatedContact.index,
                             "name_as_stored": updatedContact.name,
-                            "new_storage_digest": userSim.sim.storage.digest
+                            "new_digest": userSim.sim.storage.digest
                         }), user.uas);
                         assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                     }
@@ -447,7 +442,7 @@ async function testMain() {
                         assertSame(await db.createOrUpdateSimContact(userSim.sim.imsi, c.name, c.number_raw, {
                             "mem_index": updatedContact.index,
                             "name_as_stored": updatedContact.name,
-                            "new_storage_digest": userSim.sim.storage.digest
+                            "new_digest": userSim.sim.storage.digest
                         }), user.uas);
                         assertSame((await db.getUserSims(user)).find(({ sim }) => sim.imsi === userSim.sim.imsi), userSim);
                     }
@@ -476,13 +471,14 @@ async function testMain() {
     for (let user of [alice, bob, carol, dave]) {
         assertSame(await db.getUserSims(user), user.userSims);
     }
-    let uasRegisteredToSim = [...alice.uas];
+    const uasRegisteredToSim = [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas];
     for (const user of [bob, carol, dave]) {
         const friendlyName = transfer_tools_1.testing.genUtf8Str(12);
         const userSim = user.userSims[user.userSims.length - 1];
         confirmUserSimByNotConfirmedUserSim.get(userSim)(friendlyName);
-        uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
-        assertSame(await db.setSimFriendlyName(user, userSim.sim.imsi, friendlyName), user.uas);
+        assertSame(await db.setSimFriendlyName(user, userSim.sim.imsi, friendlyName), {
+            "uasOfUsersThatHaveAccessToTheSim": uasRegisteredToSim
+        });
         assertSame(await db.getUserSims(user), user.userSims);
         assertSame(await db.getUserSims(alice), alice.userSims);
         assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].reachableSimState.isGsmConnectivityOk, alice.userSims[0].reachableSimState.cellSignalStrength), {
@@ -490,7 +486,7 @@ async function testMain() {
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
-            uasRegisteredToSim
+            "uasOfUsersThatHaveAccessToTheSim": uasRegisteredToSim
         });
     }
     {
@@ -570,7 +566,7 @@ async function testMain() {
             "storageDigest": userSim.sim.storage.digest,
             "passwordStatus": "UNCHANGED",
             "gatewayLocation": userSim.gatewayLocation,
-            "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+            "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
         });
         for (const user of [alice, bob, carol, dave]) {
             assertSame(await db.getUserSims(user), user.userSims);
@@ -590,7 +586,7 @@ async function testMain() {
             });
             assertSame(await db.changeSimGsmConnectivityOrSignal(userSim.sim.imsi, { isGsmConnectivityOk }), {
                 "isSimRegistered": true,
-                "uasRegisteredToSim": uasRegisteredToSim
+                "uasOfUsersThatHaveAccessToSim": uasRegisteredToSim
             });
             assertSame(await db.getUserSims(alice), alice.userSims);
             assertSame(await db.changeSimGsmConnectivityOrSignal(genUniq.imsi(), { isGsmConnectivityOk }), {
@@ -604,7 +600,7 @@ async function testMain() {
             userSim.reachableSimState.cellSignalStrength = cellSignalStrength;
             assertSame(await db.changeSimGsmConnectivityOrSignal(userSim.sim.imsi, { cellSignalStrength }), {
                 "isSimRegistered": true,
-                "uasRegisteredToSim": uasRegisteredToSim
+                "uasOfUsersThatHaveAccessToSim": uasRegisteredToSim
             });
             assertSame(await db.getUserSims(alice), alice.userSims);
             assertSame(await db.changeSimGsmConnectivityOrSignal(genUniq.imsi(), { cellSignalStrength }), {
@@ -632,7 +628,7 @@ async function testMain() {
         "storageDigest": alice.userSims[0].sim.storage.digest,
         "passwordStatus": "UNCHANGED",
         "gatewayLocation": alice.userSims[0].gatewayLocation,
-        "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+        "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
     });
     for (let user of [alice, bob, carol, dave]) {
         assertSame(await db.getUserSims(user), user.userSims);
@@ -643,13 +639,20 @@ async function testMain() {
         "storageDigest": alice.userSims[0].sim.storage.digest,
         "passwordStatus": "WAS DIFFERENT",
         "gatewayLocation": alice.userSims[0].gatewayLocation,
-        "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+        "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
     });
     for (let user of [alice, bob, carol, dave]) {
         assertSame(await db.getUserSims(user), user.userSims);
     }
     alice.userSims[0].friendlyName = transfer_tools_1.testing.genUtf8Str(11);
-    assertSame(await db.setSimFriendlyName(alice, alice.userSims[0].sim.imsi, alice.userSims[0].friendlyName), alice.uas);
+    assertSame(await db.setSimFriendlyName(alice, alice.userSims[0].sim.imsi, alice.userSims[0].friendlyName), {
+        "uasOfUsersThatHaveAccessToTheSim": [
+            ...alice.uas,
+            ...bob.uas,
+            ...carol.uas,
+            ...dave.uas
+        ]
+    });
     assertSame(await db.getSimOwner(alice.userSims[0].sim.imsi), { "user": alice.user, "shared": { "email": alice.shared.email } });
     bob.userSims.pop();
     carol.userSims.pop();
@@ -672,7 +675,7 @@ async function testMain() {
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "PASSWORD REPLACED",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": [...alice.uas, ...dave.uas]
+            "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...dave.uas]
         });
         alice.userSims[0].password = replacementPassword;
         for (let user of [alice, dave]) {
@@ -683,7 +686,7 @@ async function testMain() {
     alice.userSims[0].ownership
         .sharedWith.confirmed = [];
     assertSame(await db.unregisterSim(dave, alice.userSims[0].sim.imsi), {
-        "affectedUas": dave.uas,
+        "affectedUas": [...dave.uas, ...alice.uas],
         "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
     });
     assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].reachableSimState.isGsmConnectivityOk, alice.userSims[0].reachableSimState.cellSignalStrength), {
@@ -691,7 +694,7 @@ async function testMain() {
         "storageDigest": alice.userSims[0].sim.storage.digest,
         "passwordStatus": "UNCHANGED",
         "gatewayLocation": alice.userSims[0].gatewayLocation,
-        "uasRegisteredToSim": alice.uas
+        "uasOfUsersThatHaveAccessToTheSim": alice.uas
     });
     for (let user of [alice, dave]) {
         assertSame(await db.getUserSims(user), user.userSims);
@@ -708,7 +711,7 @@ async function testMain() {
     }
     eve.userSims.pop();
     assertSame(await db.unregisterSim(alice, alice.userSims.shift().sim.imsi), {
-        "affectedUas": alice.uas,
+        "affectedUas": [...alice.uas, ...eve.uas],
         "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
     });
     for (let user of [alice, eve]) {

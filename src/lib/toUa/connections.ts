@@ -9,15 +9,14 @@ import * as backendConnections from "../toBackend/connections";
 import * as remoteApiCaller from "./remoteApiCaller";
 import * as logger from "logger";
 import { handlers as localApiHandlers } from "./localApiHandlers";
-import * as dbSemasim from "../dbSemasim";
-import { types as feTypes, WebsocketConnectionParams, urlGetParameters } from "../../frontend";
+import { urlGetParameters } from "../../frontend/tools";
 import * as dbTurn from "../dbTurn";
 import { deploy } from "../../deploy";
-import { buildNoThrowProxyFunction } from "../../tools/noThrow";
-//import { debug } from "util";
 import { setSession } from "./socketSession";
+//import { debug } from "util";
 
-const getUserSims= buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
+type WebsocketConnectionParams = import("../../frontend/types").WebsocketConnectionParams;
+
 
 const enableLogger = (socket: sip.Socket) => socket.enableLogger({
     "socketId": idString,
@@ -173,7 +172,9 @@ function registerSocket(
     ) {
 
         //NOTE: this request will end before notify new route so we do not risk to close the new socket.
-        remoteApiCaller.notifyLoggedFromOtherTab(session.shared.uaInstanceId);
+        remoteApiCaller.notifyLoggedFromOtherTab({ 
+            "uaInstanceId": session.shared.uaInstanceId 
+        });
 
     }
 
@@ -182,20 +183,13 @@ function registerSocket(
     backendRemoteApiCaller.collectDonglesOnLan(
         socket.remoteAddress, session
     ).then(dongles => dongles.forEach(
-        dongle => remoteApiCaller.notifyDongleOnLan(
-            dongle, socket
-        )
+        dongle => remoteApiCaller.notifyDongleOnLan({
+            dongle, 
+            "uaSocket": socket
+        })
     ));
 
-    getUserSims(session).then(
-        userSims => userSims
-            .filter(feTypes.UserSim.Shared.NotConfirmed.match)
-            .forEach(userSim =>
-                remoteApiCaller.notifySimSharingRequest(
-                    userSim, socket
-                )
-            )
-    );
+
 
 
     if (connectionParams.requestTurnCred === "REQUEST TURN CRED") {
@@ -229,7 +223,10 @@ function registerSocket(
                 "credentialType": "password" as const
             };
 
-        })().then(params => remoteApiCaller.notifyIceServer(socket, params));
+        })().then(iceServer => remoteApiCaller.notifyIceServer({ 
+            "uaSocket": socket, 
+            iceServer 
+        }));
 
     }
 

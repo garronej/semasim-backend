@@ -2,7 +2,9 @@
 import * as Stripe from "stripe";
 import { UserAuthentication } from "./web/sessionManager";
 import { deploy } from "../deploy";
-import { subscriptionTypes, shopTypes, currencyLib, getShopProducts, shipping as shippingLib } from "../frontend";
+import * as types from "../frontend/types";
+import { currencyLib } from "../frontend/tools";
+import { shippingLib, getShopProducts } from "../frontend/shop";
 import { types as lbTypes } from "../load-balancer";
 import * as assert from "assert";
 import * as loadBalancerLocalApiHandler from "./toLoadBalancer/localApiHandlers";
@@ -15,7 +17,7 @@ let stripe: Stripe;
 
 const planByCurrency: { [currency: string]: { id: string; amount: number; } } = {};
 
-const pricingByCurrency: subscriptionTypes.SubscriptionInfos.Regular["pricingByCurrency"] = {};
+const pricingByCurrency: types.subscription.SubscriptionInfos.Regular["pricingByCurrency"] = {};
 
 const customers: Stripe.customers.ICustomer[] = [];
 
@@ -303,7 +305,7 @@ export async function unsubscribeUser(auth: UserAuthentication): Promise<void> {
 
 
 
-export async function getSubscriptionInfos(auth: UserAuthentication): Promise<subscriptionTypes.SubscriptionInfos> {
+export async function getSubscriptionInfos(auth: UserAuthentication): Promise<types.subscription.SubscriptionInfos> {
 
 
     //TODO: Re-implement
@@ -313,7 +315,7 @@ export async function getSubscriptionInfos(auth: UserAuthentication): Promise<su
         return { customerStatus };
     }
 
-    const out: subscriptionTypes.SubscriptionInfos.Regular = {
+    const out: types.subscription.SubscriptionInfos.Regular = {
         customerStatus,
         "stripePublicApiKey": deploy.getStripeApiKeys().publicApiKey,
         pricingByCurrency
@@ -547,7 +549,7 @@ export async function createCheckoutSessionForSubscription(
 export async function createCheckoutSessionForShop(
     auth: UserAuthentication,
     cartDescription: { productName: string; quantity: number; }[],
-    shippingFormData: shopTypes.ShippingFormData,
+    shippingFormData: types.shop.ShippingFormData,
     currency: string,
     success_url: string,
     cancel_url: string
@@ -563,7 +565,7 @@ export async function createCheckoutSessionForShop(
 
     }
 
-    const cart: shopTypes.Cart = cartDescription.map(
+    const cart: types.shop.Cart = cartDescription.map(
         ({ productName, quantity }) => ({
             "product": getShopProducts().find(({ name }) => name === productName)!,
             quantity
@@ -574,11 +576,11 @@ export async function createCheckoutSessionForShop(
         shippingFormData.addressComponents
             .find(({ types: [type] }) => type === "country")!
             .short_name.toLowerCase(),
-        shopTypes.Cart.getOverallFootprint(cart),
-        shopTypes.Cart.getOverallWeight(cart),
+        types.shop.Cart.getOverallFootprint(cart),
+        types.shop.Cart.getOverallWeight(cart),
     );
 
-    const stripeShipping = shopTypes.ShippingFormData.toStripeShippingInformation(
+    const stripeShipping = types.shop.ShippingFormData.toStripeShippingInformation(
         shippingFormData,
         shipping.carrier
     );
@@ -610,7 +612,7 @@ export async function createCheckoutSessionForShop(
         },
         "line_items": [
             ...cart.map(({ product, quantity }) => ({
-                "amount": shopTypes.Price.getAmountInCurrency(
+                "amount": types.shop.Price.getAmountInCurrency(
                     product.price,
                     currency,
                     currencyLib.convertFromEuro

@@ -5,7 +5,9 @@ import { deploy } from "../deploy";
 import * as path from "path";
 import * as ejs from "ejs";
 import * as fs from "fs";
-import { types as feTypes, availablePages, urlGetParameters } from "../frontend";
+import * as types from "../frontend/types";
+import { availablePages } from "../frontend/pages";
+import { urlGetParameters } from "../frontend/tools";
 import { phoneNumber } from "phone-number";
 import * as logger from "logger";
 import * as watch from "node-watch";
@@ -30,7 +32,7 @@ export const sharingRequest = (() => {
 
     return function (
         simOwnerEmail: string,
-        userSim: feTypes.UserSim.Owned,
+        userSim: types.UserSim.Owned,
         message: string,
         targetUsers: { email: string; isRegistered: boolean; }[]
     ): Promise<void> {

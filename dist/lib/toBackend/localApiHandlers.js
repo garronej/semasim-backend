@@ -13,6 +13,7 @@ const sessionManager = require("../web/sessionManager");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const util = require("util");
 const deploy_1 = require("../../deploy");
+const evt_1 = require("evt");
 /*
 NOTE: None of those methods are allowed to throw as
 it would result in the closing of the inter instance socket.
@@ -141,28 +142,25 @@ exports.handlers = {};
                 "\r\n"
             ].join("\r\n"), "utf8")));
             uaSocket.write(sipRequest);
-            prIsAnswered = Promise.race([
-                uaSocket.evtClose.attachOnce(sipRequest, () => { }).then(() => false),
-                uaSocket.evtResponse.attachOnceExtract(sipResponse => {
-                    try {
-                        return sip.isResponse(sipRequest, sipResponse);
-                    }
-                    catch (_a) {
-                        uaSocket.destroy([
-                            "UA sent a SIP message that made isResponse throw:",
-                            util.inspect(sipResponse, { "depth": 7 })
-                        ].join(""));
-                        return false;
-                    }
-                }, 2500, () => { }).then(() => true, () => false)
-            ]).then(isAnswered => {
-                if (uaSocket.evtClose.postCount === 0) {
-                    uaSocket.evtClose.detach(sipRequest);
-                    if (!isAnswered) {
-                        uaSocket.destroy("Remote didn't sent response to a qualify request");
-                    }
+            const ctxIdAnswered = evt_1.Evt.newCtx();
+            uaSocket.evtClose.attachOnce(ctxIdAnswered, () => ctxIdAnswered.done(false));
+            uaSocket.evtResponse.attachOnceExtract(sipResponse => {
+                try {
+                    return sip.isResponse(sipRequest, sipResponse);
                 }
-                return isAnswered;
+                catch (_a) {
+                    uaSocket.destroy([
+                        "UA sent a SIP message that made isResponse throw:",
+                        util.inspect(sipResponse, { "depth": 7 })
+                    ].join(""));
+                    return false;
+                }
+            }, ctxIdAnswered, () => ctxIdAnswered.done(true));
+            prIsAnswered = ctxIdAnswered
+                .getPrDone(2500)
+                .catch(() => {
+                uaSocket.destroy("Remote didn't sent response to a qualify request");
+                return false;
             });
             pendingQualifyRequests.set(connectionId, prIsAnswered);
             return prIsAnswered;
@@ -218,7 +216,7 @@ exports.handlers = {};
                     if (!dongle) {
                         return;
                     }
-                    return uaRemoteApiCaller.notifyDongleOnLan(dongle, uaSocket);
+                    return uaRemoteApiCaller.notifyDongleOnLan({ dongle, uaSocket });
                 }).catch(() => { });
             }
             return Promise.all(tasks).then(() => undefined);
@@ -227,17 +225,13 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = apiDeclaration.notifyLoggedFromOtherTabProxy.methodName;
+    const { methodName } = apiDeclaration.notifyLoggedFromOtherTabProxy;
     const handler = {
         "handler": ({ uaInstanceId }) => {
             const uaSocket = uaConnections.getByUaInstanceId(uaInstanceId);
-            if (!uaSocket) {
-                return Promise.resolve(undefined);
-            }
-            else {
-                return uaRemoteApiCaller.notifyLoggedFromOtherTab(uaSocket)
-                    .then(() => undefined);
-            }
+            return (!uaSocket ?
+                Promise.resolve() :
+                uaRemoteApiCaller.notifyLoggedFromOtherTab({ uaSocket })).then(() => undefined);
         }
     };
     exports.handlers[methodName] = handler;

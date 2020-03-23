@@ -1,10 +1,9 @@
-import { sanityChecks } from "../../gateway";
+import { api_decl_backendToGateway as apiDeclaration, sanityChecks  } from "../../gateway";
 import * as sip from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import * as dbSemasim from "../dbSemasim";
 import * as pushNotifications from "../pushNotifications";
 import { types as dcTypes } from "chan-dongle-extended-client";
-import { apiDeclaration } from "../../sip_api_declarations/backendToGateway";
 import * as backendConnections from "../toBackend/connections";
 import * as gatewayConnections from "../toGateway/connections";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
@@ -140,7 +139,10 @@ export const handlers: sip.api.Server.Handlers = {};
                         return;
                     }
 
-                    uaRemoteApiCaller.notifyDongleOnLan(dongle, fromSocket.remoteAddress);
+                    uaRemoteApiCaller.notifyDongleOnLan({
+                        dongle, 
+                        "gatewayAddress": fromSocket.remoteAddress
+                    });
 
                 } else {
 
@@ -168,16 +170,9 @@ export const handlers: sip.api.Server.Handlers = {};
 
                     }
 
-                    //TODO: add sim connectivity
-                    pushNotifications.sendSafe(
-                        dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"),
-                        (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
-                            { "type": "RELOAD CONFIG" } :
-                            { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi }
-                    );
-
-                    uaRemoteApiCaller.notifySimOnline(
-                        {
+                    uaRemoteApiCaller.notifyUserSimChange({
+                        "params": {
+                            "type": "IS NOW REACHABLE",
                             imsi,
                             hasInternalSimStorageChanged,
                             "password": (() => {
@@ -187,13 +182,14 @@ export const handlers: sip.api.Server.Handlers = {};
                                     case "PASSWORD REPLACED": return replacementPassword;
                                 };
                             })(),
-                            "simDongle": simDongle,
+                            simDongle,
                             "gatewayLocation": dbResp.gatewayLocation,
                             isGsmConnectivityOk,
                             cellSignalStrength
+
                         },
-                        dbResp.uasRegisteredToSim
-                    );
+                        "uas": dbResp.uasOfUsersThatHaveAccessToTheSim
+                    });
 
 
                 }
@@ -212,7 +208,7 @@ export const handlers: sip.api.Server.Handlers = {};
                 dbResp.passwordStatus === "PASSWORD REPLACED" ?
                     ({ 
                         "status": "REPLACE PASSWORD", 
-                        "allowedUas": dbResp.uasRegisteredToSim
+                        "allowedUas": dbResp.uasOfUsersThatHaveAccessToTheSim
                             .map(({ instance, userEmail }) => ({ instance, userEmail })) 
                     }) :
                     ({ "status": "OK" })
@@ -248,10 +244,14 @@ export const handlers: sip.api.Server.Handlers = {};
                 return undefined;
             }
 
-            uaRemoteApiCaller.notifyGsmConnectivityChange(
-                { imsi, isGsmConnectivityOk }, 
-                dbResp.uasRegisteredToSim 
-            );
+            uaRemoteApiCaller.notifyUserSimChange({
+                "params": { 
+                    "type": "CELLULAR CONNECTIVITY CHANGE", 
+                    imsi, 
+                    isGsmConnectivityOk 
+                }, 
+                "uas": dbResp.uasOfUsersThatHaveAccessToSim 
+            });
 
             return undefined;
 
@@ -285,10 +285,14 @@ export const handlers: sip.api.Server.Handlers = {};
                 return undefined;
             }
 
-            uaRemoteApiCaller.notifyCellSignalStrengthChange(
-                { imsi, cellSignalStrength }, 
-                dbResp.uasRegisteredToSim 
-            );
+            uaRemoteApiCaller.notifyUserSimChange({
+                "params": { 
+                    "type": "CELLULAR SIGNAL STRENGTH CHANGE", 
+                    imsi, 
+                    cellSignalStrength
+                }, 
+                "uas": dbResp.uasOfUsersThatHaveAccessToSim 
+            });
 
             return undefined;
 
@@ -301,7 +305,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.notifyLockedDongle.methodName;
+    const { methodName }= apiDeclaration.notifyLockedDongle;
     type Params = apiDeclaration.notifyLockedDongle.Params;
     type Response = apiDeclaration.notifyLockedDongle.Response;
 
@@ -311,7 +315,10 @@ export const handlers: sip.api.Server.Handlers = {};
 
             gatewayConnections.addImei(fromSocket, dongleLocked.imei);
 
-            uaRemoteApiCaller.notifyDongleOnLan(dongleLocked, fromSocket.remoteAddress);
+            uaRemoteApiCaller.notifyDongleOnLan({
+                "dongle": dongleLocked, 
+                "gatewayAddress": fromSocket.remoteAddress
+            });
 
             return Promise.resolve(undefined);
 
@@ -324,7 +331,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.notifyDongleOffline.methodName;
+    const { methodName }= apiDeclaration.notifyDongleOffline;
     type Params = apiDeclaration.notifyDongleOffline.Params;
     type Response = apiDeclaration.notifyDongleOffline.Response;
 
@@ -384,7 +391,7 @@ export const handlers: sip.api.Server.Handlers = {};
         ),
         "handler": async ({ ongoingCallId, from, imsi, number, uasInCall, isTerminated }) => {
 
-            const uasRegisteredToSim = await dbSemasim.createUpdateOrDeleteOngoingCall(
+            const uasOfUsersThatHaveAccessToTheSim = await dbSemasim.createUpdateOrDeleteOngoingCall(
                 ongoingCallId,
                 imsi,
                 number,
@@ -393,28 +400,30 @@ export const handlers: sip.api.Server.Handlers = {};
                 uasInCall
             );
 
-            for (const ua of uasRegisteredToSim) {
-
-                uaRemoteApiCaller.notifyOngoingCall(
-                    isTerminated ? ({
+            uasOfUsersThatHaveAccessToTheSim.forEach(ua =>
+                uaRemoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "ONGOING CALL",
                         imsi,
-                        "isTerminated": true,
-                        ongoingCallId
-                    }) : ({
-                        imsi,
-                        "isTerminated": false,
-                        "ongoingCall": {
-                            ongoingCallId,
-                            from,
-                            number,
-                            "isUserInCall": !!uasInCall.find(({ userEmail }) => userEmail === ua.userEmail),
-                            "otherUserInCallEmails": uasInCall.map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
-                        }
-                    }),
-                    [ ua ]
-                );
-
-            }
+                        ...(isTerminated ? ({
+                            "isTerminated": true,
+                            ongoingCallId
+                        }) : ({
+                            "isTerminated": false,
+                            "ongoingCall": {
+                                ongoingCallId,
+                                from,
+                                number,
+                                "isUserInCall": !!uasInCall
+                                    .find(({ userEmail }) => userEmail === ua.userEmail),
+                                "otherUserInCallEmails": uasInCall
+                                    .map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
+                            }
+                        }))
+                    },
+                    "uas": [ua]
+                })
+            );
 
             return undefined;
 

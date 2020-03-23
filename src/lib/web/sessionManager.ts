@@ -4,7 +4,7 @@ import * as express_mysql_session from "express-mysql-session";
 //import * as http from "http";
 import * as express from "express";
 import { deploy } from "../../deploy";
-import { AuthenticatedSessionDescriptorSharedData, connectSidHttpHeaderName } from "../../frontend";
+import * as types from "../../frontend/types";
 const MySQLStore = express_mysql_session(express_session_custom);
 import * as logger from "logger";
 //import * as cookieLib from "cookie";
@@ -72,7 +72,7 @@ export function launch(cookieSecret: string) {
 
         const connect_sid = (() => {
 
-            const out = req.headers[connectSidHttpHeaderName];
+            const out = req.headers[types.connectSidHttpHeaderName];
 
             if (typeof out !== "string") {
                 return undefined;
@@ -147,7 +147,7 @@ export function isAuthenticated(session: Express.Session): session is Authentica
 /** Properties listed in shared should be accessible from client side */
 export type AuthenticatedSessionDescriptor = {
     user: number;
-    shared: AuthenticatedSessionDescriptorSharedData;
+    shared: types.AuthenticatedSessionDescriptorSharedData;
     towardUserEncryptKeyStr: string;
 };
 
@@ -161,7 +161,7 @@ export type UserAuthentication = {
 
 export type AuthenticatedSessionDescriptorWithoutConnectSid =
     Omit<AuthenticatedSessionDescriptor, "shared"> &
-    { shared: Omit<AuthenticatedSessionDescriptorSharedData, "connect_sid"> };
+    { shared: Omit<types.AuthenticatedSessionDescriptorSharedData, "connect_sid"> };
 
 /**
  * 

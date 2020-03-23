@@ -6,7 +6,6 @@ import * as logger from "logger";
 import * as tls from "tls";
 import * as router from "./router";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
-import * as pushNotifications from "../pushNotifications";
 import { deploy } from "../../deploy";
 
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
@@ -101,27 +100,21 @@ export function listen(
 
             const imsis = Array.from(socket.misc[__set_of_imsi__] as Set<string>);
 
-            for (const imsi of imsis) {
-
-                unbindFromImsi(imsi, socket);
-
-            }
+            imsis.forEach(imsi => unbindFromImsi(imsi, socket));
 
             dbSemasim.setSimsOffline(imsis)
-                .then(uasByImsi => {
-
-                    for (const imsi in uasByImsi) {
-
-                        uaRemoteApiCaller.notifySimOffline(imsi, uasByImsi[imsi]);
-
-                        pushNotifications.sendSafe(
-                            uasByImsi[imsi],
-                            { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi }
-                        );
-
-                    }
-
-                })
+                .then(uasByImsi =>
+                    Object.keys(uasByImsi)
+                        .forEach(imsi =>
+                            uaRemoteApiCaller.notifyUserSimChange({
+                                "params": {
+                                    "type": "IS NOW UNREACHABLE",
+                                    imsi
+                                },
+                                "uas": uasByImsi[imsi]
+                            })
+                        )
+                )
                 ;
 
 
@@ -180,16 +173,15 @@ export function unbindFromImsi(
     if (socket.evtClose.postCount === 0) {
 
         dbSemasim.setSimsOffline([imsi])
-            .then(({ [imsi]: uas }) => {
-
-                uaRemoteApiCaller.notifySimOffline(imsi, uas);
-
-                pushNotifications.sendSafe(
-                    uas,
-                    { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi }
-                );
-
-            })
+            .then(({ [imsi]: uas }) =>
+                uaRemoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "IS NOW UNREACHABLE",
+                        imsi
+                    },
+                    uas
+                })
+            )
             ;
 
         backendRemoteApiCaller.notifyRoute({

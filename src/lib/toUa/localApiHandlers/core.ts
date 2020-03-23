@@ -1,10 +1,9 @@
 
-import { apiDeclaration } from "../../../sip_api_declarations/backendToUa";
+import { api_decl_backendToUa as apiDeclaration } from "../../../frontend/sip_api";
+import * as feTypes from "../../../frontend/types";
 import * as sip from "ts-sip";
 import * as dbSemasim from "../../dbSemasim";
-import { types as feTypes } from "../../../frontend";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
-import * as pushNotifications from "../../pushNotifications";
 import * as gatewayRemoteApiCaller from "../../toGateway/remoteApiCaller";
 import * as remoteApiCaller from "../remoteApiCaller";
 import * as emailSender from "../../emailSender";
@@ -12,16 +11,21 @@ import { types as gwTypes, isValidEmail } from "../../../gateway";
 import * as stripe from "../../stripe";
 import { buildNoThrowProxyFunction } from "../../../tools/noThrow";
 import { getAuthenticatedSession } from "../socketSession";
+import { assert, reducers as _ } from "../../../frontend/tools";
+
+
+const getUserUas = buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
+const getUserSims = buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
+
 
 export const handlers: sip.api.Server.Handlers = {};
 
 
-
 {
 
-    const methodName = apiDeclaration.getUsableUserSims.methodName;
-    type Params = apiDeclaration.getUsableUserSims.Params;
-    type Response = apiDeclaration.getUsableUserSims.Response;
+    const { methodName } = apiDeclaration.getUserSims;
+    type Params = apiDeclaration.getUserSims.Params;
+    type Response = apiDeclaration.getUserSims.Response;
 
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
@@ -32,18 +36,14 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const session = getAuthenticatedSession(socket);
 
-            //TODO: Create a SQL request that pull only usable sims
-            const userSims = await dbSemasim.getUserSims(session)
-                .then(userSims => userSims.filter(feTypes.UserSim.Usable.match));
+            const userSims = await dbSemasim.getUserSims(session);
 
             if (!includeContacts) {
 
-                for (const userSim of userSims) {
-
+                userSims.forEach(userSim => {
                     userSim.sim.storage.contacts = [];
                     userSim.phonebook = [];
-
-                }
+                });
 
             }
 
@@ -58,7 +58,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.unlockSim.methodName;
+    const { methodName } = apiDeclaration.unlockSim;
     type Params = apiDeclaration.unlockSim.Params;
     type Response = apiDeclaration.unlockSim.Response;
 
@@ -81,7 +81,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.registerSim.methodName;
+    const { methodName } = apiDeclaration.registerSim;
     type Params = apiDeclaration.registerSim.Params;
     type Response = apiDeclaration.registerSim.Response;
 
@@ -96,22 +96,16 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const session = getAuthenticatedSession(socket);
 
-            const dongleSipPasswordAndTowardSimEncryptKeyStr= 
+            const dongleSipPasswordAndTowardSimEncryptKeyStr =
                 await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi);
 
-            if( !dongleSipPasswordAndTowardSimEncryptKeyStr ){
-                throw new Error("Dongle not found");
-            }
+            assert(dongleSipPasswordAndTowardSimEncryptKeyStr, "Dongle not found");
 
             const {
                 dongle, sipPassword, towardSimEncryptKeyStr
             } = dongleSipPasswordAndTowardSimEncryptKeyStr;
 
-            if (dongle.imei !== imei) {
-
-                throw new Error("Attack prevented");
-
-            }
+            assert(dongle.imei === imei, "Attack prevented");
 
             //NOTE: The user may have changer ip since he received the request
             //in this case the query will crash... not a big deal.
@@ -127,17 +121,26 @@ export const handlers: sip.api.Server.Handlers = {};
                 dongle.cellSignalStrength
             );
 
-            //TODO: this should be an api method
-            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
+            getUserSims(session).then(userSims => {
 
-            //NOTE: Here we break the rule of gathering all db request
-            //but as sim registration is not a so common operation it's not
-            //a big deal.
-            return dbSemasim.getUserSims(session)
-                .then(userSims => userSims
-                    .filter(feTypes.UserSim.Owned.match)
-                    .find(({ sim }) => sim.imsi === imsi)!
-                );
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+
+                assert(!!userSim && feTypes.UserSim.Owned.match(userSim));
+
+                remoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "NEW",
+                        userSim
+                    },
+                    "uas": userUas
+                });
+
+            });
+
+            //TODO: this should be an api method
+            //pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
+
+            return undefined;
 
         }
     };
@@ -148,7 +151,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.unregisterSim.methodName;
+    const { methodName } = apiDeclaration.unregisterSim;
     type Params = apiDeclaration.unregisterSim.Params;
     type Response = apiDeclaration.unregisterSim.Response;
 
@@ -166,35 +169,38 @@ export const handlers: sip.api.Server.Handlers = {};
                 imsi
             );
 
-            //TODO: We should have a different method for the ua that lost perm and the ua that have got the sim unregistered by the user.
-            remoteApiCaller.notifySimPermissionLost(
-                imsi,
-                affectedUas.filter(
-                    ({ instance }) => session.shared.uaInstanceId !== instance
-                )
-            );
+            const [userUas, otherUsersUas] =
+            affectedUas
+            .reduce(..._.partition<gwTypes.Ua>(({ userEmail }) => userEmail === session.shared.email))
+            ;
 
-            if (owner.user !== session.user) {
 
-                const getUserUas = buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "DELETE",
+                    "cause": "USER UNREGISTER SIM",
+                    imsi
+                },
+                "uas": userUas
+            });
 
-                const { ownership: { sharedWith: { confirmed } } } = (await dbSemasim.getUserSims(owner))
-                    .find(({ sim }) => sim.imsi === imsi)! as feTypes.UserSim.Owned;
+            remoteApiCaller.notifyUserSimChange({
+                "params":
+                {
+                    imsi,
+                    ...session.user === owner.user ? ({
+                        "type": "DELETE",
+                        "cause": "PERMISSION LOSS",
+                    }) : ({
+                        "type": "SHARED USER SET CHANGE",
+                        "action": "REMOVE",
+                        "targetSet": "CONFIRMED USERS",
+                        "email": session.shared.email
+                    })
+                },
+                "uas": otherUsersUas
+            });
 
-                Promise.all(
-                    [owner.shared.email, ...confirmed].map(email => getUserUas(email))
-                )
-                    .then(arrOfUas => arrOfUas.reduce((prev, curr) => [...prev, ...curr], [] as gwTypes.Ua[]))
-                    .then(uas =>
-                        remoteApiCaller.notifyOtherSimUserUnregisteredSim(
-                            { imsi, "email": session.shared.email },
-                            uas
-                        )
-                    );
-
-            }
-
-            pushNotifications.sendSafe(affectedUas, { "type": "RELOAD CONFIG" });
 
             gatewayRemoteApiCaller.reNotifySimOnline(imsi);
 
@@ -209,7 +215,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.rebootDongle.methodName;
+    const { methodName } = apiDeclaration.rebootDongle;
     type Params = apiDeclaration.rebootDongle.Params;
     type Response = apiDeclaration.rebootDongle.Response;
 
@@ -228,15 +234,11 @@ export const handlers: sip.api.Server.Handlers = {};
                 .then(userSims => !!userSims.find(({ sim }) => sim.imsi === imsi))
                 ;
 
-            if (!isAllowedTo) {
-                throw new Error("user not allowed to reboot this dongle");
-            }
+            assert(isAllowedTo, "user not allowed to reboot this dongle");
 
             const { isSuccess } = await gatewayRemoteApiCaller.rebootDongle(imsi);
 
-            if (!isSuccess) {
-                throw new Error("Reboot dongle error");
-            }
+            assert(isSuccess, "Reboot dongle error");
 
             return undefined;
 
@@ -253,53 +255,110 @@ export const handlers: sip.api.Server.Handlers = {};
     type Params = apiDeclaration.shareSim.Params;
     type Response = apiDeclaration.shareSim.Response;
 
+
+    /** Assert user email not in the list and list not empty */
     const handler: sip.api.Server.Handler<Params, Response> = {
         "sanityCheck": params => (
             params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
-            !!params.emails.length &&
-            !params.emails.find(email => !isValidEmail(email)) &&
+            params.emails.reduce(..._.and<string>([
+                arr => arr
+                    .reduce(..._.every<string>(e => isValidEmail(e, "MUST BE LOWER CASE"))),
+                arr => arr.length !== 0,
+                arr => arr
+                    .reduce(..._.removeDuplicates<string>())
+                    .reduce(..._.sameAs(arr))
+            ])) &&
             typeof params.message === "string"
         ),
         "handler": async ({ imsi, emails, message }, socket) => {
 
             const session = getAuthenticatedSession(socket);
 
+            assert(!emails.includes(session.shared.email));
+
             const affectedUsers = await dbSemasim.shareSim(
                 session, imsi, emails, message
             );
 
-            const getUserSims = buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
-            const getUserUas = buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
+            getUserSims(session).then(async userSims => {
+
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+
+                assert(!!userSim && feTypes.UserSim.Owned.match(userSim));
+
+                emailSender.sharingRequestSafe(
+                    session.shared.email,
+                    userSim,
+                    message,
+                    [
+                        ...affectedUsers.notRegistered
+                            .map(email => ({ email, "isRegistered": false })),
+                        ...affectedUsers.registered
+                            .map(({ shared: { email } }) => ({ email, "isRegistered": true }))
+                    ]
+                );
+
+                const newNotConfirmedEmails = [
+                    ...affectedUsers.notRegistered,
+                    ...affectedUsers.registered.map(({ shared: { email } }) => email)
+                ];
+
+                const { sharedWith } = userSim.ownership;
+
+                const uas = await Promise.all(
+                    [
+                        session.shared.email,
+                        ...[
+                            ...sharedWith.confirmed,
+                            ...sharedWith.notConfirmed,
+                        ].filter(email => !newNotConfirmedEmails.includes(email))
+                    ].map(email => getUserUas(email))
+                ).then(arr => arr
+                    .reduce<gwTypes.Ua[]>((prev, curr) => [...curr, ...prev], [])
+                );
 
 
-            getUserSims(session).then(
-                userSims => userSims
-                    .filter(feTypes.UserSim.Owned.match)
-                    .find(({ sim }) => sim.imsi === imsi)!
-            ).then(userSim => emailSender.sharingRequestSafe(
-                session.shared.email,
-                userSim,
-                message,
-                [
-                    ...affectedUsers.notRegistered.map(email => ({ email, "isRegistered": false })),
-                    ...affectedUsers.registered.map(({ shared: { email } }) => ({ email, "isRegistered": true }))
-                ]
-            ));
+                newNotConfirmedEmails.forEach(email =>
+                    remoteApiCaller.notifyUserSimChange({
+                        "params": {
+                            "type": "SHARED USER SET CHANGE",
+                            imsi,
+                            "action": "ADD",
+                            "targetSet": "NOT CONFIRMED USERS",
+                            "email": email
+                        },
+                        uas
+                    })
+                );
 
-            for (const auth of affectedUsers.registered) {
 
-                Promise.all([
-                    getUserSims(auth)
-                        .then(userSims => userSims
-                            .filter(feTypes.UserSim.Shared.NotConfirmed.match)
-                            .find(({ sim }) => sim.imsi === imsi)!
-                        ),
-                    getUserUas(auth.user)
-                ]).then(([userSim, uas]) => remoteApiCaller.notifySimSharingRequest(userSim, uas));
 
-            }
+            });
+
+            affectedUsers.registered.forEach(auth => Promise.all([
+                getUserSims(auth),
+                getUserUas(auth.user)
+            ]).then(([userSims, uas]) => {
+
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+
+                assert(
+                    !!userSim &&
+                    feTypes.UserSim.Shared.NotConfirmed.match(userSim)
+                );
+
+                remoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "NEW",
+                        userSim
+                    },
+                    uas
+                });
+
+
+            }));
 
             return undefined;
 
@@ -321,35 +380,95 @@ export const handlers: sip.api.Server.Handlers = {};
             params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
-            !!params.emails.length &&
-            !params.emails.find(email => !isValidEmail(email))
+            params.emails.reduce(..._.and<string>([
+                arr => arr
+                    .reduce(..._.every<string>(e => isValidEmail(e, "MUST BE LOWER CASE"))),
+                arr => arr.length !== 0,
+                arr => arr
+                    .reduce(..._.removeDuplicates<string>())
+                    .reduce(..._.sameAs(arr))
+            ]))
         ),
         "handler": async ({ imsi, emails }, socket) => {
 
             const session = getAuthenticatedSession(socket);
 
-            const noLongerRegisteredUas = await dbSemasim.stopSharingSim(
+            assert(!emails.includes(session.shared.email));
+
+            const sharedWithBeforeConfirmed = await (async () => {
+
+                const userSim = (await dbSemasim.getUserSims(session))
+                    .find(({ sim }) => sim.imsi === imsi)
+                    ;
+
+                assert(
+                    !!userSim &&
+                    feTypes.UserSim.Owned.match(userSim)
+                );
+
+                return userSim.ownership.sharedWith.confirmed;
+
+            })();
+
+            const uasOfUsersThatNoLongerHaveAccessToTheSim = await dbSemasim.stopSharingSim(
                 session,
                 imsi,
                 emails
             );
 
-            if (noLongerRegisteredUas.length !== 0) {
+            if (uasOfUsersThatNoLongerHaveAccessToTheSim.length !== 0) {
 
+                //NOTE: Will cause the sip password to be renewed and 
+                //notified to all users that still own the sim.
                 gatewayRemoteApiCaller.reNotifySimOnline(imsi);
 
             }
 
-            remoteApiCaller.notifySimPermissionLost(
-                imsi,
-                [
-                    ...noLongerRegisteredUas,
-                    ...await dbSemasim.getUserUas(session.user)
-                ]
-            );
+            getUserSims(session).then(async userSims => {
 
-            //TODO: Other ua should be notified that no longer sharing.
-            pushNotifications.sendSafe(noLongerRegisteredUas, { "type": "RELOAD CONFIG" });
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+
+                assert(
+                    !!userSim &&
+                    feTypes.UserSim.Owned.match(userSim)
+                );
+
+                const uas = await Promise.all(
+                    [
+                        session.shared.email,
+                        ...userSim.ownership.sharedWith.confirmed,
+                        ...userSim.ownership.sharedWith.notConfirmed
+                    ].map(email => getUserUas(email))
+                ).then(arr => arr
+                    .reduce<gwTypes.Ua[]>((prev, curr) => [...curr, ...prev], [])
+                );
+
+                uasOfUsersThatNoLongerHaveAccessToTheSim
+                    .map(({ userEmail }) => userEmail)
+                    .reduce(..._.removeDuplicates<string>())
+                    .forEach(email => remoteApiCaller.notifyUserSimChange({
+                        "params": {
+                            "type": "SHARED USER SET CHANGE",
+                            imsi,
+                            "action": "REMOVE",
+                            "targetSet": sharedWithBeforeConfirmed.includes(email) ?
+                                "CONFIRMED USERS" : "NOT CONFIRMED USERS",
+                            email
+                        },
+                        uas
+                    }))
+                    ;
+
+            });
+
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "DELETE",
+                    "cause": "PERMISSION LOSS",
+                    imsi
+                },
+                "uas": uasOfUsersThatNoLongerHaveAccessToTheSim
+            });
 
             return undefined;
 
@@ -363,7 +482,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.changeSimFriendlyName.methodName;
+    const { methodName } = apiDeclaration.changeSimFriendlyName;
     type Params = apiDeclaration.changeSimFriendlyName.Params;
     type Response = apiDeclaration.changeSimFriendlyName.Response;
 
@@ -377,13 +496,21 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const session = getAuthenticatedSession(socket);
 
-            const userUas = await dbSemasim.setSimFriendlyName(
+            const { uasOfUsersThatHaveAccessToTheSim } = await dbSemasim.setSimFriendlyName(
                 session,
                 imsi,
                 friendlyName
             );
 
-            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "FRIENDLY NAME CHANGE",
+                    imsi,
+                    friendlyName
+                },
+                "uas": uasOfUsersThatHaveAccessToTheSim
+                    .filter(({ userEmail }) => userEmail === session.shared.email)
+            });
 
             return undefined;
 
@@ -410,68 +537,37 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const session = getAuthenticatedSession(socket);
 
-            const userUas = await dbSemasim.setSimFriendlyName(
+            const { uasOfUsersThatHaveAccessToTheSim } = await dbSemasim.setSimFriendlyName(
                 session,
                 imsi,
                 friendlyName
             );
 
 
-            //TODO: Send notification to other user ua that there is a new sim
-            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
-
-            const {
-                ownership: { ownerEmail, otherUserEmails },
-                password
-            } = await dbSemasim.getUserSims(session)
-                .then(userSims => userSims
-                    .filter(feTypes.UserSim.Shared.Confirmed.match)
-                    .find(({ sim }) => sim.imsi === imsi)!
-                );
+            const [userUas, otherUsersUas] = uasOfUsersThatHaveAccessToTheSim
+                .reduce(..._.partition<gwTypes.Ua>(({ userEmail }) => userEmail === session.shared.email));
 
 
-            const getUserUas = buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "SHARED USER SET CHANGE",
+                    imsi,
+                    "action": "MOVE TO CONFIRMED",
+                    "targetSet": "CONFIRMED USERS",
+                    "email": session.shared.email
+                },
+                "uas": otherUsersUas
+            });
 
-            Promise.all(
-                [ownerEmail, ...otherUserEmails].map(email => getUserUas(email))
-            )
-                .then(arrOfUas => arrOfUas.reduce((prev, curr) => [...prev, ...curr], [] as gwTypes.Ua[]))
-                .then(uas => remoteApiCaller.notifySharingRequestResponse(
-                    { imsi, "email": session.shared.email, "isAccepted": true },
-                    uas
-                ));
 
-
-            return { password };
-
-        }
-    };
-
-    handlers[methodName] = handler;
-
-}
-
-{
-
-    const methodName = apiDeclaration.rejectSharingRequest.methodName;
-    type Params = apiDeclaration.rejectSharingRequest.Params;
-    type Response = apiDeclaration.rejectSharingRequest.Response;
-
-    const handler: sip.api.Server.Handler<Params, Response> = {
-        "sanityCheck": params => (
-            params instanceof Object &&
-            dcSanityChecks.imsi(params.imsi)
-        ),
-        "handler": async ({ imsi }, socket) => {
-
-            const session = getAuthenticatedSession(socket);
-
-            const { owner } = await dbSemasim.unregisterSim(session, imsi);
-
-            remoteApiCaller.notifySharingRequestResponse(
-                { imsi, "email": session.shared.email, "isAccepted": false },
-                await dbSemasim.getUserUas(owner.user)
-            );
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "IS NOW CONFIRMED",
+                    imsi,
+                    friendlyName
+                },
+                "uas": userUas
+            });
 
             return undefined;
 
@@ -484,7 +580,58 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.createContact.methodName;
+    const { methodName } = apiDeclaration.rejectSharingRequest;
+    type Params = apiDeclaration.rejectSharingRequest.Params;
+    type Response = apiDeclaration.rejectSharingRequest.Response;
+
+    const handler: sip.api.Server.Handler<Params, Response> = {
+        "sanityCheck": params => (
+            params instanceof Object &&
+            dcSanityChecks.imsi(params.imsi)
+        ),
+        "handler": async ({ imsi }, socket) => {
+
+            const session = getAuthenticatedSession(socket);
+
+            const { affectedUas } = await dbSemasim.unregisterSim(session, imsi);
+
+            const [userUas, otherUsersUas] = affectedUas
+                .reduce(..._.partition<gwTypes.Ua>(({ userEmail }) => userEmail === session.shared.email))
+                ;
+
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "SHARED USER SET CHANGE",
+                    imsi,
+                    "action": "REMOVE",
+                    "targetSet": "NOT CONFIRMED USERS",
+                    "email": session.shared.email
+                },
+                "uas": otherUsersUas
+            });
+
+
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "DELETE",
+                    "cause": "REJECT SHARING REQUEST",
+                    imsi
+                },
+                "uas": userUas
+            });
+
+            return undefined;
+
+        }
+    };
+
+    handlers[methodName] = handler;
+
+}
+
+{
+
+    const { methodName } = apiDeclaration.createContact;
     type Params = apiDeclaration.createContact.Params;
     type Response = apiDeclaration.createContact.Response;
 
@@ -493,9 +640,9 @@ export const handlers: sip.api.Server.Handlers = {};
             params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.name === "string" &&
-            typeof params.number === "string"
+            typeof params.number_raw === "string"
         ),
-        "handler": async ({ imsi, name, number }, socket) => {
+        "handler": async ({ imsi, name, number_raw }, socket) => {
 
             const session = getAuthenticatedSession(socket);
 
@@ -512,56 +659,50 @@ export const handlers: sip.api.Server.Handlers = {};
 
             }
 
-            if (!!userSim.phonebook.find(({ number_raw }) => number_raw === number)) {
+            if (!!userSim.phonebook.find(contact => contact.number_raw === number_raw)) {
 
                 throw new Error("Already a contact with this number");
 
             }
 
-            const storageInfos = await Promise.resolve((() => {
+            const storageInfos = await (
+                userSim.sim.storage.infos.storageLeft === 0 ?
+                    undefined
+                    :
+                    gatewayRemoteApiCaller.createContact(
+                        imsi, name, number_raw
+                    ).then(resp => {
 
-                if (userSim.sim.storage.infos.storageLeft !== 0) {
+                        if (resp === undefined) {
+                            return undefined;
+                        }
 
-                    return gatewayRemoteApiCaller.createContact(
-                        imsi, name, number
-                    );
+                        const { new_storage_digest, ...rest } = resp;
 
-                }
+                        return { ...rest, "new_digest": new_storage_digest };
 
-                return undefined;
-
-            })());
-
-
-            //TODO: this function should return number local format.
-            const uasRegisteredToSim = await dbSemasim.createOrUpdateSimContact(
-                imsi, name, number, storageInfos
+                    })
             );
 
-            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
+            const uas = await dbSemasim.createOrUpdateSimContact(
+                imsi, name, number_raw, storageInfos
+            );
 
-            remoteApiCaller.notifyContactCreatedOrUpdated(
-                {
+            //pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
+
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CONTACT CREATED OR UPDATED",
                     imsi,
                     name,
-                    "number_raw": number,
-                    "storage": storageInfos !== undefined ? ({
-                        "mem_index": storageInfos.mem_index,
-                        "name_as_stored": storageInfos.name_as_stored,
-                        "new_digest": storageInfos.new_storage_digest
-                    }) : undefined
+                    number_raw,
+                    "storage": storageInfos ?? undefined
                 },
-                uasRegisteredToSim.filter(
-                    ({ instance }) => session.shared.uaInstanceId !== instance
-                )
-            );
+                uas
+            });
 
-            //TODO: see wtf with number local format here why the hell there isn't new_digest.
-            return storageInfos !== undefined ? ({
-                "mem_index": storageInfos.mem_index,
-                "name_as_stored_in_sim": storageInfos.name_as_stored,
-                "new_digest": storageInfos.new_storage_digest
-            }) : undefined;
+            return undefined;
+
 
         }
     };
@@ -631,19 +772,14 @@ export const handlers: sip.api.Server.Handlers = {};
 
                 //No need to update contact, name unchanged
 
-                return contact.mem_index !== undefined ?
-                    ({
-                        "name_as_stored_in_sim": userSim.sim.storage.contacts
-                            .find(({ index }) => index === contact!.mem_index)!.name,
-                        "new_digest": userSim.sim.storage.digest
-                    }) : undefined;
+                return undefined;
 
             }
 
             let storageInfos: {
                 mem_index: number;
                 name_as_stored: string;
-                new_storage_digest: string;
+                new_digest: string;
             } | undefined;
 
             if (contact.mem_index !== undefined) {
@@ -652,21 +788,16 @@ export const handlers: sip.api.Server.Handlers = {};
                     imsi, contact.mem_index, newName
                 );
 
-                if (resp) {
-
-                    storageInfos = {
-                        "mem_index": contact.mem_index,
-                        "name_as_stored": resp.new_name_as_stored,
-                        "new_storage_digest": resp.new_storage_digest
-                    };
-
-                } else {
-
+                if (!resp) {
                     //TODO: the contact should maybe be updated anyway
                     throw new Error("update contact failed on the gateway");
-
-
                 }
+
+                storageInfos = {
+                    "mem_index": contact.mem_index,
+                    "name_as_stored": resp.new_name_as_stored,
+                    "new_digest": resp.new_storage_digest
+                };
 
             } else {
 
@@ -674,35 +805,22 @@ export const handlers: sip.api.Server.Handlers = {};
 
             }
 
-            const uasRegisteredToSim =
-                await dbSemasim.createOrUpdateSimContact(
-                    imsi, newName, contact.number_raw, storageInfos
-                );
+            const uas = await dbSemasim.createOrUpdateSimContact(
+                imsi, newName, contact.number_raw, storageInfos
+            );
 
-            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
-
-            remoteApiCaller.notifyContactCreatedOrUpdated(
-                {
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CONTACT CREATED OR UPDATED",
                     imsi,
                     "name": newName,
                     "number_raw": contact.number_raw,
-                    "storage": storageInfos !== undefined ? ({
-                        "mem_index": storageInfos.mem_index,
-                        "name_as_stored": storageInfos.name_as_stored,
-                        "new_digest": storageInfos.new_storage_digest
-                    }) : undefined
+                    "storage": storageInfos ?? undefined
                 },
-                uasRegisteredToSim.filter(
-                    ({ instance }) => session.shared.uaInstanceId !== instance
-                )
-            );
+                uas
+            });
 
-            return storageInfos !== undefined ?
-                ({
-                    "name_as_stored_in_sim": storageInfos.name_as_stored,
-                    "new_digest": storageInfos.new_storage_digest
-                }) : undefined;
-
+            return undefined;
 
         }
     };
@@ -713,7 +831,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.deleteContact.methodName;
+    const { methodName } = apiDeclaration.deleteContact;
     type Params = apiDeclaration.deleteContact.Params;
     type Response = apiDeclaration.deleteContact.Response;
 
@@ -808,22 +926,19 @@ export const handlers: sip.api.Server.Handlers = {};
 
             }
 
-            const uasRegisteredToSim = await prQuery;
+            const uas = await prQuery;
 
-            remoteApiCaller.notifyContactDeleted(
-                {
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CONTACT DELETED",
                     imsi,
                     "number_raw": contact.number_raw,
                     storage
                 },
-                uasRegisteredToSim.filter(
-                    ({ instance }) => session.shared.uaInstanceId !== instance
-                )
-            );
+                "uas": uas
+            });
 
-            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
-
-            return { "new_digest": storage !== undefined ? storage.new_digest : undefined };
+            return undefined;
 
         }
     };
@@ -834,7 +949,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 {
 
-    const methodName = apiDeclaration.shouldAppendPromotionalMessage.methodName;
+    const { methodName } = apiDeclaration.shouldAppendPromotionalMessage;
     type Params = apiDeclaration.shouldAppendPromotionalMessage.Params;
     type Response = apiDeclaration.shouldAppendPromotionalMessage.Response;
 

@@ -1,5 +1,5 @@
 
-import { apiDeclaration } from "../../../sip_api_declarations/backendToUa";
+import { api_decl_backendToUa as apiDeclaration} from "../../../frontend/sip_api";
 import * as sip from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import { getAuthenticatedSession } from "../socketSession";
@@ -36,12 +36,12 @@ function getSessionInfos(socket: sip.Socket | FakeSocket): SessionInfos {
 export function getHandlers(
     dbWebphoneData: ReturnType<typeof import("../../dbWebphoneData/impl").getApi>,
     dbSemasim: { getUserUas: (typeof import("../../dbSemasim"))["getUserUas"]; },
-    uaRemoteApiCaller: { wd_notifyActionFromOtherUa: (typeof import("../remoteApiCaller"))["wd_notifyActionFromOtherUa"] },
+    uaRemoteApiCaller: Pick<typeof import("../remoteApiCaller"), "wd_notifyActionFromOtherUa">,
     debug_resolveOnlyOnceOtherUaHaveBeenNotified = false
 ): sip.api.Server.Handlers {
 
     const makeDbRequestAndNotifyOtherUas = async (
-        methodNameAndParams: Parameters<(typeof uaRemoteApiCaller)["wd_notifyActionFromOtherUa"]>[0],
+        methodNameAndParams: Parameters<(typeof uaRemoteApiCaller)["wd_notifyActionFromOtherUa"]>[0]["methodNameAndParams"],
         socket: sip.Socket,
         dbRequest: (sessionInfos: SessionInfos) => Promise<{ isUnchanged: boolean; }>
     ): Promise<undefined> => {
@@ -56,10 +56,10 @@ export function getHandlers(
 
         const pr= dbSemasim.getUserUas(sessionInfos.user)
             .then(
-                uas => uaRemoteApiCaller.wd_notifyActionFromOtherUa(
+                uas => uaRemoteApiCaller.wd_notifyActionFromOtherUa({
                     methodNameAndParams,
-                    uas.filter(({ instance }) => instance !== sessionInfos.uaInstanceId)
-                )
+                    "uas": uas.filter(({ instance }) => instance !== sessionInfos.uaInstanceId)
+                })
             )
             .catch(error => debug(error))
             ;

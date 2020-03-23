@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const frontend_1 = require("../../frontend");
+const tools_1 = require("../../frontend/tools");
 const dbSemasim = require("../dbSemasim");
 const dbWebphoneData_1 = require("../dbWebphoneData");
 const sessionManager = require("./sessionManager");
@@ -173,6 +173,7 @@ exports.handlers = {};
             await dbWebphoneData_1.dbWebphoneData.deleteAllUserData(renewPasswordResult.user);
             {
                 const uas = await dbSemasim.getUserUas(email);
+                //TODO: Restart
                 pushNotifications.sendSafe(uas, { "type": "RELOAD CONFIG" });
             }
             return true;
@@ -197,7 +198,7 @@ exports.handlers = {};
                     return undefined;
                 }
                 const countryIsoGuessed = match[1].toLowerCase();
-                if (!frontend_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
+                if (!tools_1.currencyLib.isValidCountryIso(countryIsoGuessed)) {
                     return undefined;
                 }
                 return countryIsoGuessed;
@@ -216,8 +217,8 @@ exports.handlers = {};
         "contentType": "application/json-custom; charset=utf-8",
         "sanityCheck": params => params === undefined,
         "handler": async () => {
-            await frontend_1.currencyLib.convertFromEuro.refreshChangeRates();
-            return frontend_1.currencyLib.convertFromEuro.getChangeRates();
+            await tools_1.currencyLib.convertFromEuro.refreshChangeRates();
+            return tools_1.currencyLib.convertFromEuro.getChangeRates();
         }
     };
     exports.handlers[methodName] = handler;

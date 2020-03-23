@@ -8,7 +8,7 @@ import { getLocalRunningInstance } from "../launch";
 import * as dbSemasim from "../dbSemasim";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import { deploy } from "../../deploy";
-
+import { Evt } from "evt";
 
 const debug = logger.debugFactory();
 
@@ -56,23 +56,12 @@ export async function connect() {
         })
     );
 
-    const hasConnect = await (async () => {
+    const ctxHasConnect = Evt.newCtx<boolean>();
 
-        const boundTo = [];
+    loadBalancerSocket.evtConnect.attachOnce(ctxHasConnect, () => ctxHasConnect.done(true));
+    loadBalancerSocket.evtClose.attachOnce(ctxHasConnect, ()=> ctxHasConnect.done(false))
 
-        const hasConnect = await Promise.race([
-            new Promise<true>(resolve => loadBalancerSocket.evtConnect.attachOnce(boundTo, () => resolve(true))),
-            new Promise<false>(resolve => loadBalancerSocket.evtClose.attachOnce(boundTo, () => resolve(false)))
-        ]);
-
-        loadBalancerSocket.evtConnect.detach(boundTo);
-        loadBalancerSocket.evtClose.detach(boundTo);
-
-        return hasConnect;
-
-    })();
-
-    if (!hasConnect) {
+    if( !await ctxHasConnect.getPrDone() ){
 
         debug("Load balancer seems to be down, retrying");
 
@@ -83,6 +72,7 @@ export async function connect() {
         return;
 
     }
+
 
     debug("Connection established with load balancer");
 

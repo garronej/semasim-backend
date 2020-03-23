@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const geoiplookup_1 = require("../tools/geoiplookup");
 const f = require("../tools/mysqlCustom");
 const ttTesting = require("transfer-tools/dist/lib/testing");
+const tools_1 = require("../frontend/tools");
 const uuidv3 = require("uuid/v3");
 const chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 const logger = require("logger");
@@ -66,6 +67,7 @@ var rmd160;
  * User not yet registered but that already exist in the database
  * are created by the shareSim function
  * those user have no salt and no password and does not need to verify their email.
+ * The web UA is automatically declared.
  * */
 async function createUserAccount(email, secret, towardUserEncryptKeyStr, encryptedSymmetricKey, ip) {
     if (LOG_QUERY_DURATION) {
@@ -411,49 +413,51 @@ async function getUserUas(userOrEmail) {
 exports.getUserUas = getUserUas;
 /**
  * Asserts:
- * 1) The sql query will will not be updated after.
- * 2) @sim_ref is set to the sim id_ if NULL parse returns empty array.
- *
- * Note before making any changes check setSimOffline function that
- * use this in a totally implementation dependent fashion. ( ugly I know )
- *
+ * @sim_ref is set to the sim id_ if NULL parse returns empty array.
  */
-var retrieveUasRegisteredToSim;
-(function (retrieveUasRegisteredToSim) {
-    retrieveUasRegisteredToSim.sql = [
+var retrieveUasOfUsersThatHaveAccessToSim;
+(function (retrieveUasOfUsersThatHaveAccessToSim) {
+    const sql_select_statement = "ua.*, user.email, user.toward_user_encrypt_key";
+    retrieveUasOfUsersThatHaveAccessToSim.sql = [
         "",
-        "SELECT",
-        "   ua.*, user.email, user.toward_user_encrypt_key",
+        `SELECT ${sql_select_statement}`,
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN sim ON sim.user= user.id_",
         `WHERE sim.id_= @sim_ref`,
         ";",
-        "SELECT ",
-        "   ua.*, user.email, user.toward_user_encrypt_key",
+        `SELECT ${sql_select_statement}`,
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
         "INNER JOIN user_sim ON user_sim.user= user.id_",
         "INNER JOIN sim ON sim.id_= user_sim.sim",
-        "WHERE sim.id_= @sim_ref AND user_sim.friendly_name IS NOT NULL"
+        "WHERE sim.id_= @sim_ref",
+        ";"
     ].join("\n");
+    /** Parse the result returned by the two queries,
+     * If the above sql text is inserted ate the bottom of the
+     * request this function can be invoked with queryResults.map(id).reverse()
+     *
+     * Can also be called with parse([rows]) to parse the result of query that match
+     * the SELECT statement
+     *
+     */
     function parse(queryResults) {
-        const uasRegisteredToSim = [];
-        for (let row of [...queryResults.pop(), ...queryResults.pop()]) {
-            uasRegisteredToSim.push({
-                "instance": row["instance"],
-                "userEmail": row["email"],
-                "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
-                "platform": row["platform"],
-                "pushToken": row["push_token"]
-            });
-        }
-        console.log(uasRegisteredToSim);
-        return uasRegisteredToSim;
+        var _a;
+        return [
+            ...queryResults[0],
+            ...(_a = queryResults[1]) !== null && _a !== void 0 ? _a : []
+        ].map(row => ({
+            "instance": row["instance"],
+            "userEmail": row["email"],
+            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
+            "platform": row["platform"],
+            "pushToken": row["push_token"]
+        }));
     }
-    retrieveUasRegisteredToSim.parse = parse;
-})(retrieveUasRegisteredToSim || (retrieveUasRegisteredToSim = {}));
-/** Return UAs registered to sim */
+    retrieveUasOfUsersThatHaveAccessToSim.parse = parse;
+})(retrieveUasOfUsersThatHaveAccessToSim || (retrieveUasOfUsersThatHaveAccessToSim = {}));
+/** Return all uas of users that have access to the SIM */
 async function createOrUpdateSimContact(imsi, name, number_raw, storageInfos) {
     if (LOG_QUERY_DURATION) {
         debug("createOrUpdateSimContact");
@@ -465,7 +469,7 @@ async function createOrUpdateSimContact(imsi, name, number_raw, storageInfos) {
         ""
     ].join("\n");
     if (!!storageInfos) {
-        const { mem_index, name_as_stored, new_storage_digest } = storageInfos;
+        const { mem_index, name_as_stored, new_digest } = storageInfos;
         sql += [
             "SELECT @contact_ref:=id_",
             "FROM contact",
@@ -476,7 +480,7 @@ async function createOrUpdateSimContact(imsi, name, number_raw, storageInfos) {
             "WHERE id_=@sim_ref AND @contact_ref IS NULL",
             ";",
             "UPDATE sim",
-            `SET storage_digest=${exports.esc(new_storage_digest)}`,
+            `SET storage_digest=${exports.esc(new_digest)}`,
             "WHERE id_=@sim_ref",
             ";",
             buildInsertQuery("contact", {
@@ -504,12 +508,12 @@ async function createOrUpdateSimContact(imsi, name, number_raw, storageInfos) {
             ";"
         ].join("\n");
     }
-    sql += retrieveUasRegisteredToSim.sql;
+    sql += retrieveUasOfUsersThatHaveAccessToSim.sql;
     const queryResults = await exports.query(sql, { imsi });
-    return retrieveUasRegisteredToSim.parse(queryResults);
+    return retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse());
 }
 exports.createOrUpdateSimContact = createOrUpdateSimContact;
-/** Return UAs registered to sim */
+/** Return all UAs of users that have access to the sim */
 async function deleteSimContact(imsi, contactRef) {
     if (LOG_QUERY_DURATION) {
         debug("deleteSimContact");
@@ -531,9 +535,9 @@ async function deleteSimContact(imsi, contactRef) {
         const { number_raw } = contactRef;
         sql += `DELETE FROM contact WHERE sim=@sim_ref AND number_raw=${exports.esc(number_raw)};`;
     }
-    sql += retrieveUasRegisteredToSim.sql;
+    sql += retrieveUasOfUsersThatHaveAccessToSim.sql;
     const queryResults = await exports.query(sql, { imsi });
-    return retrieveUasRegisteredToSim.parse(queryResults);
+    return retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse());
 }
 exports.deleteSimContact = deleteSimContact;
 /** return user UAs */
@@ -594,27 +598,12 @@ async function registerSim(auth, sim, friendlyName, password, towardSimEncryptKe
         "name_as_stored": contact.name,
         "name": contact.name
     })), "THROW ERROR");
-    sql += [
-        "SELECT ua.*, user.email, user.toward_user_encrypt_key",
-        "FROM ua",
-        "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user.id_= ${exports.esc(auth.user)}`
-    ].join("\n");
+    sql += "\n" + retrieveUasOfUsersThatHaveAccessToSim.sql;
     const queryResults = await exports.query(sql, { "email": auth.shared.email, "imsi": sim.imsi });
-    const userUas = [];
-    for (let row of queryResults.pop()) {
-        userUas.push({
-            "instance": row["instance"],
-            "userEmail": row["email"],
-            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
-            "platform": row["platform"],
-            "pushToken": row["push_token"]
-        });
-    }
-    return userUas;
+    return retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse());
 }
 exports.registerSim = registerSim;
-/** Return all the UAs registered to SIM */
+/** Return all uas of users that have access to the SIM */
 async function createUpdateOrDeleteOngoingCall(ongoingCallId, imsi, number, from, isTerminated, uasInCall) {
     if (LOG_QUERY_DURATION) {
         debug("createUpdateOrDeleteOngoingCall");
@@ -656,9 +645,9 @@ async function createUpdateOrDeleteOngoingCall(ongoingCallId, imsi, number, from
             ].join("\n"))
         ].join("\n");
     }
-    sql += "\n" + retrieveUasRegisteredToSim.sql;
+    sql += "\n" + retrieveUasOfUsersThatHaveAccessToSim.sql;
     const queryResults = await exports.query(sql, { imsi });
-    return retrieveUasRegisteredToSim.parse(queryResults);
+    return retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse());
 }
 exports.createUpdateOrDeleteOngoingCall = createUpdateOrDeleteOngoingCall;
 async function getUserSims(auth) {
@@ -883,8 +872,6 @@ async function getUserSims(auth) {
                 let friendlyName = row["user_friendly_name"];
                 const otherUserEmails = emailsOfUsersAlsoSharingSimNotOwned[sim.imsi] || [];
                 if (friendlyName === null) {
-                    //NOTE: Security hotFix, TODO: see if uppercase, if changed update in make sim proxy (tests)
-                    row["password"] = "ffffffffffffffffffffffffffffffff";
                     return [
                         ownerFriendlyName,
                         {
@@ -907,34 +894,41 @@ async function getUserSims(auth) {
                 }
             }
         })();
-        const userSim = {
-            sim,
-            friendlyName,
-            "password": row["password"],
-            "towardSimEncryptKeyStr": row["toward_sim_encrypt_key"],
-            dongle,
-            gatewayLocation,
-            ownership,
-            "phonebook": phonebookBySim[sim.imsi] || [],
-            "reachableSimState": (() => {
-                if (row["is_online"] === 0) {
-                    return undefined;
-                }
-                const isGsmConnectivityOk = f.bool.dec(row["is_gsm_connectivity_ok"]);
-                const cellSignalStrength = row["cell_signal_strength"];
-                if (!isGsmConnectivityOk) {
+        const userSim = (() => {
+            const common_ = {
+                sim,
+                friendlyName,
+                "password": row["password"],
+                "towardSimEncryptKeyStr": row["toward_sim_encrypt_key"],
+                dongle,
+                gatewayLocation,
+                "phonebook": phonebookBySim[sim.imsi] || [],
+                "reachableSimState": (() => {
+                    if (row["is_online"] === 0) {
+                        return undefined;
+                    }
+                    const isGsmConnectivityOk = f.bool.dec(row["is_gsm_connectivity_ok"]);
+                    const cellSignalStrength = row["cell_signal_strength"];
+                    if (!isGsmConnectivityOk) {
+                        return {
+                            isGsmConnectivityOk,
+                            cellSignalStrength
+                        };
+                    }
                     return {
                         isGsmConnectivityOk,
-                        cellSignalStrength
+                        cellSignalStrength,
+                        "ongoingCall": ongoingCalls[sim.imsi]
                     };
-                }
-                return {
-                    isGsmConnectivityOk,
-                    cellSignalStrength,
-                    "ongoingCall": ongoingCalls[sim.imsi]
-                };
-            })()
-        };
+                })()
+            };
+            //NOTE: Getting the compiler to understand that it's a well formed userSim.
+            switch (ownership.status) {
+                case "OWNED": return tools_1.id(Object.assign(Object.assign({}, common_), { ownership }));
+                case "SHARED CONFIRMED": return tools_1.id(Object.assign(Object.assign({}, common_), { ownership }));
+                case "SHARED NOT CONFIRMED": return tools_1.id(Object.assign(Object.assign({}, common_), { ownership }));
+            }
+        })();
         userSims.push(userSim);
     }
     return userSims;
@@ -984,7 +978,7 @@ async function changeSimGsmConnectivityOrSignal(imsi, p) {
             `   cell_signal_strength=${exports.esc(p.cellSignalStrength)}`,
         "WHERE id_= @sim_ref",
         ";",
-        retrieveUasRegisteredToSim.sql
+        retrieveUasOfUsersThatHaveAccessToSim.sql
     ].join("\n");
     const queryResults = await exports.query(sql, { imsi });
     queryResults.shift();
@@ -993,7 +987,7 @@ async function changeSimGsmConnectivityOrSignal(imsi, p) {
     }
     return {
         "isSimRegistered": true,
-        "uasRegisteredToSim": retrieveUasRegisteredToSim.parse(queryResults)
+        "uasOfUsersThatHaveAccessToSim": retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse())
     };
 }
 exports.changeSimGsmConnectivityOrSignal = changeSimGsmConnectivityOrSignal;
@@ -1039,7 +1033,7 @@ async function setSimOnline(imsi, password, replacementPassword, towardSimEncryp
         ";",
         "DELETE FROM ongoing_call WHERE sim=@sim_ref",
         ";",
-        retrieveUasRegisteredToSim.sql
+        retrieveUasOfUsersThatHaveAccessToSim.sql
     ].join("\n");
     const queryResults = await exports.query(sql, { imsi, "ip": gatewayAddress });
     queryResults.shift();
@@ -1056,7 +1050,7 @@ async function setSimOnline(imsi, password, replacementPassword, towardSimEncryp
             "subdivisions": queryResults[3][0]["subdivisions"] || undefined,
             "city": queryResults[3][0]["city"] || undefined
         },
-        "uasRegisteredToSim": retrieveUasRegisteredToSim.parse(queryResults)
+        "uasOfUsersThatHaveAccessToTheSim": retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse())
     };
 }
 exports.setSimOnline = setSimOnline;
@@ -1080,7 +1074,7 @@ async function setAllSimOffline(imsis) {
 }
 exports.setAllSimOffline = setAllSimOffline;
 //TODO: This function is only partially tested!!!
-/** Return all ua registered to sim by by imsi */
+/** Return all uas of users that have access to sim by imsi */
 async function setSimsOffline(imsis) {
     if (LOG_QUERY_DURATION) {
         debug("setSimsOffline");
@@ -1098,21 +1092,24 @@ async function setSimsOffline(imsis) {
             `;`,
             `SELECT @sim_ref:=id_ FROM sim WHERE imsi= ${exports.esc(imsi)}`,
             `;`,
-            retrieveUasRegisteredToSim.sql,
-            `;`
+            retrieveUasOfUsersThatHaveAccessToSim.sql,
         ].join("\n");
     }
     const queryResults = await exports.query(sql, { "imsi": imsis });
     const out = {};
     for (let i = imsis.length - 1; i >= 0; i--) {
         const imsi = imsis[i];
-        out[imsi] = retrieveUasRegisteredToSim.parse(queryResults);
+        out[imsi] = retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse());
+        queryResults.pop();
+        queryResults.pop();
         queryResults.pop();
         queryResults.pop();
     }
     return out;
 }
 exports.setSimsOffline = setSimsOffline;
+/** return the uas of users that had access to the sim just before
+ * this function is called */
 async function unregisterSim(auth, imsi) {
     if (LOG_QUERY_DURATION) {
         debug("unregisterSim");
@@ -1130,23 +1127,7 @@ async function unregisterSim(auth, imsi) {
         ";",
         "SELECT email AS sim_owner_email FROM user WHERE id_=@sim_owner",
         ";",
-        "SELECT",
-        "   ua.*, user.email, user.toward_user_encrypt_key",
-        "FROM ua",
-        "   INNER JOIN user ON user.id_= ua.user",
-        "   INNER JOIN sim ON sim.user= user.id_",
-        "WHERE sim.id_= @sim_ref AND @is_sim_owned",
-        ";",
-        "SELECT",
-        "   ua.*, user.email, user.toward_user_encrypt_key",
-        "FROM ua",
-        "INNER JOIN user ON user.id_= ua.user",
-        "INNER JOIN user_sim ON user_sim.user= user.id_",
-        "WHERE",
-        "   user_sim.sim= @sim_ref",
-        "   AND user_sim.friendly_name IS NOT NULL",
-        `   AND ( @is_sim_owned OR user.id_= ${exports.esc(auth.user)})`,
-        ";",
+        retrieveUasOfUsersThatHaveAccessToSim.sql,
         "DELETE FROM sim WHERE id_= @sim_ref AND @is_sim_owned",
         ";",
         "DELETE FROM user_sim",
@@ -1154,18 +1135,11 @@ async function unregisterSim(auth, imsi) {
     ].join("\n");
     const queryResults = await exports.query(sql, { "email": auth.shared.email, imsi });
     queryResults.shift();
-    const affectedUas = [];
-    for (const row of [...queryResults[3], ...queryResults[4]]) {
-        affectedUas.push({
-            "instance": row["instance"],
-            "userEmail": row["email"],
-            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
-            "platform": row["platform"],
-            "pushToken": row["push_token"]
-        });
-    }
     return {
-        affectedUas,
+        "affectedUas": retrieveUasOfUsersThatHaveAccessToSim.parse([
+            queryResults[3],
+            queryResults[4]
+        ]),
         "owner": {
             "user": queryResults[0][0]["sim_owner"],
             "shared": { "email": queryResults[2][0]["sim_owner_email"] }
@@ -1173,14 +1147,23 @@ async function unregisterSim(auth, imsi) {
     };
 }
 exports.unregisterSim = unregisterSim;
-/** assert emails not empty, return affected user email */
+/**
+ * assert emails not empty,
+ * assert sim owner not in the set
+ * assert emails all lower case
+ *
+ * users with whom the sim has already been shared can
+ * be included but the sharing request message wont
+ * be updated and they wont be included in the returned
+ * users.
+ * */
 async function shareSim(auth, imsi, emails, sharingRequestMessage) {
     if (LOG_QUERY_DURATION) {
         debug("shareSim");
     }
-    emails = emails
-        .map(email => email.toLowerCase())
-        .filter(email => email !== auth.shared.email);
+    tools_1.assert(emails.length !== 0 &&
+        !emails.includes(auth.shared.email) &&
+        emails.map(email => email.toLowerCase()).join() === emails.join());
     if (emails.length === 0) {
         throw new Error("assert email not empty and not sharing sim owned");
     }
@@ -1211,7 +1194,7 @@ async function shareSim(auth, imsi, emails, sharingRequestMessage) {
         "INSERT INTO user_sim",
         "   (user, sim, friendly_name, sharing_request_message)",
         "SELECT",
-        `   id_, @sim_ref, NULL, ${exports.esc(sharingRequestMessage || null)}`,
+        `   id_, @sim_ref, NULL, ${exports.esc(sharingRequestMessage !== null && sharingRequestMessage !== void 0 ? sharingRequestMessage : null)}`,
         "FROM _user",
         ";",
         "SELECT * from _user",
@@ -1239,13 +1222,24 @@ async function shareSim(auth, imsi, emails, sharingRequestMessage) {
     return affectedUsers;
 }
 exports.shareSim = shareSim;
-/** Return no longer registered UAs, assert email list not empty*/
+/**
+ *
+ * assert emails not empty,
+ * assert sim owner not in the set
+ * assert emails all lower case
+ *
+ * Returns the uas of the users that previous to calling
+ * this function had access to the sim and after
+ * no longer have access.
+ *
+ * */
 async function stopSharingSim(auth, imsi, emails) {
     if (LOG_QUERY_DURATION) {
         debug("stopSharingSim");
     }
-    emails = emails.map(email => email.toLowerCase());
-    //TODO: See if JOIN work on temporary table
+    tools_1.assert(emails.length !== 0 &&
+        !emails.includes(auth.shared.email) &&
+        emails.map(email => email.toLowerCase()).join() === emails.join());
     const sql = [
         "SELECT @sim_ref:=NULL, @ua_found:=NULL;",
         "SELECT @sim_ref:= id_",
@@ -1261,8 +1255,7 @@ async function stopSharingSim(auth, imsi, emails) {
         "       user_sim.id_,",
         "       user_sim.user,",
         "       user.email,",
-        "       user.toward_user_encrypt_key,",
-        "       user_sim.friendly_name IS NOT NULL as is_confirmed",
+        "       user.toward_user_encrypt_key",
         "   FROM user_sim",
         "   INNER JOIN user ON user.id_= user_sim.user",
         `   WHERE user_sim.sim= @sim_ref AND (${emails.map(email => `user.email= ${exports.esc(email)}`).join(" OR ")})`,
@@ -1271,7 +1264,6 @@ async function stopSharingSim(auth, imsi, emails) {
         "SELECT ua.*, _user_sim.email, _user_sim.toward_user_encrypt_key, @ua_found:= 1",
         "FROM ua",
         "INNER JOIN _user_sim ON _user_sim.user= ua.user",
-        "WHERE _user_sim.is_confirmed",
         ";",
         "UPDATE sim",
         "SET need_password_renewal= 1",
@@ -1285,21 +1277,9 @@ async function stopSharingSim(auth, imsi, emails) {
     ].join("\n");
     const queryResults = await exports.query(sql, { imsi, "email": auth.shared.email });
     queryResults.shift();
-    const uaRows = queryResults[4];
-    const noLongerRegisteredUas = [];
-    for (const row of uaRows) {
-        noLongerRegisteredUas.push({
-            "instance": row["instance"],
-            "userEmail": row["email"],
-            "towardUserEncryptKeyStr": row["toward_user_encrypt_key"],
-            "platform": row["platform"],
-            "pushToken": row["push_token"]
-        });
-    }
-    return noLongerRegisteredUas;
+    return retrieveUasOfUsersThatHaveAccessToSim.parse([queryResults[4]]);
 }
 exports.stopSharingSim = stopSharingSim;
-/** Return user UAs */
 async function setSimFriendlyName(auth, imsi, friendlyName) {
     if (LOG_QUERY_DURATION) {
         debug("setSimFriendlyName");
@@ -1322,15 +1302,60 @@ async function setSimFriendlyName(auth, imsi, friendlyName) {
         `SET friendly_name= ${exports.esc(friendlyName)}, sharing_request_message= NULL`,
         `WHERE sim= @sim_ref AND user= ${exports.esc(auth.user)} AND NOT @is_sim_owned`,
         ";",
+        retrieveUasOfUsersThatHaveAccessToSim.sql,
+    ].join("\n");
+    const queryResults = await exports.query(sql, { imsi, "email": auth.shared.email });
+    return {
+        "uasOfUsersThatHaveAccessToTheSim": retrieveUasOfUsersThatHaveAccessToSim.parse(queryResults.map(tools_1.id).reverse())
+    };
+}
+exports.setSimFriendlyName = setSimFriendlyName;
+/*
+export async function setSimFriendlyName(
+    auth: UserAuthentication,
+    imsi: string,
+    friendlyName: string
+): Promise<gwTypes.Ua[]> {
+
+    if (LOG_QUERY_DURATION) {
+        debug("setSimFriendlyName");
+    }
+
+    const sql = [
+        `SELECT @sim_ref:=NULL, @is_sim_owned:=NULL;`,
+        `SELECT @sim_ref:= sim.id_, @is_sim_owned:= sim.user= ${esc(auth.user)}`,
+        "FROM sim",
+        "LEFT JOIN user_sim ON user_sim.sim= sim.id_",
+        `WHERE sim.imsi= ${esc(imsi)} AND ( sim.user= ${esc(auth.user)} OR user_sim.user= ${esc(auth.user)})`,
+        "GROUP BY sim.id_",
+        ";",
+        "SELECT _ASSERT(@sim_ref IS NOT NULL, 'User does not have access to this SIM')",
+        ";",
+        "UPDATE sim",
+        `SET friendly_name= ${esc(friendlyName)}`,
+        "WHERE id_= @sim_ref AND @is_sim_owned",
+        ";",
+        "UPDATE user_sim",
+        `SET friendly_name= ${esc(friendlyName)}, sharing_request_message= NULL`,
+        `WHERE sim= @sim_ref AND user= ${esc(auth.user)} AND NOT @is_sim_owned`,
+        ";",
         "SELECT ua.*, user.email, user.toward_user_encrypt_key",
         "FROM ua",
         "INNER JOIN user ON user.id_= ua.user",
-        `WHERE user= ${exports.esc(auth.user)}`
+        `WHERE user= ${esc(auth.user)}`
     ].join("\n");
-    const queryResults = await exports.query(sql, { imsi, "email": auth.shared.email });
+
+    const queryResults = await query(
+        sql,
+        { imsi, "email": auth.shared.email }
+    );
+
     const uaRows = queryResults.pop();
-    const userUas = [];
+
+    const userUas: gwTypes.Ua[] = [];
+
     for (const row of uaRows) {
+
         userUas.push({
             "instance": row["instance"],
             "userEmail": row["email"],
@@ -1338,10 +1363,13 @@ async function setSimFriendlyName(auth, imsi, friendlyName) {
             "platform": row["platform"],
             "pushToken": row["push_token"]
         });
+
     }
+
     return userUas;
+
 }
-exports.setSimFriendlyName = setSimFriendlyName;
+*/
 async function getSimOwner(imsi) {
     if (LOG_QUERY_DURATION) {
         debug("getSimOwner");

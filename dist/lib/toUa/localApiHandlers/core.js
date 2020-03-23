@@ -1,10 +1,20 @@
 "use strict";
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const backendToUa_1 = require("../../../sip_api_declarations/backendToUa");
+const sip_api_1 = require("../../../frontend/sip_api");
+const feTypes = require("../../../frontend/types");
 const dbSemasim = require("../../dbSemasim");
-const frontend_1 = require("../../../frontend");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
-const pushNotifications = require("../../pushNotifications");
 const gatewayRemoteApiCaller = require("../../toGateway/remoteApiCaller");
 const remoteApiCaller = require("../remoteApiCaller");
 const emailSender = require("../../emailSender");
@@ -12,22 +22,23 @@ const gateway_1 = require("../../../gateway");
 const stripe = require("../../stripe");
 const noThrow_1 = require("../../../tools/noThrow");
 const socketSession_1 = require("../socketSession");
+const tools_1 = require("../../../frontend/tools");
+const getUserUas = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
+const getUserSims = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
 exports.handlers = {};
 {
-    const methodName = backendToUa_1.apiDeclaration.getUsableUserSims.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.getUserSims;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             typeof params.includeContacts === "boolean"),
         "handler": async ({ includeContacts }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
-            //TODO: Create a SQL request that pull only usable sims
-            const userSims = await dbSemasim.getUserSims(session)
-                .then(userSims => userSims.filter(frontend_1.types.UserSim.Usable.match));
+            const userSims = await dbSemasim.getUserSims(session);
             if (!includeContacts) {
-                for (const userSim of userSims) {
+                userSims.forEach(userSim => {
                     userSim.sim.storage.contacts = [];
                     userSim.phonebook = [];
-                }
+                });
             }
             return userSims;
         }
@@ -35,7 +46,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.unlockSim.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.unlockSim;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imei(params.imei) &&
@@ -46,7 +57,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.registerSim.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.registerSim;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
@@ -55,48 +66,60 @@ exports.handlers = {};
         "handler": async ({ imsi, imei, friendlyName }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
             const dongleSipPasswordAndTowardSimEncryptKeyStr = await gatewayRemoteApiCaller.getDongleSipPasswordAndTowardSimEncryptKeyStr(imsi);
-            if (!dongleSipPasswordAndTowardSimEncryptKeyStr) {
-                throw new Error("Dongle not found");
-            }
+            tools_1.assert(dongleSipPasswordAndTowardSimEncryptKeyStr, "Dongle not found");
             const { dongle, sipPassword, towardSimEncryptKeyStr } = dongleSipPasswordAndTowardSimEncryptKeyStr;
-            if (dongle.imei !== imei) {
-                throw new Error("Attack prevented");
-            }
+            tools_1.assert(dongle.imei === imei, "Attack prevented");
             //NOTE: The user may have changer ip since he received the request
             //in this case the query will crash... not a big deal.
             const userUas = await dbSemasim.registerSim(session, dongle.sim, friendlyName, sipPassword, towardSimEncryptKeyStr, dongle, socket.remoteAddress, dongle.isGsmConnectivityOk, dongle.cellSignalStrength);
+            getUserSims(session).then(userSims => {
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+                tools_1.assert(!!userSim && feTypes.UserSim.Owned.match(userSim));
+                remoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "NEW",
+                        userSim
+                    },
+                    "uas": userUas
+                });
+            });
             //TODO: this should be an api method
-            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
-            //NOTE: Here we break the rule of gathering all db request
-            //but as sim registration is not a so common operation it's not
-            //a big deal.
-            return dbSemasim.getUserSims(session)
-                .then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Owned.match)
-                .find(({ sim }) => sim.imsi === imsi));
+            //pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.unregisterSim.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.unregisterSim;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)),
         "handler": async ({ imsi }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
             const { affectedUas, owner } = await dbSemasim.unregisterSim(session, imsi);
-            //TODO: We should have a different method for the ua that lost perm and the ua that have got the sim unregistered by the user.
-            remoteApiCaller.notifySimPermissionLost(imsi, affectedUas.filter(({ instance }) => session.shared.uaInstanceId !== instance));
-            if (owner.user !== session.user) {
-                const getUserUas = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
-                const { ownership: { sharedWith: { confirmed } } } = (await dbSemasim.getUserSims(owner))
-                    .find(({ sim }) => sim.imsi === imsi);
-                Promise.all([owner.shared.email, ...confirmed].map(email => getUserUas(email)))
-                    .then(arrOfUas => arrOfUas.reduce((prev, curr) => [...prev, ...curr], []))
-                    .then(uas => remoteApiCaller.notifyOtherSimUserUnregisteredSim({ imsi, "email": session.shared.email }, uas));
-            }
-            pushNotifications.sendSafe(affectedUas, { "type": "RELOAD CONFIG" });
+            const [userUas, otherUsersUas] = affectedUas
+                .reduce(...tools_1.reducers.partition(({ userEmail }) => userEmail === session.shared.email));
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "DELETE",
+                    "cause": "USER UNREGISTER SIM",
+                    imsi
+                },
+                "uas": userUas
+            });
+            remoteApiCaller.notifyUserSimChange({
+                "params": Object.assign({ imsi }, session.user === owner.user ? ({
+                    "type": "DELETE",
+                    "cause": "PERMISSION LOSS",
+                }) : ({
+                    "type": "SHARED USER SET CHANGE",
+                    "action": "REMOVE",
+                    "targetSet": "CONFIRMED USERS",
+                    "email": session.shared.email
+                })),
+                "uas": otherUsersUas
+            });
             gatewayRemoteApiCaller.reNotifySimOnline(imsi);
             return undefined;
         }
@@ -104,7 +127,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.rebootDongle.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.rebootDongle;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)),
@@ -113,180 +136,293 @@ exports.handlers = {};
             //TODO: Reboot dongle should be by imei
             const isAllowedTo = await dbSemasim.getUserSims(session)
                 .then(userSims => !!userSims.find(({ sim }) => sim.imsi === imsi));
-            if (!isAllowedTo) {
-                throw new Error("user not allowed to reboot this dongle");
-            }
+            tools_1.assert(isAllowedTo, "user not allowed to reboot this dongle");
             const { isSuccess } = await gatewayRemoteApiCaller.rebootDongle(imsi);
-            if (!isSuccess) {
-                throw new Error("Reboot dongle error");
-            }
+            tools_1.assert(isSuccess, "Reboot dongle error");
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToUa_1.apiDeclaration.shareSim;
+    const { methodName } = sip_api_1.api_decl_backendToUa.shareSim;
+    /** Assert user email not in the list and list not empty */
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
-            !!params.emails.length &&
-            !params.emails.find(email => !gateway_1.isValidEmail(email)) &&
+            params.emails.reduce(...tools_1.reducers.and([
+                arr => arr
+                    .reduce(...tools_1.reducers.every(e => gateway_1.isValidEmail(e, "MUST BE LOWER CASE"))),
+                arr => arr.length !== 0,
+                arr => arr
+                    .reduce(...tools_1.reducers.removeDuplicates())
+                    .reduce(...tools_1.reducers.sameAs(arr))
+            ])) &&
             typeof params.message === "string"),
         "handler": async ({ imsi, emails, message }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
+            tools_1.assert(!emails.includes(session.shared.email));
             const affectedUsers = await dbSemasim.shareSim(session, imsi, emails, message);
-            const getUserSims = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
-            const getUserUas = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
-            getUserSims(session).then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Owned.match)
-                .find(({ sim }) => sim.imsi === imsi)).then(userSim => emailSender.sharingRequestSafe(session.shared.email, userSim, message, [
-                ...affectedUsers.notRegistered.map(email => ({ email, "isRegistered": false })),
-                ...affectedUsers.registered.map(({ shared: { email } }) => ({ email, "isRegistered": true }))
-            ]));
-            for (const auth of affectedUsers.registered) {
-                Promise.all([
-                    getUserSims(auth)
-                        .then(userSims => userSims
-                        .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
-                        .find(({ sim }) => sim.imsi === imsi)),
-                    getUserUas(auth.user)
-                ]).then(([userSim, uas]) => remoteApiCaller.notifySimSharingRequest(userSim, uas));
-            }
+            getUserSims(session).then(async (userSims) => {
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+                tools_1.assert(!!userSim && feTypes.UserSim.Owned.match(userSim));
+                emailSender.sharingRequestSafe(session.shared.email, userSim, message, [
+                    ...affectedUsers.notRegistered
+                        .map(email => ({ email, "isRegistered": false })),
+                    ...affectedUsers.registered
+                        .map(({ shared: { email } }) => ({ email, "isRegistered": true }))
+                ]);
+                const newNotConfirmedEmails = [
+                    ...affectedUsers.notRegistered,
+                    ...affectedUsers.registered.map(({ shared: { email } }) => email)
+                ];
+                const { sharedWith } = userSim.ownership;
+                const uas = await Promise.all([
+                    session.shared.email,
+                    ...[
+                        ...sharedWith.confirmed,
+                        ...sharedWith.notConfirmed,
+                    ].filter(email => !newNotConfirmedEmails.includes(email))
+                ].map(email => getUserUas(email))).then(arr => arr
+                    .reduce((prev, curr) => [...curr, ...prev], []));
+                newNotConfirmedEmails.forEach(email => remoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "SHARED USER SET CHANGE",
+                        imsi,
+                        "action": "ADD",
+                        "targetSet": "NOT CONFIRMED USERS",
+                        "email": email
+                    },
+                    uas
+                }));
+            });
+            affectedUsers.registered.forEach(auth => Promise.all([
+                getUserSims(auth),
+                getUserUas(auth.user)
+            ]).then(([userSims, uas]) => {
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+                tools_1.assert(!!userSim &&
+                    feTypes.UserSim.Shared.NotConfirmed.match(userSim));
+                remoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "NEW",
+                        userSim
+                    },
+                    uas
+                });
+            }));
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToUa_1.apiDeclaration.stopSharingSim;
+    const { methodName } = sip_api_1.api_decl_backendToUa.stopSharingSim;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             params.emails instanceof Array &&
-            !!params.emails.length &&
-            !params.emails.find(email => !gateway_1.isValidEmail(email))),
+            params.emails.reduce(...tools_1.reducers.and([
+                arr => arr
+                    .reduce(...tools_1.reducers.every(e => gateway_1.isValidEmail(e, "MUST BE LOWER CASE"))),
+                arr => arr.length !== 0,
+                arr => arr
+                    .reduce(...tools_1.reducers.removeDuplicates())
+                    .reduce(...tools_1.reducers.sameAs(arr))
+            ]))),
         "handler": async ({ imsi, emails }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
-            const noLongerRegisteredUas = await dbSemasim.stopSharingSim(session, imsi, emails);
-            if (noLongerRegisteredUas.length !== 0) {
+            tools_1.assert(!emails.includes(session.shared.email));
+            const sharedWithBeforeConfirmed = await (async () => {
+                const userSim = (await dbSemasim.getUserSims(session))
+                    .find(({ sim }) => sim.imsi === imsi);
+                tools_1.assert(!!userSim &&
+                    feTypes.UserSim.Owned.match(userSim));
+                return userSim.ownership.sharedWith.confirmed;
+            })();
+            const uasOfUsersThatNoLongerHaveAccessToTheSim = await dbSemasim.stopSharingSim(session, imsi, emails);
+            if (uasOfUsersThatNoLongerHaveAccessToTheSim.length !== 0) {
+                //NOTE: Will cause the sip password to be renewed and 
+                //notified to all users that still own the sim.
                 gatewayRemoteApiCaller.reNotifySimOnline(imsi);
             }
-            remoteApiCaller.notifySimPermissionLost(imsi, [
-                ...noLongerRegisteredUas,
-                ...await dbSemasim.getUserUas(session.user)
-            ]);
-            //TODO: Other ua should be notified that no longer sharing.
-            pushNotifications.sendSafe(noLongerRegisteredUas, { "type": "RELOAD CONFIG" });
+            getUserSims(session).then(async (userSims) => {
+                const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
+                tools_1.assert(!!userSim &&
+                    feTypes.UserSim.Owned.match(userSim));
+                const uas = await Promise.all([
+                    session.shared.email,
+                    ...userSim.ownership.sharedWith.confirmed,
+                    ...userSim.ownership.sharedWith.notConfirmed
+                ].map(email => getUserUas(email))).then(arr => arr
+                    .reduce((prev, curr) => [...curr, ...prev], []));
+                uasOfUsersThatNoLongerHaveAccessToTheSim
+                    .map(({ userEmail }) => userEmail)
+                    .reduce(...tools_1.reducers.removeDuplicates())
+                    .forEach(email => remoteApiCaller.notifyUserSimChange({
+                    "params": {
+                        "type": "SHARED USER SET CHANGE",
+                        imsi,
+                        "action": "REMOVE",
+                        "targetSet": sharedWithBeforeConfirmed.includes(email) ?
+                            "CONFIRMED USERS" : "NOT CONFIRMED USERS",
+                        email
+                    },
+                    uas
+                }));
+            });
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "DELETE",
+                    "cause": "PERMISSION LOSS",
+                    imsi
+                },
+                "uas": uasOfUsersThatNoLongerHaveAccessToTheSim
+            });
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.changeSimFriendlyName.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.changeSimFriendlyName;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, friendlyName }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
-            const userUas = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
-            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
+            const { uasOfUsersThatHaveAccessToTheSim } = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "FRIENDLY NAME CHANGE",
+                    imsi,
+                    friendlyName
+                },
+                "uas": uasOfUsersThatHaveAccessToTheSim
+                    .filter(({ userEmail }) => userEmail === session.shared.email)
+            });
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToUa_1.apiDeclaration.acceptSharingRequest;
+    const { methodName } = sip_api_1.api_decl_backendToUa.acceptSharingRequest;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.friendlyName === "string"),
         "handler": async ({ imsi, friendlyName }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
-            const userUas = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
-            //TODO: Send notification to other user ua that there is a new sim
-            pushNotifications.sendSafe(userUas, { "type": "RELOAD CONFIG" });
-            const { ownership: { ownerEmail, otherUserEmails }, password } = await dbSemasim.getUserSims(session)
-                .then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Shared.Confirmed.match)
-                .find(({ sim }) => sim.imsi === imsi));
-            const getUserUas = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
-            Promise.all([ownerEmail, ...otherUserEmails].map(email => getUserUas(email)))
-                .then(arrOfUas => arrOfUas.reduce((prev, curr) => [...prev, ...curr], []))
-                .then(uas => remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": true }, uas));
-            return { password };
+            const { uasOfUsersThatHaveAccessToTheSim } = await dbSemasim.setSimFriendlyName(session, imsi, friendlyName);
+            const [userUas, otherUsersUas] = uasOfUsersThatHaveAccessToTheSim
+                .reduce(...tools_1.reducers.partition(({ userEmail }) => userEmail === session.shared.email));
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "SHARED USER SET CHANGE",
+                    imsi,
+                    "action": "MOVE TO CONFIRMED",
+                    "targetSet": "CONFIRMED USERS",
+                    "email": session.shared.email
+                },
+                "uas": otherUsersUas
+            });
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "IS NOW CONFIRMED",
+                    imsi,
+                    friendlyName
+                },
+                "uas": userUas
+            });
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.rejectSharingRequest.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.rejectSharingRequest;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi)),
         "handler": async ({ imsi }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
-            const { owner } = await dbSemasim.unregisterSim(session, imsi);
-            remoteApiCaller.notifySharingRequestResponse({ imsi, "email": session.shared.email, "isAccepted": false }, await dbSemasim.getUserUas(owner.user));
+            const { affectedUas } = await dbSemasim.unregisterSim(session, imsi);
+            const [userUas, otherUsersUas] = affectedUas
+                .reduce(...tools_1.reducers.partition(({ userEmail }) => userEmail === session.shared.email));
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "SHARED USER SET CHANGE",
+                    imsi,
+                    "action": "REMOVE",
+                    "targetSet": "NOT CONFIRMED USERS",
+                    "email": session.shared.email
+                },
+                "uas": otherUsersUas
+            });
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "DELETE",
+                    "cause": "REJECT SHARING REQUEST",
+                    imsi
+                },
+                "uas": userUas
+            });
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.createContact.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.createContact;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
             typeof params.name === "string" &&
-            typeof params.number === "string"),
-        "handler": async ({ imsi, name, number }, socket) => {
+            typeof params.number_raw === "string"),
+        "handler": async ({ imsi, name, number_raw }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
             const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Usable.match)
+                .filter(feTypes.UserSim.Usable.match)
                 .find(({ sim }) => sim.imsi === imsi));
             if (!userSim) {
                 throw new Error("User does not have access to this sim");
             }
-            if (!!userSim.phonebook.find(({ number_raw }) => number_raw === number)) {
+            if (!!userSim.phonebook.find(contact => contact.number_raw === number_raw)) {
                 throw new Error("Already a contact with this number");
             }
-            const storageInfos = await Promise.resolve((() => {
-                if (userSim.sim.storage.infos.storageLeft !== 0) {
-                    return gatewayRemoteApiCaller.createContact(imsi, name, number);
-                }
-                return undefined;
-            })());
-            //TODO: this function should return number local format.
-            const uasRegisteredToSim = await dbSemasim.createOrUpdateSimContact(imsi, name, number, storageInfos);
-            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
-            remoteApiCaller.notifyContactCreatedOrUpdated({
-                imsi,
-                name,
-                "number_raw": number,
-                "storage": storageInfos !== undefined ? ({
-                    "mem_index": storageInfos.mem_index,
-                    "name_as_stored": storageInfos.name_as_stored,
-                    "new_digest": storageInfos.new_storage_digest
-                }) : undefined
-            }, uasRegisteredToSim.filter(({ instance }) => session.shared.uaInstanceId !== instance));
-            //TODO: see wtf with number local format here why the hell there isn't new_digest.
-            return storageInfos !== undefined ? ({
-                "mem_index": storageInfos.mem_index,
-                "name_as_stored_in_sim": storageInfos.name_as_stored,
-                "new_digest": storageInfos.new_storage_digest
-            }) : undefined;
+            const storageInfos = await (userSim.sim.storage.infos.storageLeft === 0 ?
+                undefined
+                :
+                    gatewayRemoteApiCaller.createContact(imsi, name, number_raw).then(resp => {
+                        if (resp === undefined) {
+                            return undefined;
+                        }
+                        const { new_storage_digest } = resp, rest = __rest(resp, ["new_storage_digest"]);
+                        return Object.assign(Object.assign({}, rest), { "new_digest": new_storage_digest });
+                    }));
+            const uas = await dbSemasim.createOrUpdateSimContact(imsi, name, number_raw, storageInfos);
+            //pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CONTACT CREATED OR UPDATED",
+                    imsi,
+                    name,
+                    number_raw,
+                    "storage": storageInfos !== null && storageInfos !== void 0 ? storageInfos : undefined
+                },
+                uas
+            });
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToUa_1.apiDeclaration.updateContactName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.updateContactName;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
@@ -299,7 +435,7 @@ exports.handlers = {};
             const session = socketSession_1.getAuthenticatedSession(socket);
             const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Usable.match)
+                .filter(feTypes.UserSim.Usable.match)
                 .find(({ sim }) => sim.imsi === imsi));
             if (!userSim) {
                 throw new Error("User does not have access to this sim");
@@ -316,54 +452,42 @@ exports.handlers = {};
             }
             if (contact.name === newName) {
                 //No need to update contact, name unchanged
-                return contact.mem_index !== undefined ?
-                    ({
-                        "name_as_stored_in_sim": userSim.sim.storage.contacts
-                            .find(({ index }) => index === contact.mem_index).name,
-                        "new_digest": userSim.sim.storage.digest
-                    }) : undefined;
+                return undefined;
             }
             let storageInfos;
             if (contact.mem_index !== undefined) {
                 const resp = await gatewayRemoteApiCaller.updateContactName(imsi, contact.mem_index, newName);
-                if (resp) {
-                    storageInfos = {
-                        "mem_index": contact.mem_index,
-                        "name_as_stored": resp.new_name_as_stored,
-                        "new_storage_digest": resp.new_storage_digest
-                    };
-                }
-                else {
+                if (!resp) {
                     //TODO: the contact should maybe be updated anyway
                     throw new Error("update contact failed on the gateway");
                 }
+                storageInfos = {
+                    "mem_index": contact.mem_index,
+                    "name_as_stored": resp.new_name_as_stored,
+                    "new_digest": resp.new_storage_digest
+                };
             }
             else {
                 storageInfos = undefined;
             }
-            const uasRegisteredToSim = await dbSemasim.createOrUpdateSimContact(imsi, newName, contact.number_raw, storageInfos);
-            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
-            remoteApiCaller.notifyContactCreatedOrUpdated({
-                imsi,
-                "name": newName,
-                "number_raw": contact.number_raw,
-                "storage": storageInfos !== undefined ? ({
-                    "mem_index": storageInfos.mem_index,
-                    "name_as_stored": storageInfos.name_as_stored,
-                    "new_digest": storageInfos.new_storage_digest
-                }) : undefined
-            }, uasRegisteredToSim.filter(({ instance }) => session.shared.uaInstanceId !== instance));
-            return storageInfos !== undefined ?
-                ({
-                    "name_as_stored_in_sim": storageInfos.name_as_stored,
-                    "new_digest": storageInfos.new_storage_digest
-                }) : undefined;
+            const uas = await dbSemasim.createOrUpdateSimContact(imsi, newName, contact.number_raw, storageInfos);
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CONTACT CREATED OR UPDATED",
+                    imsi,
+                    "name": newName,
+                    "number_raw": contact.number_raw,
+                    "storage": storageInfos !== null && storageInfos !== void 0 ? storageInfos : undefined
+                },
+                uas
+            });
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.deleteContact.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.deleteContact;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
@@ -374,7 +498,7 @@ exports.handlers = {};
             const session = socketSession_1.getAuthenticatedSession(socket);
             const userSim = await dbSemasim.getUserSims(session)
                 .then(userSims => userSims
-                .filter(frontend_1.types.UserSim.Usable.match)
+                .filter(feTypes.UserSim.Usable.match)
                 .find(({ sim }) => sim.imsi === imsi));
             if (!userSim) {
                 throw new Error("User does not have access to this sim");
@@ -410,20 +534,23 @@ exports.handlers = {};
                 storage = undefined;
                 prQuery = dbSemasim.deleteSimContact(imsi, { "number_raw": contact.number_raw });
             }
-            const uasRegisteredToSim = await prQuery;
-            remoteApiCaller.notifyContactDeleted({
-                imsi,
-                "number_raw": contact.number_raw,
-                storage
-            }, uasRegisteredToSim.filter(({ instance }) => session.shared.uaInstanceId !== instance));
-            pushNotifications.sendSafe(uasRegisteredToSim, { "type": "RELOAD CONFIG" });
-            return { "new_digest": storage !== undefined ? storage.new_digest : undefined };
+            const uas = await prQuery;
+            remoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CONTACT DELETED",
+                    imsi,
+                    "number_raw": contact.number_raw,
+                    storage
+                },
+                "uas": uas
+            });
+            return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToUa_1.apiDeclaration.shouldAppendPromotionalMessage.methodName;
+    const { methodName } = sip_api_1.api_decl_backendToUa.shouldAppendPromotionalMessage;
     const handler = {
         "sanityCheck": params => params === undefined,
         "handler": async (_params, socket) => {

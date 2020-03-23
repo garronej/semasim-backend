@@ -2,10 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const sip = require("ts-sip");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
-const gatewayToBackend_1 = require("../../sip_api_declarations/gatewayToBackend");
+const gateway_1 = require("../../gateway");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
 exports.getDongle = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.getDongle.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.getDongle.methodName;
     return (imei, gatewaySocket) => {
         return sip.api.client.sendRequest(gatewaySocket, methodName, { imei }, {
             "timeout": 5 * 1000,
@@ -15,7 +15,7 @@ exports.getDongle = (() => {
     };
 })();
 exports.getDongleSipPasswordAndTowardSimEncryptKeyStr = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.getDongleSipPasswordAndTowardSimEncryptKeyStr.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.getDongleSipPasswordAndTowardSimEncryptKeyStr.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => (response === undefined
             ||
@@ -41,7 +41,7 @@ exports.unlockSim = (() => {
     Only the first user will receive a unlock result
     the others will get undefined.
     */
-    const methodName = gatewayToBackend_1.apiDeclaration.unlockSim.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.unlockSim.methodName;
     function f(imei, pin, arg) {
         const params = { imei, pin };
         if (typeof arg === "string") {
@@ -59,7 +59,7 @@ exports.unlockSim = (() => {
     return f;
 })();
 exports.rebootDongle = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.rebootDongle.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.rebootDongle.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => (response instanceof Object &&
             typeof response.isSuccess === "boolean");
@@ -70,7 +70,7 @@ exports.rebootDongle = (() => {
     };
 })();
 exports.reNotifySimOnline = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.reNotifySimOnline.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.reNotifySimOnline.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => response === undefined;
         return sanityCheck;
@@ -80,7 +80,7 @@ exports.reNotifySimOnline = (() => {
     };
 })();
 exports.createContact = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.createContact.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.createContact.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => (response === undefined ||
             (response instanceof Object &&
@@ -94,7 +94,7 @@ exports.createContact = (() => {
     };
 })();
 exports.updateContactName = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.updateContactName.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.updateContactName.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => (response === undefined ||
             (response instanceof Object &&
@@ -107,7 +107,7 @@ exports.updateContactName = (() => {
     };
 })();
 exports.deleteContact = (() => {
-    const methodName = gatewayToBackend_1.apiDeclaration.deleteContact.methodName;
+    const methodName = gateway_1.api_decl_gatewayToBackend.deleteContact.methodName;
     backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
         const sanityCheck = response => (response === undefined ||
             (response instanceof Object &&

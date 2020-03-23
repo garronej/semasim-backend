@@ -1,9 +1,9 @@
-import { types as feTypes } from "../frontend";
-export declare const sharingRequest: (simOwnerEmail: string, userSim: feTypes.UserSim._Base<feTypes.SimOwnership.Owned>, message: string, targetUsers: {
+import * as types from "../frontend/types";
+export declare const sharingRequest: (simOwnerEmail: string, userSim: types.UserSim.Owned, message: string, targetUsers: {
     email: string;
     isRegistered: boolean;
 }[]) => Promise<void>;
-export declare const sharingRequestSafe: (simOwnerEmail: string, userSim: feTypes.UserSim._Base<feTypes.SimOwnership.Owned>, message: string, targetUsers: {
+export declare const sharingRequestSafe: (simOwnerEmail: string, userSim: types.UserSim.Owned, message: string, targetUsers: {
     email: string;
     isRegistered: boolean;
 }[]) => Promise<void>;

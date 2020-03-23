@@ -1,335 +1,131 @@
 import * as sip from "ts-sip";
-import { apiDeclaration } from "../../sip_api_declarations/uaToBackend";
+import {  api_decl_uaToBackend as apiDeclaration } from "../../frontend/sip_api";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import { types as dcTypes } from "chan-dongle-extended-client";
 import { types as gwTypes } from "../../gateway";
+import { id } from "../../frontend/tools";
 
-function multicast<Params, Response extends undefined>(
-    methodName: string,
-    params: Params,
-    uas: gwTypes.Ua[]
-): Promise<void> {
-
-    return Promise.all(
-        uas.map(
-            ua =>
-                backendRemoteApiCaller.forwardRequest<Params, Response>(
-                    { "target": "UA", "uaInstanceId": ua.instance },
-                    methodName,
-                    params,
-                    { "timeout": 5 * 1000, }
-                ).catch(() => { })
-        )
-    ).then(() => { });
-
-}
-
-export const notifySimOffline = (() => {
-
-    const methodName = apiDeclaration.notifySimOffline.methodName;
-    type Params = apiDeclaration.notifySimOffline.Params;
-    type Response = apiDeclaration.notifySimOffline.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (imsi: string, uas: gwTypes.Ua[]): Promise<void> =>  
-         multicast<Params, Response>(methodName, { imsi }, uas);
-
-})();
-
-export const notifySimOnline = (() => {
-
-    const methodName = apiDeclaration.notifySimOnline.methodName;
-    type Params = apiDeclaration.notifySimOnline.Params;
-    type Response = apiDeclaration.notifySimOnline.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> => 
-        multicast<Params, Response>(methodName, params, uas);
-
-})();
-
-export const notifyGsmConnectivityChange = (() => {
-
-    const { methodName } = apiDeclaration.notifyGsmConnectivityChange;
-    type Params = apiDeclaration.notifyGsmConnectivityChange.Params;
-    type Response = apiDeclaration.notifyGsmConnectivityChange.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> => 
-         multicast<Params, Response>(methodName, params, uas);
-
-})();
-
-export const notifyCellSignalStrengthChange = (() => {
-
-    const { methodName } = apiDeclaration.notifyCellSignalStrengthChange;
-    type Params = apiDeclaration.notifyCellSignalStrengthChange.Params;
-    type Response = apiDeclaration.notifyCellSignalStrengthChange.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> => 
-         multicast<Params, Response>(methodName, params, uas);
-
-})();
-
-export const notifyOngoingCall = (() => {
-
-    const { methodName } = apiDeclaration.notifyOngoingCall;
-    type Params = apiDeclaration.notifyOngoingCall.Params;
-    type Response = apiDeclaration.notifyOngoingCall.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, uas);
-
-})();
+const multicast = <Params, Response extends undefined>({ methodName, params, uas }: {
+    methodName: string;
+    params: Params;
+    uas: gwTypes.Ua[];
+}): Promise<void> => Promise.all(
+    uas.map(
+        ua =>
+            backendRemoteApiCaller.forwardRequest<Params, Response>(
+                { "target": "UA", "uaInstanceId": ua.instance },
+                methodName,
+                params,
+                { "timeout": 5 * 1000, }
+            ).catch(() => { })
+    )
+).then(() => { });
 
 
-export const notifyContactCreatedOrUpdated = (() => {
+export const notifyUserSimChange = (() => {
 
-    const methodName = apiDeclaration.notifyContactCreatedOrUpdated.methodName;
-    type Params = apiDeclaration.notifyContactCreatedOrUpdated.Params;
-    type Response = apiDeclaration.notifyContactCreatedOrUpdated.Response;
+    const { methodName } = apiDeclaration.notifyUserSimChange;
+    type Params = apiDeclaration.notifyUserSimChange.Params;
+    type Response = apiDeclaration.notifyUserSimChange.Response;
 
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+    backendRemoteApiCaller.SanityCheck_.store[methodName] =
+        id<backendRemoteApiCaller.SanityCheck_<Response>>(
+            response => response === undefined
+        );
 
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, uas);
-
-})();
-
-export const notifyContactDeleted = (() => {
-
-    const methodName = apiDeclaration.notifyContactDeleted.methodName;
-    type Params = apiDeclaration.notifyContactDeleted.Params;
-    type Response = apiDeclaration.notifyContactDeleted.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, uas);
+    return ({ params, uas }: { params: Params, uas: gwTypes.Ua[]; }): Promise<void> =>
+        multicast<Params, Response>({ methodName, params, uas });
 
 })();
 
 export const notifyDongleOnLan = (() => {
 
-    const methodName = apiDeclaration.notifyDongleOnLan.methodName;
+    const { methodName } = apiDeclaration.notifyDongleOnLan;
     type Params = apiDeclaration.notifyDongleOnLan.Params;
     type Response = apiDeclaration.notifyDongleOnLan.Response;
 
-    /** Callable from anywhere */
-    function f(dongle: dcTypes.Dongle, gatewayAddress: string): Promise<void>;
-    /** Callable only on process holding the connection */
-    function f(dongle: dcTypes.Dongle, uaSocket: sip.Socket): Promise<void>;
-    function f(dongle: dcTypes.Dongle, arg: sip.Socket | string): Promise<void> {
+    type Args = Args_address | Args_socket;
 
-        if (typeof arg === "string") {
+    type Args_common = {
+        dongle: dcTypes.Dongle
+    };
 
-            const gatewayAddress = arg;
+    type Args_address = Args_common & {
+        gatewayAddress: string;
+    };
 
-            return backendRemoteApiCaller.notifyDongleOnLanProxy(
-                dongle, gatewayAddress
-            );
+    type Args_socket = Args_common & {
+        uaSocket: sip.Socket
+    };
 
-        } else {
+    type ReturnedFunction = {
+        /** Callable from anywhere */
+        (args: Args_address): Promise<void>;
+        /** Callable only on process holding the connection */
+        (args: Args_socket): Promise<void>;
+    };
 
-            const uaSocket = arg;
+    return id<ReturnedFunction>(
+        async (args: Args) => {
 
-            return sip.api.client.sendRequest<Params, Response>(
-                uaSocket,
-                methodName,
-                dongle,
-                {
-                    "timeout": 5 * 1000,
-                    "sanityCheck": response => response === undefined
-                }
-            ).catch(() => { });
+            const { dongle } = args;
 
-        }
+            if ("gatewayAddress" in args) {
 
-    }
+                const { gatewayAddress } = args;
 
-    return f;
+                return backendRemoteApiCaller.notifyDongleOnLanProxy(
+                    dongle,
+                    gatewayAddress
+                );
 
-})();
+            } else {
 
-export const notifySimPermissionLost = (() => {
+                const { uaSocket } = args;
 
-    const methodName = apiDeclaration.notifySimPermissionLost.methodName;
-    type Params = apiDeclaration.notifySimPermissionLost.Params;
-    type Response = apiDeclaration.notifySimPermissionLost.Response;
+                return sip.api.client.sendRequest<Params, Response>(
+                    uaSocket,
+                    methodName,
+                    dongle,
+                    {
+                        "timeout": 5 * 1000,
+                        "sanityCheck": response => response === undefined
+                    }
+                ).catch(() => { });
 
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (imsi: string, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, { imsi }, uas);
-
-})();
-
-export const notifySimSharingRequest = (() => {
-
-    const { methodName } = apiDeclaration.notifySimSharingRequest;
-    type Params = apiDeclaration.notifySimSharingRequest.Params;
-    type Response = apiDeclaration.notifySimSharingRequest.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    function f(userSim: Params, uas: gwTypes.Ua[]): Promise<void>;
-    function f(userSim: Params, socket: sip.Socket): Promise<void>;
-    function f(userSim: Params, uasOrSocket: gwTypes.Ua[] | sip.Socket): Promise<void> {
-
-        if( uasOrSocket instanceof Array ){
-
-            const uas= uasOrSocket;
-
-            return multicast<Params, Response>(methodName, userSim, uas);
-
-        }else{
-
-            const socket = uasOrSocket;
-
-            return sip.api.client.sendRequest<Params, Response>(
-                socket,
-                methodName,
-                userSim,
-                {
-                    "timeout": 5 * 1000,
-                    "sanityCheck": response => response === undefined
-                }
-            ).catch(() => { });
+            }
 
         }
-
-
-    }
-
-    return f;
+    );
 
 })();
 
-export const notifySharingRequestResponse = (() => {
 
-    const { methodName } = apiDeclaration.notifySharingRequestResponse;
-    type Params = apiDeclaration.notifySharingRequestResponse.Params;
-    type Response = apiDeclaration.notifySharingRequestResponse.Response;
 
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, uas);
-
-})();
-
-export const notifyOtherSimUserUnregisteredSim = (() => {
-
-    const { methodName } = apiDeclaration.notifyOtherSimUserUnregisteredSim;
-    type Params = apiDeclaration.notifyOtherSimUserUnregisteredSim.Params;
-    type Response = apiDeclaration.notifyOtherSimUserUnregisteredSim.Response;
-
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
-
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (params: Params, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, params, uas);
-
-})();
 
 export const notifyLoggedFromOtherTab = (() => {
 
-    const methodName = apiDeclaration.notifyLoggedFromOtherTab.methodName;
+    const { methodName } = apiDeclaration.notifyLoggedFromOtherTab;
     type Params = apiDeclaration.notifyLoggedFromOtherTab.Params;
     type Response = apiDeclaration.notifyLoggedFromOtherTab.Response;
 
-    /** Callable from anywhere */
-    function f(uaInstanceId: string): Promise<void>;
-    /** Callable only on process holding the connection */
-    function f(uaSocket: sip.Socket): Promise<void>;
-    function f(arg: sip.Socket | string): Promise<void> {
+    type Args = Args_instanceId | Args_socket;
 
-        if (typeof arg === "string") {
+    type Args_instanceId = { uaInstanceId: string; };
+    type Args_socket = { uaSocket: sip.Socket; };
 
-            const uaInstanceId = arg;
+    type ReturnedFunction = {
+        /** Callable from anywhere */
+        (args: Args_instanceId): Promise<void>;
+        /** Callable only on process holding the connection */
+        (args: Args_socket): Promise<void>;
+    };
+
+    return id<ReturnedFunction>((args: Args) => {
+
+        if ("uaInstanceId" in args) {
+
+            const { uaInstanceId } = args;
 
             return backendRemoteApiCaller.notifyLoggedFromOtherTabProxy(
                 uaInstanceId
@@ -337,7 +133,7 @@ export const notifyLoggedFromOtherTab = (() => {
 
         } else {
 
-            const uaSocket = arg;
+            const { uaSocket } = args;
 
             return sip.api.client.sendRequest<Params, Response>(
                 uaSocket,
@@ -352,21 +148,19 @@ export const notifyLoggedFromOtherTab = (() => {
 
         }
 
-    }
+    });
 
-    return f;
 
 })();
 
 export const notifyIceServer = (() => {
 
-    const methodName = apiDeclaration.notifyIceServer.methodName;
+    const { methodName } = apiDeclaration.notifyIceServer;
     type Params = apiDeclaration.notifyIceServer.Params;
     type Response = apiDeclaration.notifyIceServer.Response;
 
-    return async (uaSocket: sip.Socket, iceServer: Params): Promise<void> => {
-
-        return sip.api.client.sendRequest<Params, Response>(
+    return ({ uaSocket, iceServer }: { uaSocket: sip.Socket; iceServer: Params; }): Promise<void> =>
+        sip.api.client.sendRequest<Params, Response>(
             uaSocket,
             methodName,
             iceServer,
@@ -376,28 +170,27 @@ export const notifyIceServer = (() => {
             }
         ).catch(() => { });
 
-    };
 
 })();
 
 
 export const wd_notifyActionFromOtherUa = (() => {
 
-    const methodName = apiDeclaration.wd_notifyActionFromOtherUa.methodName;
+    const { methodName } = apiDeclaration.wd_notifyActionFromOtherUa;
     type Params = apiDeclaration.wd_notifyActionFromOtherUa.Params;
     type Response = apiDeclaration.wd_notifyActionFromOtherUa.Response;
 
-    backendRemoteApiCaller.SanityCheck_.store[methodName] = (() => {
+    backendRemoteApiCaller.SanityCheck_.store[methodName] =
+        id<backendRemoteApiCaller.SanityCheck_<Response>>(
+            response => response === undefined
+        );
 
-        const sanityCheck: backendRemoteApiCaller.SanityCheck_<Response> =
-            response => response === undefined;
-
-        return sanityCheck;
-
-    })();
-
-    return (methodNameAndParams: Params, uas: gwTypes.Ua[]): Promise<void> =>
-        multicast<Params, Response>(methodName, methodNameAndParams, uas);
+    return ({ methodNameAndParams, uas }: { methodNameAndParams: Params; uas: gwTypes.Ua[]; }): Promise<void> =>
+        multicast<Params, Response>({
+            methodName,
+            "params": methodNameAndParams,
+            uas
+        });
 
 })();
 

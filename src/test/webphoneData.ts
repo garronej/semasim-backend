@@ -7,47 +7,45 @@ if (require.main === module) {
 import { deploy } from "../deploy";
 import { getApi as getDbWebphoneDataApi, connectToDbAndGetMysqlApi as connectToDbWebphoneDataAndGetMysqlApi } from "../lib/dbWebphoneData/impl";
 import { dbWebphoneData as dbWebphoneDataGlobal, launch as launchDbWebphoneDataGlobal } from "../lib/dbWebphoneData";
-import * as assert from "assert";
 import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
 
 import { getHandlers as getWebphoneDataApiHandlers, getSocketForIntegrationTests } from "../lib/toUa/localApiHandlers/webphoneData";
 import * as cryptoLib from "crypto-lib";
 import { types as gwTypes } from "../gateway";
-import { SyncEvent } from "ts-events-extended";
 
-import { getApiCallerForSpecificSimFactory as getWdApiCallerForSpecificSimFactory } from "../../../frontend/shared/dist/lib/toBackend/remoteApiCaller/webphoneData";
-import * as wd from "../../../frontend/shared/dist/lib/types/webphoneData/logic";
+import { Evt, UnpackEvt } from "evt";
 
+import { getWdApiFactory } from "../../../frontend/shared/dist/lib/toBackend/remoteApiCaller/webphoneData";
 
+import * as types from "../frontend/types";
+import { assert } from "../frontend/tools";
+import { NonPostableEvts } from "../frontend/tools";
 
-const exposedForTestingPurpose = { getWdApiCallerForSpecificSimFactory };
 
 const maxMessageCountByChat = 10;
 
-type UnpackPromise<T> = T extends Promise<infer U> ? U : never;
-
 type FrontendApi = ReturnType<ReturnType<ReturnType<typeof getIsolatedWdApiCallerForSpecificSimFactory>>>;
+
 
 type Client = {
     frontendApi: FrontendApi;
     uaInstanceId: string;
-} & UnpackPromise<ReturnType<FrontendApi["getUserSimChats"]>>;
+    wdChats: types.wd.Chat<"PLAIN">[];
+    wdEvts: NonPostableEvts<types.wd.Evts>;
+};
 
-const evtSendRequest = new SyncEvent<{
+const evtSendRequest = new Evt<{
     uaInstanceId: string;
     methodName: string;
     params: any;
 }>();
 
-const evtWdChatCheckedFromOtherDevice = new SyncEvent<{
+const evtWdChatCheckedFromOtherDevice = new Evt<{
     originatorUaInstanceId: string,
     targetUaInstanceId: string;
-    methodNameAndParams: SyncEvent.Type<Parameters<
-        typeof exposedForTestingPurpose.getWdApiCallerForSpecificSimFactory
-    >[1]["evtWdActionFromOtherUa"]>
+    methodNameAndParams: UnpackEvt<Parameters<typeof getWdApiFactory>[0]["remoteNotifyEvts"]["evtWdActionFromOtherUa"]>
 }>();
-
 
 async function testApiCall<T>(
     client: Client,
@@ -55,20 +53,20 @@ async function testApiCall<T>(
     expect: { requestSent: boolean; otherUaUpdateEvent?: boolean; }
 ): Promise<T> {
 
-    const boundTo = [];
+    const boundTo = Evt.newCtx();
 
     let wasRequestSent: boolean = false;
 
     evtSendRequest.attachOnce(
-        ({ uaInstanceId })=> uaInstanceId === client.uaInstanceId,
+        ({ uaInstanceId }) => uaInstanceId === client.uaInstanceId,
         boundTo,
         () => wasRequestSent = true
     );
 
-    let wasChangeNotifiedToOtherUas= false;
+    let wasChangeNotifiedToOtherUas = false;
 
     evtWdChatCheckedFromOtherDevice.attachOnce(
-        ({ originatorUaInstanceId })=> originatorUaInstanceId === client.uaInstanceId,
+        ({ originatorUaInstanceId }) => originatorUaInstanceId === client.uaInstanceId,
         boundTo,
         () => wasChangeNotifiedToOtherUas = true
     )
@@ -79,11 +77,11 @@ async function testApiCall<T>(
     evtSendRequest.detach(boundTo);
     evtWdChatCheckedFromOtherDevice.detach(boundTo);
 
-    try{
+    try {
 
-    assert( expect.requestSent === wasRequestSent );
+        assert(expect.requestSent === wasRequestSent);
 
-    }catch(error){
+    } catch (error) {
 
         console.log({ expect });
 
@@ -91,7 +89,7 @@ async function testApiCall<T>(
 
     }
 
-    if( expect.otherUaUpdateEvent !== undefined ){
+    if (expect.otherUaUpdateEvent !== undefined) {
 
         assert(expect.otherUaUpdateEvent === wasChangeNotifiedToOtherUas);
 
@@ -102,23 +100,23 @@ async function testApiCall<T>(
 }
 
 
-async function newChat (
+async function newChat(
     client: Client,
     arg1: {
         contactName: string;
         contactNumber: string;
         contactIndexInSim: number | null;
     }
-){
+) {
 
-    client.frontendApi.newChat(
-        client.wdChats,
-        arg1.contactNumber,
-        arg1.contactName,
-        arg1.contactIndexInSim
-    );
+    client.frontendApi.newChat({
+        "wdChats": client.wdChats,
+        "contactNumber": arg1.contactNumber,
+        "contactName": arg1.contactName,
+        "contactIndexInSim": arg1.contactIndexInSim
+    });
 
-    const { wdChat } = await client.wdEvts.evtNewUpdatedOrDeletedWdChat.waitFor(
+    const { wdChat } = await client.wdEvts.evtWdMessage.waitFor(
         ({ eventType, wdChat }) => (
             eventType === "NEW" &&
             wdChat.contactNumber === arg1.contactNumber
@@ -134,13 +132,16 @@ async function newChat (
 
 };
 
-
-
 function getIsolatedWdApiCallerForSpecificSimFactory(
-    arg: { aesWorkerThreadPoolId: cryptoLib.workerThreadPool.Id; symmetricKey: Uint8Array; user: number; userEmail: string; }
+    params: {
+        aesWorkerThreadPoolId: cryptoLib.workerThreadPool.Id;
+        symmetricKey: Uint8Array;
+        user: number;
+        userEmail: string;
+    }
 ) {
 
-    const { aesWorkerThreadPoolId, symmetricKey, user, userEmail } = arg;
+    const { aesWorkerThreadPoolId, symmetricKey, user, userEmail } = params;
 
     const uas: gwTypes.Ua[] = [];
 
@@ -183,18 +184,16 @@ function getIsolatedWdApiCallerForSpecificSimFactory(
 
                 })()
             ),
+            { "getUserUas": () => Promise.resolve(uas) },
             {
-                "getUserUas": () => Promise.resolve(uas)
-            },
-            {
-                "wd_notifyActionFromOtherUa": (methodNameAndParams, uas) => Promise.all(
+                "wd_notifyActionFromOtherUa": ({ methodNameAndParams, uas }) => Promise.all(
                     uas
                         .filter(({ platform }) => platform !== "web")
                         .map(({ instance }) => new Promise<void>((resolve, reject) => {
 
                             let count = 0;
 
-                            const evtData: SyncEvent.Type<typeof evtWdChatCheckedFromOtherDevice> = {
+                            const evtData: UnpackEvt<typeof evtWdChatCheckedFromOtherDevice> = {
                                 "originatorUaInstanceId": uaInstanceId,
                                 "targetUaInstanceId": instance,
                                 "methodNameAndParams": {
@@ -219,7 +218,15 @@ function getIsolatedWdApiCallerForSpecificSimFactory(
 
                             };
 
-                            const handlerCount = evtWdChatCheckedFromOtherDevice.getHandlers().filter(({ matcher }) => matcher(evtData)).length;
+
+                            const handlerCount = evtWdChatCheckedFromOtherDevice
+                                .getHandlers()
+                                .filter(
+                                    ({ op }) => !!evtWdChatCheckedFromOtherDevice
+                                        .getStatelessOp(op)(evtData)
+                                )
+                                .length
+                                ;
 
                             if (handlerCount === 0) {
                                 throw new Error("wrong assertion");
@@ -233,9 +240,8 @@ function getIsolatedWdApiCallerForSpecificSimFactory(
             true
         );
 
-
-        return exposedForTestingPurpose.getWdApiCallerForSpecificSimFactory(
-            (methodName, params) => {
+        return getWdApiFactory({
+            "sendRequest": (methodName, params) => {
 
                 const { handler, sanityCheck } = handlers[methodName];
 
@@ -250,12 +256,12 @@ function getIsolatedWdApiCallerForSpecificSimFactory(
                 );
 
             },
-            {
+            "remoteNotifyEvts": {
                 "evtWdActionFromOtherUa": (() => {
 
                     const out: Parameters<
-                        typeof exposedForTestingPurpose.getWdApiCallerForSpecificSimFactory
-                    >[1]["evtWdActionFromOtherUa"] = new SyncEvent();
+                        typeof getWdApiFactory
+                    >[0]["remoteNotifyEvts"]["evtWdActionFromOtherUa"] = new Evt();
 
                     evtWdChatCheckedFromOtherDevice.attach(
                         ({ targetUaInstanceId }) => targetUaInstanceId === uaInstanceId,
@@ -268,7 +274,7 @@ function getIsolatedWdApiCallerForSpecificSimFactory(
             },
             encryptorDecryptor,
             userEmail
-        );
+        });
 
 
     }
@@ -309,12 +315,12 @@ async function runTests() {
         const frontendApi = getIsolatedWdApiCallerForSpecificSim(
             platform,
             uaInstanceId
-        )(imsi);
+        )({ imsi });
 
         return {
             frontendApi,
             uaInstanceId,
-            ...await frontendApi.getUserSimChats(maxMessageCountByChat)
+            ...await frontendApi.getUserSimChats({ maxMessageCountByChat })
         };
 
     };
@@ -339,16 +345,13 @@ async function runTests() {
         return Promise.all(
             clients.map(
                 async ({ frontendApi }) => assertSame(
-                    (await frontendApi.getUserSimChats(maxMessageCountByChat)).wdChats,
+                    (await frontendApi.getUserSimChats({ maxMessageCountByChat })).wdChats,
                     androidClient1.wdChats
                 )
             )
         );
 
     };
-
-
-
 
     assertSame(
         androidClient1.wdChats,
@@ -381,24 +384,24 @@ async function runTests() {
         );
 
         testApiCall(
-            androidClient1, 
-            ()=> androidClient1.frontendApi.updateChatContactInfos(
+            androidClient1,
+            () => androidClient1.frontendApi.updateChatContactInfos({
                 wdChat,
                 contactName,
                 contactIndexInSim
-            ), 
+            }),
             { "requestSent": false }
         );
 
 
-        const newContactName= contactName + " new";
-        const newContactIndexInSim= i === 0 ? 0 : null;
+        const newContactName = contactName + " new";
+        const newContactIndexInSim = i === 0 ? 0 : null;
 
-        await androidClient1.frontendApi.updateChatContactInfos(
+        await androidClient1.frontendApi.updateChatContactInfos({
             wdChat,
-            newContactName,
-            newContactIndexInSim
-        );
+            "contactName": newContactName,
+            "contactIndexInSim": newContactIndexInSim
+        });
 
         assertSame(
             wdChat,
@@ -421,10 +424,10 @@ async function runTests() {
 
         const wdChatsCopyBefore = [...androidClient1.wdChats];
 
-        await androidClient1.frontendApi.destroyWdChat(
-            androidClient1.wdChats,
-            wdChat.ref
-        );
+        await androidClient1.frontendApi.destroyWdChat({
+            "wdChats": androidClient1.wdChats,
+            "refOfTheChatToDelete": wdChat.ref
+        });
 
         assertSame(
             androidClient1.wdChats,
@@ -467,13 +470,11 @@ async function runTests() {
                                 throw new Error("wrong assertion");
                             }
 
-                            client.frontendApi.newMessage(
+                            client.frontendApi.newMessage({
                                 wdChat,
-                                {
-                                    "type": "SERVER TO CLIENT",
-                                    bundledData
-                                }
-                            );
+                                "type": "SERVER TO CLIENT",
+                                bundledData
+                            });
 
                             const time = bundledData.pduDateTime;
 
@@ -482,7 +483,7 @@ async function runTests() {
 
                                 const wdMessagesBefore = [...wdChat.messages];
 
-                                return client.wdEvts.evtNewOrUpdatedWdMessage.waitFor(
+                                return client.wdEvts.evtWdMessage.waitFor(
                                     ({ wdChat: wdChat_, wdMessage }) => (
                                         wdChat_ === wdChat &&
                                         wdMessagesBefore.indexOf(wdMessage) < 0 &&
@@ -518,10 +519,10 @@ async function runTests() {
 
         await assertCheckPass();
 
-        await androidClient1.frontendApi.destroyWdChat(
-            androidClient1.wdChats,
-            chatRef
-        );
+        await androidClient1.frontendApi.destroyWdChat({
+            "wdChats": androidClient1.wdChats,
+            "refOfTheChatToDelete": chatRef
+        });
 
         await assertCheckPass();
 
@@ -540,7 +541,7 @@ async function runTests() {
             }
         );
 
-        Object.assign(webClient, await webClient.frontendApi.getUserSimChats(maxMessageCountByChat));
+        Object.assign(webClient, await webClient.frontendApi.getUserSimChats({ maxMessageCountByChat }));
 
         const bundledData: gwTypes.BundledData.ServerToClient.Message = {
             "type": "MESSAGE",
@@ -554,26 +555,22 @@ async function runTests() {
             throw new Error("wrong assertion");
         }
 
-        await androidClient1.frontendApi.newMessage(
+        await androidClient1.frontendApi.newMessage({
             wdChat,
-            {
-                "type": "SERVER TO CLIENT",
-                bundledData
-            }
-        );
+            "type": "SERVER TO CLIENT",
+            bundledData
+        });
 
         await assertCheckPass();
 
         const test = (client: Client, expect: Parameters<typeof testApiCall>[2]) =>
             testApiCall(
                 client,
-                () => client.frontendApi.newMessage(
-                    client.wdChats.find(({ ref }) => ref === chatRef)!,
-                    {
-                        "type": "SERVER TO CLIENT",
-                        bundledData
-                    }
-                ),
+                () => client.frontendApi.newMessage({
+                    "wdChat": client.wdChats.find(({ ref }) => ref === chatRef)!,
+                    "type": "SERVER TO CLIENT",
+                    bundledData
+                }),
                 expect
             );
 
@@ -586,7 +583,10 @@ async function runTests() {
 
         await assertCheckPass();
 
-        await androidClient1.frontendApi.destroyWdChat(androidClient1.wdChats, chatRef);
+        await androidClient1.frontendApi.destroyWdChat({
+            "wdChats": androidClient1.wdChats,
+            "refOfTheChatToDelete": chatRef
+        });
 
     }
 
@@ -631,13 +631,11 @@ async function runTests() {
                 throw new Error("wrong assertion");
             }
 
-            androidClient1.frontendApi.newMessage(
+            androidClient1.frontendApi.newMessage({
                 wdChat,
-                {
-                    "type": "CLIENT TO SERVER",
-                    "bundledData": bundledDataMessage
-                }
-            );
+                "type": "CLIENT TO SERVER",
+                "bundledData": bundledDataMessage
+            });
 
             const time = bundledDataMessage.exactSendDateTime;
 
@@ -645,7 +643,7 @@ async function runTests() {
 
                 const wdMessagesBefore = [...wdChat.messages];
 
-                return androidClient1.wdEvts.evtNewOrUpdatedWdMessage.waitFor(
+                return androidClient1.wdEvts.evtWdMessage.waitFor(
                     ({ wdChat: wdChat_, wdMessage }) => (
                         wdChat_ === wdChat &&
                         wdMessagesBefore.indexOf(wdMessage) < 0 &&
@@ -718,16 +716,16 @@ async function runTests() {
 
             })();
 
-            androidClient1.frontendApi.notifySendReportReceived(
+            androidClient1.frontendApi.notifySendReportReceived({
                 wdChat,
-                bundledDataSendReport
-            );
+                "bundledData": bundledDataSendReport
+            });
 
             const { wdMessage } = await (() => {
 
                 const wdMessagesBefore = [...wdChat.messages];
 
-                return androidClient1.wdEvts.evtNewOrUpdatedWdMessage.waitFor(
+                return androidClient1.wdEvts.evtWdMessage.waitFor(
                     ({ wdChat: wdChat_, wdMessage }) => (
                         wdChat_ === wdChat &&
                         wdMessagesBefore.indexOf(wdMessage) >= 0
@@ -786,17 +784,17 @@ async function runTests() {
             })();
 
 
-            androidClient1.frontendApi.notifyStatusReportReceived(
+            androidClient1.frontendApi.notifyStatusReportReceived({
                 wdChat,
-                bundledDataStatusReport
-            );
+                "bundledData": bundledDataStatusReport
+            });
 
 
             const { wdMessage } = await (() => {
 
                 const wdMessagesBefore = [...wdChat.messages];
 
-                return androidClient1.wdEvts.evtNewOrUpdatedWdMessage.waitFor(
+                return androidClient1.wdEvts.evtWdMessage.waitFor(
                     ({ wdChat: wdChat_, wdMessage }) => (
                         wdChat_ === wdChat &&
                         wdMessagesBefore.indexOf(wdMessage) >= 0
@@ -895,10 +893,10 @@ async function runTests() {
 
             await testApiCall(
                 client,
-                () => client.frontendApi.notifyStatusReportReceived(
+                () => client.frontendApi.notifyStatusReportReceived({
                     wdChat,
-                    bundledDataStatusReport
-                ),
+                    "bundledData": bundledDataStatusReport
+                }),
                 (() => {
                     switch (i) {
                         case 0:
@@ -921,10 +919,10 @@ async function runTests() {
 
         await assertCheckPass()
 
-        await androidClient1.frontendApi.destroyWdChat(
-            androidClient1.wdChats,
-            chatRef
-        );
+        await androidClient1.frontendApi.destroyWdChat({
+            "wdChats": androidClient1.wdChats,
+            "refOfTheChatToDelete": chatRef
+        });
 
     }
 
@@ -941,7 +939,7 @@ async function runTests() {
             }
         );
 
-        assert(wd.getUnreadMessagesCount(wdChat) === 0);
+        assert(types.wd.Chat.getUnreadMessagesCount(wdChat) === 0);
 
         //Object.assign(webClient, await webClient.frontendApi.getUserSimChats());
 
@@ -986,15 +984,15 @@ async function runTests() {
 
         const wdMessageOutgoingRef = await (async () => {
 
-            androidClient1.frontendApi.notifyStatusReportReceived(
+            androidClient1.frontendApi.notifyStatusReportReceived({
                 wdChat,
-                bundledDataStatusReport
-            );
+                "bundledData": bundledDataStatusReport
+            });
 
             const wdMessagesBefore = [...wdChat.messages];
 
             const [wdMessage, ...othersWdMessages] = (await Promise.all([
-                androidClient1.wdEvts.evtNewOrUpdatedWdMessage.attachOnce(
+                androidClient1.wdEvts.evtWdMessage.attachOnce(
                     ({ wdChat: wdChat_, wdMessage }) => (
                         wdChat_ === wdChat &&
                         wdMessagesBefore.indexOf(wdMessage) < 0 &&
@@ -1002,25 +1000,25 @@ async function runTests() {
                         wdMessage.status === "PENDING"
                     ),
                     10000,
-                    ()=> assert(wd.getUnreadMessagesCount(wdChat) === 0)
+                    () => assert(types.wd.Chat.getUnreadMessagesCount(wdChat) === 0)
                 ),
-                androidClient1.wdEvts.evtNewOrUpdatedWdMessage.attachOnce(
+                androidClient1.wdEvts.evtWdMessage.attachOnce(
                     ({ wdChat: wdChat_, wdMessage }) => (
                         wdChat_ === wdChat &&
                         wdMessage.direction === "OUTGOING" &&
                         wdMessage.status === "SEND REPORT RECEIVED"
                     ),
                     10000,
-                    ()=> assert(wd.getUnreadMessagesCount(wdChat) === 0)
+                    () => assert(types.wd.Chat.getUnreadMessagesCount(wdChat) === 0)
                 ),
-                androidClient1.wdEvts.evtNewOrUpdatedWdMessage.attachOnce(
+                androidClient1.wdEvts.evtWdMessage.attachOnce(
                     ({ wdChat: wdChat_, wdMessage }) => (
                         wdChat_ === wdChat &&
                         wdMessage.direction === "OUTGOING" &&
                         wdMessage.status === "STATUS REPORT RECEIVED"
                     ),
                     10000,
-                    ()=> assert(wd.getUnreadMessagesCount(wdChat) === 1)
+                    () => assert(types.wd.Chat.getUnreadMessagesCount(wdChat) === 1)
                 )
             ] as const)).map(({ wdMessage }) => wdMessage);
 
@@ -1051,19 +1049,17 @@ async function runTests() {
         })();
 
         Object.assign(
-            webClient, 
-            await webClient.frontendApi.getUserSimChats(maxMessageCountByChat)
+            webClient,
+            await webClient.frontendApi.getUserSimChats({ maxMessageCountByChat })
         );
 
-        await androidClient1.frontendApi.newMessage(
+        await androidClient1.frontendApi.newMessage({
             wdChat,
-            {
-                "type": "SERVER TO CLIENT",
-                "bundledData": bundledDataMessage
-            }
-        );
+            "type": "SERVER TO CLIENT",
+            "bundledData": bundledDataMessage
+        });
 
-        assert(wd.getUnreadMessagesCount(wdChat) === 2)
+        assert(types.wd.Chat.getUnreadMessagesCount(wdChat) === 2)
 
         assert((() => {
 
@@ -1078,7 +1074,7 @@ async function runTests() {
 
         await androidClient1.frontendApi.updateChatLastMessageSeen(wdChat);
 
-        assert(wd.getUnreadMessagesCount(wdChat) === 0)
+        assert(types.wd.Chat.getUnreadMessagesCount(wdChat) === 0)
 
         assert(
             wdChat.refOfLastMessageSeen
@@ -1095,7 +1091,7 @@ async function runTests() {
         await testApiCall(
             webClient,
             () => webClient.frontendApi.updateChatLastMessageSeen(
-                webClient.wdChats.find(({ ref }) => ref===wdChat.ref)!
+                webClient.wdChats.find(({ ref }) => ref === wdChat.ref)!
             ),
             { "requestSent": true, "otherUaUpdateEvent": false }
         );
@@ -1108,10 +1104,10 @@ async function runTests() {
 
         await assertCheckPass();
 
-        await androidClient1.frontendApi.destroyWdChat(
-            androidClient1.wdChats,
-            wdChat.ref
-        );
+        await androidClient1.frontendApi.destroyWdChat({
+            "wdChats": androidClient1.wdChats,
+            "refOfTheChatToDelete": wdChat.ref
+        });
 
     }
 
@@ -1140,10 +1136,11 @@ async function runTests() {
                 }))
                 .reverse()
                 .map(async bundledData =>
-                    androidClient1.frontendApi.newMessage(
+                    androidClient1.frontendApi.newMessage({
                         wdChat,
-                        { "type": "SERVER TO CLIENT", bundledData }
-                    )
+                        "type": "SERVER TO CLIENT",
+                        bundledData
+                    })
                 )
         );
 
@@ -1155,7 +1152,7 @@ async function runTests() {
 
         Object.assign(
             androidClient1,
-            await androidClient1.frontendApi.getUserSimChats(maxMessageCountByChat)
+            await androidClient1.frontendApi.getUserSimChats({ maxMessageCountByChat })
         );
 
         wdChat = androidClient1.wdChats.find(({ ref }) => ref === wdChat.ref)!;
@@ -1166,23 +1163,23 @@ async function runTests() {
 
             const n = 10;
 
-            await androidClient1.frontendApi.fetchOlderMessages(wdChat, n)
+            await androidClient1.frontendApi.fetchOlderMessages({ wdChat, "maxMessageCount": n })
 
             assert(wdChat.messages.length === maxMessageCountByChat + n);
 
         }
 
-        await androidClient1.frontendApi.fetchOlderMessages(wdChat, messageCount)
+        await androidClient1.frontendApi.fetchOlderMessages({ wdChat, "maxMessageCount": messageCount })
 
         assert(
             wdChat.messages.length === messageCount &&
             wdChat.messages.every((wdMessage, i) => i === 0 || wdChat.messages[i - 1].time < wdMessage.time)
         );
 
-        await androidClient1.frontendApi.destroyWdChat(
-            androidClient1.wdChats,
-            wdChat.ref
-        );
+        await androidClient1.frontendApi.destroyWdChat({
+            "wdChats": androidClient1.wdChats,
+            "refOfTheChatToDelete": wdChat.ref
+        });
 
     }
 
@@ -1211,13 +1208,11 @@ async function runTests() {
                 "text": text1
             };
 
-            await androidClient1.frontendApi.newMessage(
+            await androidClient1.frontendApi.newMessage({
                 wdChat,
-                {
-                    "type": "SERVER TO CLIENT",
-                    bundledData
-                }
-            );
+                "type": "SERVER TO CLIENT",
+                bundledData
+            });
 
         }
 
@@ -1233,13 +1228,11 @@ async function runTests() {
         {
 
 
-            await androidClient1.frontendApi.newMessage(
+            await androidClient1.frontendApi.newMessage({
                 wdChat,
-                {
-                    "type": "CLIENT TO SERVER",
-                    "bundledData": bundledDataMessage
-                }
-            );
+                "type": "CLIENT TO SERVER",
+                "bundledData": bundledDataMessage
+            });
 
         }
 
@@ -1267,13 +1260,11 @@ async function runTests() {
                 "text": text3
             };
 
-            await androidClient1.frontendApi.newMessage(
+            await androidClient1.frontendApi.newMessage({
                 wdChat,
-                {
-                    "type": "SERVER TO CLIENT",
-                    bundledData
-                }
-            );
+                "type": "SERVER TO CLIENT",
+                bundledData
+            });
 
         }
 
@@ -1294,13 +1285,11 @@ async function runTests() {
                 "text": text4
             };
 
-            await androidClient1.frontendApi.newMessage(
+            await androidClient1.frontendApi.newMessage({
                 wdChat,
-                {
-                    "type": "SERVER TO CLIENT",
-                    bundledData
-                }
-            );
+                "type": "SERVER TO CLIENT",
+                bundledData
+            });
 
         }
 
@@ -1337,10 +1326,10 @@ async function runTests() {
 
             const orderBefore = wdChat.messages.map(({ text }) => text);
 
-            await androidClient1.frontendApi.notifySendReportReceived(
+            await androidClient1.frontendApi.notifySendReportReceived({
                 wdChat,
-                bundledDataSendReport
-            );
+                "bundledData": bundledDataSendReport
+            });
 
             assertSame(
                 wdChat.messages.map(({ text }) => text),
@@ -1360,10 +1349,10 @@ async function runTests() {
                 }
             };
 
-            await androidClient1.frontendApi.notifyStatusReportReceived(
+            await androidClient1.frontendApi.notifyStatusReportReceived({
                 wdChat,
-                bundledDataStatusReport
-            );
+                "bundledData": bundledDataStatusReport
+            });
 
 
         }
@@ -1384,7 +1373,7 @@ async function runTests() {
 
         Object.assign(
             webClient,
-            await webClient.frontendApi.getUserSimChats(maxMessageCountByChat)
+            await webClient.frontendApi.getUserSimChats({ maxMessageCountByChat })
         );
 
         assertSame(

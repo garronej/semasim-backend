@@ -9,14 +9,10 @@ const backendConnections = require("../toBackend/connections");
 const remoteApiCaller = require("./remoteApiCaller");
 const logger = require("logger");
 const localApiHandlers_1 = require("./localApiHandlers");
-const dbSemasim = require("../dbSemasim");
-const frontend_1 = require("../../frontend");
+const tools_1 = require("../../frontend/tools");
 const dbTurn = require("../dbTurn");
 const deploy_1 = require("../../deploy");
-const noThrow_1 = require("../../tools/noThrow");
-//import { debug } from "util";
 const socketSession_1 = require("./socketSession");
-const getUserSims = noThrow_1.buildNoThrowProxyFunction(dbSemasim.getUserSims, dbSemasim);
 const enableLogger = (socket) => socket.enableLogger({
     "socketId": idString,
     "remoteEndId": "UA",
@@ -36,7 +32,7 @@ function listen(server, spoofedLocalAddressAndPort) {
         const connectionParams = (() => {
             let out;
             try {
-                out = frontend_1.urlGetParameters.parseUrl(req.url);
+                out = tools_1.urlGetParameters.parseUrl(req.url);
             }
             catch (_a) {
                 return undefined;
@@ -93,13 +89,15 @@ function registerSocket(socket, session, connectionParams) {
     if (!!getByUaInstanceId(session.shared.uaInstanceId) ||
         !!backendConnections.getBoundToUaInstanceId(session.shared.uaInstanceId)) {
         //NOTE: this request will end before notify new route so we do not risk to close the new socket.
-        remoteApiCaller.notifyLoggedFromOtherTab(session.shared.uaInstanceId);
+        remoteApiCaller.notifyLoggedFromOtherTab({
+            "uaInstanceId": session.shared.uaInstanceId
+        });
     }
     byUaInstanceId.set(session.shared.uaInstanceId, socket);
-    backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, session).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan(dongle, socket)));
-    getUserSims(session).then(userSims => userSims
-        .filter(frontend_1.types.UserSim.Shared.NotConfirmed.match)
-        .forEach(userSim => remoteApiCaller.notifySimSharingRequest(userSim, socket)));
+    backendRemoteApiCaller.collectDonglesOnLan(socket.remoteAddress, session).then(dongles => dongles.forEach(dongle => remoteApiCaller.notifyDongleOnLan({
+        dongle,
+        "uaSocket": socket
+    })));
     if (connectionParams.requestTurnCred === "REQUEST TURN CRED") {
         (async () => {
             if (!deploy_1.deploy.isTurnEnabled()) {
@@ -123,7 +121,10 @@ function registerSocket(socket, session, connectionParams) {
                 username, credential,
                 "credentialType": "password"
             };
-        })().then(params => remoteApiCaller.notifyIceServer(socket, params));
+        })().then(iceServer => remoteApiCaller.notifyIceServer({
+            "uaSocket": socket,
+            iceServer
+        }));
     }
     socket.evtClose.attachOnce(() => {
         byConnectionId.delete(connectionId);

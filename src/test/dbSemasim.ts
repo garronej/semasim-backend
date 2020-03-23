@@ -9,7 +9,7 @@ import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChec
 import { testing as ttTesting } from "transfer-tools";
 import assertSame = ttTesting.assertSame;
 import { types as gwTypes } from "../gateway";
-import { types as feTypes } from "../frontend";
+import * as  feTypes  from "../frontend/types";
 import { deploy } from "../deploy";
 import { geoiplookup } from "../tools/geoiplookup";
 import * as mysqlCustom from "../tools/mysqlCustom";
@@ -90,9 +90,8 @@ export namespace genUniq {
 }
 
 export function generateSim(
-    //contactCount = ~~(Math.random() * 200),
-    contactCount = 150,
-    //contactCount = 3,
+    //contactCount = 150,
+    contactCount = 3,
     noSpecialChar: false | "NO SPECIAL CHAR" = false
 ): dcTypes.Sim {
 
@@ -210,12 +209,7 @@ function createUserSimSharedNotConfirmed(
         })(),
         "password": {
             "enumerable": true,
-            "get": function () {
-
-                return ((this as feTypes.UserSim).ownership.status === "SHARED NOT CONFIRMED") ?
-                    "ffffffffffffffffffffffffffffffff" : userSim.password;
-
-            }
+            "get": () => userSim.password
         },
         "reachableSimState": {
             "enumerable": true,
@@ -412,8 +406,8 @@ async function testMain() {
     for (let user of [alice, bob, carol, dave]) {
 
         //for (const _ of new Array(~~(Math.random() * 10) + 1)) {
-        for (const _ of new Array(11)) {
-        //for (const _ of new Array(1)) {
+        //for (const _ of new Array(11)) {
+        for (const _ of new Array(1)) {
 
             if (user === carol) {
                 break;
@@ -428,8 +422,8 @@ async function testMain() {
         }
 
         //for (let _ of new Array(~~(Math.random() * 5) + 2)) {
-        for (let _ of new Array(7)) {
-        //for (let _ of new Array(2)) {
+        //for (let _ of new Array(7)) {
+        for (let _ of new Array(2)) {
 
             if (user === dave) {
                 break;
@@ -643,7 +637,7 @@ async function testMain() {
                                 userSim.sim.imsi,
                                 name,
                                 number_raw,
-                                { mem_index, name_as_stored, "new_storage_digest": userSim.sim.storage.digest }
+                                { mem_index, name_as_stored, "new_digest": userSim.sim.storage.digest }
                             ),
                             user.uas
                         );
@@ -677,7 +671,7 @@ async function testMain() {
                             {
                                 "mem_index": updatedContact.index,
                                 "name_as_stored": updatedContact.name,
-                                "new_storage_digest": userSim.sim.storage.digest
+                                "new_digest": userSim.sim.storage.digest
                             }
                         ),
                         user.uas
@@ -746,7 +740,7 @@ async function testMain() {
                                 {
                                     "mem_index": updatedContact.index,
                                     "name_as_stored": updatedContact.name,
-                                    "new_storage_digest": userSim.sim.storage.digest
+                                    "new_digest": userSim.sim.storage.digest
                                 }
                             ),
                             user.uas
@@ -785,7 +779,7 @@ async function testMain() {
                                 {
                                     "mem_index": updatedContact.index,
                                     "name_as_stored": updatedContact.name,
-                                    "new_storage_digest": userSim.sim.storage.digest
+                                    "new_digest": userSim.sim.storage.digest
                                 }
                             ),
                             user.uas
@@ -871,7 +865,7 @@ async function testMain() {
 
     }
 
-    let uasRegisteredToSim: gwTypes.Ua[] = [...alice.uas];
+    const uasRegisteredToSim: gwTypes.Ua[] = [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas];
 
     for (const user of [bob, carol, dave]) {
 
@@ -881,15 +875,15 @@ async function testMain() {
 
         confirmUserSimByNotConfirmedUserSim.get(userSim)!(friendlyName);
 
-        uasRegisteredToSim = [...uasRegisteredToSim, ...user.uas];
-
         assertSame(
             await db.setSimFriendlyName(
                 user,
                 userSim.sim.imsi,
                 friendlyName
             ),
-            user.uas
+            {
+                "uasOfUsersThatHaveAccessToTheSim": uasRegisteredToSim
+            }
         );
 
         assertSame(await db.getUserSims(user), user.userSims);
@@ -912,7 +906,7 @@ async function testMain() {
                 "storageDigest": alice.userSims[0].sim.storage.digest,
                 "passwordStatus": "UNCHANGED",
                 "gatewayLocation": alice.userSims[0].gatewayLocation,
-                uasRegisteredToSim
+                "uasOfUsersThatHaveAccessToTheSim": uasRegisteredToSim
             }
         );
 
@@ -1154,7 +1148,7 @@ async function testMain() {
                 "storageDigest": userSim.sim.storage.digest,
                 "passwordStatus": "UNCHANGED",
                 "gatewayLocation": userSim.gatewayLocation,
-                "uasRegisteredToSim": [ ...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+                "uasOfUsersThatHaveAccessToTheSim": [ ...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
             }
         );
 
@@ -1193,7 +1187,7 @@ async function testMain() {
                 ),
                 {
                     "isSimRegistered": true as const,
-                    "uasRegisteredToSim": uasRegisteredToSim
+                    "uasOfUsersThatHaveAccessToSim": uasRegisteredToSim
                 }
             );
 
@@ -1228,7 +1222,7 @@ async function testMain() {
                 ),
                 {
                     "isSimRegistered": true as const,
-                    "uasRegisteredToSim": uasRegisteredToSim
+                    "uasOfUsersThatHaveAccessToSim": uasRegisteredToSim
                 }
             );
 
@@ -1300,7 +1294,7 @@ async function testMain() {
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+            "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
         }
     );
 
@@ -1326,7 +1320,7 @@ async function testMain() {
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "WAS DIFFERENT",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
+            "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...bob.uas, ...carol.uas, ...dave.uas]
         }
     );
 
@@ -1342,7 +1336,14 @@ async function testMain() {
             alice.userSims[0].sim.imsi,
             alice.userSims[0].friendlyName
         ),
-        alice.uas
+        {
+            "uasOfUsersThatHaveAccessToTheSim": [
+                ...alice.uas,
+                ...bob.uas,
+                ...carol.uas,
+                ...dave.uas
+            ]
+        }
     );
 
     assertSame(
@@ -1353,11 +1354,11 @@ async function testMain() {
     bob.userSims.pop();
     carol.userSims.pop();
 
-    (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
+    (alice.userSims[0].ownership as feTypes.UserSim.Ownership.Owned)
         .sharedWith.confirmed = (() => {
 
             let set = new Set(
-                (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
+                (alice.userSims[0].ownership as feTypes.UserSim.Ownership.Owned)
                     .sharedWith.confirmed
             );
 
@@ -1401,7 +1402,7 @@ async function testMain() {
                 "storageDigest": alice.userSims[0].sim.storage.digest,
                 "passwordStatus": "PASSWORD REPLACED",
                 "gatewayLocation": alice.userSims[0].gatewayLocation,
-                "uasRegisteredToSim": [...alice.uas, ...dave.uas]
+                "uasOfUsersThatHaveAccessToTheSim": [...alice.uas, ...dave.uas]
             }
         );
 
@@ -1416,13 +1417,13 @@ async function testMain() {
 
     dave.userSims.pop();
 
-    (alice.userSims[0].ownership as feTypes.SimOwnership.Owned)
+    (alice.userSims[0].ownership as feTypes.UserSim.Ownership.Owned)
         .sharedWith.confirmed = [];
 
     assertSame(
         await db.unregisterSim(dave, alice.userSims[0].sim.imsi),
         {
-            "affectedUas": dave.uas,
+            "affectedUas": [...dave.uas, ...alice.uas],
             "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
         }
     );
@@ -1443,7 +1444,7 @@ async function testMain() {
             "storageDigest": alice.userSims[0].sim.storage.digest,
             "passwordStatus": "UNCHANGED",
             "gatewayLocation": alice.userSims[0].gatewayLocation,
-            "uasRegisteredToSim": alice.uas
+            "uasOfUsersThatHaveAccessToTheSim": alice.uas
         }
     );
 
@@ -1484,7 +1485,7 @@ async function testMain() {
             alice.userSims.shift()!.sim.imsi
         ),
         {
-            "affectedUas": alice.uas,
+            "affectedUas": [...alice.uas, ...eve.uas],
             "owner": { "user": alice.user, "shared": { "email": alice.shared.email } }
         }
     );
@@ -1613,7 +1614,7 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": 
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid":
                     { user, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
             }
         );
@@ -1729,7 +1730,7 @@ async function testUser() {
             await db.authenticateUser(email, secret),
             {
                 "status": "SUCCESS",
-                "webUaAuthenticatedSessionDescriptorWithoutConnectSid": 
+                "webUaAuthenticatedSessionDescriptorWithoutConnectSid":
                     { "user": phonyUser!, "shared": { email, webUaInstanceId, encryptedSymmetricKey }, towardUserEncryptKeyStr }
             }
         );

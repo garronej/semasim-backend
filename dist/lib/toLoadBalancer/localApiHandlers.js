@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const ts_events_extended_1 = require("ts-events-extended");
-const backendToLoadBalancer_1 = require("../../sip_api_declarations/backendToLoadBalancer");
+const evt_1 = require("evt");
+const load_balancer_1 = require("../../load-balancer");
 /*
 NOTE: None of those methods can are allowed to throw as
 it would result in the closing of the inter instance socket.
@@ -15,9 +15,9 @@ altered.
 */
 exports.handlers = {};
 //TODO: use stripe definition
-exports.evtStripe = new ts_events_extended_1.SyncEvent();
+exports.evtStripe = new evt_1.Evt();
 {
-    const methodName = backendToLoadBalancer_1.apiDeclaration.notifyStripeEvent.methodName;
+    const methodName = load_balancer_1.api_decl_backendToLoadBalancer.notifyStripeEvent.methodName;
     const handler = {
         "handler": stripeEvent => {
             exports.evtStripe.post(stripeEvent);

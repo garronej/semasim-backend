@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const tools_1 = require("../../frontend/tools");
 const mysqlCustom = require("../../tools/mysqlCustom");
 const deploy_1 = require("../../deploy");
-const assert = require("assert");
 function connectToDbAndGetMysqlApi(connectionType) {
     return mysqlCustom.createPoolAndGetApi(Object.assign(Object.assign({}, deploy_1.deploy.dbAuth.value), { "database": "semasim_webphone_data" }), undefined, connectionType === "SINGLE CONNECTION" ? 1 : undefined);
 }
@@ -360,6 +360,6 @@ function parseMessage(row) {
             }
             break;
     }
-    assert(!!message);
+    tools_1.assert(!!message);
     return { message, "chat_id": row["chat"] };
 }

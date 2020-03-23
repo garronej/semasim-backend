@@ -4,7 +4,7 @@ const mysql = require("mysql");
 const express_session_custom = require("express-session-custom");
 const express_mysql_session = require("express-mysql-session");
 const deploy_1 = require("../../deploy");
-const frontend_1 = require("../../frontend");
+const types = require("../../frontend/types");
 const MySQLStore = express_mysql_session(express_session_custom);
 const logger = require("logger");
 //import * as cookieLib from "cookie";
@@ -44,7 +44,7 @@ function launch(cookieSecret) {
     });
     exports.loadRequestSession = (req, res) => new Promise(resolve => {
         const connect_sid = (() => {
-            const out = req.headers[frontend_1.connectSidHttpHeaderName];
+            const out = req.headers[types.connectSidHttpHeaderName];
             if (typeof out !== "string") {
                 return undefined;
             }

@@ -3,7 +3,7 @@ process.once("unhandledRejection", error => { throw error; });
 
 import * as emailSender from "../lib/emailSender";
 import { generateSim, genUniq, genIp } from "./dbSemasim";
-import { types as feTypes } from "../frontend";
+import * as feTypes from "../frontend/types";
 import { testing as ttTesting } from "transfer-tools";
 import { geoiplookup } from "../tools/geoiplookup";
 import * as crypto from "crypto";

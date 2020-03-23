@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const loadBalancerToBackend_1 = require("../../sip_api_declarations/loadBalancerToBackend");
+const load_balancer_1 = require("../../load-balancer");
 const sip = require("ts-sip");
 function getRunningInstances(selfRunningInstance, socket) {
-    const methodName = loadBalancerToBackend_1.apiDeclaration.getRunningInstances.methodName;
+    const methodName = load_balancer_1.api_decl_loadBalancerToBackend.getRunningInstances.methodName;
     try {
         return sip.api.client.sendRequest(socket, methodName, selfRunningInstance, { "timeout": 1000 });
     }
@@ -13,7 +13,7 @@ function getRunningInstances(selfRunningInstance, socket) {
 }
 exports.getRunningInstances = getRunningInstances;
 function isInstanceStillRunning(runningInstance, socket) {
-    const methodName = loadBalancerToBackend_1.apiDeclaration.isInstanceStillRunning.methodName;
+    const methodName = load_balancer_1.api_decl_loadBalancerToBackend.isInstanceStillRunning.methodName;
     try {
         return sip.api.client.sendRequest(socket, methodName, runningInstance, { "timeout": 1000 });
     }

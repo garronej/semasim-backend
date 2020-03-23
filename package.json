@@ -3,7 +3,7 @@
   "description": "Semasim backend server",
   "version": "0.10.0",
   "scripts": {
-    "tsc": "node ./node_modules/typescript/bin/tsc -p ./tsconfig.json",
+    "tsc": "npx tsc -p ./tsconfig.json",
     "start": "sudo node ./dist/bin/main.js",
     "test": "node ./dist/test/db"
   },
@@ -24,6 +24,7 @@
     "cookie": "^0.3.1",
     "cookie-parser": "^1.4.4",
     "ejs": "^2.6.1",
+    "evt": "~1.0.0",
     "express": "^4.15.3",
     "express-mysql-session": "^1.2.3",
     "express-session-custom": "file:./local_node_modules/express-session-custom",
@@ -37,7 +38,6 @@
     "phone-number": "github:garronej/phone-number",
     "scripting-tools": "github:garronej/scripting-tools",
     "stripe": "^6.29.0",
-    "ts-events-extended": "garronej/ts-events-extended",
     "ts-sip": "github:garronej/ts-sip",
     "uuid": "^3.2.1",
     "ws": "^4.0.0"
@@ -56,8 +56,8 @@
     "@types/stripe": "^6.0.4",
     "@types/uuid": "^3.4.3",
     "@types/ws": "^4.0.0",
+    "crypto-lib": "github:garronej/crypto-lib",
     "transfer-tools": "github:garronej/transfer-tools",
-    "typescript": "^3.7.2",
-    "crypto-lib": "github:garronej/crypto-lib"
+    "typescript": "^3.7.2"
   }
 }

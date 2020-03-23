@@ -10,6 +10,7 @@ const launch_1 = require("../launch");
 const dbSemasim = require("../dbSemasim");
 const localApiHandlers_1 = require("./localApiHandlers");
 const deploy_1 = require("../../deploy");
+const evt_1 = require("evt");
 const debug = logger.debugFactory();
 const idString = "backendToLoadBalancer";
 //NOTE: we create it dynamically so we do not call deploy.getEnv on import.
@@ -33,17 +34,10 @@ async function connect() {
         idString,
         "log": logger.log
     }));
-    const hasConnect = await (async () => {
-        const boundTo = [];
-        const hasConnect = await Promise.race([
-            new Promise(resolve => loadBalancerSocket.evtConnect.attachOnce(boundTo, () => resolve(true))),
-            new Promise(resolve => loadBalancerSocket.evtClose.attachOnce(boundTo, () => resolve(false)))
-        ]);
-        loadBalancerSocket.evtConnect.detach(boundTo);
-        loadBalancerSocket.evtClose.detach(boundTo);
-        return hasConnect;
-    })();
-    if (!hasConnect) {
+    const ctxHasConnect = evt_1.Evt.newCtx();
+    loadBalancerSocket.evtConnect.attachOnce(ctxHasConnect, () => ctxHasConnect.done(true));
+    loadBalancerSocket.evtClose.attachOnce(ctxHasConnect, () => ctxHasConnect.done(false));
+    if (!await ctxHasConnect.getPrDone()) {
         debug("Load balancer seems to be down, retrying");
         await new Promise(resolve => setTimeout(resolve, 3000));
         await connect();

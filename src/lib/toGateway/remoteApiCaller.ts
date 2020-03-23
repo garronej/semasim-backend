@@ -1,6 +1,6 @@
 import * as sip from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
-import { apiDeclaration } from "../../sip_api_declarations/gatewayToBackend";
+import { api_decl_gatewayToBackend as apiDeclaration  } from "../../gateway";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 //@ts-ignore, to avoid warnings
 import { types as dcTypes } from "chan-dongle-extended-client";

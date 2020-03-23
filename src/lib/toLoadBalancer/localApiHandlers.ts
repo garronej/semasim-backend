@@ -1,7 +1,7 @@
 
 import * as sip from "ts-sip";
-import { SyncEvent } from "ts-events-extended";
-import { apiDeclaration } from "../../sip_api_declarations/backendToLoadBalancer";
+import { Evt } from "evt";
+import { api_decl_backendToLoadBalancer as apiDeclaration } from "../../load-balancer";
 import * as Stripe from "stripe";
 
 /*
@@ -20,7 +20,7 @@ altered.
 export const handlers: sip.api.Server.Handlers = {};
 
 //TODO: use stripe definition
-export const evtStripe = new SyncEvent<Stripe.events.IEvent>();
+export const evtStripe = new Evt<Stripe.events.IEvent>();
 
 {
 

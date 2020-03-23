@@ -6,7 +6,8 @@ const deploy_1 = require("../deploy");
 const path = require("path");
 const ejs = require("ejs");
 const fs = require("fs");
-const frontend_1 = require("../frontend");
+const pages_1 = require("../frontend/pages");
+const tools_1 = require("../frontend/tools");
 const phone_number_1 = require("phone-number");
 const logger = require("logger");
 const watch = require("node-watch");
@@ -49,11 +50,11 @@ exports.sharingRequest = (() => {
                 .join(" "),
             "isTargetUserRegistered": isRegistered,
             message,
-            "url": frontend_1.urlGetParameters.buildUrl([
+            "url": tools_1.urlGetParameters.buildUrl([
                 `https://web.${deploy_1.deploy.getBaseDomain()}`,
                 isRegistered ?
-                    frontend_1.availablePages.PageName.login :
-                    frontend_1.availablePages.PageName.register
+                    pages_1.availablePages.PageName.login :
+                    pages_1.availablePages.PageName.register
             ].join("/"), { email })
         }), simOwnerEmail))).then(() => { });
     };
@@ -63,7 +64,7 @@ exports.passwordRenewalRequest = (() => {
     const templateName = "password-renewal";
     return function (email, token) {
         return send(email, "Semasim password renewal request", ejsRenderTemplate(templateName, {
-            "url": frontend_1.urlGetParameters.buildUrl(`https://web.${deploy_1.deploy.getBaseDomain()}/${frontend_1.availablePages.PageName.login}`, {
+            "url": tools_1.urlGetParameters.buildUrl(`https://web.${deploy_1.deploy.getBaseDomain()}/${pages_1.availablePages.PageName.login}`, {
                 email,
                 "renew_password_token": token
             })
@@ -76,7 +77,7 @@ exports.emailValidation = (() => {
     return function (email, activationCode) {
         return send(email, `${activationCode} is the Semasim activation code`, ejsRenderTemplate(templateName, {
             "code": activationCode,
-            "url": frontend_1.urlGetParameters.buildUrl(`https://web.${deploy_1.deploy.getBaseDomain()}/${frontend_1.availablePages.PageName.login}`, {
+            "url": tools_1.urlGetParameters.buildUrl(`https://web.${deploy_1.deploy.getBaseDomain()}/${pages_1.availablePages.PageName.login}`, {
                 email,
                 "email_confirmation_code": activationCode
             })

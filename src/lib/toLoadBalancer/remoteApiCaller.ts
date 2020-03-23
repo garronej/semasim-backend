@@ -1,4 +1,4 @@
-import { apiDeclaration } from "../../sip_api_declarations/loadBalancerToBackend";
+import { api_decl_loadBalancerToBackend as apiDeclaration } from "../../load-balancer";
 import { types as lbTypes } from "../../load-balancer";
 import * as sip from "ts-sip";
 

@@ -6,7 +6,6 @@ const dbSemasim = require("../dbSemasim");
 const logger = require("logger");
 const router = require("./router");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
-const pushNotifications = require("../pushNotifications");
 const deploy_1 = require("../../deploy");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
 const __set_of_imsi__ = " set of imsi ";
@@ -57,16 +56,16 @@ function listen(server, spoofedLocalAddressAndPort) {
                 }
             }
             const imsis = Array.from(socket.misc[__set_of_imsi__]);
-            for (const imsi of imsis) {
-                unbindFromImsi(imsi, socket);
-            }
+            imsis.forEach(imsi => unbindFromImsi(imsi, socket));
             dbSemasim.setSimsOffline(imsis)
-                .then(uasByImsi => {
-                for (const imsi in uasByImsi) {
-                    uaRemoteApiCaller.notifySimOffline(imsi, uasByImsi[imsi]);
-                    pushNotifications.sendSafe(uasByImsi[imsi], { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi });
-                }
-            });
+                .then(uasByImsi => Object.keys(uasByImsi)
+                .forEach(imsi => uaRemoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "IS NOW UNREACHABLE",
+                    imsi
+                },
+                "uas": uasByImsi[imsi]
+            })));
             backendRemoteApiCaller.notifyRoute({
                 "type": "DELETE",
                 imsis,
@@ -102,10 +101,13 @@ function unbindFromImsi(imsi, socket) {
     */
     if (socket.evtClose.postCount === 0) {
         dbSemasim.setSimsOffline([imsi])
-            .then(({ [imsi]: uas }) => {
-            uaRemoteApiCaller.notifySimOffline(imsi, uas);
-            pushNotifications.sendSafe(uas, { "type": "SIM CONNECTIVITY", "isOnline": "0", imsi });
-        });
+            .then(({ [imsi]: uas }) => uaRemoteApiCaller.notifyUserSimChange({
+            "params": {
+                "type": "IS NOW UNREACHABLE",
+                imsi
+            },
+            uas
+        }));
         backendRemoteApiCaller.notifyRoute({
             "type": "DELETE",
             "imsis": [imsi]

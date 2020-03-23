@@ -4,7 +4,6 @@ const gateway_1 = require("../../gateway");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
 const dbSemasim = require("../dbSemasim");
 const pushNotifications = require("../pushNotifications");
-const backendToGateway_1 = require("../../sip_api_declarations/backendToGateway");
 const backendConnections = require("../toBackend/connections");
 const gatewayConnections = require("../toGateway/connections");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
@@ -14,7 +13,7 @@ const logger = require("logger");
 const debug = logger.debugFactory();
 exports.handlers = {};
 {
-    const methodName = backendToGateway_1.apiDeclaration.notifySimOnline.methodName;
+    const methodName = gateway_1.api_decl_backendToGateway.notifySimOnline.methodName;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             dcSanityChecks.imsi(params.imsi) &&
@@ -91,7 +90,10 @@ exports.handlers = {};
                     if (!dongle) {
                         return;
                     }
-                    uaRemoteApiCaller.notifyDongleOnLan(dongle, fromSocket.remoteAddress);
+                    uaRemoteApiCaller.notifyDongleOnLan({
+                        dongle,
+                        "gatewayAddress": fromSocket.remoteAddress
+                    });
                 }
                 else {
                     let hasInternalSimStorageChanged = dbResp.storageDigest !== storageDigest;
@@ -108,26 +110,26 @@ exports.handlers = {};
                         }
                         await dbSemasim.updateSimStorage(imsi, dongle.sim.storage);
                     }
-                    //TODO: add sim connectivity
-                    pushNotifications.sendSafe(dbResp.uasRegisteredToSim.filter(({ platform }) => platform !== "web"), (hasInternalSimStorageChanged || dbResp.passwordStatus !== "UNCHANGED") ?
-                        { "type": "RELOAD CONFIG" } :
-                        { "type": "SIM CONNECTIVITY", "isOnline": "1", imsi });
-                    uaRemoteApiCaller.notifySimOnline({
-                        imsi,
-                        hasInternalSimStorageChanged,
-                        "password": (() => {
-                            switch (dbResp.passwordStatus) {
-                                case "UNCHANGED":
-                                case "WAS DIFFERENT": return password;
-                                case "PASSWORD REPLACED": return replacementPassword;
-                            }
-                            ;
-                        })(),
-                        "simDongle": simDongle,
-                        "gatewayLocation": dbResp.gatewayLocation,
-                        isGsmConnectivityOk,
-                        cellSignalStrength
-                    }, dbResp.uasRegisteredToSim);
+                    uaRemoteApiCaller.notifyUserSimChange({
+                        "params": {
+                            "type": "IS NOW REACHABLE",
+                            imsi,
+                            hasInternalSimStorageChanged,
+                            "password": (() => {
+                                switch (dbResp.passwordStatus) {
+                                    case "UNCHANGED":
+                                    case "WAS DIFFERENT": return password;
+                                    case "PASSWORD REPLACED": return replacementPassword;
+                                }
+                                ;
+                            })(),
+                            simDongle,
+                            "gatewayLocation": dbResp.gatewayLocation,
+                            isGsmConnectivityOk,
+                            cellSignalStrength
+                        },
+                        "uas": dbResp.uasOfUsersThatHaveAccessToTheSim
+                    });
                 }
             })().catch(error => {
                 debug(error);
@@ -138,7 +140,7 @@ exports.handlers = {};
                 dbResp.passwordStatus === "PASSWORD REPLACED" ?
                     ({
                         "status": "REPLACE PASSWORD",
-                        "allowedUas": dbResp.uasRegisteredToSim
+                        "allowedUas": dbResp.uasOfUsersThatHaveAccessToTheSim
                             .map(({ instance, userEmail }) => ({ instance, userEmail }))
                     }) :
                     ({ "status": "OK" });
@@ -147,7 +149,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToGateway_1.apiDeclaration.notifyGsmConnectivityChange;
+    const { methodName } = gateway_1.api_decl_backendToGateway.notifyGsmConnectivityChange;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             typeof params.imsi === "string" &&
@@ -157,14 +159,21 @@ exports.handlers = {};
             if (!dbResp.isSimRegistered) {
                 return undefined;
             }
-            uaRemoteApiCaller.notifyGsmConnectivityChange({ imsi, isGsmConnectivityOk }, dbResp.uasRegisteredToSim);
+            uaRemoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CELLULAR CONNECTIVITY CHANGE",
+                    imsi,
+                    isGsmConnectivityOk
+                },
+                "uas": dbResp.uasOfUsersThatHaveAccessToSim
+            });
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToGateway_1.apiDeclaration.notifyCellSignalStrengthChange;
+    const { methodName } = gateway_1.api_decl_backendToGateway.notifyCellSignalStrengthChange;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             typeof params.imsi === "string" &&
@@ -174,26 +183,36 @@ exports.handlers = {};
             if (!dbResp.isSimRegistered) {
                 return undefined;
             }
-            uaRemoteApiCaller.notifyCellSignalStrengthChange({ imsi, cellSignalStrength }, dbResp.uasRegisteredToSim);
+            uaRemoteApiCaller.notifyUserSimChange({
+                "params": {
+                    "type": "CELLULAR SIGNAL STRENGTH CHANGE",
+                    imsi,
+                    cellSignalStrength
+                },
+                "uas": dbResp.uasOfUsersThatHaveAccessToSim
+            });
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToGateway_1.apiDeclaration.notifyLockedDongle.methodName;
+    const { methodName } = gateway_1.api_decl_backendToGateway.notifyLockedDongle;
     const handler = {
         "sanityCheck": params => dcSanityChecks.dongleLocked(params),
         "handler": (dongleLocked, fromSocket) => {
             gatewayConnections.addImei(fromSocket, dongleLocked.imei);
-            uaRemoteApiCaller.notifyDongleOnLan(dongleLocked, fromSocket.remoteAddress);
+            uaRemoteApiCaller.notifyDongleOnLan({
+                "dongle": dongleLocked,
+                "gatewayAddress": fromSocket.remoteAddress
+            });
             return Promise.resolve(undefined);
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const methodName = backendToGateway_1.apiDeclaration.notifyDongleOffline.methodName;
+    const { methodName } = gateway_1.api_decl_backendToGateway.notifyDongleOffline;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             ("imsi" in params) ?
@@ -218,7 +237,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToGateway_1.apiDeclaration.notifyOngoingCall;
+    const { methodName } = gateway_1.api_decl_backendToGateway.notifyOngoingCall;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             typeof params.ongoingCallId === "string" &&
@@ -229,31 +248,32 @@ exports.handlers = {};
             params.uasInCall.filter(uaRef => !gateway_1.sanityChecks.uaRef(uaRef)).length === 0 &&
             typeof params.isTerminated === "boolean"),
         "handler": async ({ ongoingCallId, from, imsi, number, uasInCall, isTerminated }) => {
-            const uasRegisteredToSim = await dbSemasim.createUpdateOrDeleteOngoingCall(ongoingCallId, imsi, number, from, isTerminated, uasInCall);
-            for (const ua of uasRegisteredToSim) {
-                uaRemoteApiCaller.notifyOngoingCall(isTerminated ? ({
-                    imsi,
+            const uasOfUsersThatHaveAccessToTheSim = await dbSemasim.createUpdateOrDeleteOngoingCall(ongoingCallId, imsi, number, from, isTerminated, uasInCall);
+            uasOfUsersThatHaveAccessToTheSim.forEach(ua => uaRemoteApiCaller.notifyUserSimChange({
+                "params": Object.assign({ "type": "ONGOING CALL", imsi }, (isTerminated ? ({
                     "isTerminated": true,
                     ongoingCallId
                 }) : ({
-                    imsi,
                     "isTerminated": false,
                     "ongoingCall": {
                         ongoingCallId,
                         from,
                         number,
-                        "isUserInCall": !!uasInCall.find(({ userEmail }) => userEmail === ua.userEmail),
-                        "otherUserInCallEmails": uasInCall.map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
+                        "isUserInCall": !!uasInCall
+                            .find(({ userEmail }) => userEmail === ua.userEmail),
+                        "otherUserInCallEmails": uasInCall
+                            .map(({ userEmail }) => userEmail).filter(email => email !== ua.userEmail)
                     }
-                }), [ua]);
-            }
+                }))),
+                "uas": [ua]
+            }));
             return undefined;
         }
     };
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToGateway_1.apiDeclaration.seeIfSipContactIsReachableElseSendWakeUpPushNotification;
+    const { methodName } = gateway_1.api_decl_backendToGateway.seeIfSipContactIsReachableElseSendWakeUpPushNotification;
     const handler = {
         "sanityCheck": gateway_1.sanityChecks.contact,
         "handler": contact => new Promise(resolve => backendRemoteApiCaller.qualifyContact(contact)
@@ -271,7 +291,7 @@ exports.handlers = {};
     exports.handlers[methodName] = handler;
 }
 {
-    const { methodName } = backendToGateway_1.apiDeclaration.sendWakeUpPushNotifications;
+    const { methodName } = gateway_1.api_decl_backendToGateway.sendWakeUpPushNotifications;
     const handler = {
         "sanityCheck": params => (params instanceof Object &&
             params.uas instanceof Array &&

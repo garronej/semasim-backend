@@ -1,5 +1,5 @@
 
-import { currencyLib } from "../../frontend";
+import { currencyLib } from "../../frontend/tools";
 import * as dbSemasim from "../dbSemasim";
 import { dbWebphoneData } from "../dbWebphoneData";
 import { webApi } from "../../load-balancer";
@@ -299,6 +299,7 @@ export const handlers: webApi.Handlers = {};
 
                 const uas = await dbSemasim.getUserUas(email);
 
+                //TODO: Restart
                 pushNotifications.sendSafe(
                     uas,
                     { "type": "RELOAD CONFIG" }
