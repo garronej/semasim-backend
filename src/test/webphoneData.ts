@@ -116,7 +116,7 @@ async function newChat(
         "contactIndexInSim": arg1.contactIndexInSim
     });
 
-    const { wdChat } = await client.wdEvts.evtWdMessage.waitFor(
+    const { wdChat } = await client.wdEvts.evtWdChat.waitFor(
         ({ eventType, wdChat }) => (
             eventType === "NEW" &&
             wdChat.contactNumber === arg1.contactNumber

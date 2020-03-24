@@ -45,7 +45,7 @@ async function newChat(client, arg1) {
         "contactName": arg1.contactName,
         "contactIndexInSim": arg1.contactIndexInSim
     });
-    const { wdChat } = await client.wdEvts.evtWdMessage.waitFor(({ eventType, wdChat }) => (eventType === "NEW" &&
+    const { wdChat } = await client.wdEvts.evtWdChat.waitFor(({ eventType, wdChat }) => (eventType === "NEW" &&
         wdChat.contactNumber === arg1.contactNumber), 10000);
     tools_1.assert(client.wdChats.indexOf(wdChat) >= 0);
     tools_1.assert(typeof wdChat.ref === "string");
