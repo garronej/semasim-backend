@@ -233,12 +233,14 @@ exports.handlers = {};
             ]))),
         "handler": async ({ imsi, emails }, socket) => {
             const session = socketSession_1.getAuthenticatedSession(socket);
-            tools_1.assert(!emails.includes(session.shared.email));
             const sharedWithBeforeConfirmed = await (async () => {
                 const userSim = (await dbSemasim.getUserSims(session))
                     .find(({ sim }) => sim.imsi === imsi);
-                tools_1.assert(!!userSim &&
-                    feTypes.UserSim.Owned.match(userSim));
+                tools_1.assert(tools_1.typeGuard(userSim));
+                tools_1.assert(emails.every(email => [
+                    ...userSim.ownership.sharedWith.confirmed,
+                    ...userSim.ownership.sharedWith.notConfirmed
+                ].includes(email)), "Can only stop sharing with users that share the SIM");
                 return userSim.ownership.sharedWith.confirmed;
             })();
             const uasOfUsersThatNoLongerHaveAccessToTheSim = await dbSemasim.stopSharingSim(session, imsi, emails);
@@ -249,8 +251,7 @@ exports.handlers = {};
             }
             getUserSims(session).then(async (userSims) => {
                 const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
-                tools_1.assert(!!userSim &&
-                    feTypes.UserSim.Owned.match(userSim));
+                tools_1.assert(tools_1.typeGuard(userSim));
                 const uas = await Promise.all([
                     session.shared.email,
                     ...userSim.ownership.sharedWith.confirmed,
@@ -259,6 +260,7 @@ exports.handlers = {};
                     .reduce((prev, curr) => [...curr, ...prev], []));
                 uasOfUsersThatNoLongerHaveAccessToTheSim
                     .map(({ userEmail }) => userEmail)
+                    .reduce(...tools_1.reducers.concat(emails))
                     .reduce(...tools_1.reducers.removeDuplicates())
                     .forEach(email => remoteApiCaller.notifyUserSimChange({
                     "params": {

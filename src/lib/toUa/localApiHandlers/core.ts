@@ -11,7 +11,7 @@ import { types as gwTypes, isValidEmail } from "../../../gateway";
 import * as stripe from "../../stripe";
 import { buildNoThrowProxyFunction } from "../../../tools/noThrow";
 import { getAuthenticatedSession } from "../socketSession";
-import { assert, reducers as _ } from "../../../frontend/tools";
+import { assert, reducers as _, typeGuard } from "../../../frontend/tools";
 
 
 const getUserUas = buildNoThrowProxyFunction(dbSemasim.getUserUas, dbSemasim);
@@ -393,17 +393,22 @@ export const handlers: sip.api.Server.Handlers = {};
 
             const session = getAuthenticatedSession(socket);
 
-            assert(!emails.includes(session.shared.email));
-
             const sharedWithBeforeConfirmed = await (async () => {
 
                 const userSim = (await dbSemasim.getUserSims(session))
                     .find(({ sim }) => sim.imsi === imsi)
                     ;
 
+                assert(typeGuard<feTypes.UserSim.Owned>(userSim));
+
                 assert(
-                    !!userSim &&
-                    feTypes.UserSim.Owned.match(userSim)
+                    emails.every(email =>
+                        [
+                            ...userSim.ownership.sharedWith.confirmed,
+                            ...userSim.ownership.sharedWith.notConfirmed
+                        ].includes(email)
+                    ), 
+                    "Can only stop sharing with users that share the SIM"
                 );
 
                 return userSim.ownership.sharedWith.confirmed;
@@ -428,10 +433,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                 const userSim = userSims.find(({ sim }) => sim.imsi === imsi);
 
-                assert(
-                    !!userSim &&
-                    feTypes.UserSim.Owned.match(userSim)
-                );
+                assert(typeGuard<feTypes.UserSim.Owned>(userSim));
 
                 const uas = await Promise.all(
                     [
@@ -445,6 +447,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
                 uasOfUsersThatNoLongerHaveAccessToTheSim
                     .map(({ userEmail }) => userEmail)
+                    .reduce(..._.concat(emails))
                     .reduce(..._.removeDuplicates<string>())
                     .forEach(email => remoteApiCaller.notifyUserSimChange({
                         "params": {
