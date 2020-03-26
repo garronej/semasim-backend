@@ -41,41 +41,23 @@ scriptLib.createService({
         };
     },
     "daemonProcess": async (daemon_number, daemon_count) => {
-        const [path, { working_directory_path }, { launch, beforeExit }, logger, fs] = await Promise.all([
+        const [path, { logger }] = await Promise.all([
             Promise.resolve().then(() => require("path")),
-            Promise.resolve().then(() => require("./installer")),
-            Promise.resolve().then(() => require("../lib/launch")),
-            Promise.resolve().then(() => require("logger")),
-            Promise.resolve().then(() => require("fs"))
-        ]).catch(error => {
-            console.log(error);
-            throw error;
-        });
+            Promise.resolve().then(() => require("../tools/logger"))
+        ]);
+        const logfile_path = path.join((await Promise.resolve().then(() => require("./installer"))).working_directory_path, `p${daemon_number}.log`);
+        logger.file.enable(logfile_path);
+        const { launch, beforeExit } = await Promise.resolve().then(() => require("../lib/launch"));
         logger.log(`--Starting process ${daemon_number}/${daemon_count}--`);
-        const logfile_path = path.join(working_directory_path, `p${daemon_number}.log`);
         return {
-            "launch": () => {
-                logger.file.enable(logfile_path);
-                process.on("warning", error => logger.log("WARNING", error));
-                launch(daemon_number);
-            },
+            "launch": () => launch(daemon_number),
             "beforeExitTask": async (error) => {
                 if (!!error) {
                     logger.log(error);
                 }
                 await Promise.all([
-                    logger.file.terminate().then(() => {
-                        if (!!error) {
-                            scriptLib.execSync([
-                                `mv ${logfile_path}`,
-                                path.join(path.dirname(logfile_path), `crash_${Date.now()}_${path.basename(logfile_path)}`)
-                            ].join(" "));
-                        }
-                        else {
-                            fs.unlinkSync(logfile_path);
-                        }
-                    }),
-                    scriptLib.safePr(beforeExit())
+                    logger.file.terminate().then(() => scriptLib.fs_move("MOVE", logfile_path, path.join(path.dirname(logfile_path), `${!!error ? "crash" : "previous"}_${path.basename(logfile_path)}`))),
+                    beforeExit().catch(() => { })
                 ]);
             }
         };

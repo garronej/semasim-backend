@@ -9,7 +9,7 @@ import * as types from "../frontend/types";
 import { availablePages } from "../frontend/pages";
 import { urlGetParameters } from "../frontend/tools";
 import { phoneNumber } from "phone-number";
-import * as logger from "logger";
+import { logger } from "../tools/logger";
 import * as watch from "node-watch";
 import { buildNoThrowProxyFunction } from "../tools/noThrow";
 

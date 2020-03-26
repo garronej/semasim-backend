@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const sip = require("ts-sip");
 const localApiHandlers_1 = require("./localApiHandlers");
-const logger = require("logger");
+const logger_1 = require("../../tools/logger");
 const net = require("net");
 const router = require("./router");
 const launch_1 = require("../launch");
@@ -48,7 +48,7 @@ exports.connect = connect;
 let idString = "";
 const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
     idString,
-    "log": logger.log,
+    "log": logger_1.logger.log,
     "hideKeepAlive": true,
     "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
 }));
@@ -58,7 +58,7 @@ function registerSocket(socket) {
     sip.api.client.enableKeepAlive(socket);
     sip.api.client.enableErrorLogging(socket, sip.api.client.getDefaultErrorLogger({
         idString,
-        "log": logger.log
+        "log": logger_1.logger.log
     }));
     socket.enableLogger({
         "socketId": idString,
@@ -71,7 +71,7 @@ function registerSocket(socket) {
         "outgoingTraffic": false,
         "colorizedTraffic": undefined,
         "ignoreApiTraffic": true
-    }, logger.log);
+    }, logger_1.logger.log);
     const ipEndpoint = `${socket.remoteAddress}:${socket.remotePort}`;
     byIpEndpoint.set(ipEndpoint, socket);
     socket.misc[__set_of_imsi__] = new Set();

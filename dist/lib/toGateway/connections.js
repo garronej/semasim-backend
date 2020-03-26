@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const sip = require("ts-sip");
 const localApiHandlers_1 = require("./localApiHandlers");
 const dbSemasim = require("../dbSemasim");
-const logger = require("logger");
+const logger_1 = require("../../tools/logger");
 const router = require("./router");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const deploy_1 = require("../../deploy");
@@ -13,7 +13,7 @@ function listen(server, spoofedLocalAddressAndPort) {
     const idString = "backendToGateway";
     const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
         idString,
-        "log": logger.log,
+        "log": logger_1.logger.log,
         "hideKeepAlive": true,
         "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
     }));
@@ -23,7 +23,7 @@ function listen(server, spoofedLocalAddressAndPort) {
         sip.api.client.enableKeepAlive(socket);
         sip.api.client.enableErrorLogging(socket, sip.api.client.getDefaultErrorLogger({
             idString,
-            "log": logger.log
+            "log": logger_1.logger.log
         }));
         socket.enableLogger({
             "socketId": idString,
@@ -36,7 +36,7 @@ function listen(server, spoofedLocalAddressAndPort) {
             "outgoingTraffic": false,
             "colorizedTraffic": "OUT",
             "ignoreApiTraffic": true
-        }, logger.log);
+        }, logger_1.logger.log);
         dbSemasim.addGatewayLocation(socket.remoteAddress);
         {
             let set = byAddress.get(socket.remoteAddress);

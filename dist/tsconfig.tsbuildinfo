@@ -417,6 +417,14 @@
         "version": "70ab39aa6931003f4786c4f8fe108b5facb270d4e6bcf96d5551187dbb2194d9",
         "signature": "9c0c310f10ca7bbb91e100100ea1d1b537c521d9e9ec68bef7d74cab946d81ee"
       },
+      "../node_modules/logger/dist/lib/index.d.ts": {
+        "version": "8624292f17c9d511be87c1cc493e854fb0e2f8253bb8c15f394b77196a94665d",
+        "signature": "8624292f17c9d511be87c1cc493e854fb0e2f8253bb8c15f394b77196a94665d"
+      },
+      "../src/tools/logger.ts": {
+        "version": "287be9f26c4fc1ffa2d6251b8df5598bf4cf21427ca8cda4d5d619a7ee1586cb",
+        "signature": "f3ff0b752d77c41f5e3caa47d7b10fba21ba8673055deae72c7f9c19cea56a86"
+      },
       "../node_modules/@types/ws/index.d.ts": {
         "version": "f222721b31f8150d845bdee0a70e26244cc4116b4bc998aad12206419c582ebb",
         "signature": "f222721b31f8150d845bdee0a70e26244cc4116b4bc998aad12206419c582ebb"
@@ -489,12 +497,8 @@
         "version": "0ceda8331d12d2fcf39e1d72388ab9e222d316a1ac5211e64a6e342790263557",
         "signature": "5598cb610e72701a0987ff750250a8b38e5279cf2987e6ddcd95fd8202b5adca"
       },
-      "../node_modules/logger/dist/lib/index.d.ts": {
-        "version": "8624292f17c9d511be87c1cc493e854fb0e2f8253bb8c15f394b77196a94665d",
-        "signature": "8624292f17c9d511be87c1cc493e854fb0e2f8253bb8c15f394b77196a94665d"
-      },
       "../src/lib/web/sessionmanager.ts": {
-        "version": "a3c7cf0fd4a2e7773220d146c12b00692be36952d3770f7c8be9afcfa1cb25bf",
+        "version": "7a16a16c123a2f3d838d5d434a1c17cf16bd2077d1f06fdc9d42282e122ddba0",
         "signature": "cb3ee57d9f64314aaf20e967ad6f464333cf86bca62fb3b3bcc574555f71aa0b"
       },
       "../node_modules/@types/async-lock/index.d.ts": {
@@ -622,7 +626,7 @@
         "signature": "6d6ca69eb06f3b6a9ab9c47a8eb0bb2d1dd86f45619c60e861d41a1861806a2c"
       },
       "../src/lib/dbsemasim.ts": {
-        "version": "981bfc7dcb7055bbd98b519f88439102be5efc42ddccdfb931f28848db3e8b7a",
+        "version": "eb51121affae3e54a5e269040f5f142014089a5e75d2a51445bbeb44de85c87b",
         "signature": "9b6305b9c0ffb06fb6ada0ca2e98a680927758ba4ac92efc512b0655570931f5"
       },
       "../src/lib/dbwebphonedata/impl.ts": {
@@ -674,11 +678,11 @@
         "signature": "1160fff5eddbf6c72d5967b370b0913781fb781260637e550dfa9b49133ce29d"
       },
       "../src/tools/nothrow.ts": {
-        "version": "46f06d5110af8eedcb0e9be674c6bd78d27205d55e7a826b9f0f81c00c2e10b1",
+        "version": "4310103cee850ae604883e8ee67269e42a7ff4afda5a716bb8e9e4784541d575",
         "signature": "6cd0aa31f276dbd3f4c850098cffd9622735260bb666ae8c1087c478b15a970e"
       },
       "../src/lib/pushnotifications.ts": {
-        "version": "4cd9fbdf91f7f4d6f0d1ce7a7f5920cfed3a093cd000dbb767f4bae1eecc07a9",
+        "version": "c18c4da3f037128036e5d2acc19cd5612fce89f8a925fe5b852c23c02109a00f",
         "signature": "7e5afb092149f09499439eafbae06fa00c8dc0d26b87ad3953e28d4fa1f0304c"
       },
       "../node_modules/ts-sip/dist/lib/index.d.ts": {
@@ -818,7 +822,7 @@
         "signature": "ce1953b170cabad0a44db84474f12c2129929dfe97c7a5e36ddf8617512f05f7"
       },
       "../src/lib/togateway/localapihandlers.ts": {
-        "version": "2a0f67b79ce42955794aa778eab077e35308e6ab352f839e9e8bb2a6a8516b15",
+        "version": "7c652486beba440309271b55cd727ab369bbd5f87b4af9df1e5e2fe474b0f29c",
         "signature": "8b0ec6557a38ce2aee60b8ffa85bc48e70959e336ad9e4ce1183a64ea35691d1"
       },
       "../src/lib/togateway/router.ts": {
@@ -826,7 +830,7 @@
         "signature": "9e0f76272378be7e65fb540bdef847a1bbe23693978e91805de805b79d6d5283"
       },
       "../src/lib/togateway/connections.ts": {
-        "version": "e95074d0a635aff13eaea833beb37084fe3aaab1c698f3c02bb1daaec1d47d08",
+        "version": "ac6716d48f3defa8e0a98ef6207cf7c7d5277ea12ef241573833a5cd2ee52daa",
         "signature": "20e578242db67ff41c3742b3a19ea8304e51a6653226c633ec4c4a737d47a740"
       },
       "../src/lib/toua/router.ts": {
@@ -1894,7 +1898,7 @@
         "signature": "a21b3306c076599fdc94458f631a0a2c0f3506d94eff42d55e600144f10c0b22"
       },
       "../src/frontend/pages.ts": {
-        "version": "e68c9b02b6cba7afb824aa777e9e62e0c8847f896af5384f2b3e29f50f3c06ef",
+        "version": "eecadf0bc33e12900372fc7032fc4b5034c0341a705711bf57d34ba4ad4c3325",
         "signature": "734d45e762d3390d30893421a41fd5d258f3982edbe15ebaf2b8023ddecd4763"
       },
       "../node_modules/phone-number/dist/lib/index.d.ts": {
@@ -1902,7 +1906,7 @@
         "signature": "563c5fe46028f83f620688408662ba45d669cb1fec288a7f2969911b58dd5bae"
       },
       "../src/lib/emailsender.ts": {
-        "version": "701bc7b596ee66ed49a3d52c560e0968e2deb6fadc4777e2f77ca4147950aa27",
+        "version": "6fa35c5590d7fd327f3e3823e0e62ea86ad0bb57d34ba7797dc012db67b5bf52",
         "signature": "5c4c453ada7b450cfe7fe70407288dcc46384fff5ff61b6df929865b050c249c"
       },
       "../node_modules/@types/stripe/index.d.ts": {
@@ -1942,7 +1946,7 @@
         "signature": "8b0ec6557a38ce2aee60b8ffa85bc48e70959e336ad9e4ce1183a64ea35691d1"
       },
       "../src/lib/toua/localapihandlers/webphonedata.ts": {
-        "version": "f71fd2d0a872ee8d6cff46552423bb0ed4d9707c8f7b5fe8734fa7d775ad97cb",
+        "version": "d53ff0677045df0a1f877bda2a22f946185d72121c1e8e606146aac120750853",
         "signature": "2cf23b284a00bd383f9cc6811288788e53a7e6b573a675a67ea1b06dbbd78f59"
       },
       "../src/lib/toua/localapihandlers/index.ts": {
@@ -1950,7 +1954,7 @@
         "signature": "8b0ec6557a38ce2aee60b8ffa85bc48e70959e336ad9e4ce1183a64ea35691d1"
       },
       "../src/lib/toua/connections.ts": {
-        "version": "586b48650d714cddd01bdb33bf9d14bdded7f204d9dbf433111a3e7600aaa65d",
+        "version": "af19c4ad6ea51a919eeff38569295f04f1b3dccde1b5daf1505602e7659de2b0",
         "signature": "79ed5e15e5a58d156db7cf26d4ee08ad8abfc4365296d74ecee1eab370f35ccc"
       },
       "../src/lib/tobackend/localapihandlers.ts": {
@@ -1962,7 +1966,7 @@
         "signature": "9e0f76272378be7e65fb540bdef847a1bbe23693978e91805de805b79d6d5283"
       },
       "../src/lib/tobackend/connections.ts": {
-        "version": "819a2e016e093c5dfea9cf26bf3ed099687dc919c537c63a3ff6625724683df5",
+        "version": "7edf1423f578f6b0461456fc41f5dd7ac6951811110b66bb8b6be329078fdb01",
         "signature": "8417e666bd9618107841b38596bec93c193b7f989750d0bc49fc082f831106a2"
       },
       "../src/lib/toloadbalancer/remoteapicaller.ts": {
@@ -1970,7 +1974,7 @@
         "signature": "5cb7bc83e9a6415121ecf22bb862976cc5e3b71c1a7a16302107f17963a6effc"
       },
       "../src/lib/toloadbalancer/connection.ts": {
-        "version": "5e6a7b4a1d5677f734f66d7b1b9fc41f8d6ab9e7fee3198faff8d564f762d583",
+        "version": "28aea7eb2df3b966bd8a1b329937e7687c69048d04be4e83a237bc50cbe684d8",
         "signature": "c9ee96d68bf26060bc61b51b57c54dd9ade3b13dd20968ce9a2b7555905973f9"
       },
       "../src/lib/web/apihandlers.ts": {
@@ -1990,7 +1994,7 @@
         "signature": "96540c10532f7cab762185084744738f504244164689dfa11c140008cc321177"
       },
       "../src/lib/web/launch.ts": {
-        "version": "ffbb9d663c2774da4b1c6b5d2218da974555c7d23eb7d5353aaf79db569210e4",
+        "version": "f2a2fd64d24e1a470192c46ce4e38f91cb16d3c49cf35d087be299a0b87fdf65",
         "signature": "c5aa1b7f6543a77fb5e0468790a227a4587e679851225da978aa5fe1a825e3dd"
       },
       "../src/tools/changerates.ts": {
@@ -1998,11 +2002,11 @@
         "signature": "c2b034d5b285226e2428f8555d32b05d543c45560d06612a552d6eabdc247d3c"
       },
       "../src/lib/launch.ts": {
-        "version": "a522033e476a8bb300072ca818bedd57ecffd764620e83e62915d188c5bb9062",
+        "version": "837d0fd711de5f6cb8aee5aca171cf18e57266f8970776807be7ac992307941f",
         "signature": "605bdc72ef5f648757fc0cccf2f7e439bd7033071b975acf352239e2c1231162"
       },
       "../src/bin/main.ts": {
-        "version": "e4da3b1815b53b9a4521bd63896d454e8db55ce3b57ee846562daf70da16157e",
+        "version": "a3e2211dbbc5568be11b752285ca3500f52f47a96fd235f765702200b5145c8f",
         "signature": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
       },
       "../node_modules/chan-dongle-extended-client/dist/lib/misc.d.ts": {
@@ -2097,7 +2101,6 @@
       "strictFunctionTypes": true,
       "incremental": true,
       "project": "../tsconfig.json",
-      "watch": true,
       "configFilePath": "../tsconfig.json"
     },
     "referencedMap": {
@@ -2643,6 +2646,15 @@
         "../node_modules/commander/typings/index.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
+      "../node_modules/logger/dist/lib/index.d.ts": [
+        "../node_modules/@types/node/base.d.ts",
+        "../node_modules/@types/node/ts3.2/index.d.ts"
+      ],
+      "../src/tools/logger.ts": [
+        "../node_modules/logger/dist/lib/index.d.ts",
+        "../node_modules/@types/node/base.d.ts",
+        "../node_modules/@types/node/ts3.2/index.d.ts"
+      ],
       "../node_modules/@types/ws/index.d.ts": [
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
@@ -2743,17 +2755,13 @@
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
-      "../node_modules/logger/dist/lib/index.d.ts": [
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
-      ],
       "../src/lib/web/sessionmanager.ts": [
         "../node_modules/@types/mysql/index.d.ts",
         "../local_node_modules/express-session-custom/index.d.ts",
         "../../load-balancer/node_modules/@types/express/index.d.ts",
         "../src/deploy.ts",
         "../src/frontend/types.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -2935,7 +2943,7 @@
         "../src/frontend/tools.ts",
         "../../gateway/node_modules/chan-dongle-extended-client/dist/lib/index.d.ts",
         "../src/frontend/types.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/deploy.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -3004,7 +3012,7 @@
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
       "../src/tools/nothrow.ts": [
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -3013,7 +3021,7 @@
         "../src/tools/pushsender.ts",
         "../src/deploy.ts",
         "../src/tools/nothrow.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -3277,7 +3285,7 @@
         "../src/lib/toua/remoteapicaller.ts",
         "../src/lib/togateway/remoteapicaller.ts",
         "../src/lib/tobackend/remoteapicaller.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -3293,7 +3301,7 @@
         "../../gateway/node_modules/ts-sip/dist/lib/index.d.ts",
         "../src/lib/togateway/localapihandlers.ts",
         "../src/lib/dbsemasim.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../src/lib/togateway/router.ts",
         "../src/lib/toua/remoteapicaller.ts",
@@ -5801,7 +5809,7 @@
         "../../frontend/shared/dist/lib/availablepages.d.ts",
         "../src/deploy.ts",
         "../node_modules/@types/ejs/index.d.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -5819,7 +5827,7 @@
         "../src/frontend/pages.ts",
         "../src/frontend/tools.ts",
         "../node_modules/phone-number/dist/lib/index.d.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/tools/nothrow.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
@@ -5901,7 +5909,7 @@
         "../../gateway/node_modules/ts-sip/dist/lib/index.d.ts",
         "../node_modules/chan-dongle-extended-client/dist/lib/sanitychecks.d.ts",
         "../src/lib/toua/socketsession.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/lib/dbwebphonedata/impl.ts",
         "../src/lib/dbsemasim.ts",
         "../src/lib/toua/remoteapicaller.ts",
@@ -5927,7 +5935,7 @@
         "../src/lib/tobackend/remoteapicaller.ts",
         "../src/lib/tobackend/connections.ts",
         "../src/lib/toua/remoteapicaller.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/lib/toua/localapihandlers/index.ts",
         "../src/frontend/tools.ts",
         "../src/lib/dbturn.ts",
@@ -5966,7 +5974,7 @@
       "../src/lib/tobackend/connections.ts": [
         "../../gateway/node_modules/ts-sip/dist/lib/index.d.ts",
         "../src/lib/tobackend/localapihandlers.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../node_modules/@types/node/base.d.ts",
         "../src/lib/tobackend/router.ts",
         "../src/load-balancer.ts",
@@ -5988,7 +5996,7 @@
         "../../gateway/node_modules/ts-sip/dist/lib/index.d.ts",
         "../node_modules/@types/node/base.d.ts",
         "../src/lib/toloadbalancer/remoteapicaller.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/lib/tobackend/connections.ts",
         "../src/lib/launch.ts",
         "../src/lib/dbsemasim.ts",
@@ -6038,7 +6046,7 @@
         "../src/lib/web/sessionmanager.ts",
         "../node_modules/@types/morgan/index.d.ts",
         "../node_modules/@types/cookie-parser/index.d.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/deploy.ts",
         "../node_modules/@types/compression/index.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
@@ -6057,7 +6065,7 @@
         "../src/lib/dbwebphonedata/index.ts",
         "../src/lib/dbturn.ts",
         "../src/lib/pushnotifications.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
+        "../src/tools/logger.ts",
         "../src/lib/tobackend/connections.ts",
         "../src/lib/togateway/connections.ts",
         "../src/lib/toua/connections.ts",
@@ -6074,8 +6082,8 @@
         "../node_modules/@types/node/base.d.ts",
         "../src/bin/installer.ts",
         "../src/deploy.ts",
+        "../src/tools/logger.ts",
         "../src/lib/launch.ts",
-        "../node_modules/logger/dist/lib/index.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
       "../node_modules/chan-dongle-extended-client/dist/lib/misc.d.ts": [
@@ -6711,6 +6719,13 @@
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
+      "../node_modules/logger/dist/lib/index.d.ts": [
+        "../node_modules/@types/node/base.d.ts",
+        "../node_modules/@types/node/ts3.2/index.d.ts"
+      ],
+      "../src/tools/logger.ts": [
+        "../node_modules/logger/dist/lib/index.d.ts"
+      ],
       "../node_modules/@types/ws/index.d.ts": [
         "../node_modules/@types/node/base.d.ts",
         "../node_modules/@types/node/ts3.2/index.d.ts"
@@ -6808,10 +6823,6 @@
         "../../frontend/shared/dist/lib/types/websocketconnectionparams.d.ts",
         "../../frontend/shared/dist/lib/types/usersim.d.ts",
         "../../frontend/shared/dist/lib/localstorage/authenticatedsessiondescriptorshareddata.d.ts"
-      ],
-      "../node_modules/logger/dist/lib/index.d.ts": [
-        "../node_modules/@types/node/base.d.ts",
-        "../node_modules/@types/node/ts3.2/index.d.ts"
       ],
       "../src/lib/web/sessionmanager.ts": [
         "../../load-balancer/node_modules/@types/express/index.d.ts",
@@ -10055,6 +10066,8 @@
       "../src/tools/geoiplookup.ts",
       "../node_modules/commander/typings/index.d.ts",
       "../src/bin/installer.ts",
+      "../node_modules/logger/dist/lib/index.d.ts",
+      "../src/tools/logger.ts",
       "../node_modules/@types/ws/index.d.ts",
       "../node_modules/@types/mysql/index.d.ts",
       "../node_modules/@types/express/index.d.ts",
@@ -10073,7 +10086,6 @@
       "../../frontend/shared/dist/lib/types/usersim.d.ts",
       "../../frontend/shared/dist/lib/localstorage/authenticatedsessiondescriptorshareddata.d.ts",
       "../src/frontend/types.ts",
-      "../node_modules/logger/dist/lib/index.d.ts",
       "../src/lib/web/sessionmanager.ts",
       "../node_modules/@types/async-lock/index.d.ts",
       "../src/tools/mysqlcustom.ts",
@@ -10435,6 +10447,7 @@
       "../src/lib/toloadbalancer/localapihandlers.ts",
       "../src/lib/stripe.ts",
       "../src/lib/toua/socketsession.ts",
+      "../src/lib/toua/localapihandlers/core.ts",
       "../src/lib/toua/localapihandlers/webphonedata.ts",
       "../src/lib/toua/localapihandlers/index.ts",
       "../src/lib/toua/connections.ts",
@@ -10450,7 +10463,6 @@
       "../src/lib/web/launch.ts",
       "../src/tools/changerates.ts",
       "../src/lib/launch.ts",
-      "../src/bin/main.ts",
       "../node_modules/chan-dongle-extended-client/dist/lib/misc.d.ts",
       "../node_modules/transfer-tools/dist/lib/json_custom.d.ts",
       "../node_modules/transfer-tools/dist/lib/stringtransform.d.ts",
@@ -10469,7 +10481,7 @@
       "../node_modules/@types/html-entities/index.d.ts",
       "../node_modules/@types/uuid/interfaces.d.ts",
       "../node_modules/@types/uuid/index.d.ts",
-      "../src/lib/toua/localapihandlers/core.ts"
+      "../src/bin/main.ts"
     ]
   },
   "version": "3.8.3"

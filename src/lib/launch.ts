@@ -14,7 +14,7 @@ import * as dbSemasim from "./dbSemasim";
 import * as dbWebphoneData from "./dbWebphoneData";
 import * as dbTurn from "./dbTurn";
 import * as pushNotifications from "./pushNotifications";
-import * as logger from "logger";
+import { logger } from "../tools/logger";
 import * as backendConnections from "./toBackend/connections";
 import * as gatewayConnections from "./toGateway/connections";
 import * as uaConnections from "./toUa/connections";

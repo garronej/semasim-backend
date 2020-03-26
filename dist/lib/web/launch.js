@@ -8,11 +8,11 @@ const webApiDeclaration = require("../../web_api_declaration");
 const sessionManager = require("./sessionManager");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
-const logger = require("logger");
+const logger_1 = require("../../tools/logger");
 const deploy_1 = require("../../deploy");
 const compression = require("compression");
 //NOTE: If decide to implement graceful termination need to to call beforeExit of sessionManager.
-const debug = logger.debugFactory();
+const debug = logger_1.logger.debugFactory();
 const cookieSecret = "xSoLe9d3=";
 function launch(httpsServer, httpServer) {
     {
@@ -52,7 +52,7 @@ function launch(httpsServer, httpServer) {
         },
         "logger": load_balancer_1.webApi.getDefaultLogger({
             "logOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true,
-            "log": logger.log,
+            "log": logger_1.logger.log,
             "stringifyAuthentication": ({ session }) => session !== undefined && sessionManager.isAuthenticated(session) ?
                 `user: ${session.shared.email}` :
                 "anonymous"
@@ -66,7 +66,7 @@ function launch(httpsServer, httpServer) {
         .then(() => next()))
         .use((() => {
         switch (deploy_1.deploy.getEnv()) {
-            case "DEV": return morgan("dev", { "stream": { "write": str => logger.log(str) } });
+            case "DEV": return morgan("dev", { "stream": { "write": str => logger_1.logger.log(str) } });
             case "PROD": return (_req, _res, next) => next();
         }
     })())

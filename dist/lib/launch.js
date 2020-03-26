@@ -13,7 +13,7 @@ const dbSemasim = require("./dbSemasim");
 const dbWebphoneData = require("./dbWebphoneData");
 const dbTurn = require("./dbTurn");
 const pushNotifications = require("./pushNotifications");
-const logger = require("logger");
+const logger_1 = require("../tools/logger");
 const backendConnections = require("./toBackend/connections");
 const gatewayConnections = require("./toGateway/connections");
 const uaConnections = require("./toUa/connections");
@@ -23,7 +23,7 @@ const deploy_2 = require("../../../deploy/dist/lib/deploy");
 const stripe = require("./stripe");
 const tools_1 = require("../frontend/tools");
 const changeRates_1 = require("../tools/changeRates");
-const debug = logger.debugFactory();
+const debug = logger_1.logger.debugFactory();
 async function beforeExit() {
     debug("BeforeExit...");
     await dbSemasim.setAllSimOffline(gatewayConnections.getImsis());

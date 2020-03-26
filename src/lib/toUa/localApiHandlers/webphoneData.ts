@@ -3,7 +3,7 @@ import { api_decl_backendToUa as apiDeclaration} from "../../../frontend/sip_api
 import * as sip from "ts-sip";
 import * as dcSanityChecks from "chan-dongle-extended-client/dist/lib/sanityChecks";
 import { getAuthenticatedSession } from "../socketSession";
-import * as logger from "logger";
+import { logger } from "../../../tools/logger";
 
 const debug= logger.debugFactory();
 

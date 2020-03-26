@@ -2,7 +2,7 @@
 import * as sip from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import * as dbSemasim from "../dbSemasim";
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 import * as tls from "tls";
 import * as router from "./router";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";

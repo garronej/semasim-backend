@@ -7,9 +7,9 @@ const ttTesting = require("transfer-tools/dist/lib/testing");
 const tools_1 = require("../frontend/tools");
 const uuidv3 = require("uuid/v3");
 const chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
-const logger = require("logger");
+const logger_1 = require("../tools/logger");
 const deploy_1 = require("../deploy");
-const debug = logger.debugFactory();
+const debug = logger_1.logger.debugFactory();
 const LOG_QUERY_DURATION = false;
 let buildInsertQuery;
 /** Must be called and before use */

@@ -2,7 +2,7 @@ import { misc as lbMisc } from "../../load-balancer"
 import * as sip from "ts-sip";
 import * as net from "net";
 import * as remoteApiCaller from "./remoteApiCaller";
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 import * as backendConnections from "../toBackend/connections";
 import { getLocalRunningInstance } from "../launch";
 import * as dbSemasim from "../dbSemasim";

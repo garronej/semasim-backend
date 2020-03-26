@@ -6,7 +6,7 @@ import * as express from "express";
 import { deploy } from "../../deploy";
 import * as types from "../../frontend/types";
 const MySQLStore = express_mysql_session(express_session_custom);
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 //import * as cookieLib from "cookie";
 
 const debug = logger.debugFactory();

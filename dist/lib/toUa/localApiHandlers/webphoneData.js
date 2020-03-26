@@ -4,8 +4,8 @@ const sip_api_1 = require("../../../frontend/sip_api");
 const sip = require("ts-sip");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
 const socketSession_1 = require("../socketSession");
-const logger = require("logger");
-const debug = logger.debugFactory();
+const logger_1 = require("../../../tools/logger");
+const debug = logger_1.logger.debugFactory();
 function getSocketForIntegrationTests(sessionInfos) {
     const socket = { sessionInfos };
     return socket;

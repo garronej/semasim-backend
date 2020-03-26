@@ -9,7 +9,7 @@ const uuidv3 = require("uuid/v3");
 
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as feTypes from "../frontend/types";
-import * as logger from "logger";
+import { logger } from "../tools/logger";
 import { deploy } from "../deploy";
 
 const debug = logger.debugFactory();

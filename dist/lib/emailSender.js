@@ -9,10 +9,10 @@ const fs = require("fs");
 const pages_1 = require("../frontend/pages");
 const tools_1 = require("../frontend/tools");
 const phone_number_1 = require("phone-number");
-const logger = require("logger");
+const logger_1 = require("../tools/logger");
 const watch = require("node-watch");
 const noThrow_1 = require("../tools/noThrow");
-const debug = logger.debugFactory();
+const debug = logger_1.logger.debugFactory();
 exports.sharingRequest = (() => {
     const templateName = "sharing-request";
     return function (simOwnerEmail, userSim, message, targetUsers) {

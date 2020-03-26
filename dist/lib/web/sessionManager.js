@@ -6,9 +6,9 @@ const express_mysql_session = require("express-mysql-session");
 const deploy_1 = require("../../deploy");
 const types = require("../../frontend/types");
 const MySQLStore = express_mysql_session(express_session_custom);
-const logger = require("logger");
+const logger_1 = require("../../tools/logger");
 //import * as cookieLib from "cookie";
-const debug = logger.debugFactory();
+const debug = logger_1.logger.debugFactory();
 function beforeExit() {
     return beforeExit.impl();
 }

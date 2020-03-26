@@ -6,7 +6,7 @@ type MapValue<T> = T extends Map<any, infer R> ? R : never;
 import * as availablePages from "../../../frontend/shared/dist/lib/availablePages";
 import { deploy } from "../deploy";
 import * as ejs from "ejs";
-import * as logger from "logger";
+import { logger } from "../tools/logger";
 import * as watch from "node-watch";
 
 const debug = logger.debugFactory();

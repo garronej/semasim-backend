@@ -1,5 +1,5 @@
 
-import * as logger from "logger";
+import { logger } from "../tools/logger";
 
 const debug = logger.debugFactory();
 

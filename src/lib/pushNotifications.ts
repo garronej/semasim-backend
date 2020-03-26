@@ -2,7 +2,7 @@ import { types as gwTypes } from "../gateway";
 import * as pushSender from "../tools/pushSender";
 import { deploy } from "../deploy";
 import { buildNoThrowProxyFunction } from "../tools/noThrow";
-import * as logger from "logger";
+import { logger } from "../tools/logger";
 
 const debug= logger.debugFactory();
 

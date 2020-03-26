@@ -7,7 +7,7 @@ import * as router from "./router";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
 import * as backendConnections from "../toBackend/connections";
 import * as remoteApiCaller from "./remoteApiCaller";
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 import { handlers as localApiHandlers } from "./localApiHandlers";
 import { urlGetParameters } from "../../frontend/tools";
 import * as dbTurn from "../dbTurn";

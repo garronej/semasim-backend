@@ -9,7 +9,7 @@ import * as gatewayConnections from "../toGateway/connections";
 import * as uaRemoteApiCaller from "../toUa/remoteApiCaller";
 import * as remoteApiCaller from "./remoteApiCaller";
 import * as backendRemoteApiCaller from "../toBackend/remoteApiCaller";
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 
 const debug = logger.debugFactory();
 

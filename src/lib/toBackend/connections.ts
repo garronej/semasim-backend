@@ -1,7 +1,7 @@
 
 import * as sip from "ts-sip";
 import { handlers as localApiHandlers } from "./localApiHandlers";
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 import * as net from "net";
 import * as router from "./router";
 import { types as lbTypes } from "../../load-balancer"

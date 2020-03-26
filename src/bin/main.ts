@@ -51,7 +51,7 @@ scriptLib.createService({
             "srv_name": srv_name,
             "isQuiet": false,
             "assert_unix_user": "root",
-            "daemon_unix_user": deploy.isDistributed()? unix_user : "root", //NOTE: Need to be root to listen on 443
+            "daemon_unix_user": deploy.isDistributed() ? unix_user : "root", //NOTE: Need to be root to listen on 443
             "daemon_count": !deploy.isDistributed() ? 1 :
                 process.argv.length === 3 ?
                     parseInt(process.argv[2]) :
@@ -61,40 +61,24 @@ scriptLib.createService({
     },
     "daemonProcess": async (daemon_number, daemon_count) => {
 
-        const [
-            path,
-            { working_directory_path },
-            { launch, beforeExit },
-            logger,
-            fs
-        ] = await Promise.all([
+        const [path, { logger }] = await Promise.all([
             import("path"),
-            import("./installer"),
-            import("../lib/launch"),
-            import("logger"),
-            import("fs")
-        ]).catch(error=> {
+            import("../tools/logger")
+        ]);
 
-            console.log(error);
+        const logfile_path = path.join(
+            (await import("./installer")).working_directory_path,
+            `p${daemon_number}.log`
+        );
 
-            throw error;
+        logger.file.enable(logfile_path);
 
-        });
+        const { launch, beforeExit } = await import("../lib/launch");
 
         logger.log(`--Starting process ${daemon_number}/${daemon_count}--`);
 
-        const logfile_path = path.join(working_directory_path, `p${daemon_number}.log`);
-
         return {
-            "launch": () => {
-
-                logger.file.enable(logfile_path);
-
-                process.on("warning", error => logger.log("WARNING", error));
-
-                launch(daemon_number);
-
-            },
+            "launch": () => launch(daemon_number),
             "beforeExitTask": async error => {
 
                 if (!!error) {
@@ -104,28 +88,18 @@ scriptLib.createService({
                 }
 
                 await Promise.all([
-                    logger.file.terminate().then(() => {
-
-                        if (!!error) {
-
-                            scriptLib.execSync([
-                                `mv ${logfile_path}`,
-                                path.join(
-                                    path.dirname(logfile_path),
-                                    `crash_${Date.now()}_${path.basename(logfile_path)}`
-                                )
-                            ].join(" "));
-
-                        } else {
-
-                            fs.unlinkSync(logfile_path);
-
-                        }
-
-                    }),
-                    scriptLib.safePr(beforeExit())
+                    logger.file.terminate().then(() =>
+                        scriptLib.fs_move(
+                            "MOVE",
+                            logfile_path,
+                            path.join(
+                                path.dirname(logfile_path),
+                                `${!!error ? "crash" : "previous"}_${path.basename(logfile_path)}`
+                            )
+                        )
+                    ),
+                    beforeExit().catch(() => { })
                 ]);
-
 
             }
 

@@ -7,7 +7,7 @@ const router = require("./router");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
 const backendConnections = require("../toBackend/connections");
 const remoteApiCaller = require("./remoteApiCaller");
-const logger = require("logger");
+const logger_1 = require("../../tools/logger");
 const localApiHandlers_1 = require("./localApiHandlers");
 const tools_1 = require("../../frontend/tools");
 const dbTurn = require("../dbTurn");
@@ -24,7 +24,7 @@ const enableLogger = (socket) => socket.enableLogger({
     "outgoingTraffic": false,
     "colorizedTraffic": "IN",
     "ignoreApiTraffic": true
-}, logger.log);
+}, logger_1.logger.log);
 function listen(server, spoofedLocalAddressAndPort) {
     server.on("connection", async (webSocket, req) => {
         const socket = new sip.Socket(webSocket, false, Object.assign(Object.assign({}, spoofedLocalAddressAndPort), { "remoteAddress": req.socket.remoteAddress, "remotePort": req.socket.remotePort }));
@@ -63,7 +63,7 @@ exports.listen = listen;
 const idString = "backendToUa";
 const apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
     idString,
-    "log": logger.log,
+    "log": logger_1.logger.log,
     "hideKeepAlive": true,
     "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
 }));
@@ -84,7 +84,7 @@ function registerSocket(socket, session, connectionParams) {
     //sip.api.client.enableKeepAlive(socket, 5000);
     sip.api.client.enableErrorLogging(socket, sip.api.client.getDefaultErrorLogger({
         idString,
-        "log": logger.log
+        "log": logger_1.logger.log
     }));
     if (!!getByUaInstanceId(session.shared.uaInstanceId) ||
         !!backendConnections.getBoundToUaInstanceId(session.shared.uaInstanceId)) {

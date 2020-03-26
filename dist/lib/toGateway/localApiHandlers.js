@@ -9,8 +9,8 @@ const gatewayConnections = require("../toGateway/connections");
 const uaRemoteApiCaller = require("../toUa/remoteApiCaller");
 const remoteApiCaller = require("./remoteApiCaller");
 const backendRemoteApiCaller = require("../toBackend/remoteApiCaller");
-const logger = require("logger");
-const debug = logger.debugFactory();
+const logger_1 = require("../../tools/logger");
+const debug = logger_1.logger.debugFactory();
 exports.handlers = {};
 {
     const methodName = gateway_1.api_decl_backendToGateway.notifySimOnline.methodName;

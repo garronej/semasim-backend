@@ -8,7 +8,7 @@ import * as webApiDeclaration from "../../web_api_declaration";
 import * as sessionManager from "./sessionManager";
 import * as morgan from "morgan";
 import * as cookieParser from "cookie-parser";
-import * as logger from "logger";
+import { logger } from "../../tools/logger";
 import { deploy } from "../../deploy";
 import * as compression from "compression";
 

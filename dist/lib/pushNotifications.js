@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const pushSender = require("../tools/pushSender");
 const deploy_1 = require("../deploy");
 const noThrow_1 = require("../tools/noThrow");
-const logger = require("logger");
-const debug = logger.debugFactory();
+const logger_1 = require("../tools/logger");
+const debug = logger_1.logger.debugFactory();
 function launch() {
     pushSender.launch(deploy_1.deploy.pushNotificationCredentials);
 }

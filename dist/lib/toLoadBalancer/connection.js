@@ -4,14 +4,14 @@ const load_balancer_1 = require("../../load-balancer");
 const sip = require("ts-sip");
 const net = require("net");
 const remoteApiCaller = require("./remoteApiCaller");
-const logger = require("logger");
+const logger_1 = require("../../tools/logger");
 const backendConnections = require("../toBackend/connections");
 const launch_1 = require("../launch");
 const dbSemasim = require("../dbSemasim");
 const localApiHandlers_1 = require("./localApiHandlers");
 const deploy_1 = require("../../deploy");
 const evt_1 = require("evt");
-const debug = logger.debugFactory();
+const debug = logger_1.logger.debugFactory();
 const idString = "backendToLoadBalancer";
 //NOTE: we create it dynamically so we do not call deploy.getEnv on import.
 let apiServer = undefined;
@@ -24,7 +24,7 @@ async function connect() {
     if (apiServer === undefined) {
         apiServer = new sip.api.Server(localApiHandlers_1.handlers, sip.api.Server.getDefaultLogger({
             idString,
-            "log": logger.log,
+            "log": logger_1.logger.log,
             "displayOnlyErrors": deploy_1.deploy.getEnv() === "DEV" ? false : true
         }));
     }
@@ -32,7 +32,7 @@ async function connect() {
     sip.api.client.enableKeepAlive(loadBalancerSocket);
     sip.api.client.enableErrorLogging(loadBalancerSocket, sip.api.client.getDefaultErrorLogger({
         idString,
-        "log": logger.log
+        "log": logger_1.logger.log
     }));
     const ctxHasConnect = evt_1.Evt.newCtx();
     loadBalancerSocket.evtConnect.attachOnce(ctxHasConnect, () => ctxHasConnect.done(true));
@@ -58,7 +58,7 @@ async function connect() {
         "incomingTraffic": false,
         "outgoingTraffic": false,
         "ignoreApiTraffic": true
-    }, logger.log);
+    }, logger_1.logger.log);
     const runningInstances = await remoteApiCaller.getRunningInstances(launch_1.getLocalRunningInstance(), loadBalancerSocket);
     if (runningInstances.length === 0) {
         debug("First or only semasim process running setting all sim offline");

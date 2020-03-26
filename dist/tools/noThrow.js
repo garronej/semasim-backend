@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const logger = require("logger");
-const debug = logger.debugFactory();
+const logger_1 = require("../tools/logger");
+const debug = logger_1.logger.debugFactory();
 function buildNoThrowProxyFunction(anAsyncFunctionThatMayThrow, context = null) {
     return (async function anAsyncFunctionThatNeverThrow(...args) {
         try {
