@@ -62,4 +62,4 @@ export declare const collectDonglesOnLan: (gatewayAddress: string, auth: import(
 /** Don't throw */
 export declare const notifyDongleOnLanProxy: (dongle: dcTypes.Dongle, gatewayAddress: string) => Promise<undefined>;
 export declare const notifyLoggedFromOtherTabProxy: (uaInstanceId: string) => Promise<void>;
-export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<apiDeclaration.unlockSimProxy.Response>;
+export declare const unlockSimProxy: (imei: string, pin: string, gatewayAddress: string) => Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;

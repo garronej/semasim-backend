@@ -5,7 +5,7 @@ const geoiplookup_1 = require("../tools/geoiplookup");
 const f = require("../tools/mysqlCustom");
 const ttTesting = require("transfer-tools/dist/lib/testing");
 const tools_1 = require("../frontend/tools");
-const uuidv3 = require("uuid/v3");
+const generateUaInstanceId_1 = require("../frontend/generateUaInstanceId");
 const chan_dongle_extended_client_1 = require("chan-dongle-extended-client");
 const logger_1 = require("../tools/logger");
 const deploy_1 = require("../deploy");
@@ -76,7 +76,7 @@ async function createUserAccount(email, secret, towardUserEncryptKeyStr, encrypt
     const { salt, digest } = await rmd160.generateSaltAndHash(secret);
     let activationCode = ttTesting.genDigits(4);
     email = email.toLowerCase();
-    const webUaInstanceId = `"<urn:uuid:${uuidv3(email, "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9")}>"`;
+    const webUaInstanceId = generateUaInstanceId_1.generateUaInstanceId(email);
     const sql = [
         `SELECT @update_record:=NULL;`,
         "INSERT INTO user",

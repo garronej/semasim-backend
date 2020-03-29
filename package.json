@@ -39,7 +39,7 @@
     "scripting-tools": "github:garronej/scripting-tools",
     "stripe": "^6.29.0",
     "ts-sip": "github:garronej/ts-sip",
-    "uuid": "^3.2.1",
+    "uuid": "3.4.0",
     "ws": "^4.0.0"
   },
   "devDependencies": {

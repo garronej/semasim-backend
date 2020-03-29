@@ -1,10 +1,11 @@
 import * as sip from "ts-sip";
 import { api_decl_gatewayToBackend as apiDeclaration } from "../../gateway";
-export declare const getDongle: (imei: string, gatewaySocket: sip.Socket) => Promise<apiDeclaration.getDongle.Response>;
+import { types as dcTypes } from "chan-dongle-extended-client";
+export declare const getDongle: (imei: string, gatewaySocket: sip.Socket) => Promise<dcTypes.Dongle.Locked | dcTypes.Dongle.Usable | undefined>;
 export declare const getDongleSipPasswordAndTowardSimEncryptKeyStr: (imsi: string) => Promise<apiDeclaration.getDongleSipPasswordAndTowardSimEncryptKeyStr.Response>;
 export declare const unlockSim: {
-    (imei: string, pin: string, gatewayAddress: string): Promise<import("../../sip_api_declarations/backendToBackend").unlockSimProxy.Response>;
-    (imei: string, pin: string, gatewaySocket: sip.Socket): Promise<import("../../sip_api_declarations/backendToBackend").unlockSimProxy.Response>;
+    (imei: string, pin: string, gatewayAddress: string): Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;
+    (imei: string, pin: string, gatewaySocket: sip.Socket): Promise<dcTypes.UnlockResult.Success | dcTypes.UnlockResult.Failed | undefined>;
 };
 export declare const rebootDongle: (imsi: string) => Promise<apiDeclaration.rebootDongle.Response>;
 export declare const reNotifySimOnline: (imsi: string) => Promise<undefined>;

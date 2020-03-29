@@ -5,7 +5,7 @@ import { types as gwTypes } from "../gateway";
 import * as f from "../tools/mysqlCustom";
 import * as ttTesting from "transfer-tools/dist/lib/testing";
 import { assert, id } from "../frontend/tools";
-const uuidv3 = require("uuid/v3");
+import { generateUaInstanceId } from "../frontend/generateUaInstanceId";
 
 import { types as dcTypes } from "chan-dongle-extended-client";
 import * as feTypes from "../frontend/types";
@@ -138,7 +138,7 @@ export async function createUserAccount(
 
     email = email.toLowerCase();
 
-    const webUaInstanceId = `"<urn:uuid:${uuidv3(email, "5e9906d0-07cc-11e8-83d5-fbdd176f7bb9")}>"`;
+    const webUaInstanceId = generateUaInstanceId(email);
 
     const sql = [
         `SELECT @update_record:=NULL;`,
