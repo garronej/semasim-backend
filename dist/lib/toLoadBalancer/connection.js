@@ -37,7 +37,7 @@ async function connect() {
     const ctxHasConnect = evt_1.Evt.newCtx();
     loadBalancerSocket.evtConnect.attachOnce(ctxHasConnect, () => ctxHasConnect.done(true));
     loadBalancerSocket.evtClose.attachOnce(ctxHasConnect, () => ctxHasConnect.done(false));
-    if (!await ctxHasConnect.getPrDone()) {
+    if (!await ctxHasConnect.waitFor()) {
         debug("Load balancer seems to be down, retrying");
         await new Promise(resolve => setTimeout(resolve, 3000));
         await connect();

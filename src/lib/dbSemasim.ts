@@ -1296,12 +1296,15 @@ export async function getUserSims(
 
                     const cellSignalStrength = row["cell_signal_strength"];
 
+                    /*
                     if (!isGsmConnectivityOk) {
                         return {
                             isGsmConnectivityOk,
-                            cellSignalStrength
+                            cellSignalStrength,
+                            "ongoingCall": undefined
                         };
                     }
+                    */
 
                     return {
                         isGsmConnectivityOk,

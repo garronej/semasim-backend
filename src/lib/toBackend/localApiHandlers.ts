@@ -259,7 +259,7 @@ export const handlers: sip.api.Server.Handlers = {};
 
 
             prIsAnswered = ctxIdAnswered
-                .getPrDone(2500)
+                .waitFor(2500)
                 .catch(() => {
                     uaSocket.destroy("Remote didn't sent response to a qualify request");
                     return false;

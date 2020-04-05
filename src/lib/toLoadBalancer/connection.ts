@@ -61,7 +61,7 @@ export async function connect() {
     loadBalancerSocket.evtConnect.attachOnce(ctxHasConnect, () => ctxHasConnect.done(true));
     loadBalancerSocket.evtClose.attachOnce(ctxHasConnect, ()=> ctxHasConnect.done(false))
 
-    if( !await ctxHasConnect.getPrDone() ){
+    if( !await ctxHasConnect.waitFor() ){
 
         debug("Load balancer seems to be down, retrying");
 

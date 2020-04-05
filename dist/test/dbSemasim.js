@@ -576,14 +576,11 @@ async function testMain() {
         const userSim = alice.userSims[0];
         for (const isGsmConnectivityOk of [true, false, true]) {
             const { cellSignalStrength } = userSim.reachableSimState;
-            userSim.reachableSimState = isGsmConnectivityOk ? ({
+            userSim.reachableSimState = {
                 cellSignalStrength,
                 isGsmConnectivityOk,
                 "ongoingCall": undefined
-            }) : ({
-                cellSignalStrength,
-                isGsmConnectivityOk
-            });
+            };
             assertSame(await db.changeSimGsmConnectivityOrSignal(userSim.sim.imsi, { isGsmConnectivityOk }), {
                 "isSimRegistered": true,
                 "uasOfUsersThatHaveAccessToSim": uasRegisteredToSim
@@ -621,6 +618,7 @@ async function testMain() {
     alice.userSims[0].reachableSimState = {
         "cellSignalStrength": "GOOD",
         "isGsmConnectivityOk": false,
+        "ongoingCall": undefined
     };
     alice.userSims[0].dongle.isVoiceEnabled = false;
     assertSame(await db.setSimOnline(alice.userSims[0].sim.imsi, alice.userSims[0].password, transfer_tools_1.testing.genHexStr(32), alice.userSims[0].towardSimEncryptKeyStr, alice.userSims[0].gatewayLocation.ip, alice.userSims[0].dongle, alice.userSims[0].reachableSimState.isGsmConnectivityOk, alice.userSims[0].reachableSimState.cellSignalStrength), {

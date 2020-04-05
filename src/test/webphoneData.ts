@@ -14,8 +14,9 @@ import { getHandlers as getWebphoneDataApiHandlers, getSocketForIntegrationTests
 import * as cryptoLib from "crypto-lib";
 import { types as gwTypes } from "../gateway";
 
-import { Evt, UnpackEvt } from "evt";
+//import { Evt, UnpackEvt } from "evt";
 
+import { Evt, UnpackEvt } from "../../../frontend/shared/node_modules/evt";
 import { getWdApiFactory } from "../../../frontend/shared/dist/lib/toBackend/remoteApiCaller/webphoneData";
 
 import * as types from "../frontend/types";

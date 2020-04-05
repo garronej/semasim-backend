@@ -1172,14 +1172,11 @@ async function testMain() {
 
             const { cellSignalStrength } = userSim.reachableSimState!;
 
-            userSim.reachableSimState = isGsmConnectivityOk ? ({
+            userSim.reachableSimState = {
                 cellSignalStrength,
                 isGsmConnectivityOk,
                 "ongoingCall": undefined
-            }) : ({
-                cellSignalStrength,
-                isGsmConnectivityOk
-            })
+            };
 
             assertSame(
                 await db.changeSimGsmConnectivityOrSignal(
@@ -1274,6 +1271,7 @@ async function testMain() {
     alice.userSims[0].reachableSimState = {
         "cellSignalStrength": "GOOD",
         "isGsmConnectivityOk": false,
+        "ongoingCall": undefined
     };
 
     alice.userSims[0].dongle.isVoiceEnabled = false;

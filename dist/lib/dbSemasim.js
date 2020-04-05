@@ -909,12 +909,15 @@ async function getUserSims(auth) {
                     }
                     const isGsmConnectivityOk = f.bool.dec(row["is_gsm_connectivity_ok"]);
                     const cellSignalStrength = row["cell_signal_strength"];
+                    /*
                     if (!isGsmConnectivityOk) {
                         return {
                             isGsmConnectivityOk,
-                            cellSignalStrength
+                            cellSignalStrength,
+                            "ongoingCall": undefined
                         };
                     }
+                    */
                     return {
                         isGsmConnectivityOk,
                         cellSignalStrength,
