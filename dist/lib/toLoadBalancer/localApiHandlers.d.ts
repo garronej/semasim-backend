@@ -1,5 +1,5 @@
 import * as sip from "ts-sip";
-import { Evt } from "evt";
+import { NonPostableEvt } from "evt";
 import * as Stripe from "stripe";
 export declare const handlers: sip.api.Server.Handlers;
-export declare const evtStripe: Evt<Stripe.events.IEvent>;
+export declare const evtStripe: NonPostableEvt<Stripe.events.IEvent>;

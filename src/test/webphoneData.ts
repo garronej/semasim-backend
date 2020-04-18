@@ -21,7 +21,6 @@ import { getWdApiFactory } from "../../../frontend/shared/dist/lib/toBackend/rem
 
 import * as types from "../frontend/types";
 import { assert } from "../frontend/tools";
-import { NonPostableEvts } from "../frontend/tools";
 
 
 const maxMessageCountByChat = 10;
@@ -33,7 +32,7 @@ type Client = {
     frontendApi: FrontendApi;
     uaInstanceId: string;
     wdChats: types.wd.Chat<"PLAIN">[];
-    wdEvts: NonPostableEvts<types.wd.Evts>;
+    wdEvts: types.wd.Evts;
 };
 
 const evtSendRequest = new Evt<{

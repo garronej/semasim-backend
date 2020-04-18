@@ -1,6 +1,6 @@
 
 import * as sip from "ts-sip";
-import { Evt } from "evt";
+import { Evt, NonPostableEvt } from "evt";
 import { api_decl_backendToLoadBalancer as apiDeclaration } from "../../load-balancer";
 import * as Stripe from "stripe";
 
@@ -16,11 +16,10 @@ does not guaranty that the remote client is not
 altered.
 */
 
-
 export const handlers: sip.api.Server.Handlers = {};
 
 //TODO: use stripe definition
-export const evtStripe = new Evt<Stripe.events.IEvent>();
+export const evtStripe: NonPostableEvt<Stripe.events.IEvent> = new Evt();
 
 {
 
@@ -31,7 +30,7 @@ export const evtStripe = new Evt<Stripe.events.IEvent>();
     const handler: sip.api.Server.Handler<Params, Response> = {
         "handler": stripeEvent => {
 
-            evtStripe.post(stripeEvent);
+            Evt.asPostable(evtStripe).post(stripeEvent);
 
             return Promise.resolve(undefined);
 

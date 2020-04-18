@@ -20,7 +20,7 @@ exports.evtStripe = new evt_1.Evt();
     const methodName = load_balancer_1.api_decl_backendToLoadBalancer.notifyStripeEvent.methodName;
     const handler = {
         "handler": stripeEvent => {
-            exports.evtStripe.post(stripeEvent);
+            evt_1.Evt.asPostable(exports.evtStripe).post(stripeEvent);
             return Promise.resolve(undefined);
         }
     };
