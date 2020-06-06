@@ -54,6 +54,10 @@ export function createPoolAndGetApi(
 
             const objArray: InsertObj[]= objOrObjArray instanceof Array ? objOrObjArray : [ objOrObjArray ];
 
+            if( objArray.length === 0 ){
+                return "";
+            }
+
             const keys = Object.keys(objArray[0])
                 .filter(key => objArray[0][key] !== undefined);
 

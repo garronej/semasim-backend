@@ -13,6 +13,9 @@ function createPoolAndGetApi(connectionConfig, handleStringEncoding = undefined,
     };
     const buildInsertQuery = (table, objOrObjArray, onDuplicateKeyAction) => {
         const objArray = objOrObjArray instanceof Array ? objOrObjArray : [objOrObjArray];
+        if (objArray.length === 0) {
+            return "";
+        }
         const keys = Object.keys(objArray[0])
             .filter(key => objArray[0][key] !== undefined);
         const backtickKeys = keys.map(key => "`" + key + "`");
