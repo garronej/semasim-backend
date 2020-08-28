@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.renewAndGetCred = exports.flush = exports.launch = exports.query = void 0;
 const f = require("../tools/mysqlCustom");
 const crypto = require("crypto");
 const deploy_1 = require("../deploy");

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.eraseSessionAuthentication = exports.authenticateSession = exports.isAuthenticated = exports.getReadonlyAuthenticatedSession = exports.loadRequestSession = exports.launch = exports.beforeExit = void 0;
 const mysql = require("mysql");
 const express_session_custom = require("express-session-custom");
 const express_mysql_session = require("express-mysql-session");

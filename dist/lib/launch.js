@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.launch = exports.beforeExit = exports.getLocalRunningInstance = void 0;
 const https = require("https");
 const http = require("http");
 const fs = require("fs");

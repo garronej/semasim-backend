@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getPage = exports.getAssetsRoot = exports.isPageName = exports.doesRequireAuth = exports.availablePages = exports.static_dir_path = void 0;
 const availablePages = require("../../../frontend/shared/dist/lib/availablePages");
 exports.availablePages = availablePages;
 const deploy_1 = require("../deploy");

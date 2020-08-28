@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.bool = exports.createPoolAndGetApi = void 0;
 const mysql = require("mysql");
 const AsyncLock = require("async-lock");
 function createPoolAndGetApi(connectionConfig, handleStringEncoding = undefined, connectionLimit = 50) {

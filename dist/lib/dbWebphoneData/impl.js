@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getApi = exports.connectToDbAndGetMysqlApi = void 0;
 const tools_1 = require("../../frontend/tools");
 const mysqlCustom = require("../../tools/mysqlCustom");
 const deploy_1 = require("../../deploy");

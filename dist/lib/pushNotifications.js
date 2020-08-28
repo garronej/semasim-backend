@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.sendSafe = exports.launch = void 0;
 const pushSender = require("../tools/pushSender");
 const deploy_1 = require("../deploy");
 const noThrow_1 = require("../tools/noThrow");

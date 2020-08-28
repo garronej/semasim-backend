@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getImeis = exports.deleteImei = exports.addImei = exports.getAddresses = exports.getByAddress = exports.getImsis = exports.getBindedToImsi = exports.unbindFromImsi = exports.bindToImsi = exports.listen = void 0;
 const sip = require("ts-sip");
 const localApiHandlers_1 = require("./localApiHandlers");
 const dbSemasim = require("../dbSemasim");

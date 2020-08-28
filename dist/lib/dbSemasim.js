@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getSimOwner = exports.setSimFriendlyName = exports.stopSharingSim = exports.shareSim = exports.unregisterSim = exports.setSimsOffline = exports.setAllSimOffline = exports.setSimOnline = exports.changeSimGsmConnectivityOrSignal = exports.addOrUpdateUa = exports.getUserSims = exports.createUpdateOrDeleteOngoingCall = exports.registerSim = exports.deleteSimContact = exports.createOrUpdateSimContact = exports.getUserUas = exports.updateSimStorage = exports.filterDongleWithRegistrableSim = exports.addGatewayLocation = exports.deleteUser = exports.renewPassword = exports.setPasswordRenewalToken = exports.authenticateUser = exports.validateUserEmail = exports.createUserAccount = exports.flush = exports.launch = exports.end = exports.esc = exports.query = void 0;
 const crypto = require("crypto");
 const geoiplookup_1 = require("../tools/geoiplookup");
 const f = require("../tools/mysqlCustom");

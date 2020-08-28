@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.handlers = void 0;
 const core_1 = require("./core");
 const webphoneData_1 = require("./webphoneData");
 const dbWebphoneData_1 = require("../../dbWebphoneData");

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteContact = exports.updateContactName = exports.createContact = exports.reNotifySimOnline = exports.rebootDongle = exports.unlockSim = exports.getDongleSipPasswordAndTowardSimEncryptKeyStr = exports.getDongle = void 0;
 const sip = require("ts-sip");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
 const gateway_1 = require("../../gateway");

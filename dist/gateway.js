@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.api_decl_gatewayToBackend = exports.api_decl_backendToGateway = exports.sipRouting = exports.isValidEmail = exports.sanityChecks = exports.types = exports.version = void 0;
 const version = require("../../gateway/package.json")["version"];
 exports.version = version;
 const types = require("../../gateway/dist/lib/types");
 exports.types = types;
 const sanityChecks_1 = require("../../gateway/dist/lib/misc/sanityChecks");
-exports.sanityChecks = sanityChecks_1.sanityChecks;
-exports.isValidEmail = sanityChecks_1.isValidEmail;
+Object.defineProperty(exports, "sanityChecks", { enumerable: true, get: function () { return sanityChecks_1.sanityChecks; } });
+Object.defineProperty(exports, "isValidEmail", { enumerable: true, get: function () { return sanityChecks_1.isValidEmail; } });
 const sipRouting = require("../../gateway/dist/lib/misc/sipRouting");
 exports.sipRouting = sipRouting;
 const api_decl_backendToGateway = require("../../gateway/dist/sip_api_declarations/backendToGateway");

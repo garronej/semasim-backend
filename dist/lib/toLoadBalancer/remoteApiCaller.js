@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isInstanceStillRunning = exports.getRunningInstances = void 0;
 const load_balancer_1 = require("../../load-balancer");
 const sip = require("ts-sip");
 function getRunningInstances(selfRunningInstance, socket) {

@@ -1,6 +1,7 @@
 "use strict";
 //NOTE: Extracted of connections.ts for avoiding require cycles.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAuthenticatedSession = exports.getSession = exports.setSession = void 0;
 const sessionManager = require("../web/sessionManager");
 const __session__ = "   session   ";
 function setSession(socket, session) {

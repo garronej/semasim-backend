@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.pidfile_path = exports.working_directory_path = exports.unix_user = exports.srv_name = exports.module_dir_path = void 0;
 const fs = require("fs");
 const path = require("path");
 const scriptLib = require("scripting-tools");

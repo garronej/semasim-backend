@@ -1,6 +1,7 @@
 "use strict";
 //http://xmodulo.com/geographic-location-ip-address-command-line.html
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.geoiplookup = exports.db_file_path = void 0;
 const child_process_1 = require("child_process");
 exports.db_file_path = "/usr/share/GeoIP/GeoLiteCity.dat";
 /** May reject error */

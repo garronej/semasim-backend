@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.handlers = void 0;
 const apiDeclaration = require("../../sip_api_declarations/backendToBackend");
 const sip = require("ts-sip");
 const uaConnections = require("../toUa/connections");

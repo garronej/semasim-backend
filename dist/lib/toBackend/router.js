@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.handle = void 0;
 const sip = require("ts-sip");
 const gateway_1 = require("../../gateway");
 const gatewayConnections = require("../toGateway/connections");

@@ -42,20 +42,6 @@ export declare const dbWebphoneData: {
             encrypted_string: string;
         };
     } & {
-        who: "USER";
-    }) | ({
-        who: "USER";
-    } & {
-        who: "OTHER";
-        email: {
-            encrypted_string: string;
-        };
-    }) | ({
-        who: "OTHER";
-        email: {
-            encrypted_string: string;
-        };
-    } & {
         who: "OTHER";
         email: {
             encrypted_string: string;

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.emailValidationSafe = exports.emailValidation = exports.passwordRenewalRequestSafe = exports.passwordRenewalRequest = exports.sharingRequestSafe = exports.sharingRequest = void 0;
 const AWS = require("aws-sdk");
 const i = require("../bin/installer");
 const deploy_1 = require("../deploy");

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.handlers = void 0;
 const tools_1 = require("../../frontend/tools");
 const dbSemasim = require("../dbSemasim");
 const dbWebphoneData_1 = require("../dbWebphoneData");

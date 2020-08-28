@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getHandlers = exports.getSocketForIntegrationTests = void 0;
 const sip_api_1 = require("../../../frontend/sip_api");
 const sip = require("ts-sip");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");

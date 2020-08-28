@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getShopProducts = exports.shippingLib = void 0;
 const shopProducts_1 = require("../../../frontend/shared/dist/lib/shopProducts");
 const pages_1 = require("./pages");
 const deploy_1 = require("../deploy");

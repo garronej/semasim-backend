@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAddresses = exports.getByAddress = exports.getUaInstanceIds = exports.getByUaInstanceId = exports.getByConnectionId = exports.listen = void 0;
 const sip = require("ts-sip");
 const sessionManager = require("../web/sessionManager");
 const gateway_1 = require("../../gateway");

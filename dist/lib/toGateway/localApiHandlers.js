@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.handlers = void 0;
 const gateway_1 = require("../../gateway");
 const dcSanityChecks = require("chan-dongle-extended-client/dist/lib/sanityChecks");
 const dbSemasim = require("../dbSemasim");

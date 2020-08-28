@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.connect = void 0;
 const load_balancer_1 = require("../../load-balancer");
 const sip = require("ts-sip");
 const net = require("net");

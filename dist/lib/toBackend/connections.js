@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getBindedToGatewayAddress = exports.unbindFromGatewayAddress = exports.bindToGatewayAddress = exports.getBindedToUaAddress = exports.unbindFromUaAddress = exports.bindToUaAddress = exports.getBoundToUaInstanceId = exports.unbindFromUaInstanceId = exports.bindToUaInstanceId = exports.getBindedToImsi = exports.unbindFromImsi = exports.bindToImsi = exports.getAll = exports.getByIpEndpoint = exports.connect = exports.listen = void 0;
 const sip = require("ts-sip");
 const localApiHandlers_1 = require("./localApiHandlers");
 const logger_1 = require("../../tools/logger");
